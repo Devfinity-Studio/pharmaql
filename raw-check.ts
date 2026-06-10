@@ -1,6 +1,7 @@
 import postgres from "postgres";
+import { env } from "./src/env.js";
 
-const DATABASE_URL = "postgresql://neondb_owner:npg_QkbOfx01lrdn@ep-divine-mud-apv9cwln-pooler.c-7.us-east-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require";
+const DATABASE_URL = env.DATABASE_URL;
 
 async function main() {
   const sql = postgres(DATABASE_URL);
