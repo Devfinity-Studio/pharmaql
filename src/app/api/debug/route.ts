@@ -9,9 +9,9 @@ export async function GET() {
   try {
     const users = await db.select().from(user);
     const sessions = await db.select().from(session);
-    
+
     return NextResponse.json({
-      databaseUrl: env.DATABASE_URL.replace(/:[^:@]*@/, ':***@'), // hide password
+      databaseUrl: env.DATABASE_URL.replace(/:[^:@]*@/, ":***@"), // hide password
       usersCount: users.length,
       sessionsCount: sessions.length,
       users: users,

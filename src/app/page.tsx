@@ -23,9 +23,7 @@ export default async function Home() {
           Pharma<span className="text-[hsl(280,100%,70%)]">QL</span>
         </h1>
         <div className="flex flex-col items-center gap-2">
-          <p className="text-2xl text-white">
-            B2B Medicine Supplier Portal
-          </p>
+          <p className="text-2xl text-white">B2B Medicine Supplier Portal</p>
         </div>
         <div className="flex flex-col items-center justify-center gap-4">
           <Link

@@ -16,11 +16,19 @@ export const user = pgTable("user", {
   id: text("id").primaryKey(),
   name: text("name").notNull(),
   email: text("email").notNull().unique(),
-  emailVerified: boolean("email_verified").$defaultFn(() => false).notNull(),
+  emailVerified: boolean("email_verified")
+    .$defaultFn(() => false)
+    .notNull(),
   image: text("image"),
-  role: text("role").$defaultFn(() => "MR").notNull(), // "ADMIN" or "MR"
-  createdAt: timestamp("created_at").$defaultFn(() => new Date()).notNull(),
-  updatedAt: timestamp("updated_at").$defaultFn(() => new Date()).notNull(),
+  role: text("role")
+    .$defaultFn(() => "MR")
+    .notNull(), // "ADMIN" or "MR"
+  createdAt: timestamp("created_at")
+    .$defaultFn(() => new Date())
+    .notNull(),
+  updatedAt: timestamp("updated_at")
+    .$defaultFn(() => new Date())
+    .notNull(),
 });
 
 export const session = pgTable("session", {
@@ -31,14 +39,18 @@ export const session = pgTable("session", {
   updatedAt: timestamp("updated_at").notNull(),
   ipAddress: text("ip_address"),
   userAgent: text("user_agent"),
-  userId: text("user_id").notNull().references(() => user.id, { onDelete: "cascade" }),
+  userId: text("user_id")
+    .notNull()
+    .references(() => user.id, { onDelete: "cascade" }),
 });
 
 export const account = pgTable("account", {
   id: text("id").primaryKey(),
   accountId: text("account_id").notNull(),
   providerId: text("provider_id").notNull(),
-  userId: text("user_id").notNull().references(() => user.id, { onDelete: "cascade" }),
+  userId: text("user_id")
+    .notNull()
+    .references(() => user.id, { onDelete: "cascade" }),
   accessToken: text("access_token"),
   refreshToken: text("refresh_token"),
   idToken: text("id_token"),
@@ -61,32 +73,82 @@ export const verification = pgTable("verification", {
 
 // DOMAIN TABLES
 export const products = createTable("product", (d) => ({
-    id: d.text("id").primaryKey(), // Using text for custom IDs or generated UUIDs
-    name: d.text("name").notNull(),
-    stock: d.integer("stock").notNull().default(0),
-    freeScheme: d.text("free_scheme"), // e.g., "10+2"
-    manufacturer: d.text("manufacturer").notNull().default("Unknown"),
-    createdAt: d.timestamp("created_at").$defaultFn(() => new Date()).notNull(),
-    updatedAt: d.timestamp("updated_at").$defaultFn(() => new Date()).notNull(),
+  id: d.text("id").primaryKey(), // Using text for custom IDs or generated UUIDs
+  name: d.text("name").notNull(),
+  freeScheme: d.text("free_scheme"), // e.g., "10+2"
+  manufacturer: d.text("manufacturer").notNull().default("Unknown"),
+  createdAt: d
+    .timestamp("created_at")
+    .$defaultFn(() => new Date())
+    .notNull(),
+  updatedAt: d
+    .timestamp("updated_at")
+    .$defaultFn(() => new Date())
+    .notNull(),
 }));
 
 export const sales = createTable("sale", (d) => ({
-    id: d.text("id").primaryKey(),
-    productId: d.text("product_id").notNull().references(() => products.id, { onDelete: "cascade" }),
-    quantity: d.integer("quantity").notNull(),
-    notes: d.text("notes"),
-    createdAt: d.timestamp("created_at").$defaultFn(() => new Date()).notNull(),
-    updatedAt: d.timestamp("updated_at").$defaultFn(() => new Date()).notNull(),
+  id: d.text("id").primaryKey(),
+  productId: d
+    .text("product_id")
+    .notNull()
+    .references(() => products.id, { onDelete: "cascade" }),
+  mrId: d
+    .text("mr_id")
+    .notNull()
+    .references(() => user.id, { onDelete: "cascade" }),
+  quantity: d.integer("quantity").notNull(),
+  notes: d.text("notes"),
+  createdAt: d
+    .timestamp("created_at")
+    .$defaultFn(() => new Date())
+    .notNull(),
+  updatedAt: d
+    .timestamp("updated_at")
+    .$defaultFn(() => new Date())
+    .notNull(),
 }));
 
-export const mrManufacturers = createTable("mr_manufacturer", (d) => ({
+export const mrManufacturers = createTable(
+  "mr_manufacturer",
+  (d) => ({
     id: d.text("id").primaryKey(),
-    mrId: d.text("mr_id").notNull().references(() => user.id, { onDelete: "cascade" }),
+    mrId: d
+      .text("mr_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
     manufacturer: d.text("manufacturer").notNull(),
-    createdAt: d.timestamp("created_at").$defaultFn(() => new Date()).notNull(),
-}), (t) => [
-    index("mr_mfg_mr_id_idx").on(t.mrId)
-]);
+    createdAt: d
+      .timestamp("created_at")
+      .$defaultFn(() => new Date())
+      .notNull(),
+  }),
+  (t) => [index("mr_mfg_mr_id_idx").on(t.mrId)],
+);
+
+export const mrInventory = createTable(
+  "mr_inventory",
+  (d) => ({
+    id: d.text("id").primaryKey(),
+    mrId: d
+      .text("mr_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    productId: d
+      .text("product_id")
+      .notNull()
+      .references(() => products.id, { onDelete: "cascade" }),
+    stock: d.integer("stock").notNull().default(0),
+    updatedAt: d
+      .timestamp("updated_at")
+      .$defaultFn(() => new Date())
+      .notNull(),
+  }),
+  (t) => [
+    index("mr_inv_mr_id_idx").on(t.mrId),
+    index("mr_inv_product_id_idx").on(t.productId),
+  ],
+);
 
 // RELATIONS
 export const userRelations = relations(user, ({ many }) => ({
@@ -104,13 +166,28 @@ export const sessionRelations = relations(session, ({ one }) => ({
 }));
 
 export const productRelations = relations(products, ({ many }) => ({
-    sales: many(sales)
+  sales: many(sales),
 }));
 
 export const saleRelations = relations(sales, ({ one }) => ({
-    product: one(products, { fields: [sales.productId], references: [products.id] })
+  product: one(products, {
+    fields: [sales.productId],
+    references: [products.id],
+  }),
+  mr: one(user, { fields: [sales.mrId], references: [user.id] }),
 }));
 
-export const mrManufacturerRelations = relations(mrManufacturers, ({ one }) => ({
-    mr: one(user, { fields: [mrManufacturers.mrId], references: [user.id] })
+export const mrManufacturerRelations = relations(
+  mrManufacturers,
+  ({ one }) => ({
+    mr: one(user, { fields: [mrManufacturers.mrId], references: [user.id] }),
+  }),
+);
+
+export const mrInventoryRelations = relations(mrInventory, ({ one }) => ({
+  mr: one(user, { fields: [mrInventory.mrId], references: [user.id] }),
+  product: one(products, {
+    fields: [mrInventory.productId],
+    references: [products.id],
+  }),
 }));

@@ -4,10 +4,12 @@ import { z } from "zod";
 export const env = createEnv({
   server: {
     BETTER_AUTH_SECRET:
-      process.env.NODE_ENV === "production" ? z.string() : z.string().optional(),
+      process.env.NODE_ENV === "production"
+        ? z.string()
+        : z.string().optional(),
     DATABASE_URL: z.string().url(),
     NODE_ENV: z
-      .enum(["development", "test", "production"]) 
+      .enum(["development", "test", "production"])
       .default("development"),
   },
   client: {},

@@ -22,6 +22,7 @@
 - **MCP Usage:** The design and layout should leverage the Stitch MCP to generate screens or design systems where appropriate.
 
 ## Definition of Done
+
 - Drizzle schema is implemented and migrations are run.
 - Better Auth is configured.
 - CSV ingestion endpoint is built.

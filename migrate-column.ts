@@ -3,7 +3,9 @@ import { sql } from "drizzle-orm";
 
 async function main() {
   try {
-    await db.execute(sql`ALTER TABLE "pg-drizzle_product" ADD COLUMN "manufacturer" text DEFAULT 'Unknown' NOT NULL;`);
+    await db.execute(
+      sql`ALTER TABLE "pg-drizzle_product" ADD COLUMN "manufacturer" text DEFAULT 'Unknown' NOT NULL;`,
+    );
     console.log("Column added successfully");
   } catch (e: any) {
     if (e.message.includes("already exists")) {

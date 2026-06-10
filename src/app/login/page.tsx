@@ -22,7 +22,9 @@ export default function LoginPage() {
     });
 
     if (res.error) {
-      setError(res.error.message || "Failed to sign in. Check your credentials.");
+      setError(
+        res.error.message || "Failed to sign in. Check your credentials.",
+      );
       setLoading(false);
     } else {
       router.push("/");
@@ -45,7 +47,9 @@ export default function LoginPage() {
         <div className="bg-white py-8 px-4 shadow sm:rounded-lg sm:px-10 border border-gray-200">
           <form className="space-y-6" onSubmit={handleSubmit}>
             <div>
-              <label className="block text-sm font-medium text-gray-700">Email address</label>
+              <label className="block text-sm font-medium text-gray-700">
+                Email address
+              </label>
               <div className="mt-1">
                 <input
                   type="email"
@@ -58,7 +62,9 @@ export default function LoginPage() {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700">Password</label>
+              <label className="block text-sm font-medium text-gray-700">
+                Password
+              </label>
               <div className="mt-1">
                 <input
                   type="password"
@@ -70,9 +76,7 @@ export default function LoginPage() {
               </div>
             </div>
 
-            {error && (
-              <div className="text-red-600 text-sm">{error}</div>
-            )}
+            {error && <div className="text-red-600 text-sm">{error}</div>}
 
             <div>
               <button

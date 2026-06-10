@@ -3,6 +3,7 @@
 **Date Mapped:** 2026-06-07
 
 ## Directory Layout
+
 - `src/app/`: Next.js App Router pages and layouts.
 - `src/server/`: Backend server logic.
   - `src/server/api/`: tRPC routers and context setup.
@@ -11,6 +12,7 @@
 - `src/styles/`: Global CSS and Tailwind directives.
 
 ## Configuration Files
+
 - `package.json`: Project dependencies and scripts.
 - `biome.jsonc`: Biome formatting and linting rules.
 - `drizzle.config.ts`: Drizzle Kit configuration for migrations and studio.

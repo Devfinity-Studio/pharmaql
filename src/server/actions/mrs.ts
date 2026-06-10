@@ -17,8 +17,17 @@ export async function assignManufacturer(mrId: string, manufacturer: string) {
   }
 
   try {
-    const existing = await db.select().from(mrManufacturers).where(and(eq(mrManufacturers.mrId, mrId), eq(mrManufacturers.manufacturer, manufacturer))).limit(1);
-    
+    const existing = await db
+      .select()
+      .from(mrManufacturers)
+      .where(
+        and(
+          eq(mrManufacturers.mrId, mrId),
+          eq(mrManufacturers.manufacturer, manufacturer),
+        ),
+      )
+      .limit(1);
+
     if (existing.length === 0) {
       await db.insert(mrManufacturers).values({
         id: crypto.randomUUID(),
@@ -26,7 +35,7 @@ export async function assignManufacturer(mrId: string, manufacturer: string) {
         manufacturer,
       });
     }
-    
+
     revalidatePath("/admin/mrs");
     return { success: true };
   } catch (error) {
