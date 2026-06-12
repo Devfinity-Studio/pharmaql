@@ -1,8 +1,10 @@
 import { db } from "@/server/db";
 import { products, sales, mrManufacturers, user } from "@/server/db/schema";
-import { eq, inArray, and } from "drizzle-orm";
+import { eq, inArray, and, gte, lte } from "drizzle-orm";
 import { mrInventory } from "@/server/db/schema";
 import Link from "next/link";
+import { DateRangePicker } from "@/components/date-range-picker";
+import { ReportDownloadButtons } from "@/components/report-download-buttons";
 
 export async function MrDashboardContent({
   mrId,
@@ -10,7 +12,7 @@ export async function MrDashboardContent({
   isAdminView = false,
 }: {
   mrId: string;
-  searchParams?: { company?: string };
+  searchParams?: { company?: string; from?: string; to?: string };
   isAdminView?: boolean;
 }) {
   // 1. Get MR Info (for Admin View)
@@ -94,6 +96,26 @@ export async function MrDashboardContent({
 
     // Fetch Sales if permitted
     if (canViewSales) {
+      let salesCondition = and(
+        inArray(sales.productId, productIds),
+        eq(sales.mrId, mrId),
+      );
+
+      if (searchParams?.from) {
+        const fromDate = new Date(searchParams.from);
+        if (!isNaN(fromDate.getTime())) {
+          salesCondition = and(salesCondition, gte(sales.createdAt, fromDate));
+        }
+      }
+
+      if (searchParams?.to) {
+        const toDate = new Date(searchParams.to);
+        if (!isNaN(toDate.getTime())) {
+          toDate.setUTCHours(23, 59, 59, 999);
+          salesCondition = and(salesCondition, lte(sales.createdAt, toDate));
+        }
+      }
+
       const accessibleSales = await db
         .select({
           productId: sales.productId,
@@ -103,7 +125,7 @@ export async function MrDashboardContent({
         })
         .from(sales)
         .innerJoin(products, eq(sales.productId, products.id))
-        .where(and(inArray(sales.productId, productIds), eq(sales.mrId, mrId)));
+        .where(salesCondition);
 
       // Calculate metrics
       const productMap = new Map<string, { name: string; total: number }>();
@@ -179,23 +201,39 @@ export async function MrDashboardContent({
         )}
       </div>
 
-      {/* Company Tabs */}
-      <div className="flex flex-wrap gap-2 border-b border-gray-200 pb-4">
-        <Link
-          href={`${baseUrl}`}
-          className={`px-4 py-2 rounded-full text-sm font-bold transition ${selectedCompany === "All" ? "bg-gray-900 text-white" : "bg-white text-gray-600 hover:bg-gray-100 border border-gray-200"}`}
-        >
-          All Companies
-        </Link>
-        {manufacturerNames.map((m) => (
-          <Link
-            key={m}
-            href={`${baseUrl}?company=${encodeURIComponent(m)}`}
-            className={`px-4 py-2 rounded-full text-sm font-bold transition ${selectedCompany === m ? "bg-gray-900 text-white" : "bg-white text-gray-600 hover:bg-gray-100 border border-gray-200"}`}
-          >
-            {m}
-          </Link>
-        ))}
+      {/* Filters and Actions */}
+      <div className="flex flex-col xl:flex-row xl:items-end justify-between gap-6 border-b border-gray-200 pb-6">
+        <div className="flex flex-col gap-4">
+          <div className="flex flex-wrap gap-2">
+            <Link
+              href={`${baseUrl}?${new URLSearchParams({
+                ...(searchParams?.from && { from: searchParams.from }),
+                ...(searchParams?.to && { to: searchParams.to }),
+              }).toString()}`}
+              className={`px-4 py-2 rounded-full text-sm font-bold transition ${selectedCompany === "All" ? "bg-gray-900 text-white" : "bg-white text-gray-600 hover:bg-gray-100 border border-gray-200"}`}
+            >
+              All Companies
+            </Link>
+            {manufacturerNames.map((m) => {
+              const p = new URLSearchParams();
+              p.set("company", m);
+              if (searchParams?.from) p.set("from", searchParams.from);
+              if (searchParams?.to) p.set("to", searchParams.to);
+
+              return (
+                <Link
+                  key={m}
+                  href={`${baseUrl}?${p.toString()}`}
+                  className={`px-4 py-2 rounded-full text-sm font-bold transition ${selectedCompany === m ? "bg-gray-900 text-white" : "bg-white text-gray-600 hover:bg-gray-100 border border-gray-200"}`}
+                >
+                  {m}
+                </Link>
+              );
+            })}
+          </div>
+          <DateRangePicker />
+        </div>
+        <ReportDownloadButtons mrId={mrId} />
       </div>
 
       {canViewSales && (
