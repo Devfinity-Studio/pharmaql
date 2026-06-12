@@ -82,7 +82,10 @@ export async function MrDashboardContent({
         .select()
         .from(mrInventory)
         .where(
-          and(inArray(mrInventory.productId, productIds), eq(mrInventory.mrId, mrId)),
+          and(
+            inArray(mrInventory.productId, productIds),
+            eq(mrInventory.mrId, mrId),
+          ),
         );
       inventory.forEach((inv) => {
         stockMap.set(inv.productId, inv.stock);
@@ -140,17 +143,18 @@ export async function MrDashboardContent({
         time,
         qty,
       }));
-      quarterlyReports = Array.from(quarterMap.entries()).map(([time, qty]) => ({
-        time,
-        qty,
-      }));
+      quarterlyReports = Array.from(quarterMap.entries()).map(
+        ([time, qty]) => ({
+          time,
+          qty,
+        }),
+      );
       yearlyReports = Array.from(yearMap.entries()).map(([time, qty]) => ({
         time,
         qty,
       }));
     }
   }
-
 
   const baseUrl = isAdminView ? `/admin/mrs/${mrId}` : `/dashboard`;
 
@@ -250,7 +254,9 @@ export async function MrDashboardContent({
                 ) : (
                   accessibleProducts.map((p, idx) => {
                     const stock = stockMap.get(p.id) || 0;
-                    const salesData = productReports.find((pr) => pr.name === p.name);
+                    const salesData = productReports.find(
+                      (pr) => pr.name === p.name,
+                    );
                     const salesTotal = salesData ? salesData.total : 0;
                     return (
                       <tr key={idx} className="hover:bg-gray-50 transition">

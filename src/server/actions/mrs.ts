@@ -85,7 +85,7 @@ export async function updateMRPermissions(
     canViewFreeScheme: boolean;
     canViewStock: boolean;
     canViewSales: boolean;
-  }
+  },
 ) {
   const session = await auth.api.getSession({
     headers: await headers(),

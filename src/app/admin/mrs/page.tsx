@@ -4,7 +4,12 @@ import { db } from "@/server/db";
 import { user, mrManufacturers, products } from "@/server/db/schema";
 import { eq, sql, ilike, or } from "drizzle-orm";
 import { redirect } from "next/navigation";
-import { assignManufacturer, unassignManufacturer, toggleMRBlockStatus, updateMRPermissions } from "@/server/actions/mrs";
+import {
+  assignManufacturer,
+  unassignManufacturer,
+  toggleMRBlockStatus,
+  updateMRPermissions,
+} from "@/server/actions/mrs";
 import Link from "next/link";
 
 export default async function AdminMRsPage({
@@ -179,7 +184,8 @@ export default async function AdminMRsPage({
                   action={async (formData) => {
                     "use server";
                     await updateMRPermissions(mr.id, {
-                      canViewFreeScheme: formData.get("canViewFreeScheme") === "on",
+                      canViewFreeScheme:
+                        formData.get("canViewFreeScheme") === "on",
                       canViewStock: formData.get("canViewStock") === "on",
                       canViewSales: formData.get("canViewSales") === "on",
                     });
@@ -187,18 +193,36 @@ export default async function AdminMRsPage({
                   className="space-y-2 bg-gray-50 p-3 rounded-xl border border-gray-100"
                 >
                   <label className="flex items-center gap-2 text-sm font-medium text-gray-700 cursor-pointer">
-                    <input type="checkbox" name="canViewFreeScheme" defaultChecked={mr.canViewFreeScheme ?? true} className="rounded border-gray-300 text-blue-600 focus:ring-blue-500" />
+                    <input
+                      type="checkbox"
+                      name="canViewFreeScheme"
+                      defaultChecked={mr.canViewFreeScheme ?? true}
+                      className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                    />
                     Free Scheme
                   </label>
                   <label className="flex items-center gap-2 text-sm font-medium text-gray-700 cursor-pointer">
-                    <input type="checkbox" name="canViewStock" defaultChecked={mr.canViewStock ?? true} className="rounded border-gray-300 text-blue-600 focus:ring-blue-500" />
+                    <input
+                      type="checkbox"
+                      name="canViewStock"
+                      defaultChecked={mr.canViewStock ?? true}
+                      className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                    />
                     Stock Reports
                   </label>
                   <label className="flex items-center gap-2 text-sm font-medium text-gray-700 cursor-pointer">
-                    <input type="checkbox" name="canViewSales" defaultChecked={mr.canViewSales ?? true} className="rounded border-gray-300 text-blue-600 focus:ring-blue-500" />
+                    <input
+                      type="checkbox"
+                      name="canViewSales"
+                      defaultChecked={mr.canViewSales ?? true}
+                      className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                    />
                     Sales Reports
                   </label>
-                  <button type="submit" className="text-xs font-bold text-blue-600 hover:text-blue-800 underline mt-2">
+                  <button
+                    type="submit"
+                    className="text-xs font-bold text-blue-600 hover:text-blue-800 underline mt-2"
+                  >
                     Save Permissions
                   </button>
                 </form>

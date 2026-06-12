@@ -1,7 +1,13 @@
 "use server";
 
 import { db } from "@/server/db";
-import { products, sales, mrInventory, user, mrManufacturers } from "@/server/db/schema";
+import {
+  products,
+  sales,
+  mrInventory,
+  user,
+  mrManufacturers,
+} from "@/server/db/schema";
 import { eq, and } from "drizzle-orm";
 import { auth } from "@/server/auth";
 import { headers } from "next/headers";
@@ -78,7 +84,9 @@ export async function ingestCSV(formData: FormData) {
           mrId: mr.id,
           manufacturer,
         });
-        console.log(`Auto-assigned manufacturer ${manufacturer} to MR ${mr.name}`);
+        console.log(
+          `Auto-assigned manufacturer ${manufacturer} to MR ${mr.name}`,
+        );
       }
 
       // Find existing product

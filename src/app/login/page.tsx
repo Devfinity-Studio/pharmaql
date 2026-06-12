@@ -29,7 +29,9 @@ export default function LoginPage() {
     } else if ((res.data?.user as any)?.isBlocked) {
       // User is blocked, immediately sign them out
       await signOut();
-      setError("you have been blocked please contact the admin to get unblocked");
+      setError(
+        "you have been blocked please contact the admin to get unblocked",
+      );
       setLoading(false);
     } else {
       router.push("/");
