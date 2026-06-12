@@ -26,6 +26,26 @@ export const auth = betterAuth({
         required: true,
         defaultValue: "MR",
       },
+      isBlocked: {
+        type: "boolean",
+        required: false,
+        defaultValue: false,
+      },
+      canViewFreeScheme: {
+        type: "boolean",
+        required: false,
+        defaultValue: true,
+      },
+      canViewStock: {
+        type: "boolean",
+        required: false,
+        defaultValue: true,
+      },
+      canViewSales: {
+        type: "boolean",
+        required: false,
+        defaultValue: true,
+      },
     },
   },
 });

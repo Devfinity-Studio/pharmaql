@@ -4,7 +4,7 @@ import { db } from "@/server/db";
 import { user, mrManufacturers, products } from "@/server/db/schema";
 import { eq, sql, ilike, or } from "drizzle-orm";
 import { redirect } from "next/navigation";
-import { assignManufacturer, unassignManufacturer } from "@/server/actions/mrs";
+import { assignManufacturer, unassignManufacturer, toggleMRBlockStatus, updateMRPermissions } from "@/server/actions/mrs";
 import Link from "next/link";
 
 export default async function AdminMRsPage({
@@ -107,12 +107,31 @@ export default async function AdminMRsPage({
                   <h3 className="text-xl font-bold text-gray-900">{mr.name}</h3>
                   <p className="text-sm text-gray-500">{mr.email}</p>
                 </div>
-                <Link
-                  href={`/admin/mrs/${mr.id}`}
-                  className="bg-blue-50 text-blue-700 hover:bg-blue-100 font-bold py-1 px-3 rounded-lg text-xs whitespace-nowrap transition"
-                >
-                  View Data &rarr;
-                </Link>
+                <div className="flex gap-2">
+                  <form
+                    action={async () => {
+                      "use server";
+                      await toggleMRBlockStatus(mr.id, !mr.isBlocked);
+                    }}
+                  >
+                    <button
+                      type="submit"
+                      className={`font-bold py-1 px-3 rounded-lg text-xs whitespace-nowrap transition ${
+                        mr.isBlocked
+                          ? "bg-red-100 text-red-700 hover:bg-red-200"
+                          : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                      }`}
+                    >
+                      {mr.isBlocked ? "Unblock" : "Block"}
+                    </button>
+                  </form>
+                  <Link
+                    href={`/admin/mrs/${mr.id}`}
+                    className="bg-blue-50 text-blue-700 hover:bg-blue-100 font-bold py-1 px-3 rounded-lg text-xs whitespace-nowrap transition"
+                  >
+                    View Data &rarr;
+                  </Link>
+                </div>
               </div>
 
               <div className="flex-grow space-y-4">
@@ -150,6 +169,39 @@ export default async function AdminMRsPage({
                     ))}
                   </ul>
                 )}
+              </div>
+
+              <div className="mt-6 pt-4 border-t border-gray-100 space-y-4">
+                <h4 className="text-sm font-bold text-gray-700 uppercase tracking-wider">
+                  Permissions
+                </h4>
+                <form
+                  action={async (formData) => {
+                    "use server";
+                    await updateMRPermissions(mr.id, {
+                      canViewFreeScheme: formData.get("canViewFreeScheme") === "on",
+                      canViewStock: formData.get("canViewStock") === "on",
+                      canViewSales: formData.get("canViewSales") === "on",
+                    });
+                  }}
+                  className="space-y-2 bg-gray-50 p-3 rounded-xl border border-gray-100"
+                >
+                  <label className="flex items-center gap-2 text-sm font-medium text-gray-700 cursor-pointer">
+                    <input type="checkbox" name="canViewFreeScheme" defaultChecked={mr.canViewFreeScheme ?? true} className="rounded border-gray-300 text-blue-600 focus:ring-blue-500" />
+                    Free Scheme
+                  </label>
+                  <label className="flex items-center gap-2 text-sm font-medium text-gray-700 cursor-pointer">
+                    <input type="checkbox" name="canViewStock" defaultChecked={mr.canViewStock ?? true} className="rounded border-gray-300 text-blue-600 focus:ring-blue-500" />
+                    Stock Reports
+                  </label>
+                  <label className="flex items-center gap-2 text-sm font-medium text-gray-700 cursor-pointer">
+                    <input type="checkbox" name="canViewSales" defaultChecked={mr.canViewSales ?? true} className="rounded border-gray-300 text-blue-600 focus:ring-blue-500" />
+                    Sales Reports
+                  </label>
+                  <button type="submit" className="text-xs font-bold text-blue-600 hover:text-blue-800 underline mt-2">
+                    Save Permissions
+                  </button>
+                </form>
               </div>
 
               <div className="mt-6 pt-4 border-t border-gray-100">

@@ -1,6 +1,7 @@
 import { db } from "@/server/db";
 import { products, sales, mrManufacturers, user } from "@/server/db/schema";
 import { eq, inArray, and } from "drizzle-orm";
+import { mrInventory } from "@/server/db/schema";
 import Link from "next/link";
 
 export async function MrDashboardContent({
@@ -62,72 +63,94 @@ export async function MrDashboardContent({
     .where(inArray(products.manufacturer, companiesToQuery));
   const productIds = accessibleProducts.map((p) => p.id);
 
+  // Determine permissions
+  const canViewSales = isAdminView || mrInfo.canViewSales;
+  const canViewStock = isAdminView || mrInfo.canViewStock;
+  const canViewFreeScheme = isAdminView || mrInfo.canViewFreeScheme;
+
   let totalSales = 0;
   let productReports: any[] = [];
   let monthlyReports: any[] = [];
   let quarterlyReports: any[] = [];
   let yearlyReports: any[] = [];
+  let stockMap = new Map<string, number>();
 
   if (productIds.length > 0) {
-    // 5. Get all sales for these products and specifically for this MR!
-    const accessibleSales = await db
-      .select({
-        productId: sales.productId,
-        productName: products.name,
-        quantity: sales.quantity,
-        createdAt: sales.createdAt,
-      })
-      .from(sales)
-      .innerJoin(products, eq(sales.productId, products.id))
-      .where(and(inArray(sales.productId, productIds), eq(sales.mrId, mrId)));
-
-    // Calculate metrics
-    const productMap = new Map<string, { name: string; total: number }>();
-    const monthMap = new Map<string, number>();
-    const quarterMap = new Map<string, number>();
-    const yearMap = new Map<string, number>();
-
-    accessibleSales.forEach((sale) => {
-      totalSales += sale.quantity;
-
-      // Product-wise
-      const pData = productMap.get(sale.productId) || {
-        name: sale.productName,
-        total: 0,
-      };
-      pData.total += sale.quantity;
-      productMap.set(sale.productId, pData);
-
-      // Time-based parsing
-      const date = new Date(sale.createdAt);
-      const year = date.getFullYear().toString();
-      const month = date.toLocaleString("default", {
-        month: "short",
-        year: "numeric",
+    // Fetch Stock if permitted
+    if (canViewStock) {
+      const inventory = await db
+        .select()
+        .from(mrInventory)
+        .where(
+          and(inArray(mrInventory.productId, productIds), eq(mrInventory.mrId, mrId)),
+        );
+      inventory.forEach((inv) => {
+        stockMap.set(inv.productId, inv.stock);
       });
-      const quarter = `Q${Math.floor(date.getMonth() / 3) + 1} ${year}`;
+    }
 
-      monthMap.set(month, (monthMap.get(month) || 0) + sale.quantity);
-      quarterMap.set(quarter, (quarterMap.get(quarter) || 0) + sale.quantity);
-      yearMap.set(year, (yearMap.get(year) || 0) + sale.quantity);
-    });
+    // Fetch Sales if permitted
+    if (canViewSales) {
+      const accessibleSales = await db
+        .select({
+          productId: sales.productId,
+          productName: products.name,
+          quantity: sales.quantity,
+          createdAt: sales.createdAt,
+        })
+        .from(sales)
+        .innerJoin(products, eq(sales.productId, products.id))
+        .where(and(inArray(sales.productId, productIds), eq(sales.mrId, mrId)));
 
-    productReports = Array.from(productMap.values()).sort(
-      (a, b) => b.total - a.total,
-    );
-    monthlyReports = Array.from(monthMap.entries()).map(([time, qty]) => ({
-      time,
-      qty,
-    }));
-    quarterlyReports = Array.from(quarterMap.entries()).map(([time, qty]) => ({
-      time,
-      qty,
-    }));
-    yearlyReports = Array.from(yearMap.entries()).map(([time, qty]) => ({
-      time,
-      qty,
-    }));
+      // Calculate metrics
+      const productMap = new Map<string, { name: string; total: number }>();
+      const monthMap = new Map<string, number>();
+      const quarterMap = new Map<string, number>();
+      const yearMap = new Map<string, number>();
+
+      accessibleSales.forEach((sale) => {
+        totalSales += sale.quantity;
+
+        // Product-wise
+        const pData = productMap.get(sale.productId) || {
+          name: sale.productName,
+          total: 0,
+        };
+        pData.total += sale.quantity;
+        productMap.set(sale.productId, pData);
+
+        // Time-based parsing
+        const date = new Date(sale.createdAt);
+        const year = date.getFullYear().toString();
+        const month = date.toLocaleString("default", {
+          month: "short",
+          year: "numeric",
+        });
+        const quarter = `Q${Math.floor(date.getMonth() / 3) + 1} ${year}`;
+
+        monthMap.set(month, (monthMap.get(month) || 0) + sale.quantity);
+        quarterMap.set(quarter, (quarterMap.get(quarter) || 0) + sale.quantity);
+        yearMap.set(year, (yearMap.get(year) || 0) + sale.quantity);
+      });
+
+      productReports = Array.from(productMap.values()).sort(
+        (a, b) => b.total - a.total,
+      );
+      monthlyReports = Array.from(monthMap.entries()).map(([time, qty]) => ({
+        time,
+        qty,
+      }));
+      quarterlyReports = Array.from(quarterMap.entries()).map(([time, qty]) => ({
+        time,
+        qty,
+      }));
+      yearlyReports = Array.from(yearMap.entries()).map(([time, qty]) => ({
+        time,
+        qty,
+      }));
+    }
   }
+
 
   const baseUrl = isAdminView ? `/admin/mrs/${mrId}` : `/dashboard`;
 
@@ -171,16 +194,18 @@ export async function MrDashboardContent({
         ))}
       </div>
 
-      <div className="bg-gradient-to-br from-blue-600 to-indigo-700 rounded-3xl p-8 text-white shadow-lg relative overflow-hidden">
-        <div className="relative z-10">
-          <div className="text-blue-100 font-bold tracking-wider uppercase text-sm mb-2">
-            Total Sales Volume ({selectedCompany})
-          </div>
-          <div className="text-5xl font-extrabold">
-            {totalSales.toLocaleString()}
+      {canViewSales && (
+        <div className="bg-gradient-to-br from-blue-600 to-indigo-700 rounded-3xl p-8 text-white shadow-lg relative overflow-hidden">
+          <div className="relative z-10">
+            <div className="text-blue-100 font-bold tracking-wider uppercase text-sm mb-2">
+              Total Sales Volume ({selectedCompany})
+            </div>
+            <div className="text-5xl font-extrabold">
+              {totalSales.toLocaleString()}
+            </div>
           </div>
         </div>
-      </div>
+      )}
 
       <div className="grid grid-cols-1 xl:grid-cols-2 gap-8">
         {/* Product-wise Report */}
@@ -195,32 +220,61 @@ export async function MrDashboardContent({
                   <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase">
                     Product
                   </th>
-                  <th className="px-6 py-4 text-right text-xs font-semibold text-gray-500 uppercase">
-                    Total Sales
-                  </th>
+                  {canViewFreeScheme && (
+                    <th className="px-6 py-4 text-center text-xs font-semibold text-gray-500 uppercase">
+                      Free Scheme
+                    </th>
+                  )}
+                  {canViewStock && (
+                    <th className="px-6 py-4 text-center text-xs font-semibold text-gray-500 uppercase">
+                      Current Stock
+                    </th>
+                  )}
+                  {canViewSales && (
+                    <th className="px-6 py-4 text-right text-xs font-semibold text-gray-500 uppercase">
+                      Total Sales
+                    </th>
+                  )}
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100 bg-white">
-                {productReports.length === 0 ? (
+                {accessibleProducts.length === 0 ? (
                   <tr>
                     <td
-                      colSpan={2}
+                      colSpan={4}
                       className="px-6 py-8 text-center text-gray-500"
                     >
-                      No sales data found for {selectedCompany}.
+                      No products data found for {selectedCompany}.
                     </td>
                   </tr>
                 ) : (
-                  productReports.map((p, idx) => (
-                    <tr key={idx} className="hover:bg-gray-50 transition">
-                      <td className="px-6 py-4 text-sm font-bold text-gray-900">
-                        {p.name}
-                      </td>
-                      <td className="px-6 py-4 text-sm font-semibold text-green-600 text-right">
-                        {p.total.toLocaleString()}
-                      </td>
-                    </tr>
-                  ))
+                  accessibleProducts.map((p, idx) => {
+                    const stock = stockMap.get(p.id) || 0;
+                    const salesData = productReports.find((pr) => pr.name === p.name);
+                    const salesTotal = salesData ? salesData.total : 0;
+                    return (
+                      <tr key={idx} className="hover:bg-gray-50 transition">
+                        <td className="px-6 py-4 text-sm font-bold text-gray-900">
+                          {p.name}
+                        </td>
+                        {canViewFreeScheme && (
+                          <td className="px-6 py-4 text-sm font-semibold text-blue-600 text-center">
+                            {p.freeScheme || "N/A"}
+                          </td>
+                        )}
+                        {canViewStock && (
+                          <td className="px-6 py-4 text-sm font-semibold text-orange-600 text-center">
+                            {stock.toLocaleString()}
+                          </td>
+                        )}
+                        {canViewSales && (
+                          <td className="px-6 py-4 text-sm font-semibold text-green-600 text-right">
+                            {salesTotal.toLocaleString()}
+                          </td>
+                        )}
+                      </tr>
+                    );
+                  })
                 )}
               </tbody>
             </table>
@@ -228,56 +282,28 @@ export async function MrDashboardContent({
         </div>
 
         {/* Time-based Reports */}
-        <div className="space-y-8">
-          <div className="space-y-4">
-            <h2 className="text-xl font-bold text-gray-900">
-              Monthly Performance
-            </h2>
-            <div className="bg-white shadow-sm rounded-2xl border border-gray-100 overflow-hidden">
-              <table className="min-w-full divide-y divide-gray-100">
-                <tbody className="divide-y divide-gray-100 bg-white">
-                  {monthlyReports.length === 0 ? (
-                    <tr>
-                      <td className="px-6 py-4 text-center text-gray-500">
-                        No data
-                      </td>
-                    </tr>
-                  ) : (
-                    monthlyReports.map((r, idx) => (
-                      <tr key={idx} className="hover:bg-gray-50 transition">
-                        <td className="px-6 py-4 text-sm font-bold text-gray-900">
-                          {r.time}
-                        </td>
-                        <td className="px-6 py-4 text-sm font-semibold text-blue-600 text-right">
-                          {r.qty.toLocaleString()}
-                        </td>
-                      </tr>
-                    ))
-                  )}
-                </tbody>
-              </table>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-2 gap-6">
+        {canViewSales && (
+          <div className="space-y-8">
             <div className="space-y-4">
-              <h2 className="text-xl font-bold text-gray-900">Quarterly</h2>
+              <h2 className="text-xl font-bold text-gray-900">
+                Monthly Performance
+              </h2>
               <div className="bg-white shadow-sm rounded-2xl border border-gray-100 overflow-hidden">
                 <table className="min-w-full divide-y divide-gray-100">
                   <tbody className="divide-y divide-gray-100 bg-white">
-                    {quarterlyReports.length === 0 ? (
+                    {monthlyReports.length === 0 ? (
                       <tr>
-                        <td className="px-4 py-3 text-center text-gray-500 text-sm">
+                        <td className="px-6 py-4 text-center text-gray-500">
                           No data
                         </td>
                       </tr>
                     ) : (
-                      quarterlyReports.map((r, idx) => (
-                        <tr key={idx} className="hover:bg-gray-50">
-                          <td className="px-4 py-3 text-sm font-bold text-gray-900">
+                      monthlyReports.map((r, idx) => (
+                        <tr key={idx} className="hover:bg-gray-50 transition">
+                          <td className="px-6 py-4 text-sm font-bold text-gray-900">
                             {r.time}
                           </td>
-                          <td className="px-4 py-3 text-sm font-semibold text-indigo-600 text-right">
+                          <td className="px-6 py-4 text-sm font-semibold text-blue-600 text-right">
                             {r.qty.toLocaleString()}
                           </td>
                         </tr>
@@ -288,35 +314,65 @@ export async function MrDashboardContent({
               </div>
             </div>
 
-            <div className="space-y-4">
-              <h2 className="text-xl font-bold text-gray-900">Yearly</h2>
-              <div className="bg-white shadow-sm rounded-2xl border border-gray-100 overflow-hidden">
-                <table className="min-w-full divide-y divide-gray-100">
-                  <tbody className="divide-y divide-gray-100 bg-white">
-                    {yearlyReports.length === 0 ? (
-                      <tr>
-                        <td className="px-4 py-3 text-center text-gray-500 text-sm">
-                          No data
-                        </td>
-                      </tr>
-                    ) : (
-                      yearlyReports.map((r, idx) => (
-                        <tr key={idx} className="hover:bg-gray-50">
-                          <td className="px-4 py-3 text-sm font-bold text-gray-900">
-                            {r.time}
-                          </td>
-                          <td className="px-4 py-3 text-sm font-semibold text-purple-600 text-right">
-                            {r.qty.toLocaleString()}
+            <div className="grid grid-cols-2 gap-6">
+              <div className="space-y-4">
+                <h2 className="text-xl font-bold text-gray-900">Quarterly</h2>
+                <div className="bg-white shadow-sm rounded-2xl border border-gray-100 overflow-hidden">
+                  <table className="min-w-full divide-y divide-gray-100">
+                    <tbody className="divide-y divide-gray-100 bg-white">
+                      {quarterlyReports.length === 0 ? (
+                        <tr>
+                          <td className="px-4 py-3 text-center text-gray-500 text-sm">
+                            No data
                           </td>
                         </tr>
-                      ))
-                    )}
-                  </tbody>
-                </table>
+                      ) : (
+                        quarterlyReports.map((r, idx) => (
+                          <tr key={idx} className="hover:bg-gray-50">
+                            <td className="px-4 py-3 text-sm font-bold text-gray-900">
+                              {r.time}
+                            </td>
+                            <td className="px-4 py-3 text-sm font-semibold text-indigo-600 text-right">
+                              {r.qty.toLocaleString()}
+                            </td>
+                          </tr>
+                        ))
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              <div className="space-y-4">
+                <h2 className="text-xl font-bold text-gray-900">Yearly</h2>
+                <div className="bg-white shadow-sm rounded-2xl border border-gray-100 overflow-hidden">
+                  <table className="min-w-full divide-y divide-gray-100">
+                    <tbody className="divide-y divide-gray-100 bg-white">
+                      {yearlyReports.length === 0 ? (
+                        <tr>
+                          <td className="px-4 py-3 text-center text-gray-500 text-sm">
+                            No data
+                          </td>
+                        </tr>
+                      ) : (
+                        yearlyReports.map((r, idx) => (
+                          <tr key={idx} className="hover:bg-gray-50">
+                            <td className="px-4 py-3 text-sm font-bold text-gray-900">
+                              {r.time}
+                            </td>
+                            <td className="px-4 py-3 text-sm font-semibold text-purple-600 text-right">
+                              {r.qty.toLocaleString()}
+                            </td>
+                          </tr>
+                        ))
+                      )}
+                    </tbody>
+                  </table>
+                </div>
               </div>
             </div>
           </div>
-        </div>
+        )}
       </div>
     </div>
   );

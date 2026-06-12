@@ -23,6 +23,18 @@ export const user = pgTable("user", {
   role: text("role")
     .$defaultFn(() => "MR")
     .notNull(), // "ADMIN" or "MR"
+  isBlocked: boolean("is_blocked")
+    .$defaultFn(() => false)
+    .notNull(),
+  canViewFreeScheme: boolean("can_view_free_scheme")
+    .$defaultFn(() => true)
+    .notNull(),
+  canViewStock: boolean("can_view_stock")
+    .$defaultFn(() => true)
+    .notNull(),
+  canViewSales: boolean("can_view_sales")
+    .$defaultFn(() => true)
+    .notNull(),
   createdAt: timestamp("created_at")
     .$defaultFn(() => new Date())
     .notNull(),

@@ -1,7 +1,7 @@
 "use server";
 
 import { db } from "@/server/db";
-import { mrManufacturers } from "@/server/db/schema";
+import { mrManufacturers, user } from "@/server/db/schema";
 import { and, eq } from "drizzle-orm";
 import { auth } from "@/server/auth";
 import { headers } from "next/headers";
@@ -58,5 +58,48 @@ export async function unassignManufacturer(id: string) {
     return { success: true };
   } catch (error) {
     return { success: false, error: "Failed to unassign manufacturer" };
+  }
+}
+
+export async function toggleMRBlockStatus(mrId: string, isBlocked: boolean) {
+  const session = await auth.api.getSession({
+    headers: await headers(),
+  });
+
+  if (!session || session.user.role !== "ADMIN") {
+    return { success: false, error: "Unauthorized" };
+  }
+
+  try {
+    await db.update(user).set({ isBlocked }).where(eq(user.id, mrId));
+    revalidatePath("/admin/mrs");
+    return { success: true };
+  } catch (error) {
+    return { success: false, error: "Failed to update block status" };
+  }
+}
+
+export async function updateMRPermissions(
+  mrId: string,
+  permissions: {
+    canViewFreeScheme: boolean;
+    canViewStock: boolean;
+    canViewSales: boolean;
+  }
+) {
+  const session = await auth.api.getSession({
+    headers: await headers(),
+  });
+
+  if (!session || session.user.role !== "ADMIN") {
+    return { success: false, error: "Unauthorized" };
+  }
+
+  try {
+    await db.update(user).set(permissions).where(eq(user.id, mrId));
+    revalidatePath("/admin/mrs");
+    return { success: true };
+  } catch (error) {
+    return { success: false, error: "Failed to update permissions" };
   }
 }

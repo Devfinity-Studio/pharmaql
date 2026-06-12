@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { signIn } from "@/lib/auth-client";
+import { signIn, signOut } from "@/lib/auth-client";
 import { useRouter } from "next/navigation";
 
 export default function LoginPage() {
@@ -25,6 +25,11 @@ export default function LoginPage() {
       setError(
         res.error.message || "Failed to sign in. Check your credentials.",
       );
+      setLoading(false);
+    } else if ((res.data?.user as any)?.isBlocked) {
+      // User is blocked, immediately sign them out
+      await signOut();
+      setError("you have been blocked please contact the admin to get unblocked");
       setLoading(false);
     } else {
       router.push("/");
@@ -76,7 +81,12 @@ export default function LoginPage() {
               </div>
             </div>
 
-            {error && <div className="text-red-600 text-sm">{error}</div>}
+            {error && (
+              <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-xl relative text-sm font-medium shadow-sm">
+                <strong className="font-bold">Error: </strong>
+                <span className="block sm:inline">{error}</span>
+              </div>
+            )}
 
             <div>
               <button

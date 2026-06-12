@@ -1,7 +1,7 @@
 "use server";
 
 import { db } from "@/server/db";
-import { products, sales, mrInventory, user } from "@/server/db/schema";
+import { products, sales, mrInventory, user, mrManufacturers } from "@/server/db/schema";
 import { eq, and } from "drizzle-orm";
 import { auth } from "@/server/auth";
 import { headers } from "next/headers";
@@ -58,6 +58,27 @@ export async function ingestCSV(formData: FormData) {
       if (!mr) {
         console.log(`Skipping row ${i}: MR not found with email ${mrEmail}`);
         continue;
+      }
+
+      // Ensure MR is assigned to this manufacturer
+      const existingAssignment = await db
+        .select()
+        .from(mrManufacturers)
+        .where(
+          and(
+            eq(mrManufacturers.mrId, mr.id),
+            eq(mrManufacturers.manufacturer, manufacturer),
+          ),
+        )
+        .limit(1);
+
+      if (existingAssignment.length === 0) {
+        await db.insert(mrManufacturers).values({
+          id: crypto.randomUUID(),
+          mrId: mr.id,
+          manufacturer,
+        });
+        console.log(`Auto-assigned manufacturer ${manufacturer} to MR ${mr.name}`);
       }
 
       // Find existing product
