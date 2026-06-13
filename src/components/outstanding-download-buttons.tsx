@@ -4,12 +4,12 @@ import { useSearchParams } from "next/navigation";
 import { useState } from "react";
 import { generatePdfReport } from "@/lib/pdf";
 
-export function ReportDownloadButtons({ mrId }: { mrId: string }) {
+export function OutstandingDownloadButtons({ mrId }: { mrId: string }) {
   const searchParams = useSearchParams();
   const division = searchParams.get("division") || "All";
   const defaultFrom = searchParams.get("from") || "";
   const defaultTo = searchParams.get("to") || "";
-  const product = searchParams.get("product") || "";
+  const party = searchParams.get("party") || "";
 
   const [isOpen, setIsOpen] = useState(false);
   const [format, setFormat] = useState<"csv" | "excel" | "pdf">("csv");
@@ -28,26 +28,28 @@ export function ReportDownloadButtons({ mrId }: { mrId: string }) {
     setIsDownloading(true);
     const params = new URLSearchParams();
     params.set("mrId", mrId);
-    params.set("company", division); // Keep company param for the API backward compatibility
+    params.set("division", division);
     if (from) params.set("from", from);
     if (to) params.set("to", to);
-    if (product) params.set("product", product);
+    if (party) params.set("party", party);
 
     if (format === "pdf") {
       params.set("format", "json");
       try {
-        const res = await fetch(`/api/reports/download?${params.toString()}`);
+        const res = await fetch(
+          `/api/reports/download-outstanding?${params.toString()}`,
+        );
         if (!res.ok) throw new Error("Failed to fetch data");
         const data = await res.json();
 
-        // Filter by product if specified (since API might not support product filter yet)
-        const filteredData = product
-          ? data.filter((row: any) => row["Product Name"] === product)
+        // Filter by party if specified
+        const filteredData = party
+          ? data.filter((row: any) => row["Doctor / Party"] === party)
           : data;
 
         generatePdfReport(
-          `Product Wise Sales & Stock Report (${division})`,
-          `Sales_Report_${division}_${new Date().toISOString().split("T")[0]}.pdf`,
+          `Outstanding Invoices (${division})`,
+          `Outstanding_${division}_${new Date().toISOString().split("T")[0]}.pdf`,
           filteredData,
         );
       } catch (e) {
@@ -56,7 +58,7 @@ export function ReportDownloadButtons({ mrId }: { mrId: string }) {
       }
     } else {
       params.set("format", format);
-      window.location.href = `/api/reports/download?${params.toString()}`;
+      window.location.href = `/api/reports/download-outstanding?${params.toString()}`;
     }
 
     setIsDownloading(false);
@@ -68,8 +70,8 @@ export function ReportDownloadButtons({ mrId }: { mrId: string }) {
       <div className="flex gap-2">
         <button
           onClick={() => openModal("csv")}
-          className="bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100 font-bold py-2.5 px-3 rounded-xl text-xs transition flex items-center justify-center gap-1.5 h-[36px]"
-          title="Download Product Report (CSV)"
+          className="bg-rose-50 text-rose-700 border border-rose-200 hover:bg-rose-100 font-bold py-2 px-3 rounded-xl text-xs transition flex items-center justify-center gap-1.5 h-[36px]"
+          title="Download Outstanding Invoices (CSV)"
         >
           <svg
             className="w-3.5 h-3.5"
@@ -89,8 +91,8 @@ export function ReportDownloadButtons({ mrId }: { mrId: string }) {
         </button>
         <button
           onClick={() => openModal("excel")}
-          className="bg-emerald-600 text-white border border-emerald-700 hover:bg-emerald-700 font-bold py-2.5 px-3 rounded-xl text-xs transition flex items-center justify-center gap-1.5 h-[36px]"
-          title="Download Product Report (Excel)"
+          className="bg-rose-600 text-white border border-rose-700 hover:bg-rose-700 font-bold py-2 px-3 rounded-xl text-xs transition flex items-center justify-center gap-1.5 h-[36px]"
+          title="Download Outstanding Invoices (Excel)"
         >
           <svg
             className="w-3.5 h-3.5"
@@ -110,8 +112,8 @@ export function ReportDownloadButtons({ mrId }: { mrId: string }) {
         </button>
         <button
           onClick={() => openModal("pdf")}
-          className="bg-red-600 text-white border border-red-700 hover:bg-red-700 font-bold py-2.5 px-3 rounded-xl text-xs transition flex items-center justify-center gap-1.5 h-[36px]"
-          title="Download Product Report (PDF)"
+          className="bg-red-600 text-white border border-red-700 hover:bg-red-700 font-bold py-2 px-3 rounded-xl text-xs transition flex items-center justify-center gap-1.5 h-[36px]"
+          title="Download Outstanding Invoices (PDF)"
         >
           <svg
             className="w-3.5 h-3.5"
@@ -135,17 +137,17 @@ export function ReportDownloadButtons({ mrId }: { mrId: string }) {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-4">
           <div className="bg-white rounded-2xl shadow-xl max-w-sm w-full p-6 animate-in fade-in zoom-in-95 duration-200">
             <h3 className="text-xl font-bold text-gray-900 mb-2">
-              Download {format.toUpperCase()} Report
+              Download Outstanding {format.toUpperCase()}
             </h3>
             <p className="text-gray-500 text-sm mb-6">
               Select the date range for your report. Leave blank to download all
-              available data.
+              available invoices.
             </p>
 
             <div className="space-y-4">
               <div>
                 <label className="block text-sm font-bold text-gray-700 mb-1">
-                  From Date
+                  From Invoice Date
                 </label>
                 <input
                   type="date"
@@ -156,7 +158,7 @@ export function ReportDownloadButtons({ mrId }: { mrId: string }) {
               </div>
               <div>
                 <label className="block text-sm font-bold text-gray-700 mb-1">
-                  To Date
+                  To Invoice Date
                 </label>
                 <input
                   type="date"
@@ -178,7 +180,7 @@ export function ReportDownloadButtons({ mrId }: { mrId: string }) {
               <button
                 onClick={handleDownload}
                 disabled={isDownloading}
-                className="flex-1 bg-emerald-600 text-white border border-emerald-700 font-bold py-2.5 px-4 rounded-xl hover:bg-emerald-700 transition disabled:opacity-50 flex justify-center items-center"
+                className="flex-1 bg-rose-600 text-white border border-rose-700 font-bold py-2.5 px-4 rounded-xl hover:bg-rose-700 transition disabled:opacity-50 flex justify-center items-center"
               >
                 {isDownloading ? "..." : "Confirm"}
               </button>

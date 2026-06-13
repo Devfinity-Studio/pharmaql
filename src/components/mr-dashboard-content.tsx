@@ -12,6 +12,8 @@ import { eq, inArray, and, or, gte, lte } from "drizzle-orm";
 import Link from "next/link";
 import { DateRangePicker } from "@/components/date-range-picker";
 import { ReportDownloadButtons } from "@/components/report-download-buttons";
+import { FilterSelect } from "@/components/filter-select";
+import { OutstandingDownloadButtons } from "@/components/outstanding-download-buttons";
 
 export async function MrDashboardContent({
   mrId,
@@ -19,7 +21,14 @@ export async function MrDashboardContent({
   isAdminView = false,
 }: {
   mrId: string;
-  searchParams?: { division?: string; from?: string; to?: string };
+  searchParams?: {
+    division?: string;
+    from?: string;
+    to?: string;
+    tab?: string;
+    product?: string;
+    party?: string;
+  };
   isAdminView?: boolean;
 }) {
   // 1. Get MR Info
@@ -383,250 +392,165 @@ export async function MrDashboardContent({
         <ReportDownloadButtons mrId={mrId} />
       </div>
 
+      {/* Tabs Row */}
       {canViewSales && (
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <div className="bg-gradient-to-br from-blue-600 to-indigo-700 rounded-3xl p-6 text-white shadow-lg relative overflow-hidden">
-            <div className="relative z-10">
-              <div className="text-blue-100 font-bold tracking-wider uppercase text-xs mb-2">
-                Total Sales Volume
-              </div>
-              <div className="text-4xl font-extrabold truncate">
-                {totalSales.toLocaleString()}
-              </div>
-            </div>
-          </div>
-          <div className="bg-gradient-to-br from-emerald-500 to-teal-700 rounded-3xl p-6 text-white shadow-lg relative overflow-hidden">
-            <div className="relative z-10">
-              <div className="text-emerald-100 font-bold tracking-wider uppercase text-xs mb-2">
-                Total Invoices
-              </div>
-              <div className="text-4xl font-extrabold truncate">
-                ₹
-                {totalInvoicesAmt.toLocaleString(undefined, {
-                  minimumFractionDigits: 2,
-                  maximumFractionDigits: 2,
-                })}
-              </div>
-            </div>
-          </div>
-          <div className="bg-gradient-to-br from-rose-500 to-red-700 rounded-3xl p-6 text-white shadow-lg relative overflow-hidden">
-            <div className="relative z-10">
-              <div className="text-rose-100 font-bold tracking-wider uppercase text-xs mb-2">
-                Outstanding Balance
-              </div>
-              <div className="text-4xl font-extrabold truncate">
-                ₹
-                {totalOutstandingAmt.toLocaleString(undefined, {
-                  minimumFractionDigits: 2,
-                  maximumFractionDigits: 2,
-                })}
-              </div>
-            </div>
-          </div>
+        <div className="flex border-b border-gray-200 mt-6">
+          <Link
+            href={`${baseUrl}?${new URLSearchParams({
+              ...searchParams,
+              tab: "overview",
+            }).toString()}`}
+            className={`px-6 py-3 font-bold text-sm border-b-2 transition ${
+              (searchParams?.tab || "overview") === "overview"
+                ? "border-gray-900 text-gray-900"
+                : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
+            }`}
+          >
+            Overview
+          </Link>
+          <Link
+            href={`${baseUrl}?${new URLSearchParams({
+              ...searchParams,
+              tab: "products",
+            }).toString()}`}
+            className={`px-6 py-3 font-bold text-sm border-b-2 transition ${
+              searchParams?.tab === "products"
+                ? "border-gray-900 text-gray-900"
+                : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
+            }`}
+          >
+            Product Wise
+          </Link>
+          <Link
+            href={`${baseUrl}?${new URLSearchParams({
+              ...searchParams,
+              tab: "party",
+            }).toString()}`}
+            className={`px-6 py-3 font-bold text-sm border-b-2 transition ${
+              searchParams?.tab === "party"
+                ? "border-gray-900 text-gray-900"
+                : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
+            }`}
+          >
+            Party Wise
+          </Link>
         </div>
       )}
 
-      {canViewSales && (
-        <div className="grid grid-cols-1 xl:grid-cols-2 gap-8">
-          {/* Outstanding by Doctor */}
-          <div className="space-y-4">
-            <h2 className="text-xl font-bold text-gray-900">
-              Outstanding by Doctor
-            </h2>
-            <div className="bg-white shadow-sm rounded-2xl border border-gray-100 overflow-hidden">
-              <table className="min-w-full divide-y divide-gray-100">
-                <thead className="bg-gray-50">
-                  <tr>
-                    <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase">
-                      Doctor / Party
-                    </th>
-                    <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase">
-                      City
-                    </th>
-                    <th className="px-6 py-4 text-right text-xs font-semibold text-gray-500 uppercase">
-                      Amount Due
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-100 bg-white">
-                  {outstandingByDoctor.length === 0 ? (
-                    <tr>
-                      <td
-                        colSpan={3}
-                        className="px-6 py-8 text-center text-gray-500"
-                      >
-                        No outstanding balances.
-                      </td>
-                    </tr>
-                  ) : (
-                    outstandingByDoctor.map((out, idx) => (
-                      <tr key={idx} className="hover:bg-gray-50 transition">
-                        <td className="px-6 py-4 text-sm font-bold text-gray-900">
-                          {out.doctor}
-                        </td>
-                        <td className="px-6 py-4 text-sm text-gray-500">
-                          {out.city}
-                        </td>
-                        <td className="px-6 py-4 text-sm font-semibold text-rose-600 text-right">
-                          ₹
-                          {out.amount.toLocaleString(undefined, {
-                            minimumFractionDigits: 2,
-                            maximumFractionDigits: 2,
-                          })}
-                        </td>
-                      </tr>
-                    ))
-                  )}
-                </tbody>
-              </table>
+      {/* OVERVIEW TAB */}
+      {canViewSales && (searchParams?.tab || "overview") === "overview" && (
+        <div className="space-y-8 mt-6">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div className="bg-gradient-to-br from-blue-600 to-indigo-700 rounded-3xl p-6 text-white shadow-lg relative overflow-hidden">
+              <div className="relative z-10">
+                <div className="text-blue-100 font-bold tracking-wider uppercase text-xs mb-2">
+                  Total Sales Volume
+                </div>
+                <div className="text-4xl font-extrabold truncate">
+                  {totalSales.toLocaleString()}
+                </div>
+              </div>
+            </div>
+            <div className="bg-gradient-to-br from-emerald-500 to-teal-700 rounded-3xl p-6 text-white shadow-lg relative overflow-hidden">
+              <div className="relative z-10">
+                <div className="text-emerald-100 font-bold tracking-wider uppercase text-xs mb-2">
+                  Total Invoices
+                </div>
+                <div className="text-4xl font-extrabold truncate">
+                  ₹
+                  {totalInvoicesAmt.toLocaleString(undefined, {
+                    minimumFractionDigits: 2,
+                    maximumFractionDigits: 2,
+                  })}
+                </div>
+              </div>
+            </div>
+            <div className="bg-gradient-to-br from-rose-500 to-red-700 rounded-3xl p-6 text-white shadow-lg relative overflow-hidden">
+              <div className="relative z-10">
+                <div className="text-rose-100 font-bold tracking-wider uppercase text-xs mb-2">
+                  Outstanding Balance
+                </div>
+                <div className="text-4xl font-extrabold truncate">
+                  ₹
+                  {totalOutstandingAmt.toLocaleString(undefined, {
+                    minimumFractionDigits: 2,
+                    maximumFractionDigits: 2,
+                  })}
+                </div>
+              </div>
             </div>
           </div>
 
-          {/* Recent Invoices */}
-          <div className="space-y-4">
-            <h2 className="text-xl font-bold text-gray-900">Recent Invoices</h2>
-            <div className="bg-white shadow-sm rounded-2xl border border-gray-100 overflow-hidden">
-              <table className="min-w-full divide-y divide-gray-100">
-                <thead className="bg-gray-50">
-                  <tr>
-                    <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase">
-                      Invoice No
-                    </th>
-                    <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase">
-                      Date
-                    </th>
-                    <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase">
-                      Type
-                    </th>
-                    <th className="px-6 py-4 text-right text-xs font-semibold text-gray-500 uppercase">
-                      Amount
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-100 bg-white">
-                  {recentInvoices.length === 0 ? (
+          <div className="grid grid-cols-1 xl:grid-cols-2 gap-8">
+            {/* Recent Invoices */}
+            <div className="space-y-4">
+              <h2 className="text-xl font-bold text-gray-900">
+                Recent Invoices
+              </h2>
+              <div className="bg-white shadow-sm rounded-2xl border border-gray-100 overflow-hidden">
+                <table className="min-w-full divide-y divide-gray-100">
+                  <thead className="bg-gray-50">
                     <tr>
-                      <td
-                        colSpan={4}
-                        className="px-6 py-8 text-center text-gray-500"
-                      >
-                        No recent invoices.
-                      </td>
+                      <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase">
+                        Invoice No
+                      </th>
+                      <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase">
+                        Date
+                      </th>
+                      <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase">
+                        Type
+                      </th>
+                      <th className="px-6 py-4 text-right text-xs font-semibold text-gray-500 uppercase">
+                        Amount
+                      </th>
                     </tr>
-                  ) : (
-                    recentInvoices.map((inv, idx) => (
-                      <tr key={idx} className="hover:bg-gray-50 transition">
-                        <td className="px-6 py-4 text-sm font-bold text-gray-900">
-                          {inv.invNo}
-                        </td>
-                        <td className="px-6 py-4 text-sm text-gray-500">
-                          {inv.date
-                            ? new Date(inv.date).toLocaleDateString()
-                            : "N/A"}
-                        </td>
-                        <td className="px-6 py-4 text-sm text-gray-500">
-                          <span className="px-2 py-1 bg-gray-100 rounded-md text-xs">
-                            {inv.invType || "N/A"}
-                          </span>
-                        </td>
-                        <td className="px-6 py-4 text-sm font-semibold text-emerald-600 text-right">
-                          ₹
-                          {inv.invAmt
-                            ? parseFloat(inv.invAmt).toLocaleString(undefined, {
-                                minimumFractionDigits: 2,
-                                maximumFractionDigits: 2,
-                              })
-                            : "0.00"}
+                  </thead>
+                  <tbody className="divide-y divide-gray-100 bg-white">
+                    {recentInvoices.length === 0 ? (
+                      <tr>
+                        <td
+                          colSpan={4}
+                          className="px-6 py-8 text-center text-gray-500"
+                        >
+                          No recent invoices.
                         </td>
                       </tr>
-                    ))
-                  )}
-                </tbody>
-              </table>
+                    ) : (
+                      recentInvoices.map((inv, idx) => (
+                        <tr key={idx} className="hover:bg-gray-50 transition">
+                          <td className="px-6 py-4 text-sm font-bold text-gray-900">
+                            {inv.invNo}
+                          </td>
+                          <td className="px-6 py-4 text-sm text-gray-500">
+                            {inv.date
+                              ? new Date(inv.date).toLocaleDateString()
+                              : "N/A"}
+                          </td>
+                          <td className="px-6 py-4 text-sm text-gray-500">
+                            <span className="px-2 py-1 bg-gray-100 rounded-md text-xs">
+                              {inv.invType || "N/A"}
+                            </span>
+                          </td>
+                          <td className="px-6 py-4 text-sm font-semibold text-emerald-600 text-right">
+                            ₹
+                            {inv.invAmt
+                              ? parseFloat(inv.invAmt).toLocaleString(
+                                  undefined,
+                                  {
+                                    minimumFractionDigits: 2,
+                                    maximumFractionDigits: 2,
+                                  },
+                                )
+                              : "0.00"}
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
             </div>
-          </div>
-        </div>
-      )}
 
-      <div className="grid grid-cols-1 xl:grid-cols-2 gap-8">
-        {/* Product-wise Report */}
-        <div className="space-y-4">
-          <h2 className="text-xl font-bold text-gray-900">
-            Product-Wise Sales & Stock
-          </h2>
-          <div className="bg-white shadow-sm rounded-2xl border border-gray-100 overflow-hidden">
-            <table className="min-w-full divide-y divide-gray-100">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase">
-                    Product
-                  </th>
-                  {canViewFreeScheme && (
-                    <th className="px-6 py-4 text-center text-xs font-semibold text-gray-500 uppercase">
-                      Free Scheme
-                    </th>
-                  )}
-                  {canViewStock && (
-                    <th className="px-6 py-4 text-center text-xs font-semibold text-gray-500 uppercase">
-                      Current Stock
-                    </th>
-                  )}
-                  {canViewSales && (
-                    <th className="px-6 py-4 text-right text-xs font-semibold text-gray-500 uppercase">
-                      Total Sales
-                    </th>
-                  )}
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-100 bg-white">
-                {accessibleProducts.length === 0 ? (
-                  <tr>
-                    <td
-                      colSpan={4}
-                      className="px-6 py-8 text-center text-gray-500"
-                    >
-                      No products data found for {selectedDivision}.
-                    </td>
-                  </tr>
-                ) : (
-                  accessibleProducts.map((p, idx) => {
-                    const stock = stockMap.get(p.id) || 0;
-                    const salesData = productReports.find(
-                      (pr) => pr.name === p.name,
-                    );
-                    const salesTotal = salesData ? salesData.total : 0;
-                    return (
-                      <tr key={idx} className="hover:bg-gray-50 transition">
-                        <td className="px-6 py-4 text-sm font-bold text-gray-900">
-                          {p.name}
-                        </td>
-                        {canViewFreeScheme && (
-                          <td className="px-6 py-4 text-sm font-semibold text-blue-600 text-center">
-                            {p.freeScheme || "N/A"}
-                          </td>
-                        )}
-                        {canViewStock && (
-                          <td className="px-6 py-4 text-sm font-semibold text-orange-600 text-center">
-                            {stock.toLocaleString()}
-                          </td>
-                        )}
-                        {canViewSales && (
-                          <td className="px-6 py-4 text-sm font-semibold text-green-600 text-right">
-                            {salesTotal.toLocaleString()}
-                          </td>
-                        )}
-                      </tr>
-                    );
-                  })
-                )}
-              </tbody>
-            </table>
-          </div>
-        </div>
-
-        {/* Time-based Reports */}
-        {canViewSales && (
-          <div className="space-y-8">
             <div className="space-y-4">
               <h2 className="text-xl font-bold text-gray-900">
                 Monthly Performance
@@ -641,7 +565,7 @@ export async function MrDashboardContent({
                         </td>
                       </tr>
                     ) : (
-                      monthlyReports.map((r, idx) => (
+                      monthlyReports.slice(0, 8).map((r, idx) => (
                         <tr key={idx} className="hover:bg-gray-50 transition">
                           <td className="px-6 py-4 text-sm font-bold text-gray-900">
                             {r.time}
@@ -656,67 +580,192 @@ export async function MrDashboardContent({
                 </table>
               </div>
             </div>
+          </div>
+        </div>
+      )}
 
-            <div className="grid grid-cols-2 gap-6">
-              <div className="space-y-4">
-                <h2 className="text-xl font-bold text-gray-900">Quarterly</h2>
-                <div className="bg-white shadow-sm rounded-2xl border border-gray-100 overflow-hidden">
-                  <table className="min-w-full divide-y divide-gray-100">
-                    <tbody className="divide-y divide-gray-100 bg-white">
-                      {quarterlyReports.length === 0 ? (
-                        <tr>
-                          <td className="px-4 py-3 text-center text-gray-500 text-sm">
-                            No data
-                          </td>
-                        </tr>
-                      ) : (
-                        quarterlyReports.map((r, idx) => (
-                          <tr key={idx} className="hover:bg-gray-50">
-                            <td className="px-4 py-3 text-sm font-bold text-gray-900">
-                              {r.time}
-                            </td>
-                            <td className="px-4 py-3 text-sm font-semibold text-indigo-600 text-right">
-                              {r.qty.toLocaleString()}
-                            </td>
-                          </tr>
-                        ))
-                      )}
-                    </tbody>
-                  </table>
+      {/* PRODUCT WISE TAB */}
+      {canViewSales &&
+        searchParams?.tab === "products" &&
+        (() => {
+          const selectedProduct = searchParams?.product || "";
+          const displayedProducts = selectedProduct
+            ? accessibleProducts.filter((p) => p.name === selectedProduct)
+            : accessibleProducts;
+
+          return (
+            <div className="space-y-6 mt-6">
+              <div className="flex flex-col sm:flex-row gap-4 items-center justify-between">
+                <div className="flex items-center gap-3 w-full sm:w-auto">
+                  <label className="text-sm font-bold text-gray-700">
+                    Filter Product:
+                  </label>
+                  <div className="relative flex-1 sm:w-64">
+                    <FilterSelect
+                      paramName="product"
+                      options={accessibleProducts.map((p) => ({
+                        label: p.name,
+                        value: p.name,
+                      }))}
+                      placeholder="All Products"
+                    />
+                  </div>
                 </div>
               </div>
 
-              <div className="space-y-4">
-                <h2 className="text-xl font-bold text-gray-900">Yearly</h2>
-                <div className="bg-white shadow-sm rounded-2xl border border-gray-100 overflow-hidden">
-                  <table className="min-w-full divide-y divide-gray-100">
-                    <tbody className="divide-y divide-gray-100 bg-white">
-                      {yearlyReports.length === 0 ? (
-                        <tr>
-                          <td className="px-4 py-3 text-center text-gray-500 text-sm">
-                            No data
-                          </td>
-                        </tr>
-                      ) : (
-                        yearlyReports.map((r, idx) => (
-                          <tr key={idx} className="hover:bg-gray-50">
-                            <td className="px-4 py-3 text-sm font-bold text-gray-900">
-                              {r.time}
-                            </td>
-                            <td className="px-4 py-3 text-sm font-semibold text-purple-600 text-right">
-                              {r.qty.toLocaleString()}
-                            </td>
-                          </tr>
-                        ))
+              <div className="bg-white shadow-sm rounded-2xl border border-gray-100 overflow-hidden">
+                <table className="min-w-full divide-y divide-gray-100">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase">
+                        Product
+                      </th>
+                      {canViewFreeScheme && (
+                        <th className="px-6 py-4 text-center text-xs font-semibold text-gray-500 uppercase">
+                          Free Scheme
+                        </th>
                       )}
-                    </tbody>
-                  </table>
-                </div>
+                      {canViewStock && (
+                        <th className="px-6 py-4 text-center text-xs font-semibold text-gray-500 uppercase">
+                          Current Stock
+                        </th>
+                      )}
+                      {canViewSales && (
+                        <th className="px-6 py-4 text-right text-xs font-semibold text-gray-500 uppercase">
+                          Total Sales
+                        </th>
+                      )}
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-100 bg-white">
+                    {displayedProducts.length === 0 ? (
+                      <tr>
+                        <td
+                          colSpan={4}
+                          className="px-6 py-8 text-center text-gray-500"
+                        >
+                          No products data found.
+                        </td>
+                      </tr>
+                    ) : (
+                      displayedProducts.map((p, idx) => {
+                        const stock = stockMap.get(p.id) || 0;
+                        const salesData = productReports.find(
+                          (pr) => pr.name === p.name,
+                        );
+                        const salesTotal = salesData ? salesData.total : 0;
+                        return (
+                          <tr key={idx} className="hover:bg-gray-50 transition">
+                            <td className="px-6 py-4 text-sm font-bold text-gray-900">
+                              {p.name}
+                            </td>
+                            {canViewFreeScheme && (
+                              <td className="px-6 py-4 text-sm font-semibold text-blue-600 text-center">
+                                {p.freeScheme || "N/A"}
+                              </td>
+                            )}
+                            {canViewStock && (
+                              <td className="px-6 py-4 text-sm font-semibold text-orange-600 text-center">
+                                {stock.toLocaleString()}
+                              </td>
+                            )}
+                            {canViewSales && (
+                              <td className="px-6 py-4 text-sm font-semibold text-green-600 text-right">
+                                {salesTotal.toLocaleString()}
+                              </td>
+                            )}
+                          </tr>
+                        );
+                      })
+                    )}
+                  </tbody>
+                </table>
               </div>
             </div>
-          </div>
-        )}
-      </div>
+          );
+        })()}
+
+      {/* PARTY WISE TAB */}
+      {canViewSales &&
+        searchParams?.tab === "party" &&
+        (() => {
+          const selectedParty = searchParams?.party || "";
+          const allParties = Array.from(
+            new Set(outstandingByDoctor.map((o) => o.doctor)),
+          ).sort();
+
+          const displayedOutstanding = selectedParty
+            ? outstandingByDoctor.filter((o) => o.doctor === selectedParty)
+            : outstandingByDoctor;
+
+          return (
+            <div className="space-y-6 mt-6">
+              <div className="flex flex-col sm:flex-row gap-4 items-center justify-between">
+                <div className="flex items-center gap-3 w-full sm:w-auto">
+                  <label className="text-sm font-bold text-gray-700">
+                    Filter Party:
+                  </label>
+                  <div className="relative flex-1 sm:w-64">
+                    <FilterSelect
+                      paramName="party"
+                      options={allParties.map((p) => ({ label: p, value: p }))}
+                      placeholder="All Parties"
+                    />
+                  </div>
+                </div>
+                <OutstandingDownloadButtons mrId={mrId} />
+              </div>
+
+              <div className="bg-white shadow-sm rounded-2xl border border-gray-100 overflow-hidden">
+                <table className="min-w-full divide-y divide-gray-100">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase">
+                        Doctor / Party
+                      </th>
+                      <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase">
+                        City
+                      </th>
+                      <th className="px-6 py-4 text-right text-xs font-semibold text-gray-500 uppercase">
+                        Amount Due
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-100 bg-white">
+                    {displayedOutstanding.length === 0 ? (
+                      <tr>
+                        <td
+                          colSpan={3}
+                          className="px-6 py-8 text-center text-gray-500"
+                        >
+                          No outstanding balances.
+                        </td>
+                      </tr>
+                    ) : (
+                      displayedOutstanding.map((out, idx) => (
+                        <tr key={idx} className="hover:bg-gray-50 transition">
+                          <td className="px-6 py-4 text-sm font-bold text-gray-900">
+                            {out.doctor}
+                          </td>
+                          <td className="px-6 py-4 text-sm text-gray-500">
+                            {out.city}
+                          </td>
+                          <td className="px-6 py-4 text-sm font-semibold text-rose-600 text-right">
+                            ₹
+                            {out.amount.toLocaleString(undefined, {
+                              minimumFractionDigits: 2,
+                              maximumFractionDigits: 2,
+                            })}
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          );
+        })()}
     </div>
   );
 }

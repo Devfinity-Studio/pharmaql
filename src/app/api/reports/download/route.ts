@@ -157,6 +157,10 @@ export async function GET(request: Request) {
   const timestamp = new Date().toISOString().split("T")[0];
   const filename = `Report_${company.replace(/[^a-zA-Z0-9]/g, "_")}_${timestamp}`;
 
+  if (format === "json") {
+    return NextResponse.json(reportData);
+  }
+
   if (format === "excel") {
     const worksheet = xlsx.utils.json_to_sheet(reportData);
     const workbook = xlsx.utils.book_new();
@@ -172,7 +176,7 @@ export async function GET(request: Request) {
     });
   } else {
     // CSV
-    if (reportData.length === 0) {
+    if (reportData.length === 0 || !reportData[0]) {
       return new NextResponse("No data available", { status: 200 });
     }
     const headersKeys = Object.keys(reportData[0]);

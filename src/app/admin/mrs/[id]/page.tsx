@@ -11,7 +11,14 @@ export default async function AdminMRViewPage({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ division?: string; from?: string; to?: string }>;
+  searchParams: Promise<{
+    division?: string;
+    from?: string;
+    to?: string;
+    tab?: string;
+    product?: string;
+    party?: string;
+  }>;
 }) {
   const session = await auth.api.getSession({
     headers: await headers(),
@@ -37,6 +44,9 @@ export default async function AdminMRViewPage({
         division: awaitedParams.division,
         from: awaitedParams.from,
         to: awaitedParams.to,
+        tab: awaitedParams.tab,
+        product: awaitedParams.product,
+        party: awaitedParams.party,
       }}
     />
   );

@@ -6,7 +6,14 @@ import { MrDashboardContent } from "@/components/mr-dashboard-content";
 export default async function MRDashboardPage({
   searchParams,
 }: {
-  searchParams: Promise<{ division?: string; from?: string; to?: string }>;
+  searchParams: Promise<{
+    division?: string;
+    from?: string;
+    to?: string;
+    tab?: string;
+    product?: string;
+    party?: string;
+  }>;
 }) {
   const session = await auth.api.getSession({
     headers: await headers(),
@@ -25,6 +32,9 @@ export default async function MRDashboardPage({
         division: awaitedParams.division,
         from: awaitedParams.from,
         to: awaitedParams.to,
+        tab: awaitedParams.tab,
+        product: awaitedParams.product,
+        party: awaitedParams.party,
       }}
       isAdminView={false}
     />
