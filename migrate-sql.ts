@@ -148,7 +148,9 @@ async function migrateSql() {
           usersBatch.push({
             id: loginId,
             name: mrName,
-            email: `${loginId.toLowerCase()}@demo.com`,
+            email: loginId.includes("@")
+              ? loginId.toLowerCase()
+              : `${loginId.toLowerCase()}@demo.com`,
             role: "MR",
             locNo: locno || null,
             rank: rank || null,
