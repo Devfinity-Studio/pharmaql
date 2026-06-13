@@ -21,3 +21,8 @@
 
 - Build Admin reporting UI (per-company, per-MR).
 - Implement order management dashboard for Admins to view and complete orders.
+
+## Phase 5: Data Migration (SQL Import)
+
+- Parse and ingest legacy MySQL dumps (e.g. `demo data/APBARODA.sql`) into the Postgres database.
+- Map and seed product data correctly for MR assignments.

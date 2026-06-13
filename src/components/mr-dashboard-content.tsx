@@ -190,6 +190,42 @@ export async function MrDashboardContent({
           <p className="text-gray-500 mt-2 font-medium">
             Viewing aggregated sales data
           </p>
+          {!isAdminView && (
+            <div className="mt-3 text-xs text-gray-600 bg-gray-50 p-2.5 rounded-xl border border-gray-200 inline-flex items-center gap-2">
+              <span className="font-bold text-gray-800">
+                Debug Permissions:
+              </span>
+              <span
+                className={
+                  mrInfo.canViewFreeScheme
+                    ? "text-green-600 font-semibold"
+                    : "text-red-500 line-through"
+                }
+              >
+                Free Scheme
+              </span>{" "}
+              &bull;
+              <span
+                className={
+                  mrInfo.canViewStock
+                    ? "text-green-600 font-semibold"
+                    : "text-red-500 line-through"
+                }
+              >
+                Stock Reports
+              </span>{" "}
+              &bull;
+              <span
+                className={
+                  mrInfo.canViewSales
+                    ? "text-green-600 font-semibold"
+                    : "text-red-500 line-through"
+                }
+              >
+                Sales Reports
+              </span>
+            </div>
+          )}
         </div>
         {isAdminView && (
           <Link

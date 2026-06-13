@@ -13,6 +13,7 @@
     "db:push": "drizzle-kit push",
     "db:studio": "drizzle-kit studio",
     "dev": "next dev --turbo",
+    "migrate-sql": "tsx migrate-sql.ts",
     "preview": "next build && next start",
     "start": "next start",
     "typecheck": "tsc --noEmit"
