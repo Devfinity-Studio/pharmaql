@@ -2,15 +2,17 @@ import fs from "node:fs";
 import readline from "node:readline";
 import { db } from "./src/server/db";
 import {
-  products,
   user,
-  mrManufacturers,
-  mrInventory,
+  products,
   sales,
   invoices,
   outstanding,
+  mrInventory,
+  mrManufacturers,
+  account,
 } from "./src/server/db/schema";
 import { sql } from "drizzle-orm";
+import { hashPassword } from "better-auth/crypto";
 import path from "node:path";
 
 const BATCH_SIZE = 2000;
@@ -67,6 +69,7 @@ async function migrateSql() {
 
   let productsBatch: any[] = [];
   let usersBatch: any[] = [];
+  let accountBatch: any[] = [];
   let mfgBatch: any[] = [];
   let inventoryBatch: any[] = [];
   let salesBatch: any[] = [];
@@ -145,16 +148,30 @@ async function migrateSql() {
           rank,
         ] = cleanParts;
         if (loginId && mrName) {
+          const email = loginId.includes("@")
+            ? loginId.toLowerCase()
+            : `${loginId.toLowerCase()}@demo.com`;
           usersBatch.push({
             id: loginId,
             name: mrName,
-            email: loginId.includes("@")
-              ? loginId.toLowerCase()
-              : `${loginId.toLowerCase()}@demo.com`,
+            email: email,
             role: "MR",
             locNo: locno || null,
             rank: rank || null,
           });
+
+          if (loginPassword) {
+            const hashed = await hashPassword(loginPassword);
+            accountBatch.push({
+              id: `credential-${email}`,
+              accountId: email,
+              providerId: "credential",
+              userId: loginId,
+              password: hashed,
+              createdAt: new Date(),
+              updatedAt: new Date(),
+            });
+          }
 
           if (locno && code) {
             mrMap.set(`${locno}-${code}`, loginId);
@@ -298,7 +315,10 @@ async function migrateSql() {
           rank: sql`EXCLUDED.rank`,
           updatedAt: new Date(),
         });
-
+        await flushBatch(account, accountBatch, account.id, {
+          password: sql`EXCLUDED.password`,
+          updatedAt: new Date(),
+        });
         await flushBatch(mrManufacturers, mfgBatch, mrManufacturers.id, {
           manufacturer: sql`EXCLUDED.manufacturer`,
           firmNo: sql`EXCLUDED.firm_no`,

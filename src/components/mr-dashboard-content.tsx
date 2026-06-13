@@ -8,7 +8,7 @@ import {
   invoices,
   outstanding,
 } from "@/server/db/schema";
-import { eq, inArray, and, gte, lte } from "drizzle-orm";
+import { eq, inArray, and, or, gte, lte } from "drizzle-orm";
 import Link from "next/link";
 import { DateRangePicker } from "@/components/date-range-picker";
 import { ReportDownloadButtons } from "@/components/report-download-buttons";
@@ -19,10 +19,10 @@ export async function MrDashboardContent({
   isAdminView = false,
 }: {
   mrId: string;
-  searchParams?: { company?: string; from?: string; to?: string };
+  searchParams?: { division?: string; from?: string; to?: string };
   isAdminView?: boolean;
 }) {
-  // 1. Get MR Info (for Admin View)
+  // 1. Get MR Info
   const mrInfoArr = await db
     .select()
     .from(user)
@@ -38,14 +38,17 @@ export async function MrDashboardContent({
     );
   }
 
-  // 2. Get MR's assigned manufacturers
+  // 2. Get MR's assigned divisions
   const assigned = await db
     .select()
     .from(mrManufacturers)
     .where(eq(mrManufacturers.mrId, mrId));
-  const manufacturerNames = assigned.map((a) => a.manufacturer);
 
-  if (manufacturerNames.length === 0) {
+  const assignedDivisions = Array.from(
+    new Set(assigned.map((a) => a.division || a.manufacturer)),
+  );
+
+  if (assignedDivisions.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[60vh] text-center px-4">
         <h2 className="text-3xl font-extrabold text-gray-900">
@@ -53,23 +56,39 @@ export async function MrDashboardContent({
         </h2>
         <p className="mt-4 text-gray-500 font-medium max-w-md">
           {isAdminView
-            ? `You have not assigned any manufacturers to ${mrInfo.name}.`
-            : "Your administrator has not assigned any manufacturers to your account yet. Please contact your admin for access."}
+            ? `You have not assigned any divisions to ${mrInfo.name}.`
+            : "Your administrator has not assigned any divisions to your account yet. Please contact your admin for access."}
         </p>
       </div>
     );
   }
 
-  // 3. Filter by Company Tab
-  const selectedCompany = searchParams?.company || "All";
-  const companiesToQuery =
-    selectedCompany === "All" ? manufacturerNames : [selectedCompany];
+  // 3. Filter by Division Tab
+  const selectedDivision = searchParams?.division || "All";
+  const selectedAssignments =
+    selectedDivision === "All"
+      ? assigned
+      : assigned.filter(
+          (a) => (a.division || a.manufacturer) === selectedDivision,
+        );
 
-  // 4. Get Products belonging to these queried manufacturers
-  const accessibleProducts = await db
-    .select()
-    .from(products)
-    .where(inArray(products.manufacturer, companiesToQuery));
+  // 4. Get Products belonging to these queried divisions
+  const productConditionList = selectedAssignments.map((d) => {
+    const conditions = [eq(products.manufacturer, d.manufacturer)];
+    if (d.division) {
+      conditions.push(eq(products.division, d.division));
+    }
+    return and(...conditions);
+  });
+
+  const accessibleProducts =
+    productConditionList.length > 0
+      ? await db
+          .select()
+          .from(products)
+          .where(or(...productConditionList))
+      : [];
+
   const productIds = accessibleProducts.map((p) => p.id);
 
   // Determine permissions
@@ -116,13 +135,24 @@ export async function MrDashboardContent({
       );
 
       let invoiceCondition = and(
-        inArray(invoices.manufacturerCode, companiesToQuery),
+        inArray(
+          invoices.manufacturerCode,
+          selectedAssignments.map((d) => d.manufacturer),
+        ),
         eq(invoices.mrId, mrId),
       );
 
+      const outstandingConditionList = selectedAssignments.map((d) => {
+        const conditions = [eq(outstanding.manufacturerCode, d.manufacturer)];
+        if (d.division) {
+          conditions.push(eq(outstanding.division, d.division));
+        }
+        return and(...conditions);
+      });
+
       let outstandingCondition = and(
-        inArray(outstanding.manufacturerCode, companiesToQuery),
         eq(outstanding.mrId, mrId),
+        or(...outstandingConditionList),
       );
 
       if (searchParams?.from) {
@@ -164,15 +194,13 @@ export async function MrDashboardContent({
         .innerJoin(products, eq(sales.productId, products.id))
         .where(salesCondition);
 
-      const accessibleInvoices = await db
-        .select()
-        .from(invoices)
-        .where(invoiceCondition);
+      const accessibleInvoices = invoiceCondition
+        ? await db.select().from(invoices).where(invoiceCondition)
+        : [];
 
-      const accessibleOutstanding = await db
-        .select()
-        .from(outstanding)
-        .where(outstandingCondition);
+      const accessibleOutstanding = outstandingCondition
+        ? await db.select().from(outstanding).where(outstandingCondition)
+        : [];
 
       // Calculate metrics
       const productMap = new Map<string, { name: string; total: number }>();
@@ -329,23 +357,23 @@ export async function MrDashboardContent({
                 ...(searchParams?.from && { from: searchParams.from }),
                 ...(searchParams?.to && { to: searchParams.to }),
               }).toString()}`}
-              className={`px-4 py-2 rounded-full text-sm font-bold transition ${selectedCompany === "All" ? "bg-gray-900 text-white" : "bg-white text-gray-600 hover:bg-gray-100 border border-gray-200"}`}
+              className={`px-4 py-2 rounded-full text-sm font-bold transition ${selectedDivision === "All" ? "bg-gray-900 text-white" : "bg-white text-gray-600 hover:bg-gray-100 border border-gray-200"}`}
             >
-              All Companies
+              All Divisions
             </Link>
-            {manufacturerNames.map((m) => {
+            {assignedDivisions.map((div) => {
               const p = new URLSearchParams();
-              p.set("company", m);
+              p.set("division", div);
               if (searchParams?.from) p.set("from", searchParams.from);
               if (searchParams?.to) p.set("to", searchParams.to);
 
               return (
                 <Link
-                  key={m}
+                  key={div}
                   href={`${baseUrl}?${p.toString()}`}
-                  className={`px-4 py-2 rounded-full text-sm font-bold transition ${selectedCompany === m ? "bg-gray-900 text-white" : "bg-white text-gray-600 hover:bg-gray-100 border border-gray-200"}`}
+                  className={`px-4 py-2 rounded-full text-sm font-bold transition ${selectedDivision === div ? "bg-gray-900 text-white" : "bg-white text-gray-600 hover:bg-gray-100 border border-gray-200"}`}
                 >
-                  {m}
+                  {div}
                 </Link>
               );
             })}
@@ -557,7 +585,7 @@ export async function MrDashboardContent({
                       colSpan={4}
                       className="px-6 py-8 text-center text-gray-500"
                     >
-                      No products data found for {selectedCompany}.
+                      No products data found for {selectedDivision}.
                     </td>
                   </tr>
                 ) : (
