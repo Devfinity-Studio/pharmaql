@@ -35,6 +35,8 @@ export const user = pgTable("user", {
   canViewSales: boolean("can_view_sales")
     .$defaultFn(() => true)
     .notNull(),
+  locNo: text("loc_no"),
+  rank: text("rank"),
   createdAt: timestamp("created_at")
     .$defaultFn(() => new Date())
     .notNull(),
@@ -89,6 +91,9 @@ export const products = createTable("product", (d) => ({
   name: d.text("name").notNull(),
   freeScheme: d.text("free_scheme"), // e.g., "10+2"
   manufacturer: d.text("manufacturer").notNull().default("Unknown"),
+  firmNo: d.text("firm_no"),
+  code: d.text("code"),
+  division: d.text("division"),
   createdAt: d
     .timestamp("created_at")
     .$defaultFn(() => new Date())
@@ -111,6 +116,11 @@ export const sales = createTable("sale", (d) => ({
     .references(() => user.id, { onDelete: "cascade" }),
   quantity: d.integer("quantity").notNull(),
   notes: d.text("notes"),
+  date: d.timestamp("date"),
+  dealer: d.text("dealer"),
+  area: d.text("area"),
+  freeQty: d.integer("free_qty"),
+  amount: d.numeric("amount"),
   createdAt: d
     .timestamp("created_at")
     .$defaultFn(() => new Date())
@@ -130,6 +140,9 @@ export const mrManufacturers = createTable(
       .notNull()
       .references(() => user.id, { onDelete: "cascade" }),
     manufacturer: d.text("manufacturer").notNull(),
+    firmNo: d.text("firm_no"),
+    division: d.text("division"),
+    company: d.text("company"),
     createdAt: d
       .timestamp("created_at")
       .$defaultFn(() => new Date())
@@ -151,6 +164,12 @@ export const mrInventory = createTable(
       .notNull()
       .references(() => products.id, { onDelete: "cascade" }),
     stock: d.integer("stock").notNull().default(0),
+    date: d.timestamp("date"),
+    opening: d.integer("opening"),
+    inward: d.integer("inward"),
+    outward: d.integer("outward"),
+    ptr: d.numeric("ptr"),
+    mrp: d.numeric("mrp"),
     updatedAt: d
       .timestamp("updated_at")
       .$defaultFn(() => new Date())
@@ -161,6 +180,43 @@ export const mrInventory = createTable(
     index("mr_inv_product_id_idx").on(t.productId),
   ],
 );
+
+export const invoices = createTable("invoice", (d) => ({
+  id: d.text("id").primaryKey(),
+  mrId: d
+    .text("mr_id")
+    .notNull()
+    .references(() => user.id, { onDelete: "cascade" }),
+  date: d.timestamp("date"),
+  inwDt: d.timestamp("inw_dt"),
+  invNo: d.text("inv_no"),
+  invAmt: d.numeric("inv_amt"),
+  invType: d.text("inv_type"),
+  manufacturerCode: d.text("manufacturer_code"),
+  createdAt: d
+    .timestamp("created_at")
+    .$defaultFn(() => new Date())
+    .notNull(),
+}));
+
+export const outstanding = createTable("outstanding", (d) => ({
+  id: d.text("id").primaryKey(),
+  mrId: d
+    .text("mr_id")
+    .notNull()
+    .references(() => user.id, { onDelete: "cascade" }),
+  doctor: d.text("doctor"),
+  city: d.text("city"),
+  invNo: d.text("inv_no"),
+  invDt: d.timestamp("inv_dt"),
+  invAmt: d.numeric("inv_amt"),
+  manufacturerCode: d.text("manufacturer_code"),
+  division: d.text("division"),
+  createdAt: d
+    .timestamp("created_at")
+    .$defaultFn(() => new Date())
+    .notNull(),
+}));
 
 // RELATIONS
 export const userRelations = relations(user, ({ many }) => ({

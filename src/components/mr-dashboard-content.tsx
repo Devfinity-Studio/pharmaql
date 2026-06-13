@@ -1,7 +1,14 @@
 import { db } from "@/server/db";
-import { products, sales, mrManufacturers, user } from "@/server/db/schema";
+import {
+  products,
+  sales,
+  mrManufacturers,
+  user,
+  mrInventory,
+  invoices,
+  outstanding,
+} from "@/server/db/schema";
 import { eq, inArray, and, gte, lte } from "drizzle-orm";
-import { mrInventory } from "@/server/db/schema";
 import Link from "next/link";
 import { DateRangePicker } from "@/components/date-range-picker";
 import { ReportDownloadButtons } from "@/components/report-download-buttons";
@@ -71,11 +78,18 @@ export async function MrDashboardContent({
   const canViewFreeScheme = isAdminView || mrInfo.canViewFreeScheme;
 
   let totalSales = 0;
+  let totalInvoicesAmt = 0;
+  let totalOutstandingAmt = 0;
+
   let productReports: any[] = [];
   let monthlyReports: any[] = [];
   let quarterlyReports: any[] = [];
   let yearlyReports: any[] = [];
   let stockMap = new Map<string, number>();
+
+  let recentInvoices: any[] = [];
+  let outstandingByDoctor: { doctor: string; city: string; amount: number }[] =
+    [];
 
   if (productIds.length > 0) {
     // Fetch Stock if permitted
@@ -101,10 +115,28 @@ export async function MrDashboardContent({
         eq(sales.mrId, mrId),
       );
 
+      let invoiceCondition = and(
+        inArray(invoices.manufacturerCode, companiesToQuery),
+        eq(invoices.mrId, mrId),
+      );
+
+      let outstandingCondition = and(
+        inArray(outstanding.manufacturerCode, companiesToQuery),
+        eq(outstanding.mrId, mrId),
+      );
+
       if (searchParams?.from) {
         const fromDate = new Date(searchParams.from);
         if (!isNaN(fromDate.getTime())) {
           salesCondition = and(salesCondition, gte(sales.createdAt, fromDate));
+          invoiceCondition = and(
+            invoiceCondition,
+            gte(invoices.date, fromDate),
+          );
+          outstandingCondition = and(
+            outstandingCondition,
+            gte(outstanding.invDt, fromDate),
+          );
         }
       }
 
@@ -113,6 +145,11 @@ export async function MrDashboardContent({
         if (!isNaN(toDate.getTime())) {
           toDate.setUTCHours(23, 59, 59, 999);
           salesCondition = and(salesCondition, lte(sales.createdAt, toDate));
+          invoiceCondition = and(invoiceCondition, lte(invoices.date, toDate));
+          outstandingCondition = and(
+            outstandingCondition,
+            lte(outstanding.invDt, toDate),
+          );
         }
       }
 
@@ -127,6 +164,16 @@ export async function MrDashboardContent({
         .innerJoin(products, eq(sales.productId, products.id))
         .where(salesCondition);
 
+      const accessibleInvoices = await db
+        .select()
+        .from(invoices)
+        .where(invoiceCondition);
+
+      const accessibleOutstanding = await db
+        .select()
+        .from(outstanding)
+        .where(outstandingCondition);
+
       // Calculate metrics
       const productMap = new Map<string, { name: string; total: number }>();
       const monthMap = new Map<string, number>();
@@ -136,7 +183,6 @@ export async function MrDashboardContent({
       accessibleSales.forEach((sale) => {
         totalSales += sale.quantity;
 
-        // Product-wise
         const pData = productMap.get(sale.productId) || {
           name: sale.productName,
           total: 0,
@@ -144,7 +190,6 @@ export async function MrDashboardContent({
         pData.total += sale.quantity;
         productMap.set(sale.productId, pData);
 
-        // Time-based parsing
         const date = new Date(sale.createdAt);
         const year = date.getFullYear().toString();
         const month = date.toLocaleString("default", {
@@ -157,6 +202,44 @@ export async function MrDashboardContent({
         quarterMap.set(quarter, (quarterMap.get(quarter) || 0) + sale.quantity);
         yearMap.set(year, (yearMap.get(year) || 0) + sale.quantity);
       });
+
+      // Process Invoices
+      const sortedInvoices = accessibleInvoices.sort((a, b) => {
+        const da = a.date ? a.date.getTime() : 0;
+        const db = b.date ? b.date.getTime() : 0;
+        return db - da; // Descending
+      });
+
+      sortedInvoices.forEach((inv) => {
+        if (inv.invAmt) {
+          totalInvoicesAmt += parseFloat(inv.invAmt);
+        }
+      });
+      recentInvoices = sortedInvoices.slice(0, 8);
+
+      // Process Outstanding
+      const docOutMap = new Map<
+        string,
+        { doctor: string; city: string; amount: number }
+      >();
+      accessibleOutstanding.forEach((out) => {
+        if (out.invAmt) {
+          const amt = parseFloat(out.invAmt);
+          totalOutstandingAmt += amt;
+
+          const key = `${out.doctor}-${out.city}`;
+          const existing = docOutMap.get(key) || {
+            doctor: out.doctor || "Unknown",
+            city: out.city || "Unknown",
+            amount: 0,
+          };
+          existing.amount += amt;
+          docOutMap.set(key, existing);
+        }
+      });
+      outstandingByDoctor = Array.from(docOutMap.values()).sort(
+        (a, b) => b.amount - a.amount,
+      );
 
       productReports = Array.from(productMap.values()).sort(
         (a, b) => b.total - a.total,
@@ -188,7 +271,7 @@ export async function MrDashboardContent({
             {isAdminView ? `${mrInfo.name}'s Data` : "Your Reports Dashboard"}
           </h1>
           <p className="text-gray-500 mt-2 font-medium">
-            Viewing aggregated sales data
+            Viewing aggregated sales & financial data
           </p>
           {!isAdminView && (
             <div className="mt-3 text-xs text-gray-600 bg-gray-50 p-2.5 rounded-xl border border-gray-200 inline-flex items-center gap-2">
@@ -222,7 +305,7 @@ export async function MrDashboardContent({
                     : "text-red-500 line-through"
                 }
               >
-                Sales Reports
+                Sales & Financials
               </span>
             </div>
           )}
@@ -273,13 +356,165 @@ export async function MrDashboardContent({
       </div>
 
       {canViewSales && (
-        <div className="bg-gradient-to-br from-blue-600 to-indigo-700 rounded-3xl p-8 text-white shadow-lg relative overflow-hidden">
-          <div className="relative z-10">
-            <div className="text-blue-100 font-bold tracking-wider uppercase text-sm mb-2">
-              Total Sales Volume ({selectedCompany})
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <div className="bg-gradient-to-br from-blue-600 to-indigo-700 rounded-3xl p-6 text-white shadow-lg relative overflow-hidden">
+            <div className="relative z-10">
+              <div className="text-blue-100 font-bold tracking-wider uppercase text-xs mb-2">
+                Total Sales Volume
+              </div>
+              <div className="text-4xl font-extrabold truncate">
+                {totalSales.toLocaleString()}
+              </div>
             </div>
-            <div className="text-5xl font-extrabold">
-              {totalSales.toLocaleString()}
+          </div>
+          <div className="bg-gradient-to-br from-emerald-500 to-teal-700 rounded-3xl p-6 text-white shadow-lg relative overflow-hidden">
+            <div className="relative z-10">
+              <div className="text-emerald-100 font-bold tracking-wider uppercase text-xs mb-2">
+                Total Invoices
+              </div>
+              <div className="text-4xl font-extrabold truncate">
+                ₹
+                {totalInvoicesAmt.toLocaleString(undefined, {
+                  minimumFractionDigits: 2,
+                  maximumFractionDigits: 2,
+                })}
+              </div>
+            </div>
+          </div>
+          <div className="bg-gradient-to-br from-rose-500 to-red-700 rounded-3xl p-6 text-white shadow-lg relative overflow-hidden">
+            <div className="relative z-10">
+              <div className="text-rose-100 font-bold tracking-wider uppercase text-xs mb-2">
+                Outstanding Balance
+              </div>
+              <div className="text-4xl font-extrabold truncate">
+                ₹
+                {totalOutstandingAmt.toLocaleString(undefined, {
+                  minimumFractionDigits: 2,
+                  maximumFractionDigits: 2,
+                })}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {canViewSales && (
+        <div className="grid grid-cols-1 xl:grid-cols-2 gap-8">
+          {/* Outstanding by Doctor */}
+          <div className="space-y-4">
+            <h2 className="text-xl font-bold text-gray-900">
+              Outstanding by Doctor
+            </h2>
+            <div className="bg-white shadow-sm rounded-2xl border border-gray-100 overflow-hidden">
+              <table className="min-w-full divide-y divide-gray-100">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase">
+                      Doctor / Party
+                    </th>
+                    <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase">
+                      City
+                    </th>
+                    <th className="px-6 py-4 text-right text-xs font-semibold text-gray-500 uppercase">
+                      Amount Due
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-100 bg-white">
+                  {outstandingByDoctor.length === 0 ? (
+                    <tr>
+                      <td
+                        colSpan={3}
+                        className="px-6 py-8 text-center text-gray-500"
+                      >
+                        No outstanding balances.
+                      </td>
+                    </tr>
+                  ) : (
+                    outstandingByDoctor.map((out, idx) => (
+                      <tr key={idx} className="hover:bg-gray-50 transition">
+                        <td className="px-6 py-4 text-sm font-bold text-gray-900">
+                          {out.doctor}
+                        </td>
+                        <td className="px-6 py-4 text-sm text-gray-500">
+                          {out.city}
+                        </td>
+                        <td className="px-6 py-4 text-sm font-semibold text-rose-600 text-right">
+                          ₹
+                          {out.amount.toLocaleString(undefined, {
+                            minimumFractionDigits: 2,
+                            maximumFractionDigits: 2,
+                          })}
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          {/* Recent Invoices */}
+          <div className="space-y-4">
+            <h2 className="text-xl font-bold text-gray-900">Recent Invoices</h2>
+            <div className="bg-white shadow-sm rounded-2xl border border-gray-100 overflow-hidden">
+              <table className="min-w-full divide-y divide-gray-100">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase">
+                      Invoice No
+                    </th>
+                    <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase">
+                      Date
+                    </th>
+                    <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase">
+                      Type
+                    </th>
+                    <th className="px-6 py-4 text-right text-xs font-semibold text-gray-500 uppercase">
+                      Amount
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-100 bg-white">
+                  {recentInvoices.length === 0 ? (
+                    <tr>
+                      <td
+                        colSpan={4}
+                        className="px-6 py-8 text-center text-gray-500"
+                      >
+                        No recent invoices.
+                      </td>
+                    </tr>
+                  ) : (
+                    recentInvoices.map((inv, idx) => (
+                      <tr key={idx} className="hover:bg-gray-50 transition">
+                        <td className="px-6 py-4 text-sm font-bold text-gray-900">
+                          {inv.invNo}
+                        </td>
+                        <td className="px-6 py-4 text-sm text-gray-500">
+                          {inv.date
+                            ? new Date(inv.date).toLocaleDateString()
+                            : "N/A"}
+                        </td>
+                        <td className="px-6 py-4 text-sm text-gray-500">
+                          <span className="px-2 py-1 bg-gray-100 rounded-md text-xs">
+                            {inv.invType || "N/A"}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4 text-sm font-semibold text-emerald-600 text-right">
+                          ₹
+                          {inv.invAmt
+                            ? parseFloat(inv.invAmt).toLocaleString(undefined, {
+                                minimumFractionDigits: 2,
+                                maximumFractionDigits: 2,
+                              })
+                            : "0.00"}
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
             </div>
           </div>
         </div>
@@ -289,7 +524,7 @@ export async function MrDashboardContent({
         {/* Product-wise Report */}
         <div className="space-y-4">
           <h2 className="text-xl font-bold text-gray-900">
-            Product-Wise Report
+            Product-Wise Sales & Stock
           </h2>
           <div className="bg-white shadow-sm rounded-2xl border border-gray-100 overflow-hidden">
             <table className="min-w-full divide-y divide-gray-100">
