@@ -94,6 +94,7 @@ export const products = createTable("product", (d) => ({
   firmNo: d.text("firm_no"),
   code: d.text("code"),
   division: d.text("division"),
+  ingredients: d.text("ingredients"),
   createdAt: d
     .timestamp("created_at")
     .$defaultFn(() => new Date())
