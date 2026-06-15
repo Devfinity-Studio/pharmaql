@@ -1,60 +1,60 @@
+import { eq } from "drizzle-orm";
+import Link from "next/link";
+import { notFound } from "next/navigation";
 import { db } from "@/server/db";
 import { products } from "@/server/db/schema";
-import { eq } from "drizzle-orm";
 import { ProductListClient } from "./product-list-client";
-import { notFound } from "next/navigation";
-import Link from "next/link";
 
 export default async function CompanyProductsPage({
-  params,
+	params,
 }: {
-  params: Promise<{ company: string }>;
+	params: Promise<{ company: string }>;
 }) {
-  const awaitedParams = await params;
-  const companyName = decodeURIComponent(awaitedParams.company);
+	const awaitedParams = await params;
+	const companyName = decodeURIComponent(awaitedParams.company);
 
-  // Fetch all companies for the dropdown
-  const companiesData = await db
-    .select({ name: products.manufacturer })
-    .from(products)
-    .groupBy(products.manufacturer);
+	// Fetch all companies for the dropdown
+	const companiesData = await db
+		.select({ name: products.manufacturer })
+		.from(products)
+		.groupBy(products.manufacturer);
 
-  const allCompanies = companiesData
-    .map((c) => c.name)
-    .filter((n) => n && n !== "Unknown")
-    .sort();
+	const allCompanies = companiesData
+		.map((c) => c.name)
+		.filter((n) => n && n !== "Unknown")
+		.sort();
 
-  if (!allCompanies.includes(companyName)) {
-    notFound();
-  }
+	if (!allCompanies.includes(companyName)) {
+		notFound();
+	}
 
-  // Fetch products for this company
-  const companyProducts = await db
-    .select()
-    .from(products)
-    .where(eq(products.manufacturer, companyName));
+	// Fetch products for this company
+	const companyProducts = await db
+		.select()
+		.from(products)
+		.where(eq(products.manufacturer, companyName));
 
-  return (
-    <main className="min-h-screen bg-gray-50 flex flex-col">
-      <div className="bg-white border-b border-gray-200">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex items-center justify-between">
-          <Link
-            href="/products"
-            className="text-blue-600 hover:text-blue-800 font-medium flex items-center gap-1"
-          >
-            &larr; Back to Companies
-          </Link>
-          <div className="text-xl font-bold text-gray-900">{companyName}</div>
-        </div>
-      </div>
+	return (
+		<main className="flex flex-col">
+			<div className="border-gray-200 border-b bg-white">
+				<div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-4 sm:px-6 lg:px-8">
+					<Link
+						className="flex items-center gap-1 font-medium text-blue-600 hover:text-blue-800"
+						href="/products"
+					>
+						&larr; Back to Companies
+					</Link>
+					<div className="font-bold text-gray-900 text-xl">{companyName}</div>
+				</div>
+			</div>
 
-      <div className="flex-1 max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-8">
-        <ProductListClient
-          initialCompany={companyName}
-          allCompanies={allCompanies}
-          products={companyProducts}
-        />
-      </div>
-    </main>
-  );
+			<div className="mx-auto w-full max-w-7xl flex-1 px-4 py-8 sm:px-6 lg:px-8">
+				<ProductListClient
+					allCompanies={allCompanies}
+					initialCompany={companyName}
+					products={companyProducts}
+				/>
+			</div>
+		</main>
+	);
 }

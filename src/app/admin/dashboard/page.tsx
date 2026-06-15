@@ -1,135 +1,135 @@
-import { auth } from "@/server/auth";
+import { desc, eq, sql } from "drizzle-orm";
 import { headers } from "next/headers";
-import { db } from "@/server/db";
-import { products, sales, user, mrInventory } from "@/server/db/schema";
-import { desc, sql, eq } from "drizzle-orm";
-import { redirect } from "next/navigation";
 import Link from "next/link";
+import { redirect } from "next/navigation";
+import { auth } from "@/server/auth";
+import { db } from "@/server/db";
+import { mrInventory, products, sales, user } from "@/server/db/schema";
 
 export default async function AdminDashboardPage() {
-  const session = await auth.api.getSession({
-    headers: await headers(),
-  });
+	const session = await auth.api.getSession({
+		headers: await headers(),
+	});
 
-  if (!session || session.user.role !== "ADMIN") {
-    redirect("/login");
-  }
+	if (!session || session.user.role !== "ADMIN") {
+		redirect("/login");
+	}
 
-  // Global metrics
-  const totalStockResult = await db
-    .select({ total: sql<number>`sum(${mrInventory.stock})` })
-    .from(mrInventory);
-  const totalStock = totalStockResult[0]?.total || 0;
+	// Global metrics
+	const totalStockResult = await db
+		.select({ total: sql<number>`sum(${mrInventory.stock})` })
+		.from(mrInventory);
+	const totalStock = totalStockResult[0]?.total || 0;
 
-  const totalSalesResult = await db
-    .select({ total: sql<number>`sum(${sales.quantity})` })
-    .from(sales);
-  const totalSales = totalSalesResult[0]?.total || 0;
+	const totalSalesResult = await db
+		.select({ total: sql<number>`sum(${sales.quantity})` })
+		.from(sales);
+	const totalSales = totalSalesResult[0]?.total || 0;
 
-  // Manufacturer Breakdown
-  const manufacturerStats = await db
-    .select({
-      manufacturer: products.manufacturer,
-      totalProducts: sql<number>`count(DISTINCT ${products.id})`,
-      totalStock: sql<number>`sum(${mrInventory.stock})`,
-    })
-    .from(products)
-    .leftJoin(mrInventory, eq(products.id, mrInventory.productId))
-    .groupBy(products.manufacturer);
+	// Manufacturer Breakdown
+	const manufacturerStats = await db
+		.select({
+			manufacturer: products.manufacturer,
+			totalProducts: sql<number>`count(DISTINCT ${products.id})`,
+			totalStock: sql<number>`sum(${mrInventory.stock})`,
+		})
+		.from(products)
+		.leftJoin(mrInventory, eq(products.id, mrInventory.productId))
+		.groupBy(products.manufacturer);
 
-  return (
-    <div className="space-y-8 mt-4">
-      <div className="flex justify-between items-center">
-        <div>
-          <h1 className="text-3xl font-extrabold text-gray-900">
-            Global Admin Dashboard
-          </h1>
-          <p className="text-gray-500 mt-2 font-medium">
-            Overview of global stock and manufacturer metrics across all MRs.
-          </p>
-        </div>
-        <div className="flex gap-4">
-          <Link
-            href="/admin/mrs"
-            className="px-4 py-2 bg-white border border-gray-200 text-gray-700 font-bold rounded-xl shadow-sm hover:bg-gray-50 transition"
-          >
-            Manage MR Access
-          </Link>
-          <Link
-            href="/admin/ingest"
-            className="px-4 py-2 bg-blue-600 text-white font-bold rounded-xl shadow-sm hover:bg-blue-700 transition"
-          >
-            Upload CSV
-          </Link>
-        </div>
-      </div>
+	return (
+		<div className="mt-4 space-y-8">
+			<div className="flex items-center justify-between">
+				<div>
+					<h1 className="font-extrabold text-3xl text-gray-900">
+						Global Admin Dashboard
+					</h1>
+					<p className="mt-2 font-medium text-gray-500">
+						Overview of global stock and manufacturer metrics across all MRs.
+					</p>
+				</div>
+				<div className="flex gap-4">
+					<Link
+						className="rounded-xl border border-gray-200 bg-white px-4 py-2 font-bold text-gray-700 shadow-sm transition hover:bg-gray-50"
+						href="/admin/mrs"
+					>
+						Manage MR Access
+					</Link>
+					<Link
+						className="rounded-xl bg-blue-600 px-4 py-2 font-bold text-white shadow-sm transition hover:bg-blue-700"
+						href="/admin/ingest"
+					>
+						Upload CSV
+					</Link>
+				</div>
+			</div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 relative overflow-hidden">
-          <div className="text-sm font-bold text-gray-500 uppercase tracking-wider">
-            Total Stock Across MRs (Units)
-          </div>
-          <div className="mt-2 text-4xl font-extrabold text-blue-600">
-            {totalStock}
-          </div>
-        </div>
-        <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 relative overflow-hidden">
-          <div className="text-sm font-bold text-gray-500 uppercase tracking-wider">
-            Total Computed Sales
-          </div>
-          <div className="mt-2 text-4xl font-extrabold text-green-600">
-            {totalSales}
-          </div>
-        </div>
-      </div>
+			<div className="grid grid-cols-1 gap-6 md:grid-cols-2">
+				<div className="relative overflow-hidden rounded-2xl border border-gray-100 bg-white p-6 shadow-sm">
+					<div className="font-bold text-gray-500 text-sm uppercase tracking-wider">
+						Total Stock Across MRs (Units)
+					</div>
+					<div className="mt-2 font-extrabold text-4xl text-blue-600">
+						{totalStock}
+					</div>
+				</div>
+				<div className="relative overflow-hidden rounded-2xl border border-gray-100 bg-white p-6 shadow-sm">
+					<div className="font-bold text-gray-500 text-sm uppercase tracking-wider">
+						Total Computed Sales
+					</div>
+					<div className="mt-2 font-extrabold text-4xl text-green-600">
+						{totalSales}
+					</div>
+				</div>
+			</div>
 
-      <div className="space-y-4">
-        <h2 className="text-xl font-bold text-gray-900">
-          Manufacturer Breakdown
-        </h2>
-        <div className="bg-white shadow-sm rounded-2xl border border-gray-100 overflow-hidden">
-          <table className="min-w-full divide-y divide-gray-100">
-            <thead className="bg-gray-50">
-              <tr>
-                <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase">
-                  Manufacturer
-                </th>
-                <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase">
-                  Products
-                </th>
-                <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase">
-                  Total Stock (All MRs)
-                </th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-100 bg-white">
-              {manufacturerStats.map((stat, idx) => (
-                <tr key={idx} className="hover:bg-gray-50 transition">
-                  <td className="px-6 py-4 text-sm font-bold text-gray-900">
-                    {stat.manufacturer}
-                  </td>
-                  <td className="px-6 py-4 text-sm text-gray-500">
-                    {stat.totalProducts}
-                  </td>
-                  <td className="px-6 py-4 text-sm font-semibold text-blue-600">
-                    {stat.totalStock || 0}
-                  </td>
-                </tr>
-              ))}
-              {manufacturerStats.length === 0 && (
-                <tr>
-                  <td
-                    colSpan={3}
-                    className="px-6 py-8 text-center text-gray-500"
-                  >
-                    No products ingested yet.
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
-      </div>
-    </div>
-  );
+			<div className="space-y-4">
+				<h2 className="font-bold text-gray-900 text-xl">
+					Manufacturer Breakdown
+				</h2>
+				<div className="overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-sm">
+					<table className="min-w-full divide-y divide-gray-100">
+						<thead className="bg-gray-50">
+							<tr>
+								<th className="px-6 py-4 text-left font-semibold text-gray-500 text-xs uppercase">
+									Manufacturer
+								</th>
+								<th className="px-6 py-4 text-left font-semibold text-gray-500 text-xs uppercase">
+									Products
+								</th>
+								<th className="px-6 py-4 text-left font-semibold text-gray-500 text-xs uppercase">
+									Total Stock (All MRs)
+								</th>
+							</tr>
+						</thead>
+						<tbody className="divide-y divide-gray-100 bg-white">
+							{manufacturerStats.map((stat, idx) => (
+								<tr className="transition hover:bg-gray-50" key={idx}>
+									<td className="px-6 py-4 font-bold text-gray-900 text-sm">
+										{stat.manufacturer}
+									</td>
+									<td className="px-6 py-4 text-gray-500 text-sm">
+										{stat.totalProducts}
+									</td>
+									<td className="px-6 py-4 font-semibold text-blue-600 text-sm">
+										{stat.totalStock || 0}
+									</td>
+								</tr>
+							))}
+							{manufacturerStats.length === 0 && (
+								<tr>
+									<td
+										className="px-6 py-8 text-center text-gray-500"
+										colSpan={3}
+									>
+										No products ingested yet.
+									</td>
+								</tr>
+							)}
+						</tbody>
+					</table>
+				</div>
+			</div>
+		</div>
+	);
 }

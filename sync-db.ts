@@ -1,11 +1,11 @@
-import { db } from "./src/server/db";
 import { sql } from "drizzle-orm";
+import { db } from "./src/server/db";
 
 async function syncDb() {
-  console.log("Syncing database schema...");
+	console.log("Syncing database schema...");
 
-  try {
-    await db.execute(sql`
+	try {
+		await db.execute(sql`
       ALTER TABLE "user" ADD COLUMN IF NOT EXISTS "loc_no" text;
       ALTER TABLE "user" ADD COLUMN IF NOT EXISTS "rank" text;
       
@@ -55,11 +55,11 @@ async function syncDb() {
         "created_at" timestamp NOT NULL
       );
     `);
-    console.log("Database schema synced successfully.");
-  } catch (err) {
-    console.error("Error syncing db:", err);
-  }
-  process.exit(0);
+		console.log("Database schema synced successfully.");
+	} catch (err) {
+		console.error("Error syncing db:", err);
+	}
+	process.exit(0);
 }
 
 syncDb();

@@ -1,15 +1,15 @@
 import { DashboardSkeleton } from "@/components/dashboard-skeleton";
 
 export default function AdminMrLoading() {
-  return (
-    <div className="max-w-7xl mx-auto py-8 px-4 sm:px-6 lg:px-8">
-      <div className="mb-6 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-        <div>
-          <div className="h-4 bg-gray-200 rounded w-24 mb-2 animate-pulse"></div>
-          <div className="h-8 bg-gray-200 rounded w-64 animate-pulse"></div>
-        </div>
-      </div>
-      <DashboardSkeleton />
-    </div>
-  );
+	return (
+		<div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
+			<div className="mb-6 flex flex-col items-start justify-between gap-4 sm:flex-row sm:items-center">
+				<div>
+					<div className="mb-2 h-4 w-24 animate-pulse rounded bg-gray-200"></div>
+					<div className="h-8 w-64 animate-pulse rounded bg-gray-200"></div>
+				</div>
+			</div>
+			<DashboardSkeleton />
+		</div>
+	);
 }
