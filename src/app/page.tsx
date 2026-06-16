@@ -13,7 +13,7 @@ export default async function Home() {
 			{/* Abstract Background Shapes Removed for Premium Accessibility and Minimalism */}
 
 			{/* Navigation Bar */}
-			<nav className="z-10 flex w-full max-w-7xl items-center justify-between px-6 py-6 border-b border-gray-200 bg-white shadow-sm">
+			<nav className="rounded-2xl z-10 flex w-full max-w-7xl items-center justify-between px-6 py-6 border-b border-gray-200 bg-white shadow-sm">
 				<div className="flex items-center gap-2 font-black text-2xl tracking-tight">
 					<span className="text-[#0B2545]">Pharma</span>
 					<span className="text-[#0071BC]">
