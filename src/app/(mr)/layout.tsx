@@ -56,8 +56,14 @@ export default async function MRLayout({ children }: { children: ReactNode }) {
 		<div className="flex min-h-screen flex-col bg-gray-50 text-gray-900 md:flex-row">
 			<aside className="z-10 flex w-full flex-col border-gray-100 border-r bg-white p-6 shadow-[4px_0_24px_rgba(0,0,0,0.02)] md:w-72">
 				<div className="mb-10">
-					<div className="bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text font-extrabold text-3xl text-transparent tracking-tight">
-						PharmaQL
+					<div className="flex items-center gap-2 font-black text-2xl ">
+						<Link href="/" className="flex gap-2">
+
+							<span className="text-[#0B2545]">Pharma</span>
+							<span className="text-[#0071BC]">
+                             QL
+                            </span>
+						</Link>
 					</div>
 					<div className="mt-1 font-bold text-gray-400 text-xs uppercase tracking-widest">
 						MR Portal
