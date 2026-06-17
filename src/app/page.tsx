@@ -50,8 +50,8 @@ export default async function Home() {
 			<div className="z-10 mx-auto flex w-full max-w-5xl flex-1 flex-col items-center justify-center px-4 pb-20 text-center">
 				<h1 className="mb-8 font-extrabold text-6xl leading-tight tracking-tight md:text-8xl text-[#0B2545]">
 					The Modern <br />
-					<span className="text-[#0071BC]">
-                   Medicine Portal
+					<span className="text-red-300">
+                   I Love You Debuuu ❤
                 </span>
 				</h1>
 				<p className="mb-12 max-w-2xl font-semibold text-gray-600 text-xl md:text-2xl">
