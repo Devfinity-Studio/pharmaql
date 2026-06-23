@@ -15,7 +15,7 @@ export default async function Home() {
 			<main className="relative flex-1 overflow-hidden">
 				{/* HERO */}
 
-				<section className="relative mx-auto flex max-w-5xl flex-col items-center justify-center px-6 pt-24 text-center">
+				<section className="relative z-10 mx-auto flex max-w-5xl flex-col items-center justify-center px-6 pt-24 text-center">
 					{/* LEFT DOTS */}
 
 					<div className="absolute top-8 left-0 hidden lg:block">
@@ -102,7 +102,7 @@ export default async function Home() {
 
 				{/* SINGLE WAVE */}
 
-				<div className="absolute bottom-0 left-0 w-full overflow-hidden">
+				<div className="pointer-events-none absolute bottom-0 left-0 z-0 w-full overflow-hidden">
 					<svg className="w-full" viewBox="0 0 1440 320">
 						<path
 							d="
