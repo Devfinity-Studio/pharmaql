@@ -1,7 +1,7 @@
 import {
-	createCallerFactory,
-	createTRPCRouter,
-	publicProcedure,
+  createCallerFactory,
+  createTRPCRouter,
+  publicProcedure,
 } from "@/server/api/trpc";
 
 /**
@@ -10,7 +10,7 @@ import {
  * All routers added in /api/routers should be manually added here.
  */
 export const appRouter = createTRPCRouter({
-	healthCheck: publicProcedure.query(() => "ok"),
+  healthCheck: publicProcedure.query(() => "ok"),
 });
 
 // export type definition of API
