@@ -34,7 +34,11 @@ export function LoginForm() {
 			);
 			setLoading(false);
 		} else {
-			router.push("/dashboard");
+			if ((res.data?.user as any)?.role === "ADMIN") {
+				router.push("/admin/dashboard");
+			} else {
+				router.push("/dashboard");
+			}
 			router.refresh();
 		}
 	}

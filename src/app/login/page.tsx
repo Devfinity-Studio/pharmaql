@@ -9,7 +9,11 @@ export default async function LoginPage() {
 	});
 
 	if (session) {
-		redirect("/dashboard");
+		if (session.user.role === "ADMIN") {
+			redirect("/admin/dashboard");
+		} else {
+			redirect("/dashboard");
+		}
 	}
 
 	return (
