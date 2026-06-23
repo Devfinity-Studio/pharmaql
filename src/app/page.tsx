@@ -10,9 +10,9 @@ export default async function Home() {
 	});
 
 	return (
-		<>
+		<div className="flex h-screen flex-col overflow-hidden bg-gradient-to-b from-white to-slate-50">
 			<Header />
-			<main className="relative min-h-screen overflow-hidden bg-gradient-to-b from-white to-slate-50">
+			<main className="relative flex-1 overflow-hidden">
 				{/* HERO */}
 
 				<section className="relative mx-auto flex max-w-5xl flex-col items-center justify-center px-6 pt-24 text-center">
@@ -123,6 +123,6 @@ Z
 					</svg>
 				</div>
 			</main>
-		</>
+		</div>
 	);
 }
