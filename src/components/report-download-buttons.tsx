@@ -28,7 +28,7 @@ export function ReportDownloadButtons({ mrId }: { mrId: string }) {
 		setIsDownloading(true);
 		const params = new URLSearchParams();
 		params.set("mrId", mrId);
-		params.set("company", division); // Keep company param for the API backward compatibility
+		params.set("company", division);
 		if (from) params.set("from", from);
 		if (to) params.set("to", to);
 		if (product) params.set("product", product);
@@ -40,7 +40,6 @@ export function ReportDownloadButtons({ mrId }: { mrId: string }) {
 				if (!res.ok) throw new Error("Failed to fetch data");
 				const data = await res.json();
 
-				// Filter by product if specified (since API might not support product filter yet)
 				const filteredData = product
 					? data.filter((row: any) => row["Product Name"] === product)
 					: data;
@@ -48,7 +47,6 @@ export function ReportDownloadButtons({ mrId }: { mrId: string }) {
 				const mrName =
 					filteredData.length > 0 ? filteredData[0]["MR Name"] : "Unknown";
 
-				// Remove MR Name and Generated At from PDF columns since it's in the header
 				const cleanDataForPdf = filteredData.map((row: any) => {
 					const { "MR Name": _, "Generated At": __, ...rest } = row;
 					return rest;
@@ -75,101 +73,72 @@ export function ReportDownloadButtons({ mrId }: { mrId: string }) {
 
 	return (
 		<>
+			{/* Unified Corporate Blue Tonal Export Button Family */}
 			<div className="flex gap-2">
 				<button
-					className="flex h-[36px] items-center justify-center gap-1.5 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2.5 font-bold text-emerald-700 text-xs transition hover:bg-emerald-100"
+					className="flex h-[38px] items-center justify-center gap-1.5 rounded-xl border border-[#BAE6FD] bg-[#E0F2FE] px-4 py-2 font-bold text-[#0071BC] text-sm transition-colors hover:bg-[#BAE6FD]"
 					onClick={() => openModal("csv")}
 					title="Download Product Report (CSV)"
 				>
-					<svg
-						className="h-3.5 w-3.5"
-						fill="none"
-						stroke="currentColor"
-						viewBox="0 0 24 24"
-						xmlns="http://www.w3.org/2000/svg"
-					>
-						<path
-							d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
-							strokeLinecap="round"
-							strokeLinejoin="round"
-							strokeWidth="2"
-						></path>
+					<svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+						<path d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5"></path>
 					</svg>
 					CSV
 				</button>
+
 				<button
-					className="flex h-[36px] items-center justify-center gap-1.5 rounded-xl border border-emerald-700 bg-emerald-600 px-3 py-2.5 font-bold text-white text-xs transition hover:bg-emerald-700"
+					className="flex h-[38px] items-center justify-center gap-1.5 rounded-xl bg-[#0071BC] px-4 py-2 font-bold text-white text-sm transition-colors hover:bg-[#134074] shadow-sm"
 					onClick={() => openModal("excel")}
 					title="Download Product Report (Excel)"
 				>
-					<svg
-						className="h-3.5 w-3.5"
-						fill="none"
-						stroke="currentColor"
-						viewBox="0 0 24 24"
-						xmlns="http://www.w3.org/2000/svg"
-					>
-						<path
-							d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
-							strokeLinecap="round"
-							strokeLinejoin="round"
-							strokeWidth="2"
-						></path>
+					<svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+						<path d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5"></path>
 					</svg>
 					Excel
 				</button>
+
 				<button
-					className="flex h-[36px] items-center justify-center gap-1.5 rounded-xl border border-red-700 bg-red-600 px-3 py-2.5 font-bold text-white text-xs transition hover:bg-red-700"
+					className="flex h-[38px] items-center justify-center gap-1.5 rounded-xl bg-[#0B2545] px-4 py-2 font-bold text-white text-sm transition-colors hover:bg-[#1E293B] shadow-sm"
 					onClick={() => openModal("pdf")}
 					title="Download Product Report (PDF)"
 				>
-					<svg
-						className="h-3.5 w-3.5"
-						fill="none"
-						stroke="currentColor"
-						viewBox="0 0 24 24"
-						xmlns="http://www.w3.org/2000/svg"
-					>
-						<path
-							d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
-							strokeLinecap="round"
-							strokeLinejoin="round"
-							strokeWidth="2"
-						></path>
+					<svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+						<path d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5"></path>
 					</svg>
 					PDF
 				</button>
 			</div>
 
+			{/* Prompt Dialog Window */}
 			{isOpen && (
-				<div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-4">
-					<div className="fade-in zoom-in-95 w-full max-w-sm animate-in rounded-2xl bg-white p-6 shadow-xl duration-200">
-						<h3 className="mb-2 font-bold text-gray-900 text-xl">
+				<div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
+					<div className="fade-in zoom-in-95 w-full max-w-sm animate-in rounded-xl border border-gray-200/80 bg-white p-6 shadow-xl duration-200">
+						<h3 className="mb-2 font-extrabold text-[#0B2545] text-xl">
 							Download {format.toUpperCase()} Report
 						</h3>
-						<p className="mb-6 text-gray-500 text-sm">
+						<p className="mb-6 font-medium text-gray-500 text-sm">
 							Select the date range for your report. Leave blank to download all
 							available data.
 						</p>
 
 						<div className="space-y-4">
 							<div>
-								<label className="mb-1 block font-bold text-gray-700 text-sm">
+								<label className="mb-2 block font-bold text-[#0B2545] text-sm">
 									From Date
 								</label>
 								<input
-									className="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-2 outline-none transition focus:border-transparent focus:ring-2 focus:ring-gray-900"
+									className="w-full rounded-xl border-2 border-gray-300 bg-white px-4 py-2.5 outline-none transition-colors focus:border-[#0071BC] text-base font-medium text-[#0B2545]"
 									onChange={(e) => setFrom(e.target.value)}
 									type="date"
 									value={from}
 								/>
 							</div>
 							<div>
-								<label className="mb-1 block font-bold text-gray-700 text-sm">
+								<label className="mb-2 block font-bold text-[#0B2545] text-sm">
 									To Date
 								</label>
 								<input
-									className="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-2 outline-none transition focus:border-transparent focus:ring-2 focus:ring-gray-900"
+									className="w-full rounded-xl border-2 border-gray-300 bg-white px-4 py-2.5 outline-none transition-colors focus:border-[#0071BC] text-base font-medium text-[#0B2545]"
 									onChange={(e) => setTo(e.target.value)}
 									type="date"
 									value={to}
@@ -179,14 +148,14 @@ export function ReportDownloadButtons({ mrId }: { mrId: string }) {
 
 						<div className="mt-8 flex gap-3">
 							<button
-								className="flex-1 rounded-xl border border-gray-300 bg-white px-4 py-2.5 font-bold text-gray-700 transition hover:bg-gray-50 disabled:opacity-50"
+								className="flex-1 rounded-xl border-2 border-gray-300 bg-white px-4 py-2.5 font-bold text-gray-700 transition-colors hover:bg-gray-50 disabled:opacity-50"
 								disabled={isDownloading}
 								onClick={() => setIsOpen(false)}
 							>
 								Cancel
 							</button>
 							<button
-								className="flex flex-1 items-center justify-center rounded-xl border border-emerald-700 bg-emerald-600 px-4 py-2.5 font-bold text-white transition hover:bg-emerald-700 disabled:opacity-50"
+								className="flex flex-1 items-center justify-center rounded-xl bg-[#0071BC] px-4 py-2.5 font-bold text-white transition-colors hover:bg-[#134074] disabled:opacity-50 shadow-sm"
 								disabled={isDownloading}
 								onClick={handleDownload}
 							>

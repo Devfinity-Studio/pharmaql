@@ -15,12 +15,10 @@ export default async function MRLayout({ children }: { children: ReactNode }) {
 	}
 
 	if ((session.user as any).isBlocked) {
-		// If they get blocked mid-session, force logout essentially by redirecting
-		// or just show a blocked screen right here
 		return (
-			<div className="flex min-h-screen items-center justify-center bg-gray-50 p-4">
-				<div className="w-full max-w-md space-y-4 rounded-2xl border border-red-100 bg-white p-8 text-center shadow-sm">
-					<div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-red-50 text-red-500">
+			<div className="flex min-h-screen items-center justify-center bg-[#F8FAFC] p-4 text-[#0B2545]">
+				<div className="w-full max-w-md space-y-4 rounded-xl border-2 border-gray-200 bg-white p-8 text-center shadow-sm">
+					<div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-red-50 text-red-600">
 						<svg
 							className="h-8 w-8"
 							fill="none"
@@ -31,17 +29,17 @@ export default async function MRLayout({ children }: { children: ReactNode }) {
 								d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
 								strokeLinecap="round"
 								strokeLinejoin="round"
-								strokeWidth={2}
+								strokeWidth={2.5}
 							/>
 						</svg>
 					</div>
-					<h2 className="font-bold text-2xl text-gray-900">Access Denied</h2>
-					<p className="font-medium text-gray-600">
-						you have been blocked please contact the admin to get unblocked
+					<h2 className="font-extrabold text-2xl text-[#0B2545]">Access Denied</h2>
+					<p className="font-semibold text-gray-500">
+						You have been blocked. Please contact the admin to get unblocked.
 					</p>
 					<div className="pt-4">
 						<Link
-							className="font-bold text-blue-600 hover:underline"
+							className="font-bold text-[#0071BC] hover:text-[#134074] transition-colors underline underline-offset-4"
 							href="/login"
 						>
 							Return to Login
@@ -53,44 +51,45 @@ export default async function MRLayout({ children }: { children: ReactNode }) {
 	}
 
 	return (
-		<div className="flex min-h-screen flex-col bg-gray-50 text-gray-900 md:flex-row">
-			<aside className="z-10 flex w-full flex-col border-gray-100 border-r bg-white p-6 shadow-[4px_0_24px_rgba(0,0,0,0.02)] md:w-72">
-				<div className="mb-10">
-					<div className="flex items-center gap-2 font-black text-2xl ">
-						<Link href="/" className="flex gap-2">
+		<div className="flex min-h-screen flex-col bg-[#F8FAFC] text-[#0B2545] md:flex-row">
 
+			{/* Still/Fixed Sidebar Navigation Layer */}
+			<aside className="md:sticky md:top-0 md:h-screen flex w-full flex-col border-gray-200 border-r bg-white p-6 md:w-72">
+				<div className="mb-10">
+					<div className="flex items-center gap-2 font-black text-2xl">
+						<Link href="/" className="flex gap-2">
 							<span className="text-[#0B2545]">Pharma</span>
-							<span className="text-[#0071BC]">
-                             QL
-                            </span>
+							<span className="text-[#0071BC]">QL</span>
 						</Link>
 					</div>
-					<div className="mt-1 font-bold text-gray-400 text-xs uppercase tracking-widest">
+					<div className="mt-1.5 font-bold text-gray-400 text-xs uppercase tracking-widest">
 						MR Portal
 					</div>
 				</div>
 
-				<nav className="flex flex-col space-y-3">
+				<nav className="flex flex-col space-y-2">
 					<Link
-						className="flex items-center gap-3 rounded-xl px-4 py-3 font-bold text-gray-600 transition hover:bg-blue-50 hover:text-blue-700"
+						className="flex items-center gap-3 rounded-lg px-4 py-3 font-bold bg-[#F1F5F9] text-[#0071BC] border-l-4 border-[#0071BC] transition-colors"
 						href="/dashboard"
 					>
-						<span className="h-2 w-2 rounded-full bg-blue-500"></span>
 						Reports Overview
 					</Link>
 				</nav>
 
-				<div className="mt-auto flex flex-col gap-4 border-gray-100 border-t pt-6">
+				{/* Profile Info and Footer */}
+				<div className="mt-auto flex flex-col gap-4 border-gray-200 border-t pt-6">
 					<div>
-						<div className="font-bold text-gray-900 text-sm">
+						<div className="font-bold text-[#0B2545] text-sm">
 							{session.user.name}
 						</div>
-						<div className="text-gray-500 text-xs">{session.user.email}</div>
+						<div className="font-semibold text-gray-400 text-xs">{session.user.email}</div>
 					</div>
-					<LogoutButton className="w-full rounded-xl bg-red-50 px-4 py-2.5 text-center font-bold text-red-600 transition hover:bg-red-100" />
+					<LogoutButton className="w-full rounded-lg border-2 border-red-200 bg-white px-4 py-2.5 text-center font-bold text-red-600 transition-colors hover:bg-red-50" />
 				</div>
 			</aside>
-			<main className="flex-1 overflow-y-auto bg-gray-50/50 p-4 md:p-10">
+
+			{/* Independent Scrolling Content Workspace */}
+			<main className="flex-1 p-4 md:p-10 bg-[#F8FAFC]">
 				{children}
 			</main>
 		</div>
