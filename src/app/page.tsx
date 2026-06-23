@@ -122,6 +122,26 @@ Z
 						/>
 					</svg>
 				</div>
+
+				{/* FOOTER COPYRIGHT */}
+				<div className="absolute right-0 bottom-4 left-0 z-20 text-center text-[10px] text-slate-500">
+					<p>© {new Date().getFullYear()} PharmaQL. All rights reserved.</p>
+					<p className="mt-1 flex items-center justify-center gap-1">
+						Made with{" "}
+						<span className="cursor-pointer text-red-500 transition-transform duration-200 hover:scale-125">
+							❤️
+						</span>{" "}
+						by{" "}
+						<a
+							className="inline-block font-bold text-[#0071BC] transition-all hover:scale-105 hover:text-blue-800"
+							href="https://devfinity.net"
+							rel="noopener noreferrer"
+							target="_blank"
+						>
+							Devfinity
+						</a>
+					</p>
+				</div>
 			</main>
 		</div>
 	);
