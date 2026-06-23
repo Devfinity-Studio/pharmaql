@@ -1,110 +1,111 @@
+import { ArrowDown, Cross, Pill } from "lucide-react";
 import { headers } from "next/headers";
 import Link from "next/link";
-import { ArrowDown, Cross, Pill } from "lucide-react";
-
+import Header from "@/components/Header";
 import { auth } from "@/server/auth";
 
 export default async function Home() {
-  const session = await auth.api.getSession({
-    headers: await headers(),
-  });
+	const session = await auth.api.getSession({
+		headers: await headers(),
+	});
 
-  return (
-    <main className="relative min-h-screen overflow-hidden bg-gradient-to-b from-white to-slate-50">
-      {/* HERO */}
+	return (
+		<>
+			<Header />
+			<main className="relative min-h-screen overflow-hidden bg-gradient-to-b from-white to-slate-50">
+				{/* HERO */}
 
-      <section className="relative mx-auto flex max-w-5xl flex-col items-center justify-center px-6 pt-24 text-center">
-        {/* LEFT DOTS */}
+				<section className="relative mx-auto flex max-w-5xl flex-col items-center justify-center px-6 pt-24 text-center">
+					{/* LEFT DOTS */}
 
-        <div className="absolute left-0 top-8 hidden lg:block">
-          <div className="grid grid-cols-6 gap-2">
-            {Array.from({ length: 36 }).map((_, i) => (
-              <div key={i} className="h-1.5 w-1.5 rounded-full bg-blue-200" />
-            ))}
-          </div>
-        </div>
+					<div className="absolute top-8 left-0 hidden lg:block">
+						<div className="grid grid-cols-6 gap-2">
+							{Array.from({ length: 36 }).map((_, i) => (
+								<div className="h-1.5 w-1.5 rounded-full bg-blue-200" key={i} />
+							))}
+						</div>
+					</div>
 
-        {/* LEFT PILL */}
+					{/* LEFT PILL */}
 
-        <div className="absolute left-10 top-24 hidden lg:block">
-          <div className="flex h-32 w-32 items-center justify-center rounded-full bg-blue-50">
-            <Pill
-              className="h-16 w-16 rotate-45 text-blue-500"
-              strokeWidth={1.5}
-            />
-          </div>
-        </div>
+					<div className="absolute top-24 left-10 hidden lg:block">
+						<div className="flex h-32 w-32 items-center justify-center rounded-full bg-blue-50">
+							<Pill
+								className="h-16 w-16 rotate-45 text-blue-500"
+								strokeWidth={1.5}
+							/>
+						</div>
+					</div>
 
-        {/* RIGHT PLUS */}
+					{/* RIGHT PLUS */}
 
-        <div className="absolute right-0 top-96 hidden lg:block">
-          <div className="flex h-32 w-32 items-center justify-center rounded-full bg-green-50">
-            <Cross className="h-16 w-16 text-green-500" strokeWidth={1.5} />
-          </div>
-        </div>
+					<div className="absolute top-96 right-0 hidden lg:block">
+						<div className="flex h-32 w-32 items-center justify-center rounded-full bg-green-50">
+							<Cross className="h-16 w-16 text-green-500" strokeWidth={1.5} />
+						</div>
+					</div>
 
-        {/* RIGHT DOTS */}
+					{/* RIGHT DOTS */}
 
-        <div className="absolute right-0 bottom-56 hidden lg:block">
-          <div className="grid grid-cols-6 gap-2">
-            {Array.from({ length: 36 }).map((_, i) => (
-              <div key={i} className="h-1.5 w-1.5 rounded-full bg-blue-200" />
-            ))}
-          </div>
-        </div>
+					<div className="absolute right-0 bottom-56 hidden lg:block">
+						<div className="grid grid-cols-6 gap-2">
+							{Array.from({ length: 36 }).map((_, i) => (
+								<div className="h-1.5 w-1.5 rounded-full bg-blue-200" key={i} />
+							))}
+						</div>
+					</div>
 
-        {/* PILLS */}
+					{/* PILLS */}
 
-        <div className="absolute right-12 bottom-28 hidden lg:block">
-          <Pill
-            className="absolute h-28 w-28 rotate-[35deg] text-blue-500"
-            strokeWidth={1.3}
-          />
+					<div className="absolute right-12 bottom-28 hidden lg:block">
+						<Pill
+							className="absolute h-28 w-28 rotate-[35deg] text-blue-500"
+							strokeWidth={1.3}
+						/>
 
-          <Pill
-            className="absolute left-12 top-10 h-20 w-20 rotate-[120deg] text-slate-300"
-            strokeWidth={1.3}
-          />
-        </div>
+						<Pill
+							className="absolute top-10 left-12 h-20 w-20 rotate-[120deg] text-slate-300"
+							strokeWidth={1.3}
+						/>
+					</div>
 
-        <h1 className="text-6xl font-extrabold leading-tight md:text-7xl">
-          <span className="text-slate-900">The Modern</span>
+					<h1 className="font-extrabold text-6xl leading-tight md:text-7xl">
+						<span className="text-slate-900">The Modern</span>
 
-          <br />
+						<br />
 
-          <span className="bg-gradient-to-r from-blue-600 to-cyan-500 bg-clip-text text-transparent">
-            Medicine Portal
-          </span>
-        </h1>
+						<span className="bg-gradient-to-r from-blue-600 to-cyan-500 bg-clip-text text-transparent">
+							Medicine Portal
+						</span>
+					</h1>
 
-        <p className="mt-8 max-w-2xl text-xl leading-9 text-slate-500">
-          Empowering medical representatives and distributors with real-time
-          insights, effortless ordering and intelligent inventory tracking.
-        </p>
+					<p className="mt-8 max-w-2xl text-slate-500 text-xl leading-9">
+						Empowering medical representatives and distributors with real-time
+						insights, effortless ordering and intelligent inventory tracking.
+					</p>
 
-        <Link
-          href="/products"
-          className="mt-10 rounded-xl bg-blue-600 px-10 py-4 font-semibold text-white shadow-lg transition hover:bg-blue-700"
-        >
-          Browse Directory
-        </Link>
+					<Link
+						className="mt-10 rounded-xl bg-blue-600 px-10 py-4 font-semibold text-white shadow-lg transition hover:bg-blue-700"
+						href="/products"
+					>
+						Browse Directory
+					</Link>
 
-        {/*<div className="mt-20 flex flex-col items-center">
+					{/*<div className="mt-20 flex flex-col items-center">
           <div className="flex h-14 w-14 items-center justify-center rounded-full border bg-white shadow-sm">
             <ArrowDown className="h-5 w-5 text-slate-500" />
           </div>
 
           <p className="mt-3 text-slate-400">Scroll to explore</p>
         </div>*/}
-      </section>
+				</section>
 
-      {/* SINGLE WAVE */}
+				{/* SINGLE WAVE */}
 
-      <div className="absolute bottom-0 left-0 w-full overflow-hidden">
-        <svg viewBox="0 0 1440 320" className="w-full">
-          <path
-            fill="#EEF4FF"
-            d="
+				<div className="absolute bottom-0 left-0 w-full overflow-hidden">
+					<svg className="w-full" viewBox="0 0 1440 320">
+						<path
+							d="
 
 M0,224
 L80,202.7
@@ -117,9 +118,11 @@ H0
 Z
 
 "
-          />
-        </svg>
-      </div>
-    </main>
-  );
+							fill="#EEF4FF"
+						/>
+					</svg>
+				</div>
+			</main>
+		</>
+	);
 }
