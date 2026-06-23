@@ -19,7 +19,7 @@ export default async function AdminLayout({
 	}
 
 	return (
-		<div className="flex min-h-screen flex-col bg-gray-50 text-gray-900 md:flex-row">
+		<div className="flex h-screen flex-col overflow-hidden bg-gray-50 text-gray-900 md:flex-row">
 			<aside className="flex w-full flex-col border-gray-800 border-r bg-gray-900 p-4 text-white md:w-64">
 				<div className="mb-8 font-bold text-2xl text-white">PharmaQL Admin</div>
 				<nav className="flex flex-col space-y-2">
