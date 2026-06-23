@@ -53,9 +53,10 @@ export default async function MRLayout({ children }: { children: ReactNode }) {
 	}
 
 	return (
-		<div className="flex min-h-screen flex-col bg-[#F8FAFC] text-[#0B2545] md:flex-row">
+		<div className="relative flex h-screen flex-col overflow-hidden bg-[#F8FAFC] text-[#0B2545] md:flex-row">
+			<div className="pointer-events-none absolute inset-0 z-0 bg-[url('/devfinity.png')] bg-repeat opacity-[0.03] [background-size:120px]"></div>
 			{/* Still/Fixed Sidebar Navigation Layer */}
-			<aside className="flex w-full flex-col border-gray-200 border-r bg-white p-6 md:sticky md:top-0 md:h-screen md:w-72">
+			<aside className="relative z-10 flex w-full flex-col border-gray-200 border-r bg-white p-6 md:h-screen md:w-72">
 				<div className="mb-10">
 					<div className="flex items-center gap-2 font-black text-2xl">
 						<Link className="flex gap-2" href="/">
@@ -88,11 +89,31 @@ export default async function MRLayout({ children }: { children: ReactNode }) {
 						</div>
 					</div>
 					<LogoutButton className="w-full rounded-lg border-2 border-red-200 bg-white px-4 py-2.5 text-center font-bold text-red-600 transition-colors hover:bg-red-50" />
+					<div className="mt-2 text-center text-[10px] text-gray-400">
+						<p>© {new Date().getFullYear()} PharmaQL. All rights reserved.</p>
+						<p className="mt-1 flex items-center justify-center gap-1">
+							Made with{" "}
+							<span className="cursor-pointer text-red-500 transition-transform duration-200 hover:scale-125">
+								❤️
+							</span>{" "}
+							by{" "}
+							<a
+								className="inline-block font-bold text-[#0071BC] transition-all hover:scale-105 hover:text-[#0B2545]"
+								href="https://devfinity.net"
+								rel="noopener noreferrer"
+								target="_blank"
+							>
+								Devfinity
+							</a>
+						</p>
+					</div>
 				</div>
 			</aside>
 
 			{/* Independent Scrolling Content Workspace */}
-			<main className="flex-1 bg-[#F8FAFC] p-4 md:p-10">{children}</main>
+			<main className="relative z-10 flex-1 overflow-y-auto bg-[#F8FAFC] p-4 md:p-10">
+				{children}
+			</main>
 		</div>
 	);
 }
