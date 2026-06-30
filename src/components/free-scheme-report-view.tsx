@@ -2,7 +2,7 @@ import { and, eq, gte, inArray, lte } from "drizzle-orm";
 import { db } from "@/server/db";
 import { mrInventory, mrManufacturers, products, sales, user } from "@/server/db/schema";
 
-export async function ClaimReportView({
+export async function FreeSchemeReportView({
 	mrId,
 	searchParams,
 }: {
@@ -97,7 +97,7 @@ export async function ClaimReportView({
 			dealerMap.forEach((totals, party) => {
 				reportData.push({
 					Manufacturer: p.manufacturer,
-					ClaimType: "Qty",
+					SchemeType: "Qty",
 					Party: party,
 					Code: p.code || "",
 					"Product Name": p.name,
@@ -113,9 +113,9 @@ export async function ClaimReportView({
 					"Sale Qty": totals.qty,
 					"Free Qty": totals.free,
 					"Actual FQty": 0,
-					"Claim Qty": 0,
+					"Scheme Qty": 0,
 					"Rate Diff.": 0,
-					"Claim Value": 0,
+					"Scheme Value": 0,
 					"Item Scheme": p.freeScheme || "",
 					"Applied Scheme": "",
 				});
@@ -124,7 +124,7 @@ export async function ClaimReportView({
 	});
 
 	if (reportData.length === 0) {
-		return <div className="p-8 text-center text-gray-500 font-medium border rounded-xl bg-white mt-4">No claim data available for the selected filters.</div>;
+		return <div className="p-8 text-center text-gray-500 font-medium border rounded-xl bg-white mt-4">No free scheme data available for the selected filters.</div>;
 	}
 
 	// Grouping
@@ -146,11 +146,11 @@ export async function ClaimReportView({
 		<div className="space-y-8 mt-4">
 			{manufacturers.map((mfg) => {
 				const mfgData = reportData.filter((d) => d.Manufacturer === mfg);
-				const claimTypes = [...new Set(mfgData.map((d) => d.ClaimType))].sort();
+				const claimTypes = [...new Set(mfgData.map((d) => d.SchemeType))].sort();
 
 				let mfgSaleQty = 0;
 				let mfgFreeQty = 0;
-				let mfgClaimQty = 0;
+				let mfgSchemeQty = 0;
 				let mfgClaimVal = 0;
 
 				return (
@@ -166,33 +166,33 @@ export async function ClaimReportView({
 								</p>
 							</div>
 							<div className="text-right text-[10px] text-gray-600 bg-gray-50 p-3 rounded-lg border border-gray-100">
-								<div className="flex gap-4 font-bold text-[#0B2545]"><span className="w-20">Qty Claim :</span> <span className="font-medium text-gray-600">Claim Value = PTR x ClaimQty</span></div>
-								<div className="flex gap-4 font-bold text-[#0B2545] mt-1"><span className="w-20">Rate Claim :</span> <span className="font-medium text-gray-600">Claim Value = (NetRate - InvRate) x SaleQty (Scheme)</span></div>
-								<div className="flex gap-4 font-bold text-[#0B2545]"><span className="w-20"></span> <span className="font-medium text-gray-600">Claim Value = (PTR - InvRate) x SaleQty (No Scheme)</span></div>
+								<div className="flex gap-4 font-bold text-[#0B2545]"><span className="w-20">Qty Scheme :</span> <span className="font-medium text-gray-600">Scheme Value = PTR x SchemeQty</span></div>
+								<div className="flex gap-4 font-bold text-[#0B2545] mt-1"><span className="w-20">Rate Scheme :</span> <span className="font-medium text-gray-600">Scheme Value = (NetRate - InvRate) x SaleQty (Scheme)</span></div>
+								<div className="flex gap-4 font-bold text-[#0B2545]"><span className="w-20"></span> <span className="font-medium text-gray-600">Scheme Value = (PTR - InvRate) x SaleQty (No Scheme)</span></div>
 							</div>
 						</div>
 
 						<h3 className="font-extrabold text-lg text-[#0071BC] mb-4 uppercase">{mfg}</h3>
 
 						{claimTypes.map((cType) => {
-							const cTypeData = mfgData.filter((d) => d.ClaimType === cType);
+							const cTypeData = mfgData.filter((d) => d.SchemeType === cType);
 							const parties = [...new Set(cTypeData.map((d) => d.Party))].sort();
 
 							return (
 								<div key={cType} className="mb-6">
-									<h4 className="font-bold text-gray-700 text-sm mb-2 underline underline-offset-2">Claim Type : {cType}</h4>
+									<h4 className="font-bold text-gray-700 text-sm mb-2 underline underline-offset-2">Scheme Type : {cType}</h4>
 
 									{parties.map((party) => {
 										const partyData = cTypeData.filter((d) => d.Party === party);
 										
 										const pSaleQty = partyData.reduce((acc, curr) => acc + curr["Sale Qty"], 0);
 										const pFreeQty = partyData.reduce((acc, curr) => acc + curr["Free Qty"], 0);
-										const pClaimQty = partyData.reduce((acc, curr) => acc + curr["Claim Qty"], 0);
-										const pClaimVal = partyData.reduce((acc, curr) => acc + curr["Claim Value"], 0);
+										const pSchemeQty = partyData.reduce((acc, curr) => acc + curr["Scheme Qty"], 0);
+										const pClaimVal = partyData.reduce((acc, curr) => acc + curr["Scheme Value"], 0);
 
 										mfgSaleQty += pSaleQty;
 										mfgFreeQty += pFreeQty;
-										mfgClaimQty += pClaimQty;
+										mfgSchemeQty += pSchemeQty;
 										mfgClaimVal += pClaimVal;
 
 										return (
@@ -216,9 +216,9 @@ export async function ClaimReportView({
 																<Th className="text-right">Sale Qty</Th>
 																<Th className="text-right">Free Qty</Th>
 																<Th className="text-right">Actual FQty</Th>
-																<Th className="text-right">Claim Qty</Th>
+																<Th className="text-right">Scheme Qty</Th>
 																<Th className="text-right">Rate Diff.</Th>
-																<Th className="text-right">Claim Value</Th>
+																<Th className="text-right">Scheme Value</Th>
 																<Th>Item Scheme</Th>
 																<Th>Applied Scheme</Th>
 															</tr>
@@ -240,9 +240,9 @@ export async function ClaimReportView({
 																	<Td className="text-right">{row["Sale Qty"]}</Td>
 																	<Td className="text-right">{row["Free Qty"]}</Td>
 																	<Td className="text-right">-</Td>
-																	<Td className="text-right">{row["Claim Qty"]}</Td>
+																	<Td className="text-right">{row["Scheme Qty"]}</Td>
 																	<Td className="text-right">{row["Rate Diff."].toFixed(2)}</Td>
-																	<Td className="text-right">{row["Claim Value"].toFixed(2)}</Td>
+																	<Td className="text-right">{row["Scheme Value"].toFixed(2)}</Td>
 																	<Td>{row["Item Scheme"]}</Td>
 																	<Td>{row["Applied Scheme"]}</Td>
 																</tr>
@@ -253,7 +253,7 @@ export async function ClaimReportView({
 																<td className="px-2 py-2 text-right font-bold text-xs text-[#0B2545] border-x border-gray-200">{pSaleQty}</td>
 																<td className="px-2 py-2 text-right font-bold text-xs text-[#0B2545] border-x border-gray-200">{pFreeQty}</td>
 																<td className="px-2 py-2 text-right font-bold text-xs text-[#0B2545] border-x border-gray-200">-</td>
-																<td className="px-2 py-2 text-right font-bold text-xs text-[#0B2545] border-x border-gray-200">{pClaimQty}</td>
+																<td className="px-2 py-2 text-right font-bold text-xs text-[#0B2545] border-x border-gray-200">{pSchemeQty}</td>
 																<td className="px-2 py-2 border-x border-gray-200"></td>
 																<td className="px-2 py-2 text-right font-bold text-xs text-[#0B2545] border-x border-gray-200">{pClaimVal.toFixed(2)}</td>
 																<td colSpan={2} className="border-l border-gray-200"></td>
@@ -280,8 +280,8 @@ export async function ClaimReportView({
 											<Th className="text-right">Sale Qty</Th>
 											<Th className="text-right">Free Qty</Th>
 											<Th className="text-right">Actual FQty</Th>
-											<Th className="text-right">Claim Qty</Th>
-											<Th className="text-right">Claim Value</Th>
+											<Th className="text-right">Scheme Qty</Th>
+											<Th className="text-right">Scheme Value</Th>
 										</tr>
 									</thead>
 									<tbody>
@@ -296,15 +296,15 @@ export async function ClaimReportView({
 														Packing: item.Packing,
 														SaleQty: 0,
 														FreeQty: 0,
-														ClaimQty: 0,
+														SchemeQty: 0,
 														ClaimValue: 0
 													});
 												}
 												const agg = summaryMap.get(key);
 												agg.SaleQty += item["Sale Qty"];
 												agg.FreeQty += item["Free Qty"];
-												agg.ClaimQty += item["Claim Qty"];
-												agg.ClaimValue += item["Claim Value"];
+												agg.SchemeQty += item["Scheme Qty"];
+												agg.ClaimValue += item["Scheme Value"];
 											});
 
 											const summaries = Array.from(summaryMap.values());
@@ -317,7 +317,7 @@ export async function ClaimReportView({
 															<Td className="text-right">{s.SaleQty}</Td>
 															<Td className="text-right">{s.FreeQty}</Td>
 															<Td className="text-right">-</Td>
-															<Td className="text-right">{s.ClaimQty}</Td>
+															<Td className="text-right">{s.SchemeQty}</Td>
 															<Td className="text-right">{s.ClaimValue.toFixed(2)}</Td>
 														</tr>
 													))}
@@ -326,7 +326,7 @@ export async function ClaimReportView({
 														<td className="px-2 py-2 font-bold text-xs text-right text-[#0B2545] border-x border-gray-200">{mfgSaleQty}</td>
 														<td className="px-2 py-2 font-bold text-xs text-right text-[#0B2545] border-x border-gray-200">{mfgFreeQty}</td>
 														<td className="px-2 py-2 font-bold text-xs text-right text-[#0B2545] border-x border-gray-200">-</td>
-														<td className="px-2 py-2 font-bold text-xs text-right text-[#0B2545] border-x border-gray-200">{mfgClaimQty}</td>
+														<td className="px-2 py-2 font-bold text-xs text-right text-[#0B2545] border-x border-gray-200">{mfgSchemeQty}</td>
 														<td className="px-2 py-2 font-bold text-xs text-right text-[#0B2545] border-x border-gray-200">{mfgClaimVal.toFixed(2)}</td>
 													</tr>
 												</>
@@ -352,11 +352,11 @@ export async function ClaimReportView({
 									<div className="text-[#0B2545] text-sm">{mfgFreeQty}</div>
 								</div>
 								<div className="text-center">
-									<div className="text-[10px] text-gray-500 mb-1">Claim Qty</div>
-									<div className="text-[#0071BC] text-sm">{mfgClaimQty}</div>
+									<div className="text-[10px] text-gray-500 mb-1">Scheme Qty</div>
+									<div className="text-[#0071BC] text-sm">{mfgSchemeQty}</div>
 								</div>
 								<div className="text-center">
-									<div className="text-[10px] text-gray-500 mb-1">Claim Value</div>
+									<div className="text-[10px] text-gray-500 mb-1">Scheme Value</div>
 									<div className="text-green-600 text-sm">₹{mfgClaimVal.toFixed(2)}</div>
 								</div>
 							</div>

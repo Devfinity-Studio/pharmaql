@@ -36,15 +36,15 @@ export function generatePdfReport(
 	// Formulas on the right
 	doc.setFontSize(8);
 	doc.setFont("helvetica", "bold");
-	doc.text("Qty Claim :", 200, 15);
+	doc.text("Qty Scheme :", 200, 15);
 	doc.setFont("helvetica", "normal");
-	doc.text("Claim Value = PTR x ClaimQty", 215, 15);
+	doc.text("Scheme Value = PTR x SchemeQty", 215, 15);
 
 	doc.setFont("helvetica", "bold");
-	doc.text("Rate Claim :", 200, 19);
+	doc.text("Rate Scheme :", 200, 19);
 	doc.setFont("helvetica", "normal");
-	doc.text("Claim Value = (NetRate - InvRate) x SaleQty   (Scheme)", 217, 19);
-	doc.text("Claim Value = (PTR - InvRate) x SaleQty   (No Scheme)", 217, 23);
+	doc.text("Scheme Value = (NetRate - InvRate) x SaleQty   (Scheme)", 217, 19);
+	doc.text("Scheme Value = (PTR - InvRate) x SaleQty   (No Scheme)", 217, 23);
 
 	currentY += 10;
 	// Year and Title
@@ -77,15 +77,15 @@ export function generatePdfReport(
 		{ header: "Sale\nQty", dataKey: "Sale Qty" },
 		{ header: "Free\nQty", dataKey: "Free Qty" },
 		{ header: "Actual\nFQty", dataKey: "Actual FQty" },
-		{ header: "Claim\nQty", dataKey: "Claim Qty" },
+		{ header: "Claim\nQty", dataKey: "Scheme Qty" },
 		{ header: "Rate\nDiff.", dataKey: "Rate Diff." },
-		{ header: "Claim\nValue", dataKey: "Claim Value" },
+		{ header: "Claim\nValue", dataKey: "Scheme Value" },
 		{ header: "Item\nScheme", dataKey: "Item Scheme" },
 		{ header: "Applied\nScheme", dataKey: "Applied Scheme" },
 	];
 
 	// Grouping Logic
-	// We assume data has Manufacturer, ClaimType, and Party properties
+	// We assume data has Manufacturer, SchemeType, and Party properties
 	const manufacturers = [...new Set(data.map((item) => item.Manufacturer || "UNKNOWN - MANUFACTURER"))];
 
 	for (const mfg of manufacturers) {
@@ -112,16 +112,16 @@ export function generatePdfReport(
 		doc.text(mfg.toUpperCase(), 14, currentY);
 		currentY += 4;
 
-		const claimTypes = [...new Set(mfgData.map((item) => item.ClaimType || "Qty"))];
+		const claimTypes = [...new Set(mfgData.map((item) => item.SchemeType || "Qty"))];
 
 		for (const cType of claimTypes) {
-			const cTypeData = mfgData.filter((item) => (item.ClaimType || "Qty") === cType);
+			const cTypeData = mfgData.filter((item) => (item.SchemeType || "Qty") === cType);
 
-			// Claim Type Header
+			// Scheme Type Header
 			doc.setFontSize(9);
 			doc.setFont("helvetica", "bold");
 			doc.setTextColor(0, 0, 0);
-			doc.text(`Claim Type : ${cType}`, 14, currentY);
+			doc.text(`Scheme Type : ${cType}`, 14, currentY);
 			currentY += 4;
 
 			const parties = [...new Set(cTypeData.map((item) => item.Party || "UNKNOWN PARTY"))];
@@ -165,15 +165,15 @@ export function generatePdfReport(
 						"Sale Qty": { halign: "right" },
 						"Free Qty": { halign: "right" },
 						"Actual FQty": { halign: "right" },
-						"Claim Qty": { halign: "right" },
+						"Scheme Qty": { halign: "right" },
 						"Rate Diff.": { halign: "right" },
-						"Claim Value": { halign: "right" },
+						"Scheme Value": { halign: "right" },
 					},
 					didParseCell: function (data) {
 						// Optionally format numbers to 2 decimal places here if they are numbers
 						if (data.section === "body" && typeof data.cell.raw === "number") {
 							// Avoid formatting integer quantities with decimals if we can detect them
-							if (["Sale Qty", "Free Qty", "Actual FQty", "Claim Qty"].includes(data.column.dataKey as string)) {
+							if (["Sale Qty", "Free Qty", "Actual FQty", "Scheme Qty"].includes(data.column.dataKey as string)) {
 								data.cell.text = [data.cell.raw.toString()];
 							} else {
 								data.cell.text = [data.cell.raw.toFixed(2)];
@@ -187,15 +187,15 @@ export function generatePdfReport(
 				// Party Subtotal row (mocking visually)
 				const totalSaleQty = partyData.reduce((acc, curr) => acc + (curr["Sale Qty"] || 0), 0);
 				const totalFreeQty = partyData.reduce((acc, curr) => acc + (curr["Free Qty"] || 0), 0);
-				const totalClaimQty = partyData.reduce((acc, curr) => acc + (curr["Claim Qty"] || 0), 0);
-				const totalClaimVal = partyData.reduce((acc, curr) => acc + (curr["Claim Value"] || 0), 0);
+				const totalSchemeQty = partyData.reduce((acc, curr) => acc + (curr["Scheme Qty"] || 0), 0);
+				const totalClaimVal = partyData.reduce((acc, curr) => acc + (curr["Scheme Value"] || 0), 0);
 
 				autoTable(doc, {
 					startY: currentY - 2,
 					theme: "plain",
 					body: [[
 						"", "", "", "", "", "", "", "", "", "", "",
-						totalSaleQty, totalFreeQty, "-", totalClaimQty, "", totalClaimVal.toFixed(2), "", ""
+						totalSaleQty, totalFreeQty, "-", totalSchemeQty, "", totalClaimVal.toFixed(2), "", ""
 					]],
 					styles: { fontSize: 8, fontStyle: "bold", cellPadding: 1, halign: "right" },
 					columnStyles: {
@@ -225,8 +225,8 @@ export function generatePdfReport(
 			{ header: "Sale\nQty", dataKey: "Sale Qty" },
 			{ header: "Free\nQty", dataKey: "Free Qty" },
 			{ header: "Actual\nFQty", dataKey: "Actual FQty" },
-			{ header: "Claim\nQty", dataKey: "Claim Qty" },
-			{ header: "Claim\nValue", dataKey: "Claim Value" },
+			{ header: "Claim\nQty", dataKey: "Scheme Qty" },
+			{ header: "Claim\nValue", dataKey: "Scheme Value" },
 		];
 
 		// Aggregate items for summary
@@ -240,15 +240,15 @@ export function generatePdfReport(
 					"Sale Qty": 0,
 					"Free Qty": 0,
 					"Actual FQty": "-",
-					"Claim Qty": 0,
-					"Claim Value": 0
+					"Scheme Qty": 0,
+					"Scheme Value": 0
 				});
 			}
 			const agg = summaryMap.get(key);
 			agg["Sale Qty"] += (item["Sale Qty"] || 0);
 			agg["Free Qty"] += (item["Free Qty"] || 0);
-			agg["Claim Qty"] += (item["Claim Qty"] || 0);
-			agg["Claim Value"] += (item["Claim Value"] || 0);
+			agg["Scheme Qty"] += (item["Scheme Qty"] || 0);
+			agg["Scheme Value"] += (item["Scheme Value"] || 0);
 		});
 
 		const summaryData = Array.from(summaryMap.values());
@@ -256,8 +256,8 @@ export function generatePdfReport(
 		// Add total row to summary
 		const mfgSaleQty = summaryData.reduce((acc, curr) => acc + curr["Sale Qty"], 0);
 		const mfgFreeQty = summaryData.reduce((acc, curr) => acc + curr["Free Qty"], 0);
-		const mfgClaimQty = summaryData.reduce((acc, curr) => acc + curr["Claim Qty"], 0);
-		const mfgClaimVal = summaryData.reduce((acc, curr) => acc + curr["Claim Value"], 0);
+		const mfgSchemeQty = summaryData.reduce((acc, curr) => acc + curr["Scheme Qty"], 0);
+		const mfgClaimVal = summaryData.reduce((acc, curr) => acc + curr["Scheme Value"], 0);
 
 		summaryData.push({
 			ItemName: "Total :",
@@ -265,8 +265,8 @@ export function generatePdfReport(
 			"Sale Qty": mfgSaleQty,
 			"Free Qty": mfgFreeQty,
 			"Actual FQty": "-",
-			"Claim Qty": mfgClaimQty,
-			"Claim Value": mfgClaimVal
+			"Scheme Qty": mfgSchemeQty,
+			"Scheme Value": mfgClaimVal
 		});
 
 		autoTable(doc, {
@@ -283,15 +283,15 @@ export function generatePdfReport(
 				"Sale Qty": { halign: "right" },
 				"Free Qty": { halign: "right" },
 				"Actual FQty": { halign: "right" },
-				"Claim Qty": { halign: "right" },
-				"Claim Value": { halign: "right" },
+				"Scheme Qty": { halign: "right" },
+				"Scheme Value": { halign: "right" },
 			},
 			didParseCell: (data) => {
 				if (data.row.index === summaryData.length - 1) {
 					data.cell.styles.fontStyle = "bold";
 				}
 				if (data.section === "body" && typeof data.cell.raw === "number") {
-					if (data.column.dataKey === "Claim Value") {
+					if (data.column.dataKey === "Scheme Value") {
 						data.cell.text = [data.cell.raw.toFixed(2)];
 					} else {
 						data.cell.text = [data.cell.raw.toString()];
@@ -326,7 +326,7 @@ export function generatePdfReport(
 			theme: "plain",
 			body: [[
 				"", "", "", "", "", "", "", "", "", "", "",
-				mfgSaleQty, mfgFreeQty, "-", mfgClaimQty, "", mfgClaimVal.toFixed(2), "", ""
+				mfgSaleQty, mfgFreeQty, "-", mfgSchemeQty, "", mfgClaimVal.toFixed(2), "", ""
 			]],
 			styles: { fontSize: 9, fontStyle: "bold", cellPadding: 1, halign: "right" },
 		});
