@@ -4,6 +4,7 @@ import { DateRangePicker } from "@/components/date-range-picker";
 import { FilterSelect } from "@/components/filter-select";
 import { OutstandingDownloadButtons } from "@/components/outstanding-download-buttons";
 import { ReportDownloadButtons } from "@/components/report-download-buttons";
+import { ClaimReportView } from "@/components/claim-report-view";
 import { db } from "@/server/db";
 import {
 	invoices,
@@ -505,6 +506,21 @@ export async function MrDashboardContent({
 						Party Wise
 					</Link>
 				)}
+				{canViewSales && (
+					<Link
+						className={`border-b-4 px-6 py-4 font-bold text-base transition-colors ${
+							searchParams?.tab === "claims"
+								? "border-[#0071BC] text-[#0071BC]"
+								: "border-transparent text-gray-500 hover:text-[#0B2545]"
+						}`}
+						href={`${baseUrl}?${new URLSearchParams({
+							...searchParams,
+							tab: "claims",
+						}).toString()}`}
+					>
+						Claim Reports
+					</Link>
+				)}
 			</div>
 
 			{/* OVERVIEW TAB */}
@@ -891,6 +907,11 @@ export async function MrDashboardContent({
 						</div>
 					);
 				})()}
+
+			{/* CLAIM REPORTS TAB */}
+			{canViewSales && searchParams?.tab === "claims" && (
+				<ClaimReportView mrId={mrId} searchParams={searchParams} />
+			)}
 		</div>
 	);
 }

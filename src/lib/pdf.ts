@@ -9,41 +9,344 @@ export function generatePdfReport(
 ) {
 	const doc = new jsPDF("landscape");
 
-	// Add Title
-	doc.setFontSize(18);
-	doc.text(title, 14, 22);
-	doc.setFontSize(11);
-	doc.setTextColor(100);
-
-	const formattedDate = new Date().toLocaleString("en-IN", {
-		dateStyle: "medium",
-		timeStyle: "short",
-	});
-
-	if (mrName) {
-		doc.text(`MR: ${mrName}  |  Generated on: ${formattedDate}`, 14, 30);
-	} else {
-		doc.text(`Generated on: ${formattedDate}`, 14, 30);
-	}
-
 	if (data.length === 0) {
-		doc.text("No data available for the selected filters.", 14, 40);
+		doc.text("No data available for the selected filters.", 14, 20);
 		doc.save(filename);
 		return;
 	}
 
-	// Extract columns dynamically from the first object
-	const columns = Object.keys(data[0]);
-	const rows = data.map((row) => columns.map((col) => row[col]));
+	let currentY = 15;
 
-	autoTable(doc, {
-		startY: 35,
-		head: [columns],
-		body: rows,
-		theme: "striped",
-		headStyles: { fillColor: [4, 120, 87] }, // Emerald 700
-		styles: { fontSize: 10, cellPadding: 4 },
-	});
+	// Draw custom header
+	doc.setFontSize(16);
+	doc.setFont("helvetica", "bold");
+	doc.setTextColor(30, 58, 138); // Blue
+	doc.text("ASMEE PHARMA PRIVATE LIMITED", 14, currentY);
+
+	currentY += 5;
+	doc.setFontSize(9);
+	doc.setFont("helvetica", "normal");
+	doc.setTextColor(50, 50, 50);
+	doc.text("BASEMENE-GF, 11/2 ASHOK HOUSE, B/S SANSTHA VASAHAT GATE,, PRATAP ROAD,", 14, currentY);
+	currentY += 4;
+	doc.text("RAOPURA, VADODARA - 390001, GUJARAT - 24", 14, currentY);
+	currentY += 4;
+	doc.text("Contact: 9409789800, 9409789700 Mobile: 9409789700 Email: asmeepharma2022@gmail.com", 14, currentY);
+
+	// Formulas on the right
+	doc.setFontSize(8);
+	doc.setFont("helvetica", "bold");
+	doc.text("Qty Claim :", 200, 15);
+	doc.setFont("helvetica", "normal");
+	doc.text("Claim Value = PTR x ClaimQty", 215, 15);
+
+	doc.setFont("helvetica", "bold");
+	doc.text("Rate Claim :", 200, 19);
+	doc.setFont("helvetica", "normal");
+	doc.text("Claim Value = (NetRate - InvRate) x SaleQty   (Scheme)", 217, 19);
+	doc.text("Claim Value = (PTR - InvRate) x SaleQty   (No Scheme)", 217, 23);
+
+	currentY += 10;
+	// Year and Title
+	const currentYear = new Date().getFullYear();
+	doc.setFontSize(9);
+	doc.setFont("helvetica", "bold");
+	doc.text(`Year : ${currentYear}-${(currentYear + 1).toString().slice(2)}`, 14, currentY);
+	currentY += 5;
+	
+	doc.text(title, 14, currentY);
+	
+	doc.setFont("helvetica", "normal");
+	doc.text("Page 1 of 1", 270, currentY); // A basic page number placeholder
+
+	currentY += 4;
+
+	// Define columns exactly as requested
+	const columns = [
+		{ header: "Code", dataKey: "Code" },
+		{ header: "Product Name", dataKey: "Product Name" },
+		{ header: "Packing", dataKey: "Packing" },
+		{ header: "Batch No.", dataKey: "Batch No." },
+		{ header: "Inv. No.", dataKey: "Inv. No." },
+		{ header: "Inv. Dt.", dataKey: "Inv. Dt." },
+		{ header: "MRP", dataKey: "MRP" },
+		{ header: "PRate", dataKey: "PRate" },
+		{ header: "PTR", dataKey: "PTR" },
+		{ header: "Net\nRate", dataKey: "Net Rate" },
+		{ header: "Inv.\nRate", dataKey: "Inv. Rate" },
+		{ header: "Sale\nQty", dataKey: "Sale Qty" },
+		{ header: "Free\nQty", dataKey: "Free Qty" },
+		{ header: "Actual\nFQty", dataKey: "Actual FQty" },
+		{ header: "Claim\nQty", dataKey: "Claim Qty" },
+		{ header: "Rate\nDiff.", dataKey: "Rate Diff." },
+		{ header: "Claim\nValue", dataKey: "Claim Value" },
+		{ header: "Item\nScheme", dataKey: "Item Scheme" },
+		{ header: "Applied\nScheme", dataKey: "Applied Scheme" },
+	];
+
+	// Grouping Logic
+	// We assume data has Manufacturer, ClaimType, and Party properties
+	const manufacturers = [...new Set(data.map((item) => item.Manufacturer || "UNKNOWN - MANUFACTURER"))];
+
+	for (const mfg of manufacturers) {
+		const mfgData = data.filter((item) => (item.Manufacturer || "UNKNOWN - MANUFACTURER") === mfg);
+		
+		// Manufacturer Header
+		autoTable(doc, {
+			startY: currentY,
+			theme: "plain",
+			head: [[""]], // Dummy header to trick autoTable into a full-width row
+			body: [[]],
+			didDrawPage: (data) => {
+				// We don't want standard drawing for this block, just space allocation
+			},
+			willDrawCell: (data) => {
+				if (data.section === "head") return false;
+			},
+		});
+
+		currentY = (doc as any).lastAutoTable.finalY + 4;
+		doc.setFontSize(10);
+		doc.setFont("helvetica", "bold");
+		doc.setTextColor(30, 58, 138); // Blue
+		doc.text(mfg.toUpperCase(), 14, currentY);
+		currentY += 4;
+
+		const claimTypes = [...new Set(mfgData.map((item) => item.ClaimType || "Qty"))];
+
+		for (const cType of claimTypes) {
+			const cTypeData = mfgData.filter((item) => (item.ClaimType || "Qty") === cType);
+
+			// Claim Type Header
+			doc.setFontSize(9);
+			doc.setFont("helvetica", "bold");
+			doc.setTextColor(0, 0, 0);
+			doc.text(`Claim Type : ${cType}`, 14, currentY);
+			currentY += 4;
+
+			const parties = [...new Set(cTypeData.map((item) => item.Party || "UNKNOWN PARTY"))];
+
+			for (const party of parties) {
+				const partyData = cTypeData.filter((item) => (item.Party || "UNKNOWN PARTY") === party);
+
+				// Party Name
+				doc.setFontSize(9);
+				doc.setFont("helvetica", "bolditalic");
+				doc.setTextColor(0, 0, 0);
+				doc.text(party.toUpperCase(), 14, currentY + 2);
+				
+				// Draw the actual table for this party
+				autoTable(doc, {
+					startY: currentY + 4,
+					columns: columns,
+					body: partyData,
+					theme: "plain", // We want a very plain theme like the screenshot
+					styles: {
+						fontSize: 8,
+						cellPadding: 1,
+						textColor: [0, 0, 0],
+					},
+					headStyles: {
+						fontStyle: "bold",
+						textColor: [0, 0, 0],
+						lineWidth: { top: 0.5, bottom: 0.5 },
+						lineColor: [200, 200, 200],
+					},
+					bodyStyles: {
+						lineWidth: 0,
+					},
+					columnStyles: {
+						// Align numeric columns to right
+						"MRP": { halign: "right" },
+						"PRate": { halign: "right" },
+						"PTR": { halign: "right" },
+						"Net Rate": { halign: "right" },
+						"Inv. Rate": { halign: "right" },
+						"Sale Qty": { halign: "right" },
+						"Free Qty": { halign: "right" },
+						"Actual FQty": { halign: "right" },
+						"Claim Qty": { halign: "right" },
+						"Rate Diff.": { halign: "right" },
+						"Claim Value": { halign: "right" },
+					},
+					didParseCell: function (data) {
+						// Optionally format numbers to 2 decimal places here if they are numbers
+						if (data.section === "body" && typeof data.cell.raw === "number") {
+							// Avoid formatting integer quantities with decimals if we can detect them
+							if (["Sale Qty", "Free Qty", "Actual FQty", "Claim Qty"].includes(data.column.dataKey as string)) {
+								data.cell.text = [data.cell.raw.toString()];
+							} else {
+								data.cell.text = [data.cell.raw.toFixed(2)];
+							}
+						}
+					}
+				});
+
+				currentY = (doc as any).lastAutoTable.finalY + 4;
+				
+				// Party Subtotal row (mocking visually)
+				const totalSaleQty = partyData.reduce((acc, curr) => acc + (curr["Sale Qty"] || 0), 0);
+				const totalFreeQty = partyData.reduce((acc, curr) => acc + (curr["Free Qty"] || 0), 0);
+				const totalClaimQty = partyData.reduce((acc, curr) => acc + (curr["Claim Qty"] || 0), 0);
+				const totalClaimVal = partyData.reduce((acc, curr) => acc + (curr["Claim Value"] || 0), 0);
+
+				autoTable(doc, {
+					startY: currentY - 2,
+					theme: "plain",
+					body: [[
+						"", "", "", "", "", "", "", "", "", "", "",
+						totalSaleQty, totalFreeQty, "-", totalClaimQty, "", totalClaimVal.toFixed(2), "", ""
+					]],
+					styles: { fontSize: 8, fontStyle: "bold", cellPadding: 1, halign: "right" },
+					columnStyles: {
+						0: { cellWidth: undefined },
+					},
+					willDrawCell: (data) => {
+						if (data.section === "body") {
+							// Draw top line for totals
+							doc.setDrawColor(200, 200, 200);
+							doc.setLineWidth(0.5);
+							doc.line(data.cell.x, data.cell.y, data.cell.x + data.cell.width, data.cell.y);
+						}
+					}
+				});
+				currentY = (doc as any).lastAutoTable.finalY + 6;
+			}
+		}
+
+		// Summary table for Manufacturer
+		doc.setFontSize(8);
+		doc.setFont("helvetica", "bold");
+		doc.text("Summary :", 30, currentY);
+		
+		const summaryColumns = [
+			{ header: "ItemName", dataKey: "ItemName" },
+			{ header: "Packing", dataKey: "Packing" },
+			{ header: "Sale\nQty", dataKey: "Sale Qty" },
+			{ header: "Free\nQty", dataKey: "Free Qty" },
+			{ header: "Actual\nFQty", dataKey: "Actual FQty" },
+			{ header: "Claim\nQty", dataKey: "Claim Qty" },
+			{ header: "Claim\nValue", dataKey: "Claim Value" },
+		];
+
+		// Aggregate items for summary
+		const summaryMap = new Map();
+		mfgData.forEach((item) => {
+			const key = item["Product Name"];
+			if (!summaryMap.has(key)) {
+				summaryMap.set(key, {
+					ItemName: key,
+					Packing: item["Packing"],
+					"Sale Qty": 0,
+					"Free Qty": 0,
+					"Actual FQty": "-",
+					"Claim Qty": 0,
+					"Claim Value": 0
+				});
+			}
+			const agg = summaryMap.get(key);
+			agg["Sale Qty"] += (item["Sale Qty"] || 0);
+			agg["Free Qty"] += (item["Free Qty"] || 0);
+			agg["Claim Qty"] += (item["Claim Qty"] || 0);
+			agg["Claim Value"] += (item["Claim Value"] || 0);
+		});
+
+		const summaryData = Array.from(summaryMap.values());
+		
+		// Add total row to summary
+		const mfgSaleQty = summaryData.reduce((acc, curr) => acc + curr["Sale Qty"], 0);
+		const mfgFreeQty = summaryData.reduce((acc, curr) => acc + curr["Free Qty"], 0);
+		const mfgClaimQty = summaryData.reduce((acc, curr) => acc + curr["Claim Qty"], 0);
+		const mfgClaimVal = summaryData.reduce((acc, curr) => acc + curr["Claim Value"], 0);
+
+		summaryData.push({
+			ItemName: "Total :",
+			Packing: "",
+			"Sale Qty": mfgSaleQty,
+			"Free Qty": mfgFreeQty,
+			"Actual FQty": "-",
+			"Claim Qty": mfgClaimQty,
+			"Claim Value": mfgClaimVal
+		});
+
+		autoTable(doc, {
+			startY: currentY + 2,
+			margin: { left: 30 }, // Indent the summary
+			tableWidth: 150,
+			columns: summaryColumns,
+			body: summaryData,
+			theme: "plain",
+			styles: { fontSize: 8, cellPadding: 1 },
+			headStyles: { fontStyle: "bold", lineWidth: { top: 0.5, bottom: 0.5 }, lineColor: [200, 200, 200] },
+			bodyStyles: { lineWidth: 0 },
+			columnStyles: {
+				"Sale Qty": { halign: "right" },
+				"Free Qty": { halign: "right" },
+				"Actual FQty": { halign: "right" },
+				"Claim Qty": { halign: "right" },
+				"Claim Value": { halign: "right" },
+			},
+			didParseCell: (data) => {
+				if (data.row.index === summaryData.length - 1) {
+					data.cell.styles.fontStyle = "bold";
+				}
+				if (data.section === "body" && typeof data.cell.raw === "number") {
+					if (data.column.dataKey === "Claim Value") {
+						data.cell.text = [data.cell.raw.toFixed(2)];
+					} else {
+						data.cell.text = [data.cell.raw.toString()];
+					}
+				}
+			},
+			willDrawCell: (data) => {
+				// Draw line above Total row
+				if (data.section === "body" && data.row.index === summaryData.length - 1) {
+					doc.setDrawColor(200, 200, 200);
+					doc.setLineWidth(0.5);
+					doc.line(data.cell.x, data.cell.y, data.cell.x + data.cell.width, data.cell.y);
+				}
+			}
+		});
+
+		currentY = (doc as any).lastAutoTable.finalY + 8;
+
+		// Manufacturer Total Line
+		doc.setFontSize(9);
+		doc.setFont("helvetica", "bold");
+		doc.setDrawColor(0, 0, 0);
+		doc.setLineWidth(0.5);
+		doc.line(14, currentY, 280, currentY);
+		
+		doc.text(`Total of ${mfg.toUpperCase()} :`, 14, currentY + 4);
+		
+		// Align values manually or use a trick with autoTable
+		// We can just use an empty autoTable to align it perfectly with the columns
+		autoTable(doc, {
+			startY: currentY + 0.5,
+			theme: "plain",
+			body: [[
+				"", "", "", "", "", "", "", "", "", "", "",
+				mfgSaleQty, mfgFreeQty, "-", mfgClaimQty, "", mfgClaimVal.toFixed(2), "", ""
+			]],
+			styles: { fontSize: 9, fontStyle: "bold", cellPadding: 1, halign: "right" },
+		});
+
+		currentY = (doc as any).lastAutoTable.finalY + 2;
+		doc.line(14, currentY, 280, currentY);
+		currentY += 6;
+	}
+
+	// Footer with Admin and Date
+	const pageCount = (doc as any).internal.getNumberOfPages();
+	for (let i = 1; i <= pageCount; i++) {
+		doc.setPage(i);
+		doc.setFontSize(8);
+		doc.setFont("helvetica", "italic");
+		const footerDate = new Date().toLocaleString("en-IN", {
+			day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit", second: "2-digit"
+		});
+		doc.text(`${mrName || "ADMIN"} (${footerDate})`, 14, doc.internal.pageSize.height - 10);
+	}
 
 	doc.save(filename);
 }

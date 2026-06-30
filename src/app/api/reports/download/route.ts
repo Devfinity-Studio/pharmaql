@@ -79,8 +79,8 @@ export async function GET(request: Request) {
 		return new NextResponse("No products found", { status: 404 });
 	}
 
-	// Fetch Stock
-	const stockMap = new Map<string, number>();
+	// Fetch Stock details for MRP and PTR
+	const stockMap = new Map<string, { mrp: number; ptr: number }>();
 	if (canViewStock) {
 		const inventory = await db
 			.select()
@@ -91,11 +91,15 @@ export async function GET(request: Request) {
 					eq(mrInventory.mrId, mrId),
 				),
 			);
-		inventory.forEach((inv) => stockMap.set(inv.productId, inv.stock));
+		inventory.forEach((inv) => stockMap.set(inv.productId, {
+			mrp: Number(inv.mrp) || 0,
+			ptr: Number(inv.ptr) || 0
+		}));
 	}
 
-	// Fetch Sales
-	const productSalesMap = new Map<string, number>();
+	// Fetch Sales with dealer (Party)
+	type SaleDetail = { productId: string; quantity: number; freeQty: number | null; dealer: string | null };
+	const salesDetails: SaleDetail[] = [];
 	if (canViewSales) {
 		let salesCondition = and(
 			inArray(sales.productId, productIds),
@@ -119,16 +123,13 @@ export async function GET(request: Request) {
 			.select({
 				productId: sales.productId,
 				quantity: sales.quantity,
+				freeQty: sales.freeQty,
+				dealer: sales.dealer,
 			})
 			.from(sales)
 			.where(salesCondition);
 
-		accessibleSales.forEach((sale) => {
-			productSalesMap.set(
-				sale.productId,
-				(productSalesMap.get(sale.productId) || 0) + sale.quantity,
-			);
-		});
+		salesDetails.push(...accessibleSales);
 	}
 
 	// Build Output Data
@@ -138,29 +139,90 @@ export async function GET(request: Request) {
 	});
 	const mrName = mrInfo.name || "Unknown MR";
 
-	const reportData = accessibleProducts.map((p) => {
-		const row: any = {
-			"MR Name": mrName,
-			"Product Name": p.name,
-		};
-		if (canViewFreeScheme) {
-			row["Free Scheme"] = p.freeScheme || "N/A";
+	// Generate rows. We'll create a row for each sale detail.
+	// If a product has no sales, we still might want it in the CSV if they want a stock report, 
+	// but for claims we usually only show sold items. Let's include all products, grouping sales by dealer.
+	
+	const reportData: any[] = [];
+	
+	accessibleProducts.forEach((p) => {
+		const pStock = stockMap.get(p.id) || { mrp: 0, ptr: 0 };
+		const pSales = salesDetails.filter(s => s.productId === p.id);
+		
+		if (pSales.length === 0) {
+			// No sales, add a generic row for stock
+			reportData.push({
+				"MR Name": mrName,
+				"Manufacturer": p.manufacturer,
+				"ClaimType": "Qty",
+				"Party": "NO SALES",
+				"Code": p.code || "",
+				"Product Name": p.name,
+				"Packing": "",
+				"Batch No.": "",
+				"Inv. No.": "",
+				"Inv. Dt.": "",
+				"MRP": pStock.mrp,
+				"PRate": pStock.ptr,
+				"PTR": pStock.ptr,
+				"Net Rate": 0,
+				"Inv. Rate": 0,
+				"Sale Qty": 0,
+				"Free Qty": 0,
+				"Actual FQty": 0,
+				"Claim Qty": 0,
+				"Rate Diff.": 0,
+				"Claim Value": 0,
+				"Item Scheme": p.freeScheme || "",
+				"Applied Scheme": "",
+				"Generated At": timestampStr
+			});
+		} else {
+			// Group sales by dealer
+			const dealerMap = new Map<string, { qty: number, free: number }>();
+			pSales.forEach(s => {
+				const party = s.dealer || "UNKNOWN PARTY";
+				const curr = dealerMap.get(party) || { qty: 0, free: 0 };
+				curr.qty += s.quantity || 0;
+				curr.free += s.freeQty || 0;
+				dealerMap.set(party, curr);
+			});
+
+			dealerMap.forEach((totals, party) => {
+				reportData.push({
+					"MR Name": mrName,
+					"Manufacturer": p.manufacturer,
+					"ClaimType": "Qty",
+					"Party": party,
+					"Code": p.code || "",
+					"Product Name": p.name,
+					"Packing": "",
+					"Batch No.": "",
+					"Inv. No.": "",
+					"Inv. Dt.": "",
+					"MRP": pStock.mrp,
+					"PRate": pStock.ptr,
+					"PTR": pStock.ptr,
+					"Net Rate": 0,
+					"Inv. Rate": 0,
+					"Sale Qty": totals.qty,
+					"Free Qty": totals.free,
+					"Actual FQty": 0,
+					"Claim Qty": 0, // Logic to be provided later
+					"Rate Diff.": 0,
+					"Claim Value": 0, // Logic to be provided later
+					"Item Scheme": p.freeScheme || "",
+					"Applied Scheme": "",
+					"Generated At": timestampStr
+				});
+			});
 		}
-		if (canViewStock) {
-			row["Current Stock"] = stockMap.get(p.id) || 0;
-		}
-		if (canViewSales) {
-			row["Total Sales"] = productSalesMap.get(p.id) || 0;
-		}
-		row["Generated At"] = timestampStr;
-		return row;
 	});
 
-	// Sort by Total Sales if viewable, otherwise alphabetically
+	// Sort by Manufacturer -> Party -> Product Name
 	reportData.sort((a, b) => {
-		if (canViewSales) {
-			return (b["Total Sales"] || 0) - (a["Total Sales"] || 0);
-		}
+		if (a.Manufacturer !== b.Manufacturer) return (a.Manufacturer || "").localeCompare(b.Manufacturer || "");
+		if (a.Party !== b.Party) return (a.Party || "").localeCompare(b.Party || "");
 		return a["Product Name"].localeCompare(b["Product Name"]);
 	});
 
