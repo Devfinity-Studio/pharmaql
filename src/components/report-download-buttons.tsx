@@ -2,7 +2,7 @@
 
 import { useSearchParams } from "next/navigation";
 import { useState } from "react";
-import { generatePdfReport } from "@/lib/pdf";
+import { generatePdfReport, generateStockPdfReport } from "@/lib/pdf";
 
 export function ReportDownloadButtons({ mrId }: { mrId: string }) {
 	const searchParams = useSearchParams();
@@ -10,6 +10,7 @@ export function ReportDownloadButtons({ mrId }: { mrId: string }) {
 	const defaultFrom = searchParams.get("from") || "";
 	const defaultTo = searchParams.get("to") || "";
 	const product = searchParams.get("product") || "";
+	const currentTab = searchParams.get("tab");
 
 	const [isOpen, setIsOpen] = useState(false);
 	const [format, setFormat] = useState<"csv" | "excel" | "pdf">("csv");
@@ -33,38 +34,111 @@ export function ReportDownloadButtons({ mrId }: { mrId: string }) {
 		if (to) params.set("to", to);
 		if (product) params.set("product", product);
 
+		const isFreeScheme = currentTab === "free-schemes";
+
 		if (format === "pdf") {
 			params.set("format", "json");
 			try {
-				const res = await fetch(`/api/reports/download?${params.toString()}`);
+				let endpoint = "/api/reports/download"; // free schemes
+				if (currentTab === "stock") endpoint = "/api/reports/download-stock";
+				else if (currentTab === "sales" || currentTab === "products") {
+					endpoint = "/api/reports/download-sales";
+					params.set("tab", currentTab);
+				}
+
+				const res = await fetch(`${endpoint}?${params.toString()}`);
 				if (!res.ok) throw new Error("Failed to fetch data");
 				const data = await res.json();
 
-				const filteredData = product
-					? data.filter((row: any) => row["Product Name"] === product)
-					: data;
+				if (currentTab === "stock") {
+					const mrName = data.length > 0 ? data[0]["MR Name"] : "Unknown";
+					generateStockPdfReport(
+						`Stock_Report_${division}_${new Date().toISOString().split("T")[0]}.pdf`,
+						data,
+						mrName,
+						from,
+						to
+					);
+				} else if (currentTab === "sales") {
+					const mrName = data.length > 0 ? data[0]["MR Name"] : "Unknown";
+					
+					const columns = [
+						{ header: "Doctor / Party", dataKey: "Doctor / Party" },
+						{ header: "Product Name", dataKey: "Product Name" },
+						{ header: "Date", dataKey: "Date" },
+						{ header: "Sale Qty", dataKey: "Sale Qty" },
+						{ header: "Free Qty", dataKey: "Free Qty" },
+						{ header: "Amount", dataKey: "Amount" },
+					];
 
-				const mrName =
-					filteredData.length > 0 ? filteredData[0]["MR Name"] : "Unknown";
+					import("@/lib/pdf").then(({ generateGroupedPdfReport }) => {
+						generateGroupedPdfReport(
+							`Sales Movement Statement`,
+							`Sales_Report_${division}_${new Date().toISOString().split("T")[0]}.pdf`,
+							data,
+							columns as any,
+							mrName,
+							from,
+							to
+						);
+					});
+				} else if (currentTab === "products") {
+					const mrName = data.length > 0 ? data[0]["MR Name"] : "Unknown";
+					
+					const columns = [
+						{ header: "Product Name", dataKey: "Product Name" },
+						{ header: "Free Scheme", dataKey: "Free Scheme" },
+						{ header: "Current Stock", dataKey: "Current Stock" },
+						{ header: "Total Sales Qty", dataKey: "Total Sales Qty" },
+						{ header: "Total Sales Amt", dataKey: "Total Sales Amt" },
+					];
 
-				const cleanDataForPdf = filteredData.map((row: any) => {
-					const { "MR Name": _, "Generated At": __, ...rest } = row;
-					return rest;
-				});
+					import("@/lib/pdf").then(({ generateGroupedPdfReport }) => {
+						generateGroupedPdfReport(
+							`Product Wise Statement`,
+							`Product_Report_${division}_${new Date().toISOString().split("T")[0]}.pdf`,
+							data,
+							columns as any,
+							mrName,
+							from,
+							to
+						);
+					});
+				} else {
+					// Free Scheme (default)
+					const filteredData = product
+						? data.filter((row: any) => row["Product Name"] === product)
+						: data;
 
-				generatePdfReport(
-					`Product Wise Sales & Stock Report (${division})`,
-					`Sales_Report_${division}_${new Date().toISOString().split("T")[0]}.pdf`,
-					cleanDataForPdf,
-					mrName,
-				);
+					const mrName =
+						filteredData.length > 0 ? filteredData[0]["MR Name"] : "Unknown";
+
+					const cleanDataForPdf = filteredData.map((row: any) => {
+						const { "MR Name": _, "Generated At": __, ...rest } = row;
+						return rest;
+					});
+
+					generatePdfReport(
+						`Free Scheme Report (${division})`,
+						`Free_Scheme_${division}_${new Date().toISOString().split("T")[0]}.pdf`,
+						cleanDataForPdf,
+						mrName,
+					);
+				}
 			} catch (e) {
 				console.error(e);
 				alert("Failed to generate PDF");
 			}
 		} else {
 			params.set("format", format);
-			window.location.href = `/api/reports/download?${params.toString()}`;
+			let endpoint = "/api/reports/download"; // free schemes
+			if (currentTab === "sales" || currentTab === "products") {
+				endpoint = "/api/reports/download-sales";
+				params.set("tab", currentTab);
+			} else if (currentTab === "stock") {
+				endpoint = "/api/reports/download-stock";
+			}
+			window.location.href = `${endpoint}?${params.toString()}`;
 		}
 
 		setIsDownloading(false);

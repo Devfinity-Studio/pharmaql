@@ -2,7 +2,7 @@
 
 import { useSearchParams } from "next/navigation";
 import { useState } from "react";
-import { generatePdfReport } from "@/lib/pdf";
+import { generateGroupedPdfReport } from "@/lib/pdf";
 
 export function OutstandingDownloadButtons({ mrId }: { mrId: string }) {
 	const searchParams = useSearchParams();
@@ -49,17 +49,34 @@ export function OutstandingDownloadButtons({ mrId }: { mrId: string }) {
 
 				const mrName = data.length > 0 ? data[0]["MR Name"] : "Unknown";
 
-				// Remove MR Name and Generated At from PDF columns since it's in the header
+				// Format data for the PDF
 				const cleanDataForPdf = filteredData.map((row: any) => {
-					const { "MR Name": _, "Generated At": __, ...rest } = row;
-					return rest;
+					return {
+						"Manufacturer": row["Company Code"] || row["Division"] || "Unknown",
+						"Doctor / Party": row["Doctor / Party"],
+						"City": row["City"],
+						"Invoice No": row["Invoice No"],
+						"Invoice Date": row["Invoice Date"],
+						"Amount Due": row["Amount Due"],
+					};
 				});
 
-				generatePdfReport(
-					`Outstanding Invoices (${division})`,
+				const columns = [
+					{ header: "Doctor / Party", dataKey: "Doctor / Party" },
+					{ header: "City", dataKey: "City" },
+					{ header: "Invoice No", dataKey: "Invoice No" },
+					{ header: "Invoice Date", dataKey: "Invoice Date" },
+					{ header: "Amount Due", dataKey: "Amount Due" },
+				];
+
+				generateGroupedPdfReport(
+					`Party Wise Outstanding Statement`,
 					`Outstanding_${division}_${new Date().toISOString().split("T")[0]}.pdf`,
 					cleanDataForPdf,
+					columns as any,
 					mrName,
+					from,
+					to
 				);
 			} catch (e) {
 				console.error(e);

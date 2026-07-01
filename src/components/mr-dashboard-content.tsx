@@ -5,6 +5,10 @@ import { FilterSelect } from "@/components/filter-select";
 import { OutstandingDownloadButtons } from "@/components/outstanding-download-buttons";
 import { ReportDownloadButtons } from "@/components/report-download-buttons";
 import { FreeSchemeReportView } from "@/components/free-scheme-report-view";
+import { StockReportView } from "@/components/stock-report-view";
+import { OutstandingReportView } from "@/components/outstanding-report-view";
+import { SalesReportView } from "@/components/sales-report-view";
+import { ProductReportView } from "@/components/product-report-view";
 import { db } from "@/server/db";
 import {
 	invoices,
@@ -664,237 +668,60 @@ export async function MrDashboardContent({
 				</div>
 			)}
 
-			{/* PRODUCT / STOCK / SALES TABS */}
-			{["products", "stock", "sales"].includes(
-				searchParams?.tab || "",
-			) &&
-				(() => {
-					const tab = searchParams?.tab;
+			{/* DYNAMIC REPORTS */}
+			{searchParams?.tab === "products" && canViewProductWise && (
+				<div>
+					<div className="flex justify-between items-center mb-4">
+						<form action={baseUrl} method="GET" className="flex gap-2 w-full max-w-sm">
+							{Object.entries(searchParams || {}).map(([k, v]) => {
+								if (k === "q") return null;
+								return <input key={k} type="hidden" name={k} value={v as string} />;
+							})}
+							<input name="q" placeholder="Search product..." defaultValue={searchParams?.q || ""} className="flex-1 rounded-xl border border-gray-300 px-3 py-2" />
+							<button type="submit" className="bg-[#0071BC] text-white px-4 py-2 rounded-xl font-bold">Search</button>
+						</form>
+						<ReportDownloadButtons mrId={mrId} />
+					</div>
+					<ProductReportView mrId={mrId} searchParams={searchParams} />
+				</div>
+			)}
 
-					if (tab === "products" && !canViewProductWise) return null;
-					if (tab === "stock" && !canViewStock) return null;
-					if (tab === "sales" && !canViewSales) return null;
+			{searchParams?.tab === "sales" && canViewSales && (
+				<div>
+					<div className="flex justify-between items-center mb-4">
+						<form action={baseUrl} method="GET" className="flex gap-2 w-full max-w-sm">
+							{Object.entries(searchParams || {}).map(([k, v]) => {
+								if (k === "q") return null;
+								return <input key={k} type="hidden" name={k} value={v as string} />;
+							})}
+							<input name="q" placeholder="Search product or party..." defaultValue={searchParams?.q || ""} className="flex-1 rounded-xl border border-gray-300 px-3 py-2" />
+							<button type="submit" className="bg-[#0071BC] text-white px-4 py-2 rounded-xl font-bold">Search</button>
+						</form>
+						<ReportDownloadButtons mrId={mrId} />
+					</div>
+					<SalesReportView mrId={mrId} searchParams={searchParams} />
+				</div>
+			)}
 
-					const searchQuery = searchParams?.q?.toLowerCase() || "";
+			{searchParams?.tab === "party" && canViewPartyWise && (
+				<div>
+					<div className="flex justify-between items-center mb-4">
+						<OutstandingDownloadButtons mrId={mrId} />
+					</div>
+					<OutstandingReportView mrId={mrId} searchParams={searchParams} />
+				</div>
+			)}
 
-					let displayedProducts = accessibleProducts;
-					if (searchQuery) {
-						displayedProducts = displayedProducts.filter(
-							(p) =>
-								p.name.toLowerCase().includes(searchQuery) ||
-								p.manufacturer.toLowerCase().includes(searchQuery),
-						);
-					}
 
-					return (
-						<div className="space-y-6">
-							<div className="flex flex-col items-center justify-between gap-4 sm:flex-row">
-								<form
-									action={baseUrl}
-									className="flex w-full items-center gap-3 sm:w-auto"
-									method="GET"
-								>
-									{Object.entries(searchParams || {}).map(([k, v]) => {
-										if (k === "q") return null;
-										return (
-											<input
-												key={k}
-												name={k}
-												type="hidden"
-												value={v as string}
-											/>
-										);
-									})}
-									<label className="font-bold text-[#0B2545] text-sm">
-										Search:
-									</label>
-									<input
-										className="flex-1 rounded-xl border-2 border-gray-300 bg-white px-4 py-2 font-medium text-[#0B2545] text-base outline-none transition-colors focus:border-[#0071BC] sm:w-64"
-										defaultValue={searchParams?.q || ""}
-										name="q"
-										placeholder="Product Name or Company..."
-										type="text"
-									/>
-									<button
-										className="rounded-xl bg-[#0071BC] px-5 py-2 font-bold text-sm text-white transition-colors hover:bg-[#134074]"
-										type="submit"
-									>
-										Search
-									</button>
-								</form>
-							</div>
-
-							<div className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
-								<table className="min-w-full divide-y divide-gray-200">
-									<thead className="bg-gray-50">
-										<tr>
-											<th className="px-6 py-4 text-left font-bold text-gray-500 text-xs uppercase">
-												Product
-											</th>
-											<th className="px-6 py-4 text-left font-bold text-gray-500 text-xs uppercase">
-												Company
-											</th>
-											{tab === "free-schemes" && canViewFreeScheme && (
-												<th className="px-6 py-4 text-center font-bold text-gray-500 text-xs uppercase">
-													Free Scheme
-												</th>
-											)}
-											{tab === "stock" && canViewStock && (
-												<th className="px-6 py-4 text-center font-bold text-gray-500 text-xs uppercase">
-													Current Stock
-												</th>
-											)}
-											{(tab === "products" || tab === "sales") &&
-												canViewSales && (
-													<th className="px-6 py-4 text-right font-bold text-gray-500 text-xs uppercase">
-														Total Sales
-													</th>
-												)}
-										</tr>
-									</thead>
-									<tbody className="divide-y divide-gray-200 bg-white">
-										{displayedProducts.length === 0 ? (
-											<tr>
-												<td
-													className="px-6 py-8 text-center font-medium text-gray-500"
-													colSpan={5}
-												>
-													No products data found.
-												</td>
-											</tr>
-										) : (
-											displayedProducts.map((p, idx) => {
-												const stock = stockMap.get(p.id) || 0;
-												const salesData = productReports.find(
-													(pr) => pr.name === p.name,
-												);
-												const salesTotal = salesData ? salesData.total : 0;
-												return (
-													<tr
-														className="transition-colors hover:bg-gray-50"
-														key={idx}
-													>
-														<td className="px-6 py-4 font-bold text-[#0B2545] text-sm">
-															{p.name}
-														</td>
-														<td className="px-6 py-4 font-medium text-gray-500 text-sm">
-															{p.manufacturer}
-														</td>
-														{tab === "free-schemes" && canViewFreeScheme && (
-															<td className="px-6 py-4 text-center font-bold text-[#0071BC] text-sm">
-																{p.freeScheme || "N/A"}
-															</td>
-														)}
-														{tab === "stock" && canViewStock && (
-															<td className="px-6 py-4 text-center font-bold text-amber-600 text-sm">
-																{stock.toLocaleString()}
-															</td>
-														)}
-														{(tab === "products" || tab === "sales") &&
-															canViewSales && (
-																<td className="px-6 py-4 text-right font-bold text-[#0071BC] text-sm">
-																	{salesTotal.toLocaleString()}
-																</td>
-															)}
-													</tr>
-												);
-											})
-										)}
-									</tbody>
-								</table>
-							</div>
-						</div>
-					);
-				})()}
-
-			{/* PARTY WISE TAB */}
-			{canViewPartyWise &&
-				searchParams?.tab === "party" &&
-				(() => {
-					const selectedParty = searchParams?.party || "";
-					const allParties = Array.from(
-						new Set(outstandingByDoctor.map((o) => o.doctor)),
-					).sort();
-
-					const displayedOutstanding = selectedParty
-						? outstandingByDoctor.filter((o) => o.doctor === selectedParty)
-						: outstandingByDoctor;
-
-					return (
-						<div className="space-y-6">
-							<div className="flex flex-col items-center justify-between gap-4 sm:flex-row">
-								<div className="flex w-full items-center gap-3 sm:w-auto">
-									<label className="font-bold text-[#0B2545] text-sm">
-										Filter Party:
-									</label>
-									<div className="relative flex-1 sm:w-64">
-										<FilterSelect
-											options={allParties.map((p) => ({ label: p, value: p }))}
-											paramName="party"
-											placeholder="All Parties"
-										/>
-									</div>
-								</div>
-								<OutstandingDownloadButtons mrId={mrId} />
-							</div>
-
-							<div className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
-								<table className="min-w-full divide-y divide-gray-200">
-									<thead className="bg-gray-50">
-										<tr>
-											<th className="px-6 py-4 text-left font-bold text-gray-500 text-xs uppercase">
-												Doctor / Party
-											</th>
-											<th className="px-6 py-4 text-left font-bold text-gray-500 text-xs uppercase">
-												City
-											</th>
-											<th className="px-6 py-4 text-right font-bold text-gray-500 text-xs uppercase">
-												Amount Due
-											</th>
-										</tr>
-									</thead>
-									<tbody className="divide-y divide-gray-200 bg-white">
-										{displayedOutstanding.length === 0 ? (
-											<tr>
-												<td
-													className="px-6 py-8 text-center font-medium text-gray-500"
-													colSpan={3}
-												>
-													No outstanding balances.
-												</td>
-											</tr>
-										) : (
-											displayedOutstanding.map((out, idx) => (
-												<tr
-													className="transition-colors hover:bg-gray-50"
-													key={idx}
-												>
-													<td className="px-6 py-4 font-bold text-[#0B2545] text-sm">
-														{out.doctor}
-													</td>
-													<td className="px-6 py-4 font-medium text-gray-500 text-sm">
-														{out.city}
-													</td>
-													<td className="px-6 py-4 text-right font-bold text-rose-600 text-sm">
-														₹
-														{out.amount.toLocaleString(undefined, {
-															minimumFractionDigits: 2,
-															maximumFractionDigits: 2,
-														})}
-													</td>
-												</tr>
-											))
-										)}
-									</tbody>
-								</table>
-							</div>
-						</div>
-					);
-				})()}
 
 			{/* FREE SCHEME REPORTS TAB */}
 			{canViewFreeScheme && searchParams?.tab === "free-schemes" && (
 				<FreeSchemeReportView mrId={mrId} searchParams={searchParams} />
+			)}
+
+			{/* STOCK REPORTS TAB */}
+			{canViewStock && searchParams?.tab === "stock" && (
+				<StockReportView mrId={mrId} searchParams={searchParams} />
 			)}
 		</div>
 	);
