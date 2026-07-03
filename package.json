@@ -9,6 +9,7 @@
 		"check:unsafe": "biome check --write --unsafe .",
 		"check:write": "biome check --write .",
 		"db:generate": "drizzle-kit generate",
+		"db:import-all": "tsx import-all-demo.ts",
 		"db:migrate": "drizzle-kit migrate",
 		"db:push": "drizzle-kit push",
 		"db:studio": "drizzle-kit studio",
