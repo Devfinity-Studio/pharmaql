@@ -2,7 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 import readline from "node:readline";
 import { hashPassword } from "better-auth/crypto";
-import { sql, ne } from "drizzle-orm";
+import { sql, ne, eq } from "drizzle-orm";
 import { db } from "./src/server/db";
 import {
 	account,
@@ -243,8 +243,17 @@ async function main() {
 	await db.delete(invoices);
 	await db.delete(outstanding);
 	await db.delete(mrManufacturers);
-	await db.delete(account).where(ne(account.accountId, "admin@admin.com"));
-	await db.delete(user).where(ne(user.email, "admin@admin.com"));
+
+	// Get all MR user IDs to wipe their credentials
+	const mrUsers = await db.select({ id: user.id }).from(user).where(eq(user.role, "MR"));
+	const mrUserIds = mrUsers.map((u) => u.id);
+	
+	if (mrUserIds.length > 0) {
+		const { inArray } = await import("drizzle-orm");
+		await db.delete(account).where(inArray(account.userId, mrUserIds));
+		await db.delete(user).where(inArray(user.id, mrUserIds));
+	}
+	
 	await db.delete(products);
 
 	console.log("Database cleared successfully.");
@@ -312,67 +321,75 @@ async function main() {
 					}
 				} else if (currentTable === "t_dailyss") {
 					const [firmno, locNo, code, division, t_date, itemid, opening, inward, outward, prate, ptr, mrp] = parts;
-					const mappedMrId = mrMap.get(`${locNo.trim()}-${code.trim()}`);
-					if (mappedMrId && itemid) {
-						inventoryBatch.push({
-							id: `${mappedMrId}-${itemid}-${t_date || Date.now()}-${Math.random().toString(36).substring(7)}`,
-							mrId: mappedMrId,
-							productId: itemid,
-							stock: parseInt(opening || "0") + parseInt(inward || "0") - parseInt(outward || "0"),
-							date: t_date ? new Date(t_date) : null,
-							opening: parseInt(opening || "0"),
-							inward: parseInt(inward || "0"),
-							outward: parseInt(outward || "0"),
-							ptr: parseFloat(ptr || "0"),
-							mrp: parseFloat(mrp || "0"),
-						});
+					if (locNo && code) {
+						const mappedMrId = mrMap.get(`${locNo.trim()}-${code.trim()}`);
+						if (mappedMrId && itemid) {
+							inventoryBatch.push({
+								id: `${mappedMrId}-${itemid}-${t_date || Date.now()}-${Math.random().toString(36).substring(7)}`,
+								mrId: mappedMrId,
+								productId: itemid,
+								stock: parseInt(opening || "0") + parseInt(inward || "0") - parseInt(outward || "0"),
+								date: t_date ? new Date(t_date) : null,
+								opening: parseInt(opening || "0"),
+								inward: parseInt(inward || "0"),
+								outward: parseInt(outward || "0"),
+								ptr: parseFloat(ptr || "0"),
+								mrp: parseFloat(mrp || "0"),
+							});
+						}
 					}
 				} else if (currentTable === "t_item_sales") {
 					const [firmno, locNo, code, division, t_date, dealer, area, itemId, salesQty, fQty, amount] = parts;
-					const mappedMrId = mrMap.get(`${locNo.trim()}-${code.trim()}`);
-					if (mappedMrId && itemId) {
-						salesBatch.push({
-							id: `${mappedMrId}-${itemId}-${t_date || Date.now()}-${Math.random().toString(36).substring(7)}`,
-							mrId: mappedMrId,
-							productId: itemId,
-							quantity: parseInt(salesQty || "0"),
-							date: t_date ? new Date(t_date) : null,
-							dealer: dealer || null,
-							area: area || null,
-							freeQty: parseInt(fQty || "0"),
-							amount: parseFloat(amount || "0"),
-						});
+					if (locNo && code) {
+						const mappedMrId = mrMap.get(`${locNo.trim()}-${code.trim()}`);
+						if (mappedMrId && itemId) {
+							salesBatch.push({
+								id: `${mappedMrId}-${itemId}-${t_date || Date.now()}-${Math.random().toString(36).substring(7)}`,
+								mrId: mappedMrId,
+								productId: itemId,
+								quantity: parseInt(salesQty || "0"),
+								date: t_date ? new Date(t_date) : null,
+								dealer: dealer || null,
+								area: area || null,
+								freeQty: parseInt(fQty || "0"),
+								amount: parseFloat(amount || "0"),
+							});
+						}
 					}
 				} else if (currentTable === "t_invoices") {
 					const [firmNo, locNo, code, t_date, inwDt, invno, invAmt, invType] = parts;
-					const mappedMrId = mrMap.get(`${locNo.trim()}-${code.trim()}`);
-					if (mappedMrId && invno) {
-						invoicesBatch.push({
-							id: `${invno}-${mappedMrId}-${Math.random().toString(36).substring(7)}`,
-							mrId: mappedMrId,
-							date: t_date ? new Date(t_date) : null,
-							inwDt: inwDt ? new Date(inwDt) : null,
-							invNo: invno,
-							invAmt: parseFloat(invAmt || "0"),
-							invType: invType || null,
-							manufacturerCode: code || null,
-						});
+					if (locNo && code) {
+						const mappedMrId = mrMap.get(`${locNo.trim()}-${code.trim()}`);
+						if (mappedMrId && invno) {
+							invoicesBatch.push({
+								id: `${invno}-${mappedMrId}-${Math.random().toString(36).substring(7)}`,
+								mrId: mappedMrId,
+								date: t_date ? new Date(t_date) : null,
+								inwDt: inwDt ? new Date(inwDt) : null,
+								invNo: invno,
+								invAmt: parseFloat(invAmt || "0"),
+								invType: invType || null,
+								manufacturerCode: code || null,
+							});
+						}
 					}
 				} else if (currentTable === "t_outstanding") {
 					const [firmNo, locNo, code, division, t_date, doctor, city, invNo, invDt, invAmt] = parts;
-					const mappedMrId = mrMap.get(`${locNo.trim()}-${code.trim()}`);
-					if (mappedMrId && invNo) {
-						outstandingBatch.push({
-							id: `${invNo}-${mappedMrId}-${doctor || "doc"}-${Math.random().toString(36).substring(7)}`,
-							mrId: mappedMrId,
-							doctor: doctor || null,
-							city: city || null,
-							invNo: invNo,
-							invDt: invDt ? new Date(invDt) : null,
-							invAmt: parseFloat(invAmt || "0"),
-							manufacturerCode: code || null,
-							division: division || null,
-						});
+					if (locNo && code) {
+						const mappedMrId = mrMap.get(`${locNo.trim()}-${code.trim()}`);
+						if (mappedMrId && invNo) {
+							outstandingBatch.push({
+								id: `${invNo}-${mappedMrId}-${doctor || "doc"}-${Math.random().toString(36).substring(7)}`,
+								mrId: mappedMrId,
+								doctor: doctor || null,
+								city: city || null,
+								invNo: invNo,
+								invDt: invDt ? new Date(invDt) : null,
+								invAmt: parseFloat(invAmt || "0"),
+								manufacturerCode: code || null,
+								division: division || null,
+							});
+						}
 					}
 				}
 			}
