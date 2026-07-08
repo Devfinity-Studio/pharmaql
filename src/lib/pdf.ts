@@ -772,13 +772,21 @@ export function generateGroupedPdfReport(
 		
 		// Find x positions for qty and amount
 		let lastTable = (doc as any).lastAutoTable;
-		if (lastTable) {
-			lastTable.columns.forEach((col: any) => {
-				if (col.dataKey === qtyKey) {
-					doc.text(grandTotalQty.toString(), col.x + col.width - 2, currentY + 3, { align: "right" });
-				}
-				if (col.dataKey === amountKey) {
-					doc.text(grandTotalAmount.toFixed(2), col.x + col.width - 2, currentY + 3, { align: "right" });
+		if (lastTable && lastTable.rows && lastTable.rows.length > 0) {
+			const lastRow = lastTable.rows[lastTable.rows.length - 1];
+			columns.forEach((col: any, idx) => {
+				const cell = lastRow.cells[col.dataKey] || lastRow.cells[idx];
+				if (cell) {
+					if (col.dataKey === qtyKey) {
+						const xPos = cell.x + cell.width - 2;
+						const yPos = currentY + 3;
+						doc.text(grandTotalQty.toString(), xPos, yPos, { align: "right" });
+					}
+					if (col.dataKey === amountKey) {
+						const xPos = cell.x + cell.width - 2;
+						const yPos = currentY + 3;
+						doc.text(grandTotalAmount.toFixed(2), xPos, yPos, { align: "right" });
+					}
 				}
 			});
 		}

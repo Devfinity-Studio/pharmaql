@@ -29,7 +29,7 @@ export async function GET(request: Request) {
 
 	const requestingUserId = session.user.id;
 	const isSelf = requestingUserId === mrId;
-	const isAdmin = (session.user as any).role === "admin";
+	const isAdmin = (session.user as any).role === "ADMIN";
 
 	if (!isSelf && !isAdmin) {
 		return new NextResponse("Forbidden", { status: 403 });

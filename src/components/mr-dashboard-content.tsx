@@ -415,7 +415,13 @@ export async function MrDashboardContent({
 					</div>
 					<DateRangePicker />
 				</div>
-				<ReportDownloadButtons mrId={mrId} />
+				{/* RENDER THE CORRECT DOWNLOAD BUTTON CONDITIONALLY AT THE TOP FILTER BAR */}
+				{(searchParams?.tab === "products" || searchParams?.tab === "sales" || searchParams?.tab === "free-schemes" || searchParams?.tab === "stock") && (
+					<ReportDownloadButtons mrId={mrId} />
+				)}
+				{searchParams?.tab === "party" && (
+					<OutstandingDownloadButtons mrId={mrId} />
+				)}
 			</div>
 
 			{/* Tabs Row */}
@@ -680,7 +686,6 @@ export async function MrDashboardContent({
 							<input name="q" placeholder="Search product..." defaultValue={searchParams?.q || ""} className="flex-1 rounded-xl border border-gray-300 px-3 py-2" />
 							<button type="submit" className="bg-[#0071BC] text-white px-4 py-2 rounded-xl font-bold">Search</button>
 						</form>
-						<ReportDownloadButtons mrId={mrId} />
 					</div>
 					<ProductReportView mrId={mrId} searchParams={searchParams} />
 				</div>
@@ -697,7 +702,6 @@ export async function MrDashboardContent({
 							<input name="q" placeholder="Search product or party..." defaultValue={searchParams?.q || ""} className="flex-1 rounded-xl border border-gray-300 px-3 py-2" />
 							<button type="submit" className="bg-[#0071BC] text-white px-4 py-2 rounded-xl font-bold">Search</button>
 						</form>
-						<ReportDownloadButtons mrId={mrId} />
 					</div>
 					<SalesReportView mrId={mrId} searchParams={searchParams} />
 				</div>
@@ -706,7 +710,6 @@ export async function MrDashboardContent({
 			{searchParams?.tab === "party" && canViewPartyWise && (
 				<div>
 					<div className="flex justify-between items-center mb-4">
-						<OutstandingDownloadButtons mrId={mrId} />
 					</div>
 					<OutstandingReportView mrId={mrId} searchParams={searchParams} />
 				</div>
