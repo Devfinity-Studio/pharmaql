@@ -36,10 +36,27 @@ export async function FreeSchemeReportView({
 	// Stock
 	const stockMap = new Map<string, { mrp: number; ptr: number }>();
 	if (mrInfo.canViewStock) {
+		let inventoryCondition = and(inArray(mrInventory.productId, productIds), eq(mrInventory.mrId, mrId));
+		if (searchParams?.to) {
+			const toDate = new Date(searchParams.to);
+			if (!isNaN(toDate.getTime())) {
+				toDate.setUTCHours(23, 59, 59, 999);
+				inventoryCondition = and(inventoryCondition, lte(mrInventory.date, toDate));
+			}
+		}
+
 		const inventory = await db
 			.select()
 			.from(mrInventory)
-			.where(and(inArray(mrInventory.productId, productIds), eq(mrInventory.mrId, mrId)));
+			.where(inventoryCondition);
+
+		// Sort by date ascending so latest record overwrites
+		inventory.sort((a, b) => {
+			const da = a.date ? new Date(a.date).getTime() : 0;
+			const dbVal = b.date ? new Date(b.date).getTime() : 0;
+			return da - dbVal;
+		});
+
 		inventory.forEach((inv) => stockMap.set(inv.productId, {
 			mrp: Number(inv.mrp) || 0,
 			ptr: Number(inv.ptr) || 0

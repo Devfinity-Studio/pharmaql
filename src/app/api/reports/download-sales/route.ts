@@ -122,10 +122,27 @@ export async function GET(request: Request) {
 		// Products
 		const inventoryMap = new Map<string, number>();
 		if (mrInfo.canViewStock || isAdmin) {
+			let inventoryCondition = and(inArray(mrInventory.productId, productIds), eq(mrInventory.mrId, mrId));
+			if (to) {
+				const toDate = new Date(to);
+				if (!isNaN(toDate.getTime())) {
+					toDate.setUTCHours(23, 59, 59, 999);
+					inventoryCondition = and(inventoryCondition, lte(mrInventory.date, toDate));
+				}
+			}
+
 			const inventory = await db
 				.select()
 				.from(mrInventory)
-				.where(and(inArray(mrInventory.productId, productIds), eq(mrInventory.mrId, mrId)));
+				.where(inventoryCondition);
+
+			// Sort by date ascending so latest record overwrites
+			inventory.sort((a, b) => {
+				const da = a.date ? new Date(a.date).getTime() : 0;
+				const dbVal = b.date ? new Date(b.date).getTime() : 0;
+				return da - dbVal;
+			});
+
 			inventory.forEach((inv) => {
 				inventoryMap.set(inv.productId, inv.stock || 0);
 			});

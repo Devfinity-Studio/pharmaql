@@ -35,13 +35,30 @@ export async function ProductReportView({
 
 	if (productIds.length === 0) return <div>No products found</div>;
 
-	// Inventory (to get Current Stock for reference if they want it, but the old one didn't show stock for products, only sales. Wait, we can include it)
+	// Inventory (to get Current Stock for reference if they want it)
 	const inventoryMap = new Map<string, number>();
 	if (mrInfo.canViewStock) {
+		let inventoryCondition = and(inArray(mrInventory.productId, productIds), eq(mrInventory.mrId, mrId));
+		if (searchParams?.to) {
+			const toDate = new Date(searchParams.to);
+			if (!isNaN(toDate.getTime())) {
+				toDate.setUTCHours(23, 59, 59, 999);
+				inventoryCondition = and(inventoryCondition, lte(mrInventory.date, toDate));
+			}
+		}
+
 		const inventory = await db
 			.select()
 			.from(mrInventory)
-			.where(and(inArray(mrInventory.productId, productIds), eq(mrInventory.mrId, mrId)));
+			.where(inventoryCondition);
+
+		// Sort by date ascending so latest record overwrites
+		inventory.sort((a, b) => {
+			const da = a.date ? new Date(a.date).getTime() : 0;
+			const dbVal = b.date ? new Date(b.date).getTime() : 0;
+			return da - dbVal;
+		});
+
 		inventory.forEach((inv) => {
 			inventoryMap.set(inv.productId, inv.stock || 0);
 		});

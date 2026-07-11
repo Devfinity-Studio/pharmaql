@@ -35,20 +35,67 @@ export async function StockReportView({
 	if (productIds.length === 0) return <div>No products found</div>;
 
 	// Inventory
-	const inventoryMap = new Map<string, any>();
+	let inventoryCondition = and(inArray(mrInventory.productId, productIds), eq(mrInventory.mrId, mrId));
+	if (searchParams?.to) {
+		const toDate = new Date(searchParams.to);
+		if (!isNaN(toDate.getTime())) {
+			toDate.setUTCHours(23, 59, 59, 999);
+			inventoryCondition = and(inventoryCondition, lte(mrInventory.date, toDate));
+		}
+	}
+
 	const inventory = await db
 		.select()
 		.from(mrInventory)
-		.where(and(inArray(mrInventory.productId, productIds), eq(mrInventory.mrId, mrId)));
-	
+		.where(inventoryCondition);
+
+	// Sort by date ascending
+	inventory.sort((a, b) => {
+		const da = a.date ? new Date(a.date).getTime() : 0;
+		const dbVal = b.date ? new Date(b.date).getTime() : 0;
+		return da - dbVal;
+	});
+
+	const inventoryMap = new Map<string, { opening: number; inward: number; stock: number; ptr: number; mrp: number; hasSeenInPeriod?: boolean }>();
+	const limitFromDate = searchParams?.from ? new Date(searchParams.from) : null;
+
 	inventory.forEach((inv) => {
-		inventoryMap.set(inv.productId, {
-			opening: inv.opening || 0,
-			inward: inv.inward || 0,
-			stock: inv.stock || 0,
-			ptr: Number(inv.ptr) || 0,
-			mrp: Number(inv.mrp) || 0,
-		});
+		const isBefore = limitFromDate && inv.date && new Date(inv.date) < limitFromDate;
+		const existing = inventoryMap.get(inv.productId);
+
+		if (isBefore) {
+			inventoryMap.set(inv.productId, {
+				opening: inv.stock || 0,
+				inward: 0,
+				stock: inv.stock || 0,
+				ptr: Number(inv.ptr) || 0,
+				mrp: Number(inv.mrp) || 0,
+				hasSeenInPeriod: false,
+			});
+		} else {
+			if (!existing) {
+				inventoryMap.set(inv.productId, {
+					opening: inv.opening || 0,
+					inward: inv.inward || 0,
+					stock: inv.stock || 0,
+					ptr: Number(inv.ptr) || 0,
+					mrp: Number(inv.mrp) || 0,
+					hasSeenInPeriod: true,
+				});
+			} else {
+				if (!existing.hasSeenInPeriod) {
+					existing.opening = inv.opening || 0;
+					existing.inward = inv.inward || 0;
+					existing.stock = inv.stock || 0;
+					existing.hasSeenInPeriod = true;
+				} else {
+					existing.inward += inv.inward || 0;
+					existing.stock = inv.stock || 0;
+				}
+				existing.ptr = Number(inv.ptr) || existing.ptr;
+				existing.mrp = Number(inv.mrp) || existing.mrp;
+			}
+		}
 	});
 
 	// Sales (to get Sales Qty)
