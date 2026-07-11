@@ -424,14 +424,18 @@ export function generateStockPdfReport(
 	];
 
 	const manufacturers = [...new Set(data.map((item) => item.Manufacturer || "UNKNOWN"))];
-	let grandTotalValue = 0;
-	let grandTotalSales = 0;
+	let grandTotalOpeningValue = 0;
+	let grandTotalPurchaseValue = 0;
+	let grandTotalSalesValue = 0;
+	let grandTotalStockValue = 0;
 
 	for (const mfg of manufacturers) {
 		const mfgData = data.filter((item) => (item.Manufacturer || "UNKNOWN") === mfg);
 		
-		let mfgValue = 0;
-		let mfgSales = 0;
+		let mfgOpeningValue = 0;
+		let mfgPurchaseValue = 0;
+		let mfgSalesValue = 0;
+		let mfgStockValue = 0;
 
 		autoTable(doc, {
 			startY: currentY,
@@ -460,25 +464,36 @@ export function generateStockPdfReport(
 		
 		// Map data for autoTable body
 		const bodyData = mfgData.map((row) => {
-			mfgValue += (row["Stock Value"] || 0);
-			mfgSales += (row["Sales Qty."] || 0);
+			const prate = Number(row["prate"]) || 0;
+			const openingVal = (row["Opening Qty."] || 0) * prate;
+			const purchaseVal = (row["Purchase Qty"] || 0) * prate;
+			const salesVal = (row["Sales Qty."] || 0) * prate;
+			const stockVal = (row["Stock Value"] || 0);
+
+			mfgOpeningValue += openingVal;
+			mfgPurchaseValue += purchaseVal;
+			mfgSalesValue += salesVal;
+			mfgStockValue += stockVal;
+
 			return {
 				...row,
-				"Stock Value": (row["Stock Value"] || 0).toFixed(2),
+				"Stock Value": stockVal.toFixed(2),
 				"Opening Qty.": row["Opening Qty."] || "-",
 				"Purchase Qty": row["Purchase Qty"] || "-",
-				"S.Ret Qty.": "-",
-				"Stk Adj Add": "-",
+				"S.Ret Qty.": row["S.Ret Qty."] !== 0 ? row["S.Ret Qty."] : "-",
+				"Stk Adj Add": row["Stk Adj Add"] !== 0 ? row["Stk Adj Add"] : "-",
 				"Total In Qty": row["Total In Qty"] || "-",
 				"Sales Qty.": row["Sales Qty."] || "-",
-				"P.Ret Qty.": "-",
-				"Stk Adj Less": "-",
+				"P.Ret Qty.": row["P.Ret Qty."] !== 0 ? row["P.Ret Qty."] : "-",
+				"Stk Adj Less": row["Stk Adj Less"] !== 0 ? row["Stk Adj Less"] : "-",
 				"Balance Qty.": row["Balance Qty."] || "-",
 			};
 		});
 		
-		grandTotalValue += mfgValue;
-		grandTotalSales += mfgSales;
+		grandTotalOpeningValue += mfgOpeningValue;
+		grandTotalPurchaseValue += mfgPurchaseValue;
+		grandTotalSalesValue += mfgSalesValue;
+		grandTotalStockValue += mfgStockValue;
 
 		autoTable(doc, {
 			startY: currentY,
@@ -520,11 +535,13 @@ export function generateStockPdfReport(
 			theme: "plain",
 			body: [[
 				`Total value of ${mfgShort} :`, "", "",
-				"", "", "", "",
-				"", mfgSales.toFixed(2), "", "", "", mfgValue.toFixed(2)
+				mfgOpeningValue.toFixed(2), mfgPurchaseValue.toFixed(2), "", "", "",
+				mfgSalesValue.toFixed(2), "", "", "", mfgStockValue.toFixed(2)
 			]],
 			styles: { fontSize: 8, fontStyle: "bold", cellPadding: 1, textColor: [0, 0, 0] },
 			columnStyles: {
+				3: { halign: "right" },
+				4: { halign: "right" },
 				8: { halign: "right" },
 				12: { halign: "right" },
 			},
@@ -545,11 +562,13 @@ export function generateStockPdfReport(
 			theme: "plain",
 			body: [[
 				`Total value of ${mfgName} :`, "", "",
-				"", "", "", "",
-				"", mfgSales.toFixed(2), "", "", "", mfgValue.toFixed(2)
+				mfgOpeningValue.toFixed(2), mfgPurchaseValue.toFixed(2), "", "", "",
+				mfgSalesValue.toFixed(2), "", "", "", mfgStockValue.toFixed(2)
 			]],
 			styles: { fontSize: 8, fontStyle: "bold", cellPadding: 1, textColor: [0, 0, 0] },
 			columnStyles: {
+				3: { halign: "right" },
+				4: { halign: "right" },
 				8: { halign: "right" },
 				12: { halign: "right" },
 			},
@@ -575,8 +594,16 @@ export function generateStockPdfReport(
 	doc.setFont("helvetica", "bold");
 	doc.text("Total Value :", 16, currentY + 3);
 	
-	doc.text(grandTotalSales.toFixed(2), 205, currentY + 3, { align: "right" });
-	doc.text(grandTotalValue.toFixed(2), 280, currentY + 3, { align: "right" });
+	const lastTable = (doc as any).lastAutoTable;
+	const getXForColumn = (dataKey: string) => {
+		const col = lastTable?.columns?.find((c: any) => c.dataKey === dataKey);
+		return col ? col.x + col.width : 280;
+	};
+
+	doc.text(grandTotalOpeningValue.toFixed(2), getXForColumn("Opening Qty."), currentY + 3, { align: "right" });
+	doc.text(grandTotalPurchaseValue.toFixed(2), getXForColumn("Purchase Qty"), currentY + 3, { align: "right" });
+	doc.text(grandTotalSalesValue.toFixed(2), getXForColumn("Sales Qty."), currentY + 3, { align: "right" });
+	doc.text(grandTotalStockValue.toFixed(2), getXForColumn("Stock Value"), currentY + 3, { align: "right" });
 	
 	currentY += 5;
 	doc.line(14, currentY, 280, currentY);

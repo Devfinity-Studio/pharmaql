@@ -11,6 +11,23 @@ import {
 	user,
 } from "@/server/db/schema";
 
+function getPurchaseFreeScheme(productName: string): { buy: number; free: number } | null {
+	const name = productName.toUpperCase();
+	if (name.includes("KESAR PISTA")) {
+		return { buy: 2, free: 1 };
+	}
+	return null;
+}
+
+function parseFreeScheme(schemeStr: string | null, productName: string): { buy: number; free: number } | null {
+	if (!schemeStr) return getPurchaseFreeScheme(productName);
+	const match = schemeStr.match(/^(\d+)\+(\d+)$/);
+	if (match && match[1] && match[2]) {
+		return { buy: parseInt(match[1]), free: parseInt(match[2]) };
+	}
+	return getPurchaseFreeScheme(productName);
+}
+
 export async function GET(request: Request) {
 	const session = await auth.api.getSession({
 		headers: await headers(),
@@ -40,12 +57,9 @@ export async function GET(request: Request) {
 
 	const mrInfoArr = await db.select().from(user).where(eq(user.id, mrId)).limit(1);
 	const mrInfo = mrInfoArr[0];
-	if (!mrInfo) {
-		return new NextResponse("MR not found", { status: 404 });
+	if (!mrInfo || (!mrInfo.canViewStock && !isAdmin)) {
+		return new NextResponse("Forbidden", { status: 403 });
 	}
-
-	const canViewStock = isAdmin || mrInfo.canViewStock;
-	if (!canViewStock) return new NextResponse("Forbidden", { status: 403 });
 
 	const assigned = await db.select().from(mrManufacturers).where(eq(mrManufacturers.mrId, mrId));
 	const manufacturerNames = assigned.map((a) => a.manufacturer);
@@ -86,7 +100,7 @@ export async function GET(request: Request) {
 		return da - dbVal;
 	});
 
-	const inventoryMap = new Map<string, { opening: number; inward: number; stock: number; ptr: number; mrp: number; hasSeenInPeriod?: boolean }>();
+	const inventoryMap = new Map<string, { opening: number; inward: number; outward: number; stock: number; ptr: number; mrp: number; prate: number; hasSeenInPeriod?: boolean }>();
 	const limitFromDate = from ? new Date(from) : null;
 
 	inventory.forEach((inv) => {
@@ -97,9 +111,11 @@ export async function GET(request: Request) {
 			inventoryMap.set(inv.productId, {
 				opening: inv.stock || 0,
 				inward: 0,
+				outward: 0,
 				stock: inv.stock || 0,
 				ptr: Number(inv.ptr) || 0,
 				mrp: Number(inv.mrp) || 0,
+				prate: Number(inv.prate) || 0,
 				hasSeenInPeriod: false,
 			});
 		} else {
@@ -107,23 +123,28 @@ export async function GET(request: Request) {
 				inventoryMap.set(inv.productId, {
 					opening: inv.opening || 0,
 					inward: inv.inward || 0,
+					outward: inv.outward || 0,
 					stock: inv.stock || 0,
 					ptr: Number(inv.ptr) || 0,
 					mrp: Number(inv.mrp) || 0,
+					prate: Number(inv.prate) || 0,
 					hasSeenInPeriod: true,
 				});
 			} else {
 				if (!existing.hasSeenInPeriod) {
 					existing.opening = inv.opening || 0;
 					existing.inward = inv.inward || 0;
+					existing.outward = inv.outward || 0;
 					existing.stock = inv.stock || 0;
 					existing.hasSeenInPeriod = true;
 				} else {
 					existing.inward += inv.inward || 0;
+					existing.outward += inv.outward || 0;
 					existing.stock = inv.stock || 0;
 				}
 				existing.ptr = Number(inv.ptr) || existing.ptr;
 				existing.mrp = Number(inv.mrp) || existing.mrp;
+				existing.prate = Number(inv.prate) || existing.prate;
 			}
 		}
 	});
@@ -161,25 +182,32 @@ export async function GET(request: Request) {
 		const inv = inventoryMap.get(p.id);
 		if (inv || salesMap.get(p.id)) {
 			const opening = inv?.opening || 0;
-			const purchase = inv?.inward || 0;
+			const inward = inv?.inward || 0;
+			
+			// Calculate free scheme purchases
+			const scheme = parseFreeScheme(p.freeScheme, p.name);
+			const freeQty = scheme ? Math.floor(inward / scheme.buy) * scheme.free : 0;
+			
+			const purchase = inward + freeQty;
 			const sRet = 0;
 			const stkAdjAdd = 0;
 			const totalIn = opening + purchase - sRet + stkAdjAdd;
 			
-			const salesQty = salesMap.get(p.id) || 0;
+			const salesQty = salesMap.get(p.id) || inv?.outward || 0;
 			const pRet = 0;
-			const stkAdjLess = 0;
+			const stkAdjLess = -freeQty;
 			
 			const balanceQty = inv?.stock || (totalIn - salesQty - pRet - stkAdjLess);
 			const ptr = inv?.ptr || 0;
-			const stockValue = balanceQty * ptr;
+			const prate = inv?.prate || 0;
+			const stockValue = balanceQty * prate;
 
 			reportData.push({
 				"MR Name": mrInfo.name,
 				Manufacturer: p.manufacturer,
 				"Item Name": p.name,
-				Packing: "10TAB",
-				"Purc Days": 31,
+				Packing: p.freeScheme || "-",
+				"Purc Days": 30,
 				"Opening Qty.": opening,
 				"Purchase Qty": purchase,
 				"S.Ret Qty.": sRet,
@@ -190,6 +218,7 @@ export async function GET(request: Request) {
 				"Stk Adj Less": stkAdjLess,
 				"Balance Qty.": balanceQty,
 				"Stock Value": stockValue,
+				prate: prate,
 				ptr: ptr
 			});
 		}

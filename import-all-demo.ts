@@ -335,6 +335,7 @@ async function main() {
 								outward: parseInt(outward || "0"),
 								ptr: parseFloat(ptr || "0"),
 								mrp: parseFloat(mrp || "0"),
+								prate: parseFloat(prate || "0"),
 							});
 						}
 					}

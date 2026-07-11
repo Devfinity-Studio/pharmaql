@@ -177,6 +177,7 @@ export const mrInventory = createTable(
 		outward: d.integer("outward"),
 		ptr: d.numeric("ptr"),
 		mrp: d.numeric("mrp"),
+		prate: d.numeric("prate"),
 		updatedAt: d
 			.timestamp("updated_at")
 			.$defaultFn(() => new Date())
