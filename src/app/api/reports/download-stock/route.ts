@@ -195,7 +195,7 @@ export async function GET(request: Request) {
 			
 			const salesQty = salesMap.get(p.id) || inv?.outward || 0;
 			const pRet = 0;
-			const stkAdjLess = -freeQty;
+			const stkAdjLess = freeQty;
 			
 			const balanceQty = inv?.stock || (totalIn - salesQty - pRet - stkAdjLess);
 			const ptr = inv?.ptr || 0;

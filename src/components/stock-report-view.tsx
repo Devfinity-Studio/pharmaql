@@ -176,7 +176,7 @@ export async function StockReportView({
 			
 			const salesQty = salesMap.get(p.id) || inv?.outward || 0;
 			const pRet = 0;
-			const stkAdjLess = -freeQty; // Stk Adj Less is printed as negative on paper
+			const stkAdjLess = freeQty;
 			
 			const balanceQty = inv?.stock || (totalIn - salesQty - pRet - stkAdjLess); // Fallback
 			const ptr = inv?.ptr || 0;
