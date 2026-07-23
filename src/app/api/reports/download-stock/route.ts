@@ -11,22 +11,6 @@ import {
 	user,
 } from "@/server/db/schema";
 
-function getPurchaseFreeScheme(productName: string): { buy: number; free: number } | null {
-	const name = productName.toUpperCase();
-	if (name.includes("KESAR PISTA")) {
-		return { buy: 2, free: 1 };
-	}
-	return null;
-}
-
-function parseFreeScheme(schemeStr: string | null, productName: string): { buy: number; free: number } | null {
-	if (!schemeStr) return getPurchaseFreeScheme(productName);
-	const match = schemeStr.match(/^(\d+)\+(\d+)$/);
-	if (match && match[1] && match[2]) {
-		return { buy: parseInt(match[1]), free: parseInt(match[2]) };
-	}
-	return getPurchaseFreeScheme(productName);
-}
 
 export async function GET(request: Request) {
 	const session = await auth.api.getSession({
@@ -184,18 +168,24 @@ export async function GET(request: Request) {
 			const opening = inv?.opening || 0;
 			const inward = inv?.inward || 0;
 			
-			// Calculate free scheme purchases
-			const scheme = parseFreeScheme(p.freeScheme, p.name);
-			const freeQty = scheme ? Math.floor(inward / scheme.buy) * scheme.free : 0;
-			
-			const purchase = inward + freeQty;
+			const purchase = inward;
 			const sRet = 0;
-			const stkAdjAdd = 0;
-			const totalIn = opening + purchase - sRet + stkAdjAdd;
-			
-			const salesQty = salesMap.get(p.id) || inv?.outward || 0;
 			const pRet = 0;
-			const stkAdjLess = freeQty;
+			const salesQty = salesMap.get(p.id) || inv?.outward || 0;
+			
+			const actualBalance = inv?.stock || 0;
+			const expectedBalance = opening + purchase - sRet - salesQty - pRet;
+			
+			let stkAdjAdd = 0;
+			let stkAdjLess = 0;
+			
+			if (actualBalance > expectedBalance) {
+				stkAdjAdd = actualBalance - expectedBalance;
+			} else if (actualBalance < expectedBalance) {
+				stkAdjLess = expectedBalance - actualBalance;
+			}
+			
+			const totalIn = opening + purchase - sRet + stkAdjAdd;
 			
 			const balanceQty = inv?.stock || (totalIn - salesQty - pRet - stkAdjLess);
 			const ptr = inv?.ptr || 0;
