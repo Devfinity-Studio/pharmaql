@@ -162,9 +162,9 @@ export async function GET(request: Request) {
 		const inv = inventoryMap.get(p.id);
 		if (inv) {
 			const opening = inv?.opening || 0;
-			const inward = inv?.inward || 0;
+			const rawInward = inv?.inward || 0;
 			
-			const purchase = inward;
+			const purchase = Math.max(0, rawInward);
 			const sRet = 0;
 			const pRet = 0;
 			const salesQty = inv?.outward || 0;

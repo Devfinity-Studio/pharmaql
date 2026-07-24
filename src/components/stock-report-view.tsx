@@ -144,8 +144,8 @@ export async function StockReportView({
 		// Include if inventory exists
 		if (inv) {
 			const opening = inv?.opening || 0;
-			const inward = inv?.inward || 0;
-			const purchase = inward;
+			const rawInward = inv?.inward || 0;
+			const purchase = Math.max(0, rawInward);
 			const sRet = 0;
 			const pRet = 0;
 			const salesQty = inv?.outward || 0;
