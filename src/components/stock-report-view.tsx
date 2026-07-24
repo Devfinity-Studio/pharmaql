@@ -135,47 +135,20 @@ export async function StockReportView({
 		}
 	});
 
-	// Sales (to get Sales Qty)
-	const salesMap = new Map<string, number>();
-	let salesCondition = and(inArray(sales.productId, productIds), eq(sales.mrId, mrId));
-	if (searchParams?.from) {
-		const fromDate = new Date(searchParams.from);
-		if (!isNaN(fromDate.getTime())) {
-			salesCondition = and(salesCondition, gte(sales.date, fromDate));
-		}
-	}
-	if (searchParams?.to) {
-		const toDate = new Date(searchParams.to);
-		if (!isNaN(toDate.getTime())) {
-			toDate.setUTCHours(23, 59, 59, 999);
-			salesCondition = and(salesCondition, lte(sales.date, toDate));
-		}
-	}
-
-	const accessibleSales = await db
-		.select({
-			productId: sales.productId,
-			quantity: sales.quantity,
-		})
-		.from(sales)
-		.where(salesCondition);
-
-	accessibleSales.forEach(s => {
-		salesMap.set(s.productId, (salesMap.get(s.productId) || 0) + (s.quantity || 0));
-	});
+	// Removed separate sales query, we will use inventory outward directly.
 
 	// Transform data for rendering
 	const reportData: any[] = [];
 	accessibleProducts.forEach((p) => {
 		const inv = inventoryMap.get(p.id);
-		// Include if inventory exists or sales exist
-		if (inv || salesMap.get(p.id)) {
+		// Include if inventory exists
+		if (inv) {
 			const opening = inv?.opening || 0;
 			const inward = inv?.inward || 0;
 			const purchase = inward;
 			const sRet = 0;
 			const pRet = 0;
-			const salesQty = salesMap.get(p.id) || inv?.outward || 0;
+			const salesQty = inv?.outward || 0;
 			
 			const actualBalance = nextDayInventoryMap.has(p.id) ? nextDayInventoryMap.get(p.id)! : (inv?.stock || 0);
 			const expectedBalance = opening + purchase - sRet - salesQty - pRet;
