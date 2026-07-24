@@ -55,6 +55,30 @@ export async function StockReportView({
 		.from(mrInventory)
 		.where(inventoryCondition);
 
+	const nextDayInventoryMap = new Map<string, number>();
+	if (searchParams?.to) {
+		const toDate = new Date(searchParams.to);
+		if (!isNaN(toDate.getTime())) {
+			toDate.setUTCDate(toDate.getUTCDate() + 1);
+			toDate.setUTCHours(0, 0, 0, 0);
+			const nextInv = await db
+				.select({
+					productId: mrInventory.productId,
+					opening: mrInventory.opening
+				})
+				.from(mrInventory)
+				.where(
+					and(
+						eq(mrInventory.mrId, mrId),
+						eq(mrInventory.date, toDate)
+					)
+				);
+			nextInv.forEach(inv => {
+				nextDayInventoryMap.set(inv.productId, inv.opening || 0);
+			});
+		}
+	}
+
 	// Sort by date ascending
 	inventory.sort((a, b) => {
 		const da = a.date ? new Date(a.date).getTime() : 0;
@@ -153,7 +177,7 @@ export async function StockReportView({
 			const pRet = 0;
 			const salesQty = salesMap.get(p.id) || inv?.outward || 0;
 			
-			const actualBalance = inv?.stock || 0;
+			const actualBalance = nextDayInventoryMap.has(p.id) ? nextDayInventoryMap.get(p.id)! : (inv?.stock || 0);
 			const expectedBalance = opening + purchase - sRet - salesQty - pRet;
 			
 			let stkAdjAdd = 0;
