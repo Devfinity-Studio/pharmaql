@@ -41,7 +41,7 @@ export async function GET(request: Request) {
 
 	const mrInfoArr = await db.select().from(user).where(eq(user.id, mrId)).limit(1);
 	const mrInfo = mrInfoArr[0];
-	if (!mrInfo || (!mrInfo.canViewStock && !isAdmin)) {
+	if (!mrInfo || (!mrInfo.canViewStock && !isAdmin) || !mrInfo.locNo) {
 		return new NextResponse("Forbidden", { status: 403 });
 	}
 
@@ -63,93 +63,6 @@ export async function GET(request: Request) {
 		return NextResponse.json([]);
 	}
 
-	let inventoryCondition = and(inArray(mrInventory.productId, productIds), eq(mrInventory.mrId, mrId));
-	if (to) {
-		const toDate = new Date(to);
-		if (!isNaN(toDate.getTime())) {
-			toDate.setUTCHours(23, 59, 59, 999);
-			inventoryCondition = and(inventoryCondition, lte(mrInventory.date, toDate));
-		}
-	}
-
-	const inventory = await db
-		.select()
-		.from(mrInventory)
-		.where(inventoryCondition);
-
-	const nextDayInventoryMap = new Map<string, number>();
-	if (to) {
-		const toDate = new Date(to);
-		if (!isNaN(toDate.getTime())) {
-			toDate.setUTCDate(toDate.getUTCDate() + 1);
-			toDate.setUTCHours(0, 0, 0, 0);
-			const nextInv = await db
-				.select({
-					productId: mrInventory.productId,
-					opening: mrInventory.opening
-				})
-				.from(mrInventory)
-				.where(
-					and(
-						eq(mrInventory.mrId, mrId),
-						eq(mrInventory.date, toDate)
-					)
-				);
-			nextInv.forEach(inv => {
-				nextDayInventoryMap.set(inv.productId, inv.opening || 0);
-			});
-		}
-	}
-
-	// Sort by date ascending
-	inventory.sort((a, b) => {
-		const da = a.date ? new Date(a.date).getTime() : 0;
-		const dbVal = b.date ? new Date(b.date).getTime() : 0;
-		return da - dbVal;
-	});
-
-	const inventoryMap = new Map<string, { opening: number; inward: number; outward: number; stock: number; ptr: number; mrp: number; prate: number; hasSeenInPeriod?: boolean }>();
-	const limitFromDate = from ? new Date(from) : null;
-
-	inventory.forEach((inv) => {
-		const isBefore = limitFromDate && inv.date && new Date(inv.date) < limitFromDate;
-		const existing = inventoryMap.get(inv.productId);
-
-		if (isBefore) {
-			inventoryMap.set(inv.productId, {
-				opening: inv.stock || 0,
-				inward: 0,
-				outward: 0,
-				stock: inv.stock || 0,
-				ptr: Number(inv.ptr) || 0,
-				mrp: Number(inv.mrp) || 0,
-				prate: Number(inv.prate) || 0,
-				hasSeenInPeriod: false,
-			});
-		} else {
-			if (!existing) {
-				inventoryMap.set(inv.productId, {
-					opening: inv.opening || 0,
-					inward: inv.inward || 0,
-					outward: inv.outward || 0,
-					stock: inv.stock || 0,
-					ptr: Number(inv.ptr) || 0,
-					mrp: Number(inv.mrp) || 0,
-					prate: Number(inv.prate) || 0,
-					hasSeenInPeriod: true,
-				});
-			} else {
-				if (!existing.hasSeenInPeriod) {
-					existing.opening = inv.opening || 0;
-					existing.inward = inv.inward || 0;
-					existing.outward = inv.outward || 0;
-					existing.stock = inv.stock || 0;
-					existing.hasSeenInPeriod = true;
-				} else {
-					existing.inward += inv.inward || 0;
-					existing.outward += inv.outward || 0;
-					existing.stock = inv.stock || 0;
-				}
 	const reportData: any[] = [];
 	const limitFromDate = from ? new Date(from) : null;
 	const limitToDate = to ? new Date(to) : new Date('9999-12-31T23:59:59.999Z');
