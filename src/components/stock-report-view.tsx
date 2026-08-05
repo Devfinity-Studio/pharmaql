@@ -151,6 +151,8 @@ export async function StockReportView({
 			const openingValue = Number(r.opening_value || 0);
 			const purchaseValue = Number(r.purchase_value || 0);
 			const salesValue = Number(r.sales_value || 0);
+			
+			const totalIn = opening + purchase;
 
 			reportData.push({
 				Manufacturer: p.manufacturer,
@@ -161,6 +163,7 @@ export async function StockReportView({
 				"Purchase Qty": purchase,
 				"S.Ret Qty.": sRet,
 				"Stk Adj Add": stkAdjAdd,
+				"Total In Qty": totalIn,
 				"Sales Qty.": salesQty,
 				"P.Ret Qty.": pRet,
 				"Stk Adj Less": stkAdjLess,
