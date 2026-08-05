@@ -46,4 +46,6 @@ yarn-error.log*
 *.tsbuildinfo
 
 # idea files
-.ideademo data/
+.idea
+
+demo data/

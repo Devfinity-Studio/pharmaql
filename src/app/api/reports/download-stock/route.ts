@@ -194,7 +194,7 @@ export async function GET(request: Request) {
 				GROUP BY v.batch_id
 			) as a
 		`);
-		
+
 		const r = res[0] as any;
 		
 		const opening = Number(r.opening || 0);
@@ -209,29 +209,21 @@ export async function GET(request: Request) {
 
 			reportData.push({
 				"MR Name": mrInfo.name,
-				Manufacturer: p.manufacturer,
-				"Item Name": p.name,
-				Packing: p.freeScheme || "-",
-				"Purc Days": 30,
-				"Opening Qty.": opening,
-				"Purchase Qty": purchase,
-				"S.Ret Qty.": sRet,
-				"Stk Adj Add": stkAdjAdd,
-				"Total In Qty": totalIn,
-				"Sales Qty.": salesQty,
-				"P.Ret Qty.": pRet,
-				"Stk Adj Less": stkAdjLess,
-				"Balance Qty.": balanceQty,
-				"Stock Value": stockValue,
-				prate: prate,
-				ptr: ptr
+				"Product Name": prod.name,
+				"Opening": opening,
+				"Purchase": purchase,
+				"Total In Qty": opening + purchase,
+				"Sales": salesQty,
+				"Closing": currQty,
+				"PRate": prate,
+				"PTR": ptr,
+				"MRP": mrp,
 			});
 		}
-	});
+	}
 
 	reportData.sort((a, b) => {
-		if (a.Manufacturer !== b.Manufacturer) return (a.Manufacturer || "").localeCompare(b.Manufacturer || "");
-		return a["Item Name"].localeCompare(b["Item Name"]);
+		return a["Product Name"].localeCompare(b["Product Name"]);
 	});
 
 	const format = searchParams.get("format") || "csv";
