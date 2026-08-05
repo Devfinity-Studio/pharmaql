@@ -150,43 +150,62 @@ export async function GET(request: Request) {
 					existing.outward += inv.outward || 0;
 					existing.stock = inv.stock || 0;
 				}
-				existing.ptr = Number(inv.ptr) || existing.ptr;
-				existing.mrp = Number(inv.mrp) || existing.mrp;
-				existing.prate = Number(inv.prate) || existing.prate;
-			}
-		}
-	});
-
 	const reportData: any[] = [];
-	accessibleProducts.forEach((p) => {
-		const inv = inventoryMap.get(p.id);
-		if (inv) {
-			const opening = inv?.opening || 0;
-			const rawInward = inv?.inward || 0;
-			
-			const purchase = Math.max(0, rawInward);
-			const sRet = 0;
-			const pRet = 0;
-			const salesQty = inv?.outward || 0;
-			
-			const actualBalance = nextDayInventoryMap.has(p.id) ? nextDayInventoryMap.get(p.id)! : (inv?.stock || 0);
-			const expectedBalance = opening + purchase - sRet - salesQty - pRet;
-			
-			let stkAdjAdd = 0;
-			let stkAdjLess = 0;
-			
-			if (actualBalance > expectedBalance) {
-				stkAdjAdd = actualBalance - expectedBalance;
-			} else if (actualBalance < expectedBalance) {
-				stkAdjLess = expectedBalance - actualBalance;
-			}
-			
-			const totalIn = opening + purchase - sRet + stkAdjAdd;
-			
-			const balanceQty = inv?.stock || (totalIn - salesQty - pRet - stkAdjLess);
-			const ptr = inv?.ptr || 0;
-			const prate = inv?.prate || 0;
-			const stockValue = balanceQty * prate;
+	const limitFromDate = from ? new Date(from) : null;
+	const limitToDate = to ? new Date(to) : new Date('9999-12-31T23:59:59.999Z');
+	if (to) limitToDate.setUTCHours(23, 59, 59, 999);
+
+	const { sql } = await import("drizzle-orm");
+	for (const prod of accessibleProducts) {
+		const res = await db.execute(sql`
+			SELECT 
+				SUM(opening) as opening,
+				SUM(inward) as purchase,
+				SUM(s_ret_inward) as s_return,
+				SUM(add_stock_adj) as stk_adj_add,
+				SUM(sale_qty + sale_f_qty) as sales_qty,
+				SUM(outward) as p_return,
+				SUM(less_stock_adj) as stk_adj_less,
+				SUM(opening + curr_qty) as curr_qty,
+				MAX(prate) as prate,
+				MAX(ptr) as ptr,
+				MAX(mrp) as mrp,
+				SUM(opening) * MAX(prate) as opening_value,
+				SUM(inward) * MAX(prate) as purchase_value,
+				SUM(sale_qty + sale_f_qty) * MAX(prate) as sales_value,
+				SUM(opening + curr_qty) * MAX(prate) as stock_value
+			FROM (
+				SELECT SUM(v.qty) as opening, 0 as inward, 0 as s_ret_inward, 0 as add_stock_adj, 0 as sale_qty, 0 as sale_f_qty, 0 as outward, 0 as less_stock_adj, 0 as curr_qty,
+				v.batch_id,
+				MAX(h.prate) as prate, MAX(h.ptr) as ptr, MAX(h.mrp) as mrp
+				FROM "pg-drizzle_legacy_view_stocks" v
+				LEFT JOIN "pg-drizzle_legacy_h_batch" h ON h.id = v.batch_id AND h.item_id = v.item_id
+				WHERE v.item_id = ${prod.id} AND v.loc_no = ${mrInfo.locNo.toString()} AND v.t_date < ${(limitFromDate || new Date(0)).toISOString()}
+				GROUP BY v.batch_id
+				
+				UNION ALL
+				
+				SELECT 0 as opening, SUM(v.inward) as inward, SUM(v.s_ret_inward) as s_ret_inward, SUM(v.add_stock_adj) as add_stock_adj, SUM(v.sale_qty) as sale_qty, SUM(v.sale_f_qty) as sale_f_qty, SUM(v.outward) as outward, SUM(v.less_stock_adj) as less_stock_adj, SUM(v.qty) as curr_qty,
+				v.batch_id,
+				MAX(h.prate) as prate, MAX(h.ptr) as ptr, MAX(h.mrp) as mrp
+				FROM "pg-drizzle_legacy_view_stocks" v
+				LEFT JOIN "pg-drizzle_legacy_h_batch" h ON h.id = v.batch_id AND h.item_id = v.item_id
+				WHERE v.item_id = ${prod.id} AND v.loc_no = ${mrInfo.locNo.toString()} AND v.t_date >= ${(limitFromDate || new Date(0)).toISOString()} AND v.t_date <= ${limitToDate.toISOString()}
+				GROUP BY v.batch_id
+			) as a
+		`);
+		
+		const r = res[0] as any;
+		
+		const opening = Number(r.opening || 0);
+		const purchase = Number(r.purchase || 0);
+		const salesQty = Number(r.sales_qty || 0);
+		const currQty = Number(r.curr_qty || 0);
+
+		if (r && (opening !== 0 || purchase !== 0 || currQty !== 0 || salesQty !== 0)) {
+			const prate = Number(r.prate || 0);
+			const ptr = Number(r.ptr || 0);
+			const mrp = Number(r.mrp || 0);
 
 			reportData.push({
 				"MR Name": mrInfo.name,
