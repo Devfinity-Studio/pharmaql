@@ -18,7 +18,7 @@ export async function StockReportView({
 	// Fetch data
 	const mrInfoArr = await db.select().from(user).where(eq(user.id, mrId)).limit(1);
 	const mrInfo = mrInfoArr[0];
-	if (!mrInfo || !mrInfo.canViewStock) return <div>No access to stock data.</div>;
+	if (!mrInfo || !mrInfo.canViewStock || !mrInfo.locNo) return <div>No access to stock data or location not assigned.</div>;
 
 	const company = searchParams?.division || "All";
 
