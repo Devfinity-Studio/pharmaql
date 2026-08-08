@@ -9,6 +9,7 @@ import { StockReportView } from "@/components/stock-report-view";
 import { OutstandingReportView } from "@/components/outstanding-report-view";
 import { SalesReportView } from "@/components/sales-report-view";
 import { ProductReportView } from "@/components/product-report-view";
+import { NewSalesReportView } from "@/components/new-sales-report-view";
 import { db } from "@/server/db";
 import {
 	invoices,
@@ -486,6 +487,21 @@ export async function MrDashboardContent({
 						Sales Reports
 					</Link>
 				)}
+				{canViewSales && (
+					<Link
+						className={`border-b-4 px-6 py-4 font-bold text-base transition-colors ${
+							searchParams?.tab === "new-sales"
+								? "border-[#0071BC] text-[#0071BC]"
+								: "border-transparent text-gray-500 hover:text-[#0B2545]"
+						}`}
+						href={`${baseUrl}?${new URLSearchParams({
+							...searchParams,
+							tab: "new-sales",
+						}).toString()}`}
+					>
+						New Sales
+					</Link>
+				)}
 				{canViewFreeScheme && (
 					<Link
 						className={`border-b-4 px-6 py-4 font-bold text-base transition-colors ${
@@ -704,6 +720,22 @@ export async function MrDashboardContent({
 						</form>
 					</div>
 					<SalesReportView mrId={mrId} searchParams={searchParams} />
+				</div>
+			)}
+
+			{searchParams?.tab === "new-sales" && canViewSales && (
+				<div>
+					<div className="flex justify-between items-center mb-4">
+						<form action={baseUrl} method="GET" className="flex gap-2 w-full max-w-sm">
+							{Object.entries(searchParams || {}).map(([k, v]) => {
+								if (k === "q") return null;
+								return <input key={k} type="hidden" name={k} value={v as string} />;
+							})}
+							<input name="q" placeholder="Search customer or company..." defaultValue={searchParams?.q || ""} className="flex-1 rounded-xl border border-gray-300 px-3 py-2" />
+							<button type="submit" className="bg-[#0071BC] text-white px-4 py-2 rounded-xl font-bold">Search</button>
+						</form>
+					</div>
+					<NewSalesReportView mrId={mrId} searchParams={searchParams} />
 				</div>
 			)}
 
