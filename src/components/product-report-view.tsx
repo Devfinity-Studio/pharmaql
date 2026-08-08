@@ -85,26 +85,29 @@ export async function ProductReportView({
 			productId: sales.productId,
 			quantity: sales.quantity,
 			amount: sales.amount,
+			freeQty: sales.freeQty,
 		})
 		.from(sales)
 		.where(salesCondition) : [];
 
-	const salesMap = new Map<string, { qty: number; amount: number }>();
+	const salesMap = new Map<string, { qty: number; freeQty: number; amount: number }>();
 	accessibleSales.forEach(s => {
-		const curr = salesMap.get(s.productId) || { qty: 0, amount: 0 };
+		const curr = salesMap.get(s.productId) || { qty: 0, freeQty: 0, amount: 0 };
 		curr.qty += s.quantity || 0;
+		curr.freeQty += s.freeQty || 0;
 		curr.amount += s.amount ? parseFloat(s.amount.toString()) : 0;
 		salesMap.set(s.productId, curr);
 	});
 
 	let reportData = accessibleProducts.map((p) => {
-		const s = salesMap.get(p.id) || { qty: 0, amount: 0 };
+		const s = salesMap.get(p.id) || { qty: 0, freeQty: 0, amount: 0 };
 		return {
 			Manufacturer: p.manufacturer,
 			"Product Name": p.name,
 			"Free Scheme": p.freeScheme || "N/A",
 			"Current Stock": inventoryMap.get(p.id) || 0,
 			"Total Sales Qty": s.qty,
+			"Total Free Qty": s.freeQty,
 			"Total Sales Amt": s.amount,
 		};
 	});
@@ -117,9 +120,9 @@ export async function ProductReportView({
 		);
 	}
 
-	// Grouping by Manufacturer
 	const manufacturers = [...new Set(reportData.map((d) => d.Manufacturer))].sort();
 	let grandTotalSales = 0;
+	let grandTotalFreeQty = 0;
 	let grandTotalAmount = 0;
 
 	return (
@@ -154,6 +157,7 @@ export async function ProductReportView({
 							{mrInfo.canViewFreeScheme && <th className="py-2 text-[#0B2545] font-bold text-sm">Free Scheme</th>}
 							{mrInfo.canViewStock && <th className="py-2 text-[#0B2545] font-bold text-sm text-right">Current Stock</th>}
 							{mrInfo.canViewSales && <th className="py-2 text-[#0B2545] font-bold text-sm text-right">Total Sales Qty</th>}
+							{mrInfo.canViewSales && <th className="py-2 text-[#0B2545] font-bold text-sm text-right">Total Free Qty</th>}
 							{mrInfo.canViewSales && <th className="py-2 text-[#0B2545] font-bold text-sm text-right pr-2">Total Sales Amt</th>}
 						</tr>
 					</thead>
@@ -161,19 +165,21 @@ export async function ProductReportView({
 						{manufacturers.map((mfg, idx) => {
 							const mfgData = reportData.filter((d) => d.Manufacturer === mfg);
 							let mfgSales = 0;
+							let mfgFreeQty = 0;
 							let mfgAmount = 0;
 
 							return (
 								<React.Fragment key={idx}>
 									{/* Company Header Row */}
 									<tr>
-										<td colSpan={5} className="py-2 font-bold text-[#000080] border-b border-gray-200 bg-gray-50/50 px-2">
+										<td colSpan={6} className="py-2 font-bold text-[#000080] border-b border-gray-200 bg-gray-50/50 px-2">
 											Company : {mfg.toUpperCase()}
 										</td>
 									</tr>
 									{/* Items */}
 									{mfgData.map((row, rowIdx) => {
 										mfgSales += row["Total Sales Qty"];
+										mfgFreeQty += row["Total Free Qty"];
 										mfgAmount += row["Total Sales Amt"];
 
 										return (
@@ -182,6 +188,7 @@ export async function ProductReportView({
 												{mrInfo.canViewFreeScheme && <td className="py-1.5 text-blue-600 font-bold">{row["Free Scheme"]}</td>}
 												{mrInfo.canViewStock && <td className="py-1.5 text-right font-bold text-amber-600">{row["Current Stock"]}</td>}
 												{mrInfo.canViewSales && <td className="py-1.5 text-right font-bold text-[#0071BC]">{row["Total Sales Qty"]}</td>}
+												{mrInfo.canViewSales && <td className="py-1.5 text-right font-bold text-[#0071BC]">{row["Total Free Qty"]}</td>}
 												{mrInfo.canViewSales && <td className="py-1.5 text-right pr-2 font-bold text-rose-600">{row["Total Sales Amt"].toFixed(2)}</td>}
 											</tr>
 										);
@@ -191,10 +198,12 @@ export async function ProductReportView({
 										<td colSpan={mrInfo.canViewFreeScheme ? 2 : 1} className="py-2 pl-2">Total for {mfg.toUpperCase()} :</td>
 										{mrInfo.canViewStock && <td className="py-2"></td>}
 										{mrInfo.canViewSales && <td className="py-2 text-right text-[#0071BC]">{mfgSales}</td>}
+										{mrInfo.canViewSales && <td className="py-2 text-right text-[#0071BC]">{mfgFreeQty}</td>}
 										{mrInfo.canViewSales && <td className="py-2 text-right pr-2 text-rose-700">{mfgAmount.toFixed(2)}</td>}
 									</tr>
 									{(() => {
 										grandTotalSales += mfgSales;
+										grandTotalFreeQty += mfgFreeQty;
 										grandTotalAmount += mfgAmount;
 										return null;
 									})()}
@@ -207,6 +216,7 @@ export async function ProductReportView({
 								<td colSpan={mrInfo.canViewFreeScheme ? 2 : 1} className="py-3 pl-2">Grand Total :</td>
 								{mrInfo.canViewStock && <td className="py-3"></td>}
 								<td className="py-3 text-right text-[#0071BC]">{grandTotalSales}</td>
+								<td className="py-3 text-right text-[#0071BC]">{grandTotalFreeQty}</td>
 								<td className="py-3 text-right pr-2 text-rose-700">{grandTotalAmount.toFixed(2)}</td>
 							</tr>
 						)}
