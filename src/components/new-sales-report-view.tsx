@@ -23,21 +23,39 @@ export async function NewSalesReportView({
 	}
 
 	// 2. Fetch MR's assigned companies
-	const company = searchParams?.division || "All";
-	const assignments = await db
+	const selectedDivision = searchParams?.division || "All";
+	const assigned = await db
 		.select()
 		.from(mrManufacturers)
 		.where(eq(mrManufacturers.mrId, mrId));
-	const manufacturerNames = assignments.map((a) => a.manufacturer);
-	const companiesToQuery = company === "All" ? manufacturerNames : [company];
+	
+	const selectedAssignments =
+		selectedDivision === "All"
+			? assigned
+			: assigned.filter(
+					(a) => (a.division || a.manufacturer) === selectedDivision,
+			  );
 
-	if (companiesToQuery.length === 0) return <div>No data assigned</div>;
+	if (selectedAssignments.length === 0) return <div>No data assigned</div>;
 
 	// 3. Get products for those companies
-	const accessibleProducts = await db
-		.select()
-		.from(products)
-		.where(inArray(products.manufacturer, companiesToQuery));
+	const productConditionList = selectedAssignments.map((d) => {
+		const conditions: any[] = [eq(products.manufacturer, d.manufacturer)];
+		if (d.division) {
+			conditions.push(eq(products.division, d.division));
+		}
+		return and(...conditions);
+	});
+
+	const { or } = await import("drizzle-orm");
+
+	const accessibleProducts = productConditionList.length > 0 
+		? await db
+			.select()
+			.from(products)
+			.where(or(...productConditionList))
+		: [];
+	
 	const productIds = accessibleProducts.map((p) => p.id);
 
 	if (productIds.length === 0) return <div>No products found</div>;
@@ -84,7 +102,7 @@ export async function NewSalesReportView({
 		const dealer = s.dealer || "Unknown";
 		const area = s.area || "";
 		const manufacturer = s.manufacturer || "Unknown";
-		const division = s.division || "";
+		const division = s.division || manufacturer;
 		
 		const key = `${dealer}|${area}|${manufacturer}|${division}`;
 		

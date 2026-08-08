@@ -20,17 +20,35 @@ export async function SalesReportView({
 	const mrInfo = mrInfoArr[0];
 	if (!mrInfo || !mrInfo.canViewSales) return <div>No access to sales data.</div>;
 
-	const company = searchParams?.division || "All";
+	const selectedDivision = searchParams?.division || "All";
 	const assigned = await db.select().from(mrManufacturers).where(eq(mrManufacturers.mrId, mrId));
-	const manufacturerNames = assigned.map((a) => a.manufacturer);
-	const companiesToQuery = company === "All" ? manufacturerNames : [company];
+	
+	const selectedAssignments =
+		selectedDivision === "All"
+			? assigned
+			: assigned.filter(
+					(a) => (a.division || a.manufacturer) === selectedDivision,
+			  );
 
-	if (companiesToQuery.length === 0) return <div>No data assigned</div>;
+	if (selectedAssignments.length === 0) return <div>No data assigned</div>;
 
-	const accessibleProducts = await db
-		.select()
-		.from(products)
-		.where(inArray(products.manufacturer, companiesToQuery));
+	const productConditionList = selectedAssignments.map((d) => {
+		const conditions: any[] = [eq(products.manufacturer, d.manufacturer)];
+		if (d.division) {
+			conditions.push(eq(products.division, d.division));
+		}
+		return and(...conditions);
+	});
+
+	const { or } = await import("drizzle-orm");
+
+	const accessibleProducts = productConditionList.length > 0 
+		? await db
+			.select()
+			.from(products)
+			.where(or(...productConditionList))
+		: [];
+	
 	const productIds = accessibleProducts.map((p) => p.id);
 
 	if (productIds.length === 0) return <div>No products found</div>;
@@ -70,6 +88,7 @@ export async function SalesReportView({
 		if (p) {
 			reportData.push({
 				Manufacturer: p.manufacturer,
+				Division: p.division || p.manufacturer,
 				"Doctor / Party": s.dealer || "Unknown Party",
 				"Product Name": p.name,
 				"Sale Qty": s.quantity || 0,
@@ -84,14 +103,14 @@ export async function SalesReportView({
 		const q = searchParams.q.toLowerCase();
 		for (let i = reportData.length - 1; i >= 0; i--) {
 			const d = reportData[i];
-			if (!d["Product Name"].toLowerCase().includes(q) && !d["Doctor / Party"].toLowerCase().includes(q) && !d["Manufacturer"].toLowerCase().includes(q)) {
+			if (!d["Product Name"].toLowerCase().includes(q) && !d["Doctor / Party"].toLowerCase().includes(q) && !d["Manufacturer"].toLowerCase().includes(q) && !d["Division"].toLowerCase().includes(q)) {
 				reportData.splice(i, 1);
 			}
 		}
 	}
 
-	// Grouping by Manufacturer
-	const manufacturers = [...new Set(reportData.map((d) => d.Manufacturer))].sort();
+	// Grouping by Division
+	const manufacturers = [...new Set(reportData.map((d) => d.Division))].sort();
 	let grandTotalAmount = 0;
 	let grandTotalSales = 0;
 
@@ -133,16 +152,16 @@ export async function SalesReportView({
 					</thead>
 					<tbody className="text-sm font-medium">
 						{manufacturers.map((mfg, idx) => {
-							const mfgData = reportData.filter((d) => d.Manufacturer === mfg);
-							let mfgAmount = 0;
+							const mfgData = reportData.filter((d) => d.Division === mfg);
 							let mfgSales = 0;
+							let mfgAmount = 0;
 
 							return (
 								<React.Fragment key={idx}>
 									{/* Company Header Row */}
 									<tr>
-										<td colSpan={6} className="py-2 font-bold text-[#000080] border-b border-gray-200 bg-gray-50/50 px-2">
-											Company : {mfg.toUpperCase()}
+										<td colSpan={7} className="py-2 font-bold text-[#000080] border-b border-gray-200 bg-gray-50/50 px-2">
+											Division : {mfg.toUpperCase()}
 										</td>
 									</tr>
 									{/* Items */}

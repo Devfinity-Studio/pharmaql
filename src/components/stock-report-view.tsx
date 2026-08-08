@@ -20,22 +20,39 @@ export async function StockReportView({
 	const mrInfo = mrInfoArr[0];
 	if (!mrInfo || !mrInfo.canViewStock || !mrInfo.locNo) return <div>No access to stock data or location not assigned.</div>;
 
-	const company = searchParams?.division || "All";
+	const selectedDivision = searchParams?.division || "All";
 
-	const assignments = await db
+	const assigned = await db
 		.select()
 		.from(mrManufacturers)
 		.where(eq(mrManufacturers.mrId, mrId));
 
-	const manufacturerNames = assignments.map((a) => a.manufacturer);
-	const companiesToQuery = company === "All" ? manufacturerNames : [company];
+	const selectedAssignments =
+		selectedDivision === "All"
+			? assigned
+			: assigned.filter(
+					(a) => (a.division || a.manufacturer) === selectedDivision,
+			  );
 
-	if (companiesToQuery.length === 0) return <div>No data assigned</div>;
+	if (selectedAssignments.length === 0) return <div>No data assigned</div>;
 
-	const accessibleProducts = await db
-		.select()
-		.from(products)
-		.where(inArray(products.manufacturer, companiesToQuery));
+	const productConditionList = selectedAssignments.map((d) => {
+		const conditions: any[] = [eq(products.manufacturer, d.manufacturer)];
+		if (d.division) {
+			conditions.push(eq(products.division, d.division));
+		}
+		return and(...conditions);
+	});
+
+	const { or } = await import("drizzle-orm");
+
+	const accessibleProducts = productConditionList.length > 0 
+		? await db
+			.select()
+			.from(products)
+			.where(or(...productConditionList))
+		: [];
+	
 	const productIds = accessibleProducts.map((p) => p.id);
 
 	if (productIds.length === 0) return <div>No products found</div>;
@@ -156,6 +173,7 @@ export async function StockReportView({
 
 			reportData.push({
 				Manufacturer: p.manufacturer,
+				Division: p.division || p.manufacturer,
 				"Item Name": p.name,
 				Packing: p.freeScheme || "-",
 				"Purc Days": 30, // Default to 30 days
@@ -179,7 +197,7 @@ export async function StockReportView({
 	}
 
 	// Grouping by Manufacturer
-	const manufacturers = [...new Set(reportData.map((d) => d.Manufacturer))].sort();
+	const manufacturers = [...new Set(reportData.map((d) => d.Division))].sort();
 	let grandTotalOpeningValue = 0;
 	let grandTotalPurchaseValue = 0;
 	let grandTotalSalesValue = 0;
@@ -228,7 +246,7 @@ export async function StockReportView({
 					</thead>
 					<tbody className="text-sm font-medium">
 						{manufacturers.map((mfg, idx) => {
-							const mfgData = reportData.filter((d) => d.Manufacturer === mfg);
+							const mfgData = reportData.filter((d) => d.Division === mfg);
 							let mfgOpeningValue = 0;
 							let mfgPurchaseValue = 0;
 							let mfgSalesValue = 0;

@@ -20,17 +20,35 @@ export async function ProductReportView({
 	const mrInfo = mrInfoArr[0];
 	if (!mrInfo || !mrInfo.canViewProductWise) return <div>No access to products data.</div>;
 
-	const company = searchParams?.division || "All";
+	const selectedDivision = searchParams?.division || "All";
 	const assigned = await db.select().from(mrManufacturers).where(eq(mrManufacturers.mrId, mrId));
-	const manufacturerNames = assigned.map((a) => a.manufacturer);
-	const companiesToQuery = company === "All" ? manufacturerNames : [company];
+	
+	const selectedAssignments =
+		selectedDivision === "All"
+			? assigned
+			: assigned.filter(
+					(a) => (a.division || a.manufacturer) === selectedDivision,
+			  );
 
-	if (companiesToQuery.length === 0) return <div>No data assigned</div>;
+	if (selectedAssignments.length === 0) return <div>No data assigned</div>;
 
-	const accessibleProducts = await db
-		.select()
-		.from(products)
-		.where(inArray(products.manufacturer, companiesToQuery));
+	const productConditionList = selectedAssignments.map((d) => {
+		const conditions: any[] = [eq(products.manufacturer, d.manufacturer)];
+		if (d.division) {
+			conditions.push(eq(products.division, d.division));
+		}
+		return and(...conditions);
+	});
+
+	const { or } = await import("drizzle-orm");
+
+	const accessibleProducts = productConditionList.length > 0 
+		? await db
+			.select()
+			.from(products)
+			.where(or(...productConditionList))
+		: [];
+	
 	const productIds = accessibleProducts.map((p) => p.id);
 
 	if (productIds.length === 0) return <div>No products found</div>;
@@ -103,6 +121,7 @@ export async function ProductReportView({
 		const s = salesMap.get(p.id) || { qty: 0, freeQty: 0, amount: 0 };
 		return {
 			Manufacturer: p.manufacturer,
+			Division: p.division || p.manufacturer,
 			"Product Name": p.name,
 			"Free Scheme": p.freeScheme || "N/A",
 			"Current Stock": inventoryMap.get(p.id) || 0,
@@ -116,11 +135,12 @@ export async function ProductReportView({
 		const q = searchParams.q.toLowerCase();
 		reportData = reportData.filter(d => 
 			d["Product Name"].toLowerCase().includes(q) || 
-			d["Manufacturer"].toLowerCase().includes(q)
+			d["Manufacturer"].toLowerCase().includes(q) ||
+			d["Division"].toLowerCase().includes(q)
 		);
 	}
 
-	const manufacturers = [...new Set(reportData.map((d) => d.Manufacturer))].sort();
+	const manufacturers = [...new Set(reportData.map((d) => d.Division))].sort();
 	let grandTotalSales = 0;
 	let grandTotalFreeQty = 0;
 	let grandTotalAmount = 0;
@@ -163,7 +183,7 @@ export async function ProductReportView({
 					</thead>
 					<tbody className="text-sm font-medium">
 						{manufacturers.map((mfg, idx) => {
-							const mfgData = reportData.filter((d) => d.Manufacturer === mfg);
+							const mfgData = reportData.filter((d) => d.Division === mfg);
 							let mfgSales = 0;
 							let mfgFreeQty = 0;
 							let mfgAmount = 0;
@@ -173,7 +193,7 @@ export async function ProductReportView({
 									{/* Company Header Row */}
 									<tr>
 										<td colSpan={6} className="py-2 font-bold text-[#000080] border-b border-gray-200 bg-gray-50/50 px-2">
-											Company : {mfg.toUpperCase()}
+											Division : {mfg.toUpperCase()}
 										</td>
 									</tr>
 									{/* Items */}
