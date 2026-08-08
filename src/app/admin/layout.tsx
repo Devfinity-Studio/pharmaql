@@ -36,12 +36,6 @@ export default async function AdminLayout({
 					>
 						MR Access Management
 					</Link>
-					<Link
-						className="rounded p-2 font-medium hover:bg-gray-800"
-						href="/admin/ingest"
-					>
-						Data Ingestion (CSV)
-					</Link>
 				</nav>
 				<div className="mt-auto flex flex-col gap-3 border-gray-800 border-t pt-4">
 					<div className="text-gray-400 text-sm">
