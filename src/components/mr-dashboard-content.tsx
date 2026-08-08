@@ -517,6 +517,7 @@ export async function MrDashboardContent({
 						Free Schemes
 					</Link>
 				)}
+				{/* 
 				{canViewPartyWise && (
 					<Link
 						className={`border-b-4 px-6 py-4 font-bold text-base transition-colors ${
@@ -532,6 +533,7 @@ export async function MrDashboardContent({
 						Party Wise
 					</Link>
 				)}
+				*/}
 			</div>
 
 			{/* OVERVIEW TAB */}
@@ -739,6 +741,7 @@ export async function MrDashboardContent({
 				</div>
 			)}
 
+			{/*
 			{searchParams?.tab === "party" && canViewPartyWise && (
 				<div>
 					<div className="flex justify-between items-center mb-4">
@@ -746,6 +749,7 @@ export async function MrDashboardContent({
 					<OutstandingReportView mrId={mrId} searchParams={searchParams} />
 				</div>
 			)}
+			*/}
 
 
 
