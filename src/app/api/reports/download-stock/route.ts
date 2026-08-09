@@ -1,4 +1,4 @@
-import { and, eq, gte, inArray, lte } from "drizzle-orm";
+import { and, eq, inArray, lte, or } from "drizzle-orm";
 import { headers } from "next/headers";
 import { NextResponse } from "next/server";
 import { auth } from "@/server/auth";
@@ -52,17 +52,27 @@ export async function GET(request: Request) {
 		.select()
 		.from(mrManufacturers)
 		.where(eq(mrManufacturers.mrId, mrId));
-	const manufacturerNames = assigned.map((a) => a.manufacturer);
-	const companiesToQuery = company === "All" ? manufacturerNames : [company];
+	const selectedAssignments =
+		company === "All"
+			? assigned
+			: assigned.filter((a) => (a.division || a.manufacturer) === company);
 
-	if (companiesToQuery.length === 0) {
+	const productConditionList = selectedAssignments.map((d) => {
+		const conditions = [eq(products.manufacturer, d.manufacturer)];
+		if (d.division) {
+			conditions.push(eq(products.division, d.division));
+		}
+		return and(...conditions);
+	});
+
+	if (productConditionList.length === 0) {
 		return NextResponse.json([]);
 	}
 
 	const accessibleProducts = await db
 		.select()
 		.from(products)
-		.where(inArray(products.manufacturer, companiesToQuery));
+		.where(or(...productConditionList));
 	const productIds = accessibleProducts.map((p) => p.id);
 
 	if (productIds.length === 0) {
@@ -148,7 +158,7 @@ export async function GET(request: Request) {
 		}
 		
 		if (rangeInventory.length > 0) {
-			opening = rangeInventory[0].opening || 0;
+			opening = rangeInventory[0]?.opening || 0;
 		} else {
 			opening = 0;
 		}
@@ -169,6 +179,8 @@ export async function GET(request: Request) {
 			const mrp = Number(r?.mrp || 0);
 
 			reportData.push({
+				Manufacturer: prod.manufacturer,
+				Division: prod.division || prod.manufacturer,
 				"MR Name": mrInfo.name,
 				"Product Name": prod.name,
 				Opening: opening,

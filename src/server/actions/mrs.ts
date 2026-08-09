@@ -7,7 +7,7 @@ import { auth } from "@/server/auth";
 import { db } from "@/server/db";
 import { mrManufacturers, user } from "@/server/db/schema";
 
-export async function assignManufacturer(mrId: string, manufacturer: string) {
+export async function assignManufacturer(mrId: string, manufacturer: string, division?: string | null) {
 	const session = await auth.api.getSession({
 		headers: await headers(),
 	});
@@ -17,15 +17,18 @@ export async function assignManufacturer(mrId: string, manufacturer: string) {
 	}
 
 	try {
+        const conditions = [
+            eq(mrManufacturers.mrId, mrId),
+            eq(mrManufacturers.manufacturer, manufacturer),
+        ];
+        if (division) {
+            conditions.push(eq(mrManufacturers.division, division));
+        }
+
 		const existing = await db
 			.select()
 			.from(mrManufacturers)
-			.where(
-				and(
-					eq(mrManufacturers.mrId, mrId),
-					eq(mrManufacturers.manufacturer, manufacturer),
-				),
-			)
+			.where(and(...conditions))
 			.limit(1);
 
 		if (existing.length === 0) {
@@ -33,6 +36,7 @@ export async function assignManufacturer(mrId: string, manufacturer: string) {
 				id: crypto.randomUUID(),
 				mrId,
 				manufacturer,
+                division: division || null,
 			});
 		}
 
