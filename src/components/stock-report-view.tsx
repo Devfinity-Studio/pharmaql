@@ -138,11 +138,20 @@ export async function StockReportView({
 	const { sql } = await import("drizzle-orm");
 	for (const p of accessibleProducts) {
 		const res = await db.execute(sql`
-			SELECT SUM(v.inward) as inward, SUM(v.s_ret_inward) as s_ret_inward, SUM(v.add_stock_adj) as add_stock_adj, SUM(v.sale_qty) as sale_qty, SUM(v.sale_f_qty) as sale_f_qty, SUM(v.outward) as outward, SUM(v.less_stock_adj) as less_stock_adj, SUM(v.qty) as curr_qty,
-			MAX(h.prate) as prate, MAX(h.ptr) as ptr, MAX(h.mrp) as mrp
+			SELECT 
+				SUM(CASE WHEN v.t_date >= ${(limitFromDate || new Date(0)).toISOString()} THEN v.inward ELSE 0 END) as inward,
+				SUM(CASE WHEN v.t_date >= ${(limitFromDate || new Date(0)).toISOString()} THEN v.s_ret_inward ELSE 0 END) as s_ret_inward,
+				SUM(CASE WHEN v.t_date >= ${(limitFromDate || new Date(0)).toISOString()} THEN v.add_stock_adj ELSE 0 END) as add_stock_adj,
+				SUM(CASE WHEN v.t_date >= ${(limitFromDate || new Date(0)).toISOString()} THEN v.sale_qty ELSE 0 END) as sale_qty,
+				SUM(CASE WHEN v.t_date >= ${(limitFromDate || new Date(0)).toISOString()} THEN v.sale_f_qty ELSE 0 END) as sale_f_qty,
+				SUM(CASE WHEN v.t_date >= ${(limitFromDate || new Date(0)).toISOString()} THEN v.outward ELSE 0 END) as outward,
+				SUM(CASE WHEN v.t_date >= ${(limitFromDate || new Date(0)).toISOString()} THEN v.less_stock_adj ELSE 0 END) as less_stock_adj,
+				MAX(h.prate) as prate, 
+				MAX(h.ptr) as ptr, 
+				MAX(h.mrp) as mrp
 			FROM "pg-drizzle_legacy_view_stocks" v
 			LEFT JOIN "pg-drizzle_legacy_h_batch" h ON h.id = v.batch_id AND h.item_id = v.item_id
-			WHERE v.item_id = ${p.id} AND v.loc_no = ${mrInfo.locNo.toString()} AND v.t_date >= ${(limitFromDate || new Date(0)).toISOString()} AND v.t_date <= ${limitToDate.toISOString()}
+			WHERE v.item_id = ${p.id} AND v.loc_no = ${mrInfo.locNo.toString()} AND v.t_date <= ${limitToDate.toISOString()}
 		`);
 		
 		const r = res[0] as any;
