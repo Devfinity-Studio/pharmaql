@@ -149,18 +149,20 @@ export async function GET(request: Request) {
 		
 		if (rangeInventory.length > 0) {
 			opening = rangeInventory[0].opening || 0;
-			purchase = rangeInventory.reduce((acc, inv) => acc + (inv.inward || 0), 0);
 		} else {
 			opening = 0;
-			purchase = 0;
 		}
 
 		const sRet = Number(r?.s_return || 0);
-		currQty = purchase + opening + sRet - salesQty;
+		const stkAdjAdd = Number(r?.stk_adj_add || 0);
+		const pRet = Number(r?.p_return || 0);
+		const stkAdjLess = Number(r?.stk_adj_less || 0);
+
+		currQty = purchase + opening + sRet + stkAdjAdd - salesQty - pRet + stkAdjLess;
 
 		if (
 			r &&
-			(opening !== 0 || purchase !== 0 || currQty !== 0 || salesQty !== 0)
+			(opening !== 0 || purchase !== 0 || currQty !== 0 || salesQty !== 0 || sRet !== 0 || stkAdjAdd !== 0 || stkAdjLess !== 0 || pRet !== 0)
 		) {
 			const prate = Number(r?.prate || 0);
 			const ptr = Number(r?.ptr || 0);
@@ -171,7 +173,7 @@ export async function GET(request: Request) {
 				"Product Name": prod.name,
 				Opening: opening,
 				Purchase: purchase,
-				"Total In Qty": opening + purchase,
+				"Total In Qty": opening + purchase + sRet + stkAdjAdd,
 				Sales: salesQty,
 				Closing: currQty,
 				PRate: prate,

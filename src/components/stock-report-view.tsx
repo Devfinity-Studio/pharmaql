@@ -162,27 +162,24 @@ export async function StockReportView({
 		
 		if (rangeInventory.length > 0) {
 			opening = rangeInventory[0].opening || 0;
-			purchase = rangeInventory.reduce((acc, inv) => acc + (inv.inward || 0), 0);
 		} else {
-			// If no records in range but historical data exists, we reset opening and purchase to 0 for this range
 			opening = 0;
-			purchase = 0;
 		}
 
 		const sRet = Number(r?.s_return || 0);
 		
-		// Recalculate Balance Qty based on APbaroda override
-		// total qty = purchase + opening + stock return - sales
-		currQty = purchase + opening + sRet - salesQty;
+		const stkAdjAdd = Number(r?.stk_adj_add || 0);
+		const pRet = Number(r?.p_return || 0);
+		const stkAdjLess = Number(r?.stk_adj_less || 0);
+
+		// Recalculate Balance Qty
+		// total qty = purchase + opening + stock return + stock adjust add - sales - purchase return + stock adjust less (which is negative)
+		currQty = purchase + opening + sRet + stkAdjAdd - salesQty - pRet + stkAdjLess;
 
 		if (
 			r &&
-			(opening !== 0 || purchase !== 0 || currQty !== 0 || salesQty !== 0)
+			(opening !== 0 || purchase !== 0 || currQty !== 0 || salesQty !== 0 || sRet !== 0 || stkAdjAdd !== 0 || stkAdjLess !== 0 || pRet !== 0)
 		) {
-			const stkAdjAdd = Number(r?.stk_adj_add || 0);
-			const pRet = Number(r?.p_return || 0);
-			const stkAdjLess = Number(r?.stk_adj_less || 0);
-
 			const prate = Number(r?.prate || 0);
 			const ptr = Number(r?.ptr || 0);
 
@@ -191,7 +188,7 @@ export async function StockReportView({
 			const purchaseValue = purchase * prate;
 			const salesValue = Number(r?.sales_value || 0);
 
-			const totalIn = opening + purchase;
+			const totalIn = opening + purchase + sRet + stkAdjAdd;
 
 			reportData.push({
 				Manufacturer: p.manufacturer,
