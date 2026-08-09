@@ -1,4 +1,4 @@
-import { and, eq, gte, inArray, lte } from "drizzle-orm";
+import { and, eq, gte, inArray, lte, or, sql } from "drizzle-orm";
 import { headers } from "next/headers";
 import { NextResponse } from "next/server";
 import * as xlsx from "xlsx";
@@ -64,17 +64,29 @@ export async function GET(request: Request) {
 		.from(mrManufacturers)
 		.where(eq(mrManufacturers.mrId, mrId));
 
-	const manufacturerNames = assigned.map((a) => a.manufacturer);
-	const companiesToQuery = company === "All" ? manufacturerNames : [company];
+	let validAssignments = assigned;
+	if (company !== "All") {
+		validAssignments = assigned.filter(
+			(a) => a.division === company || a.manufacturer === company,
+		);
+	}
 
-	if (companiesToQuery.length === 0) {
+	if (validAssignments.length === 0) {
 		return new NextResponse("No data assigned", { status: 404 });
 	}
+
+	const productConditionList = validAssignments.map((d) => {
+		const conditions = [eq(products.manufacturer, d.manufacturer)];
+		if (d.division) {
+			conditions.push(eq(products.division, d.division));
+		}
+		return and(...conditions);
+	});
 
 	const accessibleProducts = await db
 		.select()
 		.from(products)
-		.where(inArray(products.manufacturer, companiesToQuery));
+		.where(or(...productConditionList));
 	const productIds = accessibleProducts.map((p) => p.id);
 
 	if (productIds.length === 0) {
@@ -85,53 +97,173 @@ export async function GET(request: Request) {
 	const mrName = mrInfo.name || "Unknown MR";
 
 	if (tab === "sales") {
-		let salesCondition = and(
-			inArray(sales.productId, productIds),
-			eq(sales.mrId, mrId),
-		);
+		// New Sales Report
+		let dateCondition = ``;
 		if (from) {
-			const fromDate = new Date(from);
-			if (!isNaN(fromDate.getTime())) {
-				salesCondition = and(salesCondition, gte(sales.date, fromDate));
-			}
+			dateCondition += ` AND h.inv_dt >= '${from}'`;
 		}
+		if (to) {
+			dateCondition += ` AND h.inv_dt <= '${to}'`;
+		}
+
+		const legacyDataResult = await db.execute(sql.raw(`
+			SELECT 
+				h.inv_no as "InvNo",
+				h.inv_dt as "InvDt",
+				CONCAT(h.cust_id, ' ', COALESCE(c.name, 'Unknown Party'), ' , ', COALESCE(c.city, '')) as "Customer",
+				l.item_id as "ItemID",
+				l.batch_no as "BatchNo",
+				l.mrp as "MRP",
+				l.exp_dt as "ExpDt",
+				l.qty as "Qty",
+				l.f_qty as "FQty",
+				l.rate as "Rate",
+				l.taxable_amt as "TaxableAmt",
+				l.vat_amt as "GSTAmt",
+				l.line_amt as "Amount"
+			FROM "pg-drizzle_legacy_h_sale" h
+			JOIN "pg-drizzle_legacy_l_sale" l ON l.rid = h.id
+			LEFT JOIN "pg-drizzle_legacy_customers" c ON c.id = h.cust_id
+			WHERE l.item_id IN (${productIds.map(id => `'${id}'`).join(",")})
+			${dateCondition}
+		`));
+
+		const legacyRows = legacyDataResult as any[];
+		
+		legacyRows.forEach((row: any) => {
+			const p = accessibleProducts.find(
+				(prod) => prod.id === String(row.ItemID),
+			);
+			if (p) {
+				reportData.push({
+					"MR Name": mrName,
+					"Division": p.division || p.manufacturer,
+					"Customer": row.Customer || "Unknown Party",
+					"Inv No": row.InvNo,
+					"Date": row.InvDt ? new Date(row.InvDt).toLocaleDateString() : "-",
+					"Code": p.code || "-",
+					"Product Name": p.name,
+					"Packing": "10 Tablets",
+					"Batch No": row.BatchNo,
+					"MRP": Number(row.MRP).toFixed(2),
+					"Exp Dt": row.ExpDt,
+					"Qty": Number(row.Qty),
+					"Free Qty": Number(row.FQty),
+					"Rate": Number(row.Rate).toFixed(2),
+					"Taxable": Number(row.TaxableAmt).toFixed(2),
+					"Amount": (Number(row.TaxableAmt) + Number(row.GSTAmt)).toFixed(2),
+				});
+			}
+		});
+	} else if (tab === "free-schemes") {
+		// Free Schemes Legacy Fetch
+		let dateCondition = ``;
+		if (from) {
+			dateCondition += ` AND h.inv_dt >= '${from}'`;
+		}
+		if (to) {
+			dateCondition += ` AND h.inv_dt <= '${to}'`;
+		}
+
+		// Pre-fetch stock to get PTR like in the web view
+		const stockMap = new Map<string, { mrp: number; ptr: number }>();
+		let inventoryCondition = and(
+			inArray(mrInventory.productId, productIds),
+			eq(mrInventory.mrId, mrId),
+		);
 		if (to) {
 			const toDate = new Date(to);
 			if (!isNaN(toDate.getTime())) {
 				toDate.setUTCHours(23, 59, 59, 999);
-				salesCondition = and(salesCondition, lte(sales.date, toDate));
+				inventoryCondition = and(
+					inventoryCondition,
+					lte(mrInventory.date, toDate),
+				);
 			}
 		}
 
-		const accessibleSales = await db
-			.select({
-				productId: sales.productId,
-				quantity: sales.quantity,
-				freeQty: sales.freeQty,
-				dealer: sales.dealer,
-				amount: sales.amount,
-				date: sales.date,
-			})
-			.from(sales)
-			.where(salesCondition);
+		const inventory = await db
+			.select()
+			.from(mrInventory)
+			.where(inventoryCondition);
+		inventory.sort((a, b) => {
+			const da = a.date ? new Date(a.date).getTime() : 0;
+			const dbVal = b.date ? new Date(b.date).getTime() : 0;
+			return da - dbVal;
+		});
+		inventory.forEach((inv) =>
+			stockMap.set(inv.productId, {
+				mrp: Number(inv.mrp) || 0,
+				ptr: Number(inv.ptr) || 0,
+			}),
+		);
 
-		accessibleSales.forEach((s) => {
-			const p = accessibleProducts.find((prod) => prod.id === s.productId);
+		const legacyDataResult = await db.execute(sql.raw(`
+			SELECT 
+				h.inv_no as "InvNo",
+				h.inv_dt as "InvDt",
+				CONCAT(h.cust_id, ' ', COALESCE(c.name, 'Unknown Party'), ' , ', COALESCE(c.city, '')) as "Customer",
+				l.item_id as "ItemID",
+				l.batch_no as "BatchNo",
+				l.mrp as "MRP",
+				l.exp_dt as "ExpDt",
+				l.qty as "Qty",
+				l.f_qty as "FQty",
+				l.rate as "Rate",
+				l.taxable_amt as "TaxableAmt",
+				l.vat_amt as "GSTAmt",
+				l.line_amt as "Amount"
+			FROM "pg-drizzle_legacy_h_sale" h
+			JOIN "pg-drizzle_legacy_l_sale" l ON l.rid = h.id
+			LEFT JOIN "pg-drizzle_legacy_customers" c ON c.id = h.cust_id
+			WHERE l.item_id IN (${productIds.map(id => `'${id}'`).join(",")})
+			${dateCondition}
+		`));
+
+		const legacyRows = legacyDataResult as any[];
+		
+		legacyRows.forEach((row: any) => {
+			const p = accessibleProducts.find(
+				(prod) => prod.id === String(row.ItemID),
+			);
 			if (p) {
+				const pStock = stockMap.get(p.id) || { mrp: 0, ptr: 0 };
+				const qty = Number(row.Qty) || 0;
+				const fQty = Number(row.FQty) || 0;
+				const netRate = Number(row.Rate) || 0;
+				const invRate = pStock.ptr;
+				const schemeQty = 0;
+				const claimQty = fQty;
+				const claimValue = invRate * claimQty;
+
 				reportData.push({
 					"MR Name": mrName,
-					Manufacturer: p.manufacturer,
-					"Doctor / Party": s.dealer || "Unknown Party",
+					"Division": p.division || p.manufacturer,
+					"SchemeType": "Qty",
+					"Customer": row.Customer || "Unknown Party",
+					"Code": p.code || "-",
 					"Product Name": p.name,
-					Date: s.date ? new Date(s.date).toLocaleDateString() : "-",
-					"Sale Qty": s.quantity || 0,
-					"Free Qty": s.freeQty || 0,
-					Amount: s.amount ? parseFloat(s.amount.toString()) : 0,
+					"Packing": "10 Tablets",
+					"Batch No.": row.BatchNo || "-",
+					"Inv. No.": row.InvNo || "-",
+					"Inv. Dt.": row.InvDt ? new Date(row.InvDt).toLocaleDateString() : "-",
+					"MRP": Number(row.MRP || pStock.mrp).toFixed(2),
+					"PRate": invRate.toFixed(2),
+					"PTR": invRate.toFixed(2),
+					"Net Rate": netRate.toFixed(2),
+					"Inv. Rate": netRate.toFixed(2),
+					"Sale Qty": qty,
+					"Free Qty": fQty,
+					"Actual FQty": fQty,
+					"Claim Qty": claimQty,
+					"Rate Diff.": (invRate - netRate).toFixed(2),
+					"Claim Value": claimValue.toFixed(2),
+					"Item Scheme": p.freeScheme || "-",
+					"Applied Scheme": "-",
 				});
 			}
 		});
 	} else if (tab === "products") {
-		// Products
 		const inventoryMap = new Map<string, number>();
 		if (mrInfo.canViewStock || isAdmin) {
 			let inventoryCondition = and(
@@ -226,7 +358,42 @@ export async function GET(request: Request) {
 	}
 
 	if (format === "excel") {
-		const worksheet = xlsx.utils.json_to_sheet(reportData);
+		let excelData = reportData;
+		if (tab === "free-schemes") {
+			excelData = reportData.map((row) => ({
+				"Code": row["Code"],
+				"Product Name": row["Product Name"],
+				"Packing": row["Packing"],
+				"Batch No.": row["Batch No."],
+				"Inv. No.": row["Inv. No."],
+				"Inv. Dt.": row["Inv. Dt."],
+				"MRP": row["MRP"],
+				"PRate": row["PRate"],
+				"PTR": row["PTR"],
+				"Net Rate": row["Net Rate"],
+				"Inv. Rate": row["Inv. Rate"],
+				"Sale Qty": row["Sale Qty"],
+				"Free Qty": row["Free Qty"],
+				"Actual FQty": row["Actual FQty"],
+				"Scheme Qty": row["Scheme Qty"],
+				"Rate Diff.": row["Rate Diff."],
+				"Scheme Value": row["Scheme Value"],
+				"Item Scheme": row["Item Scheme"],
+				"Applied Scheme": row["Applied Scheme"],
+			}));
+		}
+
+		const headerInfo = [[`MR: ${mrName} | Division/Company: ${company === "All" ? "All Divisions" : company} | Period: ${from || 'Start'} to ${to || 'End'}`]];
+		
+		const keys = excelData.length > 0 ? Object.keys(excelData[0]) : [];
+		const aoa = [keys, ...excelData.map((row) => keys.map((k) => (row as any)[k]))];
+		const fullAoa = [...headerInfo, [], ...aoa];
+		
+		const worksheet = xlsx.utils.aoa_to_sheet(fullAoa);
+		
+		if(!worksheet['!merges']) worksheet['!merges'] = [];
+		worksheet['!merges'].push({ s: { r: 0, c: 0 }, e: { r: 0, c: 10 } }); 
+
 		const workbook = xlsx.utils.book_new();
 		xlsx.utils.book_append_sheet(workbook, worksheet, "Report");
 		const buffer = xlsx.write(workbook, { type: "buffer", bookType: "xlsx" });

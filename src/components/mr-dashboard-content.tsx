@@ -7,7 +7,6 @@ import { OutstandingDownloadButtons } from "@/components/outstanding-download-bu
 import { OutstandingReportView } from "@/components/outstanding-report-view";
 import { ProductReportView } from "@/components/product-report-view";
 import { ReportDownloadButtons } from "@/components/report-download-buttons";
-import { SalesReportView } from "@/components/sales-report-view";
 import { NewSalesReportView } from "@/components/new-sales-report-view";
 import { StockReportView } from "@/components/stock-report-view";
 import { db } from "@/server/db";
@@ -467,16 +466,16 @@ export async function MrDashboardContent({
 				{canViewSales && (
 					<Link
 						className={`border-b-4 px-6 py-4 font-bold text-base transition-colors ${
-							searchParams?.tab === "new-sales"
+							searchParams?.tab === "sales"
 								? "border-[#0071BC] text-[#0071BC]"
 								: "border-transparent text-gray-500 hover:text-[#0B2545]"
 						}`}
 						href={`${baseUrl}?${new URLSearchParams({
 							...searchParams,
-							tab: "new-sales",
+							tab: "sales",
 						}).toString()}`}
 					>
-						New Sales Report
+						Sales Reports
 					</Link>
 				)}
 				{canViewStock && (
@@ -492,21 +491,6 @@ export async function MrDashboardContent({
 						}).toString()}`}
 					>
 						Stock Reports
-					</Link>
-				)}
-				{canViewSales && (
-					<Link
-						className={`border-b-4 px-6 py-4 font-bold text-base transition-colors ${
-							searchParams?.tab === "sales"
-								? "border-[#0071BC] text-[#0071BC]"
-								: "border-transparent text-gray-500 hover:text-[#0B2545]"
-						}`}
-						href={`${baseUrl}?${new URLSearchParams({
-							...searchParams,
-							tab: "sales",
-						}).toString()}`}
-					>
-						Sales Reports
 					</Link>
 				)}
 				{canViewFreeScheme && (
@@ -758,7 +742,7 @@ export async function MrDashboardContent({
 							</button>
 						</form>
 					</div>
-					<SalesReportView mrId={mrId} searchParams={searchParams} />
+					<NewSalesReportView mrId={mrId} searchParams={searchParams} />
 				</div>
 			)}
 
@@ -777,12 +761,6 @@ export async function MrDashboardContent({
 			{/* STOCK REPORTS TAB */}
 			{canViewStock && searchParams?.tab === "stock" && (
 				<StockReportView mrId={mrId} searchParams={searchParams} />
-			)}
-			{searchParams?.tab === "sales" && (
-				<SalesReportView mrId={mrId} searchParams={searchParams} />
-			)}
-			{searchParams?.tab === "new-sales" && (
-				<NewSalesReportView mrId={mrId} searchParams={searchParams} />
 			)}
 		</div>
 	);

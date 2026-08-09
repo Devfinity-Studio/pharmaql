@@ -41,7 +41,7 @@ export function ReportDownloadButtons({ mrId }: { mrId: string }) {
 			try {
 				let endpoint = "/api/reports/download"; // free schemes
 				if (currentTab === "stock") endpoint = "/api/reports/download-stock";
-				else if (currentTab === "sales" || currentTab === "products") {
+				else if (currentTab === "sales" || currentTab === "products" || currentTab === "new-sales") {
 					endpoint = "/api/reports/download-sales";
 					params.set("tab", currentTab);
 				}
@@ -50,40 +50,59 @@ export function ReportDownloadButtons({ mrId }: { mrId: string }) {
 				if (!res.ok) throw new Error("Failed to fetch data");
 				const data = await res.json();
 
+				const safeDivision = division.replace(/[^a-zA-Z0-9]/g, "_");
+				
+				let formattedFromForFilename = from;
+				let formattedToForFilename = to;
+				let displayFrom = from;
+				let displayTo = to;
+
+				if (from) {
+					const parts = from.split("-");
+					if (parts.length === 3) {
+						formattedFromForFilename = `${parts[2]}_${parts[1]}_${parts[0]}`;
+						displayFrom = `${parts[2]}-${parts[1]}-${parts[0]}`;
+					}
+				}
+				if (to) {
+					const parts = to.split("-");
+					if (parts.length === 3) {
+						formattedToForFilename = `${parts[2]}_${parts[1]}_${parts[0]}`;
+						displayTo = `${parts[2]}-${parts[1]}-${parts[0]}`;
+					}
+				}
+
+				let fromToSuffix = "";
+				if (formattedFromForFilename && formattedToForFilename) fromToSuffix = `_${formattedFromForFilename}_${formattedToForFilename}`;
+				else if (formattedFromForFilename) fromToSuffix = `_${formattedFromForFilename}`;
+				else if (formattedToForFilename) fromToSuffix = `_${formattedToForFilename}`;
+
 				if (currentTab === "stock") {
 					const mrName = data.length > 0 ? data[0]["MR Name"] : "Unknown";
+					const safeMrName = mrName.replace(/[^a-zA-Z0-9]/g, "_");
 					generateStockPdfReport(
-						`Stock_Report_${division}_${new Date().toISOString().split("T")[0]}.pdf`,
+						`${safeMrName}_${safeDivision}_stock_${fromToSuffix}.pdf`,
 						data,
 						mrName,
-						from,
-						to,
+						displayFrom,
+						displayTo,
 					);
 				} else if (currentTab === "sales") {
 					const mrName = data.length > 0 ? data[0]["MR Name"] : "Unknown";
+					const safeMrName = mrName.replace(/[^a-zA-Z0-9]/g, "_");
 
-					const columns = [
-						{ header: "Doctor / Party", dataKey: "Doctor / Party" },
-						{ header: "Product Name", dataKey: "Product Name" },
-						{ header: "Date", dataKey: "Date" },
-						{ header: "Sale Qty", dataKey: "Sale Qty" },
-						{ header: "Free Qty", dataKey: "Free Qty" },
-						{ header: "Amount", dataKey: "Amount" },
-					];
-
-					import("@/lib/pdf").then(({ generateGroupedPdfReport }) => {
-						generateGroupedPdfReport(
-							`Sales Movement Statement`,
-							`Sales_Report_${division}_${new Date().toISOString().split("T")[0]}.pdf`,
+					import("@/lib/pdf").then(({ generateSalesPdfReport }) => {
+						generateSalesPdfReport(
+							`${safeMrName}_${safeDivision}${fromToSuffix}.pdf`,
 							data,
-							columns as any,
 							mrName,
-							from,
-							to,
+							displayFrom,
+							displayTo,
 						);
 					});
 				} else if (currentTab === "products") {
 					const mrName = data.length > 0 ? data[0]["MR Name"] : "Unknown";
+					const safeMrName = mrName.replace(/[^a-zA-Z0-9]/g, "_");
 
 					const columns = [
 						{ header: "Product Name", dataKey: "Product Name" },
@@ -96,12 +115,12 @@ export function ReportDownloadButtons({ mrId }: { mrId: string }) {
 					import("@/lib/pdf").then(({ generateGroupedPdfReport }) => {
 						generateGroupedPdfReport(
 							`Product Wise Statement`,
-							`Product_Report_${division}_${new Date().toISOString().split("T")[0]}.pdf`,
+							`${safeMrName}_${safeDivision}_products_${fromToSuffix}.pdf`,
 							data,
 							columns as any,
 							mrName,
-							from,
-							to,
+							displayFrom,
+							displayTo,
 						);
 					});
 				} else {
@@ -112,18 +131,22 @@ export function ReportDownloadButtons({ mrId }: { mrId: string }) {
 
 					const mrName =
 						filteredData.length > 0 ? filteredData[0]["MR Name"] : "Unknown";
+					const safeMrName = mrName.replace(/[^a-zA-Z0-9]/g, "_");
 
 					const cleanDataForPdf = filteredData.map((row: any) => {
 						const { "MR Name": _, "Generated At": __, ...rest } = row;
 						return rest;
 					});
 
-					generatePdfReport(
-						`Free Scheme Report (${division})`,
-						`Free_Scheme_${division}_${new Date().toISOString().split("T")[0]}.pdf`,
-						cleanDataForPdf,
-						mrName,
-					);
+					import("@/lib/pdf").then(({ generateFreeSchemePdfReport }) => {
+						generateFreeSchemePdfReport(
+							`${safeMrName}_${safeDivision}_free_schemes_${fromToSuffix}.pdf`,
+							cleanDataForPdf,
+							mrName,
+							displayFrom,
+							displayTo,
+						);
+					});
 				}
 			} catch (e) {
 				console.error(e);
@@ -131,8 +154,8 @@ export function ReportDownloadButtons({ mrId }: { mrId: string }) {
 			}
 		} else {
 			params.set("format", format);
-			let endpoint = "/api/reports/download"; // free schemes
-			if (currentTab === "sales" || currentTab === "products") {
+			let endpoint = "/api/reports/download";
+			if (currentTab === "sales" || currentTab === "products" || currentTab === "new-sales" || currentTab === "free-schemes") {
 				endpoint = "/api/reports/download-sales";
 				params.set("tab", currentTab);
 			} else if (currentTab === "stock") {
