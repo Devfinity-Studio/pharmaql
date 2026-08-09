@@ -1,4 +1,4 @@
-import { and, eq, gte, inArray, lte } from "drizzle-orm";
+import { and, eq, gte, inArray, lte, or } from "drizzle-orm";
 import React from "react";
 import { db } from "@/server/db";
 import {
@@ -37,15 +37,28 @@ export async function StockReportView({
 		.from(mrManufacturers)
 		.where(eq(mrManufacturers.mrId, mrId));
 
-	const manufacturerNames = assignments.map((a) => a.manufacturer);
-	const companiesToQuery = company === "All" ? manufacturerNames : [company];
+	const selectedAssignments =
+		company === "All"
+			? assignments
+			: assignments.filter(
+					(a) => (a.division || a.manufacturer) === company,
+				);
 
-	if (companiesToQuery.length === 0) return <div>No data assigned</div>;
+	const productConditionList = selectedAssignments.map((d) => {
+		const conditions = [eq(products.manufacturer, d.manufacturer)];
+		if (d.division) {
+			conditions.push(eq(products.division, d.division));
+		}
+		return and(...conditions);
+	});
+
+	if (productConditionList.length === 0) return <div>No data assigned</div>;
 
 	const accessibleProducts = await db
 		.select()
 		.from(products)
-		.where(inArray(products.manufacturer, companiesToQuery));
+		.where(or(...productConditionList));
+
 	const productIds = accessibleProducts.map((p) => p.id);
 
 	if (productIds.length === 0) return <div>No products found</div>;
@@ -161,7 +174,7 @@ export async function StockReportView({
 		}
 		
 		if (rangeInventory.length > 0) {
-			opening = rangeInventory[0].opening || 0;
+			opening = rangeInventory[0]?.opening || 0;
 		} else {
 			opening = 0;
 		}
@@ -192,6 +205,7 @@ export async function StockReportView({
 
 			reportData.push({
 				Manufacturer: p.manufacturer,
+				Division: p.division || p.manufacturer,
 				"Item Name": p.name,
 				Packing: p.freeScheme || "-",
 				"Purc Days": 30, // Default to 30 days
@@ -214,9 +228,9 @@ export async function StockReportView({
 		}
 	}
 
-	// Grouping by Manufacturer
-	const manufacturers = [
-		...new Set(reportData.map((d) => d.Manufacturer)),
+	// Grouping by Division
+	const divisions = [
+		...new Set(reportData.map((d) => d.Division)),
 	].sort();
 	let grandTotalOpeningValue = 0;
 	let grandTotalPurchaseValue = 0;
@@ -335,31 +349,30 @@ export async function StockReportView({
 						</tr>
 					</thead>
 					<tbody className="font-medium text-sm">
-						{manufacturers.map((mfg, idx) => {
-							const mfgData = reportData.filter((d) => d.Manufacturer === mfg);
-							let mfgOpeningValue = 0;
-							let mfgPurchaseValue = 0;
-							let mfgSalesValue = 0;
-							let mfgStockValue = 0;
+						{divisions.map((div, idx) => {
+							const divData = reportData.filter((d) => d.Division === div);
+							let divOpeningValue = 0;
+							let divPurchaseValue = 0;
+							let divSalesValue = 0;
+							let divStockValue = 0;
 
 							return (
 								<React.Fragment key={idx}>
-									{/* Company Header Row */}
+									{/* Company/Division Header Row */}
 									<tr>
 										<td
 											className="border-gray-200 border-b bg-gray-50/50 px-2 py-2 font-bold text-[#000080]"
 											colSpan={13}
 										>
-											Company : {mfg.toUpperCase()} -{" "}
-											{mfg.split(" ")[0].toUpperCase()}
+											Division : {div.toUpperCase()}
 										</td>
 									</tr>
 									{/* Items */}
-									{mfgData.map((row, rowIdx) => {
-										mfgOpeningValue += row["Opening Value"];
-										mfgPurchaseValue += row["Purchase Value"];
-										mfgSalesValue += row["Sales Value"];
-										mfgStockValue += row["Stock Value"];
+									{divData.map((row, rowIdx) => {
+										divOpeningValue += row["Opening Value"];
+										divPurchaseValue += row["Purchase Value"];
+										divSalesValue += row["Sales Value"];
+										divStockValue += row["Stock Value"];
 
 										return (
 											<tr
@@ -412,54 +425,34 @@ export async function StockReportView({
 											</tr>
 										);
 									})}
-									{/* Company Total */}
+									{/* Division Total */}
 									{(() => {
-										grandTotalOpeningValue += mfgOpeningValue;
-										grandTotalPurchaseValue += mfgPurchaseValue;
-										grandTotalSalesValue += mfgSalesValue;
-										grandTotalStockValue += mfgStockValue;
+										grandTotalOpeningValue += divOpeningValue;
+										grandTotalPurchaseValue += divPurchaseValue;
+										grandTotalSalesValue += divSalesValue;
+										grandTotalStockValue += divStockValue;
 										return (
 											<tr className="border-gray-300 border-y bg-gray-50/50 font-bold text-[#0B2545]">
 												<td className="py-2 pl-2" colSpan={3}>
-													Total value of {mfg.split(" ")[0].toUpperCase()} :
+													Total value of {div.toUpperCase()} :
 												</td>
 												<td className="py-2 text-right">
-													{mfgOpeningValue.toFixed(2)}
+													{divOpeningValue.toFixed(2)}
 												</td>
 												<td className="py-2 text-right">
-													{mfgPurchaseValue.toFixed(2)}
+													{divPurchaseValue.toFixed(2)}
 												</td>
 												<td colSpan={3}></td>
 												<td className="py-2 text-right">
-													{mfgSalesValue.toFixed(2)}
+													{divSalesValue.toFixed(2)}
 												</td>
 												<td colSpan={3}></td>
 												<td className="py-2 pr-2 text-right">
-													{mfgStockValue.toFixed(2)}
+													{divStockValue.toFixed(2)}
 												</td>
 											</tr>
 										);
 									})()}
-									{/* Full Company Total */}
-									<tr className="border-gray-400 border-b-2 bg-gray-50 font-bold text-[#0B2545]">
-										<td className="py-2 pl-2" colSpan={3}>
-											Total value of {mfg.toUpperCase()} :
-										</td>
-										<td className="py-2 text-right">
-											{mfgOpeningValue.toFixed(2)}
-										</td>
-										<td className="py-2 text-right">
-											{mfgPurchaseValue.toFixed(2)}
-										</td>
-										<td colSpan={3}></td>
-										<td className="py-2 text-right">
-											{mfgSalesValue.toFixed(2)}
-										</td>
-										<td colSpan={3}></td>
-										<td className="py-2 pr-2 text-right">
-											{mfgStockValue.toFixed(2)}
-										</td>
-									</tr>
 								</React.Fragment>
 							);
 						})}
