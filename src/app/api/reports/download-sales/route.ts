@@ -383,9 +383,13 @@ export async function GET(request: Request) {
 			}));
 		}
 
-		const worksheet = xlsx.utils.json_to_sheet(excelData, { origin: "A3" });
 		const headerInfo = [[`MR: ${mrName} | Division/Company: ${company === "All" ? "All Divisions" : company} | Period: ${from || 'Start'} to ${to || 'End'}`]];
-		xlsx.utils.sheet_add_aoa(worksheet, headerInfo, { origin: "A1" });
+		
+		const keys = excelData.length > 0 ? Object.keys(excelData[0]) : [];
+		const aoa = [keys, ...excelData.map((row) => keys.map((k) => (row as any)[k]))];
+		const fullAoa = [...headerInfo, [], ...aoa];
+		
+		const worksheet = xlsx.utils.aoa_to_sheet(fullAoa);
 		
 		if(!worksheet['!merges']) worksheet['!merges'] = [];
 		worksheet['!merges'].push({ s: { r: 0, c: 0 }, e: { r: 0, c: 10 } }); 
