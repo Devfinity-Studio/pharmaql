@@ -41,8 +41,8 @@ export async function StockReportView({
 		company === "All"
 			? assignments
 			: assignments.filter(
-					(a) => (a.division || a.manufacturer) === company,
-				);
+				(a) => (a.division || a.manufacturer) === company,
+			);
 
 	const productConditionList = selectedAssignments.map((d) => {
 		const conditions = [eq(products.manufacturer, d.manufacturer)];
@@ -172,7 +172,7 @@ export async function StockReportView({
 		if (limitFromDate) {
 			rangeInventory = pInventory.filter((inv) => inv.date && new Date(inv.date) >= limitFromDate);
 		}
-		
+
 		if (rangeInventory.length > 0) {
 			opening = rangeInventory[0]?.opening || 0;
 		} else {
@@ -180,7 +180,7 @@ export async function StockReportView({
 		}
 
 		const sRet = Number(r?.s_return || 0);
-		
+
 		const stkAdjAdd = Number(r?.stk_adj_add || 0);
 		const pRet = Number(r?.p_return || 0);
 		const stkAdjLess = Number(r?.stk_adj_less || 0);
@@ -249,7 +249,7 @@ export async function StockReportView({
 						</h2>
 						<p className="mt-0.5 max-w-sm font-medium text-gray-500 text-xs leading-relaxed">
 							BASEMENT-GF, 11/2 ASHOK HOUSE, B/S SANSTHA VASAHAT GATE, PRATAP
-							ROAD, RAOPURA, VADODARA - 390001, GUJARAT - 24
+							ROAD, RAOPURA, VADODARA - 390001, GUJARAT
 							<br />
 							Contact: 9409789800, Mobile: 9409789700
 						</p>
@@ -259,16 +259,18 @@ export async function StockReportView({
 					<p className="font-bold text-[#0B2545] text-xs">
 						Stock Movement Statement
 					</p>
-					<p className="mt-1">
-						For the Period of :{" "}
-						<span className="font-bold">
-							{searchParams?.from || ""}
-						</span>{" "}
-						to{" "}
-						<span className="font-bold">
-							{searchParams?.to || ""}
-						</span>
-					</p>
+					{(searchParams?.from || searchParams?.to) && (
+						<p className="mt-1">
+							For the Period of :{" "}
+							<span className="font-bold">
+								{searchParams?.from || ""}
+							</span>{" "}
+							to{" "}
+							<span className="font-bold">
+								{searchParams?.to || ""}
+							</span>
+						</p>
+					)}
 					<p className="mt-0.5">
 						Purc Days :{" "}
 						<span className="font-bold">
@@ -456,6 +458,46 @@ export async function StockReportView({
 								</React.Fragment>
 							);
 						})}
+						{/* Division Summaries Before Grand Total */}
+						{divisions.length > 1 && reportData.length > 0 && (
+							<>
+								<tr>
+									<td colSpan={13} className="py-4"></td>
+								</tr>
+								{divisions.map((div, divIdx) => {
+									const divData = reportData.filter((d) => d.Division === div);
+									let summaryOpening = 0;
+									let summaryPurchase = 0;
+									let summarySales = 0;
+									let summaryStock = 0;
+									divData.forEach((row) => {
+										summaryOpening += row["Opening Value"];
+										summaryPurchase += row["Purchase Value"];
+										summarySales += row["Sales Value"];
+										summaryStock += row["Stock Value"];
+									});
+									return (
+										<tr
+											key={`summary-${divIdx}`}
+											className="border-gray-300 border-y-2 bg-[#f0f4f8] font-bold text-[#0B2545] text-sm"
+										>
+											<td className="py-2 pl-2" colSpan={3}>
+												Total value of {div.toUpperCase()} :
+											</td>
+											<td className="py-2 text-right">{summaryOpening.toFixed(2)}</td>
+											<td className="py-2 text-right">{summaryPurchase.toFixed(2)}</td>
+											<td colSpan={3}></td>
+											<td className="py-2 text-right">{summarySales.toFixed(2)}</td>
+											<td colSpan={3}></td>
+											<td className="py-2 pr-2 text-right text-[#0056b3]">
+												{summaryStock.toFixed(2)}
+											</td>
+										</tr>
+									);
+								})}
+							</>
+						)}
+
 						{/* Grand Total */}
 						<tr className="border-[#0B2545] border-b-4 bg-gray-100 font-extrabold text-[#0B2545] text-base">
 							<td className="py-3 pl-2" colSpan={3}>
