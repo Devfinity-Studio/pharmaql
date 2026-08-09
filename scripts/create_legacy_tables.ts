@@ -33,6 +33,42 @@ async function main() {
         );
     `);
 
+    await db.execute(`
+        CREATE TABLE IF NOT EXISTS "pg-drizzle_legacy_h_sale" (
+            "id" varchar(255) PRIMARY KEY,
+            "cmp_no" varchar(50),
+            "loc_no" varchar(50),
+            "inv_dt" timestamp with time zone,
+            "inv_no" varchar(255),
+            "cust_id" varchar(255),
+            "inv_type" varchar(50)
+        );
+    `);
+
+    await db.execute(`
+        CREATE TABLE IF NOT EXISTS "pg-drizzle_legacy_l_sale" (
+            "id" varchar(255) PRIMARY KEY,
+            "rid" varchar(255),
+            "item_id" integer,
+            "batch_no" varchar(255),
+            "exp_dt" varchar(255),
+            "mrp" double precision,
+            "rate" double precision,
+            "qty" integer,
+            "f_qty" integer,
+            "taxable_amt" double precision,
+            "vat_amt" double precision,
+            "line_amt" double precision
+        );
+    `);
+
+    await db.execute(`
+        CREATE TABLE IF NOT EXISTS "pg-drizzle_legacy_m_ledger" (
+            "id" integer PRIMARY KEY,
+            "name" text
+        );
+    `);
+
 	console.log("Tables created successfully");
 	process.exit(0);
 }

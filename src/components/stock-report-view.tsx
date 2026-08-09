@@ -248,10 +248,10 @@ export async function StockReportView({
 							ASMEE PHARMA PRIVATE LIMITED
 						</h2>
 						<p className="mt-0.5 max-w-sm font-medium text-gray-500 text-xs leading-relaxed">
-							BASEMENE-GF, 11/2 ASHOK HOUSE, B/S SANSTHA VASAHAT GATE, PRATAP
+							BASEMENT-GF, 11/2 ASHOK HOUSE, B/S SANSTHA VASAHAT GATE, PRATAP
 							ROAD, RAOPURA, VADODARA - 390001, GUJARAT - 24
 							<br />
-							Contact: 9409789800, 9409789700 Mobile: 9409789700
+							Contact: 9409789800, Mobile: 9409789700
 						</p>
 					</div>
 				</div>
@@ -262,11 +262,11 @@ export async function StockReportView({
 					<p className="mt-1">
 						For the Period of :{" "}
 						<span className="font-bold">
-							{searchParams?.from || "01/04/2026"}
+							{searchParams?.from || ""}
 						</span>{" "}
 						to{" "}
 						<span className="font-bold">
-							{searchParams?.to || "30/04/2026"}
+							{searchParams?.to || ""}
 						</span>
 					</p>
 					<p className="mt-0.5">

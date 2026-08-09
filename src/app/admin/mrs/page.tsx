@@ -265,7 +265,7 @@ export default async function AdminMRsPage({
 										const val = formData.get("manufacturer") as string;
 										if (val) {
                                             const [mfg, div] = val.split("::");
-                                            await assignManufacturer(mr.id, mfg, div || null);
+                                            await assignManufacturer(mr.id, mfg!, div || null);
                                         }
 									}}
 									className="flex gap-2"
