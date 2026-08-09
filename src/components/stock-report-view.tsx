@@ -174,8 +174,8 @@ export async function StockReportView({
 		
 		const stockData = stockDataMap.get(p.id);
 		const opening = stockData?.opening || 0;
-		const purchase = stockData?.inward || 0;
-		const salesQty = Number(r?.sale_qty || 0) + Number(r?.sale_f_qty || 0);
+		const purchase = Number(r?.inward || 0);
+		const salesQty = Number(r?.sale_qty || 0);
 
 		const sRet = Number(r?.s_ret_inward || 0);
 		const stkAdjAdd = Number(r?.add_stock_adj || 0);
@@ -193,7 +193,7 @@ export async function StockReportView({
 			const purchaseValue = purchase * prate;
 			const salesValue = salesQty * prate;
 			
-			const totalIn = opening + purchase;
+			const totalIn = opening + purchase + sRet;
 
 			reportData.push({
 				Manufacturer: p.manufacturer,
@@ -220,8 +220,8 @@ export async function StockReportView({
 		}
 	}
 
-	// Grouping by Manufacturer
-	const manufacturers = [...new Set(reportData.map((d) => d.Division))].sort();
+	// Grouping by Manufacturer then Division
+	const manufacturersList = [...new Set(reportData.map((d) => d.Manufacturer))].sort();
 	
 	const grandTotalOpeningValue = reportData.reduce((sum, row) => sum + row["Opening Value"], 0);
 	const grandTotalPurchaseValue = reportData.reduce((sum, row) => sum + row["Purchase Value"], 0);
@@ -270,60 +270,74 @@ export async function StockReportView({
 						</tr>
 					</thead>
 					<tbody className="text-sm font-medium">
-						{manufacturers.map((mfg, idx) => {
-							const mfgData = reportData.filter((d) => d.Division === mfg);
-							const mfgOpeningValue = mfgData.reduce((sum, row) => sum + row["Opening Value"], 0);
-							const mfgPurchaseValue = mfgData.reduce((sum, row) => sum + row["Purchase Value"], 0);
-							const mfgSalesValue = mfgData.reduce((sum, row) => sum + row["Sales Value"], 0);
-							const mfgStockValue = mfgData.reduce((sum, row) => sum + row["Stock Value"], 0);
+						{manufacturersList.map((mfg, idx) => {
+							const mfgRows = reportData.filter((d) => d.Manufacturer === mfg);
+							const divisionsList = [...new Set(mfgRows.map((d) => d.Division))].sort();
+							
+							const companyOpeningValue = mfgRows.reduce((sum, row) => sum + row["Opening Value"], 0);
+							const companyPurchaseValue = mfgRows.reduce((sum, row) => sum + row["Purchase Value"], 0);
+							const companySalesValue = mfgRows.reduce((sum, row) => sum + row["Sales Value"], 0);
+							const companyStockValue = mfgRows.reduce((sum, row) => sum + row["Stock Value"], 0);
 
 							return (
 								<React.Fragment key={idx}>
-									{/* Company Header Row */}
-									<tr>
-										<td colSpan={13} className="py-2 font-bold text-[#000080] border-b border-gray-200 bg-gray-50/50 px-2">
-											Company : {mfg.toUpperCase()} - {mfg.split(" ")[0].toUpperCase()}
-										</td>
-									</tr>
-									{/* Items */}
-									{mfgData.map((row, rowIdx) => {
+									{divisionsList.map((div, divIdx) => {
+										const divData = mfgRows.filter((d) => d.Division === div);
+										const divOpeningValue = divData.reduce((sum, row) => sum + row["Opening Value"], 0);
+										const divPurchaseValue = divData.reduce((sum, row) => sum + row["Purchase Value"], 0);
+										const divSalesValue = divData.reduce((sum, row) => sum + row["Sales Value"], 0);
+										const divStockValue = divData.reduce((sum, row) => sum + row["Stock Value"], 0);
+										
 										return (
-											<tr key={rowIdx} className="border-b border-gray-100 hover:bg-gray-50 text-[#0B2545]">
-												<td className="py-1.5 whitespace-nowrap pl-2">{row["Item Name"]}</td>
-												<td className="py-1.5 text-center text-gray-500">{row["Packing"] || "-"}</td>
-												<td className="py-1.5 text-right">{row["Purc Days"]}</td>
-												<td className="py-1.5 text-right">{row["Opening Qty."] ?? "-"}</td>
-												<td className="py-1.5 text-right">{row["Purchase Qty"] ?? "-"}</td>
-												<td className="py-1.5 text-right">{row["S.Ret Qty."] !== 0 ? row["S.Ret Qty."] : "-"}</td>
-												<td className="py-1.5 text-right">{row["Stk Adj Add"] !== 0 ? row["Stk Adj Add"] : "-"}</td>
-												<td className="py-1.5 text-right">{row["Total In Qty"] ?? "-"}</td>
-												<td className="py-1.5 text-right">{row["Sales Qty."] ?? "-"}</td>
-												<td className="py-1.5 text-right">{row["P.Ret Qty."] !== 0 ? row["P.Ret Qty."] : "-"}</td>
-												<td className="py-1.5 text-right">{row["Stk Adj Less"] !== 0 ? row["Stk Adj Less"] : "-"}</td>
-												<td className="py-1.5 text-right">{row["Balance Qty."] ?? "-"}</td>
-												<td className="py-1.5 text-right pr-2">{row["Stock Value"] ? row["Stock Value"].toFixed(2) : "0.00"}</td>
-											</tr>
+											<React.Fragment key={divIdx}>
+												{/* Division Header Row */}
+												<tr>
+													<td colSpan={13} className="py-2 font-bold text-[#000080] border-b border-gray-200 bg-gray-50/50 px-2">
+														Company : {mfg.toUpperCase()} - {div.toUpperCase()}
+													</td>
+												</tr>
+												{/* Items */}
+												{divData.map((row, rowIdx) => {
+													return (
+														<tr key={rowIdx} className="border-b border-gray-100 hover:bg-gray-50 text-[#0B2545]">
+															<td className="py-1.5 whitespace-nowrap pl-2">{row["Item Name"]}</td>
+															<td className="py-1.5 text-center text-gray-500">{row["Packing"] || "-"}</td>
+															<td className="py-1.5 text-right">{row["Purc Days"]}</td>
+															<td className="py-1.5 text-right">{row["Opening Qty."] ?? "-"}</td>
+															<td className="py-1.5 text-right">{row["Purchase Qty"] ?? "-"}</td>
+															<td className="py-1.5 text-right">{row["S.Ret Qty."] !== 0 ? row["S.Ret Qty."] : "-"}</td>
+															<td className="py-1.5 text-right">{row["Stk Adj Add"] !== 0 ? row["Stk Adj Add"] : "-"}</td>
+															<td className="py-1.5 text-right">{row["Total In Qty"] ?? "-"}</td>
+															<td className="py-1.5 text-right">{row["Sales Qty."] ?? "-"}</td>
+															<td className="py-1.5 text-right">{row["P.Ret Qty."] !== 0 ? row["P.Ret Qty."] : "-"}</td>
+															<td className="py-1.5 text-right">{row["Stk Adj Less"] !== 0 ? row["Stk Adj Less"] : "-"}</td>
+															<td className="py-1.5 text-right">{row["Balance Qty."] ?? "-"}</td>
+															<td className="py-1.5 text-right pr-2">{row["Stock Value"] ? row["Stock Value"].toFixed(2) : "0.00"}</td>
+														</tr>
+													);
+												})}
+												{/* Division Total */}
+												<tr className="border-y border-gray-300 font-bold text-[#0B2545] bg-gray-50/50">
+													<td colSpan={3} className="py-2 pl-2">Total value of {div.toUpperCase()} :</td>
+													<td className="py-2 text-right">{divOpeningValue.toFixed(2)}</td>
+													<td className="py-2 text-right">{divPurchaseValue.toFixed(2)}</td>
+													<td colSpan={3}></td>
+													<td className="py-2 text-right">{divSalesValue.toFixed(2)}</td>
+													<td colSpan={3}></td>
+													<td className="py-2 text-right pr-2">{divStockValue.toFixed(2)}</td>
+												</tr>
+											</React.Fragment>
 										);
 									})}
-									{/* Company Total */}
-									<tr className="border-y border-gray-300 font-bold text-[#0B2545] bg-gray-50/50">
-										<td colSpan={3} className="py-2 pl-2">Total value of {mfg.split(" ")[0].toUpperCase()} :</td>
-										<td className="py-2 text-right">{mfgOpeningValue.toFixed(2)}</td>
-										<td className="py-2 text-right">{mfgPurchaseValue.toFixed(2)}</td>
-										<td colSpan={3}></td>
-										<td className="py-2 text-right">{mfgSalesValue.toFixed(2)}</td>
-										<td colSpan={3}></td>
-										<td className="py-2 text-right pr-2">{mfgStockValue.toFixed(2)}</td>
-									</tr>
 									{/* Full Company Total */}
 									<tr className="border-b-2 border-gray-400 font-bold text-[#0B2545] bg-gray-50">
 										<td colSpan={3} className="py-2 pl-2">Total value of {mfg.toUpperCase()} :</td>
-										<td className="py-2 text-right">{mfgOpeningValue.toFixed(2)}</td>
-										<td className="py-2 text-right">{mfgPurchaseValue.toFixed(2)}</td>
+										<td className="py-2 text-right">{companyOpeningValue.toFixed(2)}</td>
+										<td className="py-2 text-right">{companyPurchaseValue.toFixed(2)}</td>
 										<td colSpan={3}></td>
-										<td className="py-2 text-right">{mfgSalesValue.toFixed(2)}</td>
+										<td className="py-2 text-right">{companySalesValue.toFixed(2)}</td>
 										<td colSpan={3}></td>
-										<td className="py-2 text-right pr-2">{mfgStockValue.toFixed(2)}</td>
+										<td className="py-2 text-right pr-2">{companyStockValue.toFixed(2)}</td>
 									</tr>
 								</React.Fragment>
 							);
