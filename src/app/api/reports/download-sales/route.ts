@@ -1,4 +1,4 @@
-import { and, eq, gte, inArray, lte } from "drizzle-orm";
+import { and, eq, gte, inArray, lte, or, sql } from "drizzle-orm";
 import { headers } from "next/headers";
 import { NextResponse } from "next/server";
 import * as xlsx from "xlsx";
@@ -64,17 +64,29 @@ export async function GET(request: Request) {
 		.from(mrManufacturers)
 		.where(eq(mrManufacturers.mrId, mrId));
 
-	const manufacturerNames = assigned.map((a) => a.manufacturer);
-	const companiesToQuery = company === "All" ? manufacturerNames : [company];
+	let validAssignments = assigned;
+	if (company !== "All") {
+		validAssignments = assigned.filter(
+			(a) => a.division === company || a.manufacturer === company,
+		);
+	}
 
-	if (companiesToQuery.length === 0) {
+	if (validAssignments.length === 0) {
 		return new NextResponse("No data assigned", { status: 404 });
 	}
+
+	const productConditionList = validAssignments.map((d) => {
+		const conditions = [eq(products.manufacturer, d.manufacturer)];
+		if (d.division) {
+			conditions.push(eq(products.division, d.division));
+		}
+		return and(...conditions);
+	});
 
 	const accessibleProducts = await db
 		.select()
 		.from(products)
-		.where(inArray(products.manufacturer, companiesToQuery));
+		.where(or(...productConditionList));
 	const productIds = accessibleProducts.map((p) => p.id);
 
 	if (productIds.length === 0) {
@@ -85,48 +97,62 @@ export async function GET(request: Request) {
 	const mrName = mrInfo.name || "Unknown MR";
 
 	if (tab === "sales") {
-		let salesCondition = and(
-			inArray(sales.productId, productIds),
-			eq(sales.mrId, mrId),
-		);
+		// New Sales Report
+		let dateCondition = ``;
 		if (from) {
-			const fromDate = new Date(from);
-			if (!isNaN(fromDate.getTime())) {
-				salesCondition = and(salesCondition, gte(sales.date, fromDate));
-			}
+			dateCondition += ` AND h.inv_dt >= '${from}'`;
 		}
 		if (to) {
-			const toDate = new Date(to);
-			if (!isNaN(toDate.getTime())) {
-				toDate.setUTCHours(23, 59, 59, 999);
-				salesCondition = and(salesCondition, lte(sales.date, toDate));
-			}
+			dateCondition += ` AND h.inv_dt <= '${to}'`;
 		}
 
-		const accessibleSales = await db
-			.select({
-				productId: sales.productId,
-				quantity: sales.quantity,
-				freeQty: sales.freeQty,
-				dealer: sales.dealer,
-				amount: sales.amount,
-				date: sales.date,
-			})
-			.from(sales)
-			.where(salesCondition);
+		const legacyDataResult = await db.execute(sql.raw(`
+			SELECT 
+				h.inv_no as "InvNo",
+				h.inv_dt as "InvDt",
+				CONCAT(h.cust_id, ' ', COALESCE(c.name, 'Unknown Party'), ' , ', COALESCE(c.city, '')) as "Customer",
+				l.item_id as "ItemID",
+				l.batch_no as "BatchNo",
+				l.mrp as "MRP",
+				l.exp_dt as "ExpDt",
+				l.qty as "Qty",
+				l.f_qty as "FQty",
+				l.rate as "Rate",
+				l.taxable_amt as "TaxableAmt",
+				l.vat_amt as "GSTAmt",
+				l.line_amt as "Amount"
+			FROM "pg-drizzle_legacy_h_sale" h
+			JOIN "pg-drizzle_legacy_l_sale" l ON l.rid = h.id
+			LEFT JOIN "pg-drizzle_legacy_customers" c ON c.id = h.cust_id
+			WHERE l.item_id IN (${productIds.map(id => `'${id}'`).join(",")})
+			${dateCondition}
+		`));
 
-		accessibleSales.forEach((s) => {
-			const p = accessibleProducts.find((prod) => prod.id === s.productId);
+		const legacyRows = legacyDataResult as any[];
+		
+		legacyRows.forEach((row: any) => {
+			const p = accessibleProducts.find(
+				(prod) => prod.id === String(row.ItemID),
+			);
 			if (p) {
 				reportData.push({
 					"MR Name": mrName,
-					Manufacturer: p.manufacturer,
-					"Doctor / Party": s.dealer || "Unknown Party",
+					"Division": p.division || p.manufacturer,
+					"Customer": row.Customer || "Unknown Party",
+					"Inv No": row.InvNo,
+					"Date": row.InvDt ? new Date(row.InvDt).toLocaleDateString() : "-",
+					"Code": p.code || "-",
 					"Product Name": p.name,
-					Date: s.date ? new Date(s.date).toLocaleDateString() : "-",
-					"Sale Qty": s.quantity || 0,
-					"Free Qty": s.freeQty || 0,
-					Amount: s.amount ? parseFloat(s.amount.toString()) : 0,
+					"Packing": "10 Tablets",
+					"Batch No": row.BatchNo,
+					"MRP": Number(row.MRP).toFixed(2),
+					"Exp Dt": row.ExpDt,
+					"Qty": Number(row.Qty),
+					"Free Qty": Number(row.FQty),
+					"Rate": Number(row.Rate).toFixed(2),
+					"Taxable": Number(row.TaxableAmt).toFixed(2),
+					"GST": Number(row.GSTAmt).toFixed(2),
+					"Amount": (Number(row.TaxableAmt) + Number(row.GSTAmt)).toFixed(2),
 				});
 			}
 		});

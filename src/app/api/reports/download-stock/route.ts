@@ -182,12 +182,21 @@ export async function GET(request: Request) {
 				Manufacturer: prod.manufacturer,
 				Division: prod.division || prod.manufacturer,
 				"MR Name": mrInfo.name,
-				"Product Name": prod.name,
-				Opening: opening,
-				Purchase: purchase,
+				"Item Name": prod.name, // PDF uses "Item Name"
+				"Product Name": prod.name, // Keep for backward compatibility if needed
+				"Packing": "-", // Default placeholder if no packing info
+				"Purc Days": "-", // Could calculate if needed, using placeholder for now
+				"Opening Qty.": opening,
+				"Purchase Qty": purchase,
+				"S.Ret Qty.": sRet,
+				"Stk Adj Add": stkAdjAdd,
 				"Total In Qty": opening + purchase + sRet + stkAdjAdd,
-				Sales: salesQty,
-				Closing: currQty,
+				"Sales Qty.": salesQty,
+				"P.Ret Qty.": pRet,
+				"Stk Adj Less": stkAdjLess,
+				"Balance Qty.": currQty,
+				"Stock Value": currQty * prate, // Explicitly provide Stock Value
+				prate: prate,
 				PRate: prate,
 				PTR: ptr,
 				MRP: mrp,
