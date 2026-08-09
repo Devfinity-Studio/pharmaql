@@ -185,8 +185,8 @@ export async function StockReportView({
 		const currQty = opening + purchase + sRet + stkAdjAdd - salesQty - pRet - stkAdjLess;
 
 		if (opening !== 0 || purchase !== 0 || currQty !== 0 || salesQty !== 0) {
-			const prate = Number(r?.prate || 0);
-			const ptr = Number(r?.ptr || 0);
+			const prate = Math.max(Number(stockData?.prate || 0), Number(r?.prate || 0));
+			const ptr = Math.max(Number(stockData?.ptr || 0), Number(r?.ptr || 0));
 			
 			const stockValue = currQty * prate;
 			const openingValue = opening * prate;
