@@ -138,12 +138,15 @@ export function ReportDownloadButtons({ mrId }: { mrId: string }) {
 						return rest;
 					});
 
-					generatePdfReport(
-						`Free Scheme Report (${division})`,
-						`${safeMrName}_${safeDivision}${fromToSuffix}.pdf`,
-						cleanDataForPdf,
-						mrName,
-					);
+					import("@/lib/pdf").then(({ generateFreeSchemePdfReport }) => {
+						generateFreeSchemePdfReport(
+							`${safeMrName}_${safeDivision}_free_schemes_${fromToSuffix}.pdf`,
+							cleanDataForPdf,
+							mrName,
+							displayFrom,
+							displayTo,
+						);
+					});
 				}
 			} catch (e) {
 				console.error(e);
@@ -151,8 +154,8 @@ export function ReportDownloadButtons({ mrId }: { mrId: string }) {
 			}
 		} else {
 			params.set("format", format);
-			let endpoint = "/api/reports/download"; // free schemes
-			if (currentTab === "sales" || currentTab === "products" || currentTab === "new-sales") {
+			let endpoint = "/api/reports/download";
+			if (currentTab === "sales" || currentTab === "products" || currentTab === "new-sales" || currentTab === "free-schemes") {
 				endpoint = "/api/reports/download-sales";
 				params.set("tab", currentTab);
 			} else if (currentTab === "stock") {

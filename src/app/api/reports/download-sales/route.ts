@@ -151,13 +151,119 @@ export async function GET(request: Request) {
 					"Free Qty": Number(row.FQty),
 					"Rate": Number(row.Rate).toFixed(2),
 					"Taxable": Number(row.TaxableAmt).toFixed(2),
-					"GST": Number(row.GSTAmt).toFixed(2),
 					"Amount": (Number(row.TaxableAmt) + Number(row.GSTAmt)).toFixed(2),
 				});
 			}
 		});
+	} else if (tab === "free-schemes") {
+		// Free Schemes Legacy Fetch
+		let dateCondition = ``;
+		if (from) {
+			dateCondition += ` AND h.inv_dt >= '${from}'`;
+		}
+		if (to) {
+			dateCondition += ` AND h.inv_dt <= '${to}'`;
+		}
+
+		// Pre-fetch stock to get PTR like in the web view
+		const stockMap = new Map<string, { mrp: number; ptr: number }>();
+		let inventoryCondition = and(
+			inArray(mrInventory.productId, productIds),
+			eq(mrInventory.mrId, mrId),
+		);
+		if (to) {
+			const toDate = new Date(to);
+			if (!isNaN(toDate.getTime())) {
+				toDate.setUTCHours(23, 59, 59, 999);
+				inventoryCondition = and(
+					inventoryCondition,
+					lte(mrInventory.date, toDate),
+				);
+			}
+		}
+
+		const inventory = await db
+			.select()
+			.from(mrInventory)
+			.where(inventoryCondition);
+		inventory.sort((a, b) => {
+			const da = a.date ? new Date(a.date).getTime() : 0;
+			const dbVal = b.date ? new Date(b.date).getTime() : 0;
+			return da - dbVal;
+		});
+		inventory.forEach((inv) =>
+			stockMap.set(inv.productId, {
+				mrp: Number(inv.mrp) || 0,
+				ptr: Number(inv.ptr) || 0,
+			}),
+		);
+
+		const legacyDataResult = await db.execute(sql.raw(`
+			SELECT 
+				h.inv_no as "InvNo",
+				h.inv_dt as "InvDt",
+				CONCAT(h.cust_id, ' ', COALESCE(c.name, 'Unknown Party'), ' , ', COALESCE(c.city, '')) as "Customer",
+				l.item_id as "ItemID",
+				l.batch_no as "BatchNo",
+				l.mrp as "MRP",
+				l.exp_dt as "ExpDt",
+				l.qty as "Qty",
+				l.f_qty as "FQty",
+				l.rate as "Rate",
+				l.taxable_amt as "TaxableAmt",
+				l.vat_amt as "GSTAmt",
+				l.line_amt as "Amount"
+			FROM "pg-drizzle_legacy_h_sale" h
+			JOIN "pg-drizzle_legacy_l_sale" l ON l.rid = h.id
+			LEFT JOIN "pg-drizzle_legacy_customers" c ON c.id = h.cust_id
+			WHERE l.item_id IN (${productIds.map(id => `'${id}'`).join(",")})
+			${dateCondition}
+		`));
+
+		const legacyRows = legacyDataResult as any[];
+		
+		legacyRows.forEach((row: any) => {
+			const p = accessibleProducts.find(
+				(prod) => prod.id === String(row.ItemID),
+			);
+			if (p) {
+				const pStock = stockMap.get(p.id) || { mrp: 0, ptr: 0 };
+				const qty = Number(row.Qty) || 0;
+				const fQty = Number(row.FQty) || 0;
+				const netRate = Number(row.Rate) || 0;
+				const invRate = pStock.ptr;
+				const schemeQty = 0;
+				const claimQty = fQty;
+				const claimValue = invRate * claimQty;
+
+				reportData.push({
+					"MR Name": mrName,
+					"Division": p.division || p.manufacturer,
+					"SchemeType": "Qty",
+					"Customer": row.Customer || "Unknown Party",
+					"Code": p.code || "-",
+					"Product Name": p.name,
+					"Packing": "10 Tablets",
+					"Batch No.": row.BatchNo || "-",
+					"Inv. No.": row.InvNo || "-",
+					"Inv. Dt.": row.InvDt ? new Date(row.InvDt).toLocaleDateString() : "-",
+					"MRP": Number(row.MRP || pStock.mrp).toFixed(2),
+					"PRate": invRate.toFixed(2),
+					"PTR": invRate.toFixed(2),
+					"Net Rate": netRate.toFixed(2),
+					"Inv. Rate": netRate.toFixed(2),
+					"Sale Qty": qty,
+					"Free Qty": fQty,
+					"Actual FQty": fQty,
+					"Claim Qty": claimQty,
+					"Rate Diff.": (invRate - netRate).toFixed(2),
+					"Claim Value": claimValue.toFixed(2),
+					"Item Scheme": p.freeScheme || "-",
+					"Applied Scheme": "-",
+				});
+			}
+		});
 	} else if (tab === "products") {
-		// Products
 		const inventoryMap = new Map<string, number>();
 		if (mrInfo.canViewStock || isAdmin) {
 			let inventoryCondition = and(
@@ -252,7 +358,38 @@ export async function GET(request: Request) {
 	}
 
 	if (format === "excel") {
-		const worksheet = xlsx.utils.json_to_sheet(reportData);
+		let excelData = reportData;
+		if (tab === "free-schemes") {
+			excelData = reportData.map((row) => ({
+				"Code": row["Code"],
+				"Product Name": row["Product Name"],
+				"Packing": row["Packing"],
+				"Batch No.": row["Batch No."],
+				"Inv. No.": row["Inv. No."],
+				"Inv. Dt.": row["Inv. Dt."],
+				"MRP": row["MRP"],
+				"PRate": row["PRate"],
+				"PTR": row["PTR"],
+				"Net Rate": row["Net Rate"],
+				"Inv. Rate": row["Inv. Rate"],
+				"Sale Qty": row["Sale Qty"],
+				"Free Qty": row["Free Qty"],
+				"Actual FQty": row["Actual FQty"],
+				"Scheme Qty": row["Scheme Qty"],
+				"Rate Diff.": row["Rate Diff."],
+				"Scheme Value": row["Scheme Value"],
+				"Item Scheme": row["Item Scheme"],
+				"Applied Scheme": row["Applied Scheme"],
+			}));
+		}
+
+		const worksheet = xlsx.utils.json_to_sheet(excelData, { origin: "A3" });
+		const headerInfo = [[`MR: ${mrName} | Division/Company: ${company === "All" ? "All Divisions" : company} | Period: ${from || 'Start'} to ${to || 'End'}`]];
+		xlsx.utils.sheet_add_aoa(worksheet, headerInfo, { origin: "A1" });
+		
+		if(!worksheet['!merges']) worksheet['!merges'] = [];
+		worksheet['!merges'].push({ s: { r: 0, c: 0 }, e: { r: 0, c: 10 } }); 
+
 		const workbook = xlsx.utils.book_new();
 		xlsx.utils.book_append_sheet(workbook, worksheet, "Report");
 		const buffer = xlsx.write(workbook, { type: "buffer", bookType: "xlsx" });

@@ -1,4 +1,4 @@
-import { and, eq, gte, inArray, lte } from "drizzle-orm";
+import { and, eq, gte, inArray, lte, sql } from "drizzle-orm";
 import { db } from "@/server/db";
 import {
 	mrInventory,
@@ -84,87 +84,81 @@ export async function FreeSchemeReportView({
 		);
 	}
 
-	// Sales
-	type SaleDetail = {
-		productId: string;
-		quantity: number;
-		freeQty: number | null;
-		dealer: string | null;
-	};
-	const salesDetails: SaleDetail[] = [];
-	if (mrInfo.canViewSales) {
-		let salesCondition = and(
-			inArray(sales.productId, productIds),
-			eq(sales.mrId, mrId),
-		);
-		if (searchParams?.from) {
-			const fromDate = new Date(searchParams.from);
-			if (!isNaN(fromDate.getTime())) {
-				salesCondition = and(salesCondition, gte(sales.date, fromDate));
-			}
-		}
-		if (searchParams?.to) {
-			const toDate = new Date(searchParams.to);
-			if (!isNaN(toDate.getTime())) {
-				toDate.setUTCHours(23, 59, 59, 999);
-				salesCondition = and(salesCondition, lte(sales.date, toDate));
-			}
-		}
-
-		const accessibleSales = await db
-			.select({
-				productId: sales.productId,
-				quantity: sales.quantity,
-				freeQty: sales.freeQty,
-				dealer: sales.dealer,
-			})
-			.from(sales)
-			.where(salesCondition);
-
-		salesDetails.push(...accessibleSales);
+	// Query raw SQL for legacy tables for Sales/Free Schemes
+	let dateCondition = ``;
+	if (searchParams?.from) {
+		dateCondition += ` AND h.inv_dt >= '${searchParams.from}'`;
+	}
+	if (searchParams?.to) {
+		dateCondition += ` AND h.inv_dt <= '${searchParams.to}'`;
 	}
 
-	// Transform data for rendering
+	const legacyDataResult = await db.execute(sql.raw(`
+		SELECT 
+			h.inv_no as "InvNo",
+			h.inv_dt as "InvDt",
+			CONCAT(h.cust_id, ' ', COALESCE(c.name, 'Unknown Party'), ' , ', COALESCE(c.city, '')) as "Customer",
+			l.item_id as "ItemID",
+			l.batch_no as "BatchNo",
+			l.mrp as "MRP",
+			l.exp_dt as "ExpDt",
+			l.qty as "Qty",
+			l.f_qty as "FQty",
+			l.rate as "Rate",
+			l.taxable_amt as "TaxableAmt",
+			l.vat_amt as "GSTAmt",
+			l.line_amt as "Amount"
+		FROM "pg-drizzle_legacy_h_sale" h
+		JOIN "pg-drizzle_legacy_l_sale" l ON l.rid = h.id
+		LEFT JOIN "pg-drizzle_legacy_customers" c ON c.id = h.cust_id
+		WHERE l.item_id IN (${productIds.map((id) => `'${id}'`).join(",")})
+		${dateCondition}
+	`));
+
+	const legacyRows = legacyDataResult as any[];
+
 	const reportData: any[] = [];
-	accessibleProducts.forEach((p) => {
-		const pStock = stockMap.get(p.id) || { mrp: 0, ptr: 0 };
-		const pSales = salesDetails.filter((s) => s.productId === p.id);
-
-		if (pSales.length > 0) {
-			const dealerMap = new Map<string, { qty: number; free: number }>();
-			pSales.forEach((s) => {
-				const party = s.dealer || "UNKNOWN PARTY";
-				const curr = dealerMap.get(party) || { qty: 0, free: 0 };
-				curr.qty += s.quantity || 0;
-				curr.free += s.freeQty || 0;
-				dealerMap.set(party, curr);
-			});
-
-			dealerMap.forEach((totals, party) => {
-				reportData.push({
-					Manufacturer: p.manufacturer,
-					SchemeType: "Qty",
-					Party: party,
-					Code: p.code || "",
-					"Product Name": p.name,
-					Packing: "",
-					"Batch No.": "",
-					"Inv. No.": "",
-					"Inv. Dt.": "",
-					MRP: pStock.mrp,
-					PRate: pStock.ptr,
-					PTR: pStock.ptr,
-					"Net Rate": 0,
-					"Inv. Rate": 0,
-					"Sale Qty": totals.qty,
-					"Free Qty": totals.free,
-					"Actual FQty": 0,
-					"Scheme Qty": 0,
-					"Rate Diff.": 0,
-					"Scheme Value": 0,
-					"Item Scheme": p.freeScheme || "",
-					"Applied Scheme": "",
-				});
+	legacyRows.forEach((row: any) => {
+		const p = accessibleProducts.find(
+			(prod) => prod.id === String(row.ItemID),
+		);
+		if (p) {
+			const pStock = stockMap.get(p.id) || { mrp: 0, ptr: 0 };
+			const qty = Number(row.Qty) || 0;
+			const fQty = Number(row.FQty) || 0;
+			const netRate = Number(row.Rate) || 0;
+			const invRate = pStock.ptr;
+			const schemeQty = 0; // Requires deeper scheme evaluation
+			const claimQty = fQty; // Using FQty for now as ClaimQty
+			
+			// Claim Value = (PTR - InvRate) x SaleQty ( No Scheme ) or PTR x ClaimQty
+			const claimValue = invRate * claimQty;
+			
+			reportData.push({
+				Manufacturer: p.division || p.manufacturer,
+				SchemeType: "Qty",
+				Party: row.Customer || "Unknown Party",
+				Code: p.code || "-",
+				"Product Name": p.name,
+				Packing: "10 Tablets",
+				"Batch No.": row.BatchNo || "-",
+				"Inv. No.": row.InvNo || "-",
+				"Inv. Dt.": row.InvDt ? new Date(row.InvDt).toLocaleDateString() : "-",
+				MRP: Number(row.MRP || pStock.mrp),
+				PRate: invRate,
+				PTR: invRate,
+				"Net Rate": netRate,
+				"Inv. Rate": netRate, // Same as Net Rate for now
+				"Sale Qty": qty,
+				"Free Qty": fQty,
+				"Actual FQty": fQty,
+				"Scheme Qty": schemeQty,
+				"Rate Diff.": (invRate - netRate),
+				"Claim Qty": claimQty,
+				"Claim Value": claimValue,
+				"Scheme Value": claimValue,
+				"Item Scheme": p.freeScheme || "-",
+				"Applied Scheme": "-",
 			});
 		}
 	});
