@@ -222,10 +222,11 @@ export async function StockReportView({
 
 	// Grouping by Manufacturer
 	const manufacturers = [...new Set(reportData.map((d) => d.Division))].sort();
-	let grandTotalOpeningValue = 0;
-	let grandTotalPurchaseValue = 0;
-	let grandTotalSalesValue = 0;
-	let grandTotalStockValue = 0;
+	
+	const grandTotalOpeningValue = reportData.reduce((sum, row) => sum + row["Opening Value"], 0);
+	const grandTotalPurchaseValue = reportData.reduce((sum, row) => sum + row["Purchase Value"], 0);
+	const grandTotalSalesValue = reportData.reduce((sum, row) => sum + row["Sales Value"], 0);
+	const grandTotalStockValue = reportData.reduce((sum, row) => sum + row["Stock Value"], 0);
 
 	return (
 		<div className="space-y-8 mt-4 bg-white border border-gray-200 rounded-xl shadow-sm p-6 overflow-hidden">
@@ -271,10 +272,10 @@ export async function StockReportView({
 					<tbody className="text-sm font-medium">
 						{manufacturers.map((mfg, idx) => {
 							const mfgData = reportData.filter((d) => d.Division === mfg);
-							let mfgOpeningValue = 0;
-							let mfgPurchaseValue = 0;
-							let mfgSalesValue = 0;
-							let mfgStockValue = 0;
+							const mfgOpeningValue = mfgData.reduce((sum, row) => sum + row["Opening Value"], 0);
+							const mfgPurchaseValue = mfgData.reduce((sum, row) => sum + row["Purchase Value"], 0);
+							const mfgSalesValue = mfgData.reduce((sum, row) => sum + row["Sales Value"], 0);
+							const mfgStockValue = mfgData.reduce((sum, row) => sum + row["Stock Value"], 0);
 
 							return (
 								<React.Fragment key={idx}>
@@ -286,11 +287,6 @@ export async function StockReportView({
 									</tr>
 									{/* Items */}
 									{mfgData.map((row, rowIdx) => {
-										mfgOpeningValue += row["Opening Value"];
-										mfgPurchaseValue += row["Purchase Value"];
-										mfgSalesValue += row["Sales Value"];
-										mfgStockValue += row["Stock Value"];
-
 										return (
 											<tr key={rowIdx} className="border-b border-gray-100 hover:bg-gray-50 text-[#0B2545]">
 												<td className="py-1.5 whitespace-nowrap pl-2">{row["Item Name"]}</td>
@@ -310,23 +306,15 @@ export async function StockReportView({
 										);
 									})}
 									{/* Company Total */}
-									{(() => {
-										grandTotalOpeningValue += mfgOpeningValue;
-										grandTotalPurchaseValue += mfgPurchaseValue;
-										grandTotalSalesValue += mfgSalesValue;
-										grandTotalStockValue += mfgStockValue;
-										return (
-											<tr className="border-y border-gray-300 font-bold text-[#0B2545] bg-gray-50/50">
-												<td colSpan={3} className="py-2 pl-2">Total value of {mfg.split(" ")[0].toUpperCase()} :</td>
-												<td className="py-2 text-right">{mfgOpeningValue.toFixed(2)}</td>
-												<td className="py-2 text-right">{mfgPurchaseValue.toFixed(2)}</td>
-												<td colSpan={3}></td>
-												<td className="py-2 text-right">{mfgSalesValue.toFixed(2)}</td>
-												<td colSpan={3}></td>
-												<td className="py-2 text-right pr-2">{mfgStockValue.toFixed(2)}</td>
-											</tr>
-										);
-									})()}
+									<tr className="border-y border-gray-300 font-bold text-[#0B2545] bg-gray-50/50">
+										<td colSpan={3} className="py-2 pl-2">Total value of {mfg.split(" ")[0].toUpperCase()} :</td>
+										<td className="py-2 text-right">{mfgOpeningValue.toFixed(2)}</td>
+										<td className="py-2 text-right">{mfgPurchaseValue.toFixed(2)}</td>
+										<td colSpan={3}></td>
+										<td className="py-2 text-right">{mfgSalesValue.toFixed(2)}</td>
+										<td colSpan={3}></td>
+										<td className="py-2 text-right pr-2">{mfgStockValue.toFixed(2)}</td>
+									</tr>
 									{/* Full Company Total */}
 									<tr className="border-b-2 border-gray-400 font-bold text-[#0B2545] bg-gray-50">
 										<td colSpan={3} className="py-2 pl-2">Total value of {mfg.toUpperCase()} :</td>
