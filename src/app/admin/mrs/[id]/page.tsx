@@ -31,7 +31,12 @@ export default async function AdminMRViewPage({
 
 	const { id } = await params;
 	const decodedId = decodeURIComponent(id);
-	console.log("[DEBUG] Admin MR View page: id = ", id, "decodedId = ", decodedId);
+	console.log(
+		"[DEBUG] Admin MR View page: id = ",
+		id,
+		"decodedId = ",
+		decodedId,
+	);
 	const awaitedParams = await searchParams;
 	const cleanParams: Record<string, string> = {};
 	for (const [key, value] of Object.entries(awaitedParams)) {
@@ -40,7 +45,11 @@ export default async function AdminMRViewPage({
 		}
 	}
 
-	const mrArr = await db.select().from(user).where(eq(user.id, decodedId)).limit(1);
+	const mrArr = await db
+		.select()
+		.from(user)
+		.where(eq(user.id, decodedId))
+		.limit(1);
 	console.log("[DEBUG] Query result for decodedId = ", decodedId, ":", mrArr);
 	if (mrArr.length === 0) {
 		notFound();

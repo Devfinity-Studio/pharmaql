@@ -4,7 +4,13 @@ import { NextResponse } from "next/server";
 import * as xlsx from "xlsx";
 import { auth } from "@/server/auth";
 import { db } from "@/server/db";
-import { mrInventory, mrManufacturers, products, sales, user } from "@/server/db/schema";
+import {
+	mrInventory,
+	mrManufacturers,
+	products,
+	sales,
+	user,
+} from "@/server/db/schema";
 
 export async function GET(request: Request) {
 	const session = await auth.api.getSession({
@@ -45,7 +51,10 @@ export async function GET(request: Request) {
 		return new NextResponse("MR not found", { status: 404 });
 	}
 
-	const canView = tab === "sales" ? (isAdmin || mrInfo.canViewSales) : (isAdmin || mrInfo.canViewProductWise);
+	const canView =
+		tab === "sales"
+			? isAdmin || mrInfo.canViewSales
+			: isAdmin || mrInfo.canViewProductWise;
 	if (!canView) {
 		return new NextResponse("Forbidden - View disabled", { status: 403 });
 	}
@@ -76,7 +85,10 @@ export async function GET(request: Request) {
 	const mrName = mrInfo.name || "Unknown MR";
 
 	if (tab === "sales") {
-		let salesCondition = and(inArray(sales.productId, productIds), eq(sales.mrId, mrId));
+		let salesCondition = and(
+			inArray(sales.productId, productIds),
+			eq(sales.mrId, mrId),
+		);
 		if (from) {
 			const fromDate = new Date(from);
 			if (!isNaN(fromDate.getTime())) {
@@ -98,20 +110,20 @@ export async function GET(request: Request) {
 				freeQty: sales.freeQty,
 				dealer: sales.dealer,
 				amount: sales.amount,
-				date: sales.date
+				date: sales.date,
 			})
 			.from(sales)
 			.where(salesCondition);
 
-		accessibleSales.forEach(s => {
-			const p = accessibleProducts.find(prod => prod.id === s.productId);
+		accessibleSales.forEach((s) => {
+			const p = accessibleProducts.find((prod) => prod.id === s.productId);
 			if (p) {
 				reportData.push({
 					"MR Name": mrName,
 					Manufacturer: p.manufacturer,
 					"Doctor / Party": s.dealer || "Unknown Party",
 					"Product Name": p.name,
-					"Date": s.date ? new Date(s.date).toLocaleDateString() : "-",
+					Date: s.date ? new Date(s.date).toLocaleDateString() : "-",
 					"Sale Qty": s.quantity || 0,
 					"Free Qty": s.freeQty || 0,
 					Amount: s.amount ? parseFloat(s.amount.toString()) : 0,
@@ -122,12 +134,18 @@ export async function GET(request: Request) {
 		// Products
 		const inventoryMap = new Map<string, number>();
 		if (mrInfo.canViewStock || isAdmin) {
-			let inventoryCondition = and(inArray(mrInventory.productId, productIds), eq(mrInventory.mrId, mrId));
+			let inventoryCondition = and(
+				inArray(mrInventory.productId, productIds),
+				eq(mrInventory.mrId, mrId),
+			);
 			if (to) {
 				const toDate = new Date(to);
 				if (!isNaN(toDate.getTime())) {
 					toDate.setUTCHours(23, 59, 59, 999);
-					inventoryCondition = and(inventoryCondition, lte(mrInventory.date, toDate));
+					inventoryCondition = and(
+						inventoryCondition,
+						lte(mrInventory.date, toDate),
+					);
 				}
 			}
 
@@ -148,7 +166,10 @@ export async function GET(request: Request) {
 			});
 		}
 
-		let salesCondition = and(inArray(sales.productId, productIds), eq(sales.mrId, mrId));
+		let salesCondition = and(
+			inArray(sales.productId, productIds),
+			eq(sales.mrId, mrId),
+		);
 		if (from) {
 			const fromDate = new Date(from);
 			if (!isNaN(fromDate.getTime())) {
@@ -163,24 +184,27 @@ export async function GET(request: Request) {
 			}
 		}
 
-		const accessibleSales = (mrInfo.canViewSales || isAdmin) ? await db
-			.select({
-				productId: sales.productId,
-				quantity: sales.quantity,
-				amount: sales.amount,
-			})
-			.from(sales)
-			.where(salesCondition) : [];
+		const accessibleSales =
+			mrInfo.canViewSales || isAdmin
+				? await db
+						.select({
+							productId: sales.productId,
+							quantity: sales.quantity,
+							amount: sales.amount,
+						})
+						.from(sales)
+						.where(salesCondition)
+				: [];
 
 		const salesMap = new Map<string, { qty: number; amount: number }>();
-		accessibleSales.forEach(s => {
+		accessibleSales.forEach((s) => {
 			const curr = salesMap.get(s.productId) || { qty: 0, amount: 0 };
 			curr.qty += s.quantity || 0;
 			curr.amount += s.amount ? parseFloat(s.amount.toString()) : 0;
 			salesMap.set(s.productId, curr);
 		});
 
-		accessibleProducts.forEach(p => {
+		accessibleProducts.forEach((p) => {
 			const s = salesMap.get(p.id) || { qty: 0, amount: 0 };
 			reportData.push({
 				"MR Name": mrName,

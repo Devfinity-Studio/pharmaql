@@ -2,13 +2,13 @@ import { and, eq, gte, inArray, lte, or } from "drizzle-orm";
 import Link from "next/link";
 import { DateRangePicker } from "@/components/date-range-picker";
 import { FilterSelect } from "@/components/filter-select";
-import { OutstandingDownloadButtons } from "@/components/outstanding-download-buttons";
-import { ReportDownloadButtons } from "@/components/report-download-buttons";
 import { FreeSchemeReportView } from "@/components/free-scheme-report-view";
-import { StockReportView } from "@/components/stock-report-view";
+import { OutstandingDownloadButtons } from "@/components/outstanding-download-buttons";
 import { OutstandingReportView } from "@/components/outstanding-report-view";
-import { SalesReportView } from "@/components/sales-report-view";
 import { ProductReportView } from "@/components/product-report-view";
+import { ReportDownloadButtons } from "@/components/report-download-buttons";
+import { SalesReportView } from "@/components/sales-report-view";
+import { StockReportView } from "@/components/stock-report-view";
 import { db } from "@/server/db";
 import {
 	invoices,
@@ -416,7 +416,10 @@ export async function MrDashboardContent({
 					<DateRangePicker />
 				</div>
 				{/* RENDER THE CORRECT DOWNLOAD BUTTON CONDITIONALLY AT THE TOP FILTER BAR */}
-				{(searchParams?.tab === "products" || searchParams?.tab === "sales" || searchParams?.tab === "free-schemes" || searchParams?.tab === "stock") && (
+				{(searchParams?.tab === "products" ||
+					searchParams?.tab === "sales" ||
+					searchParams?.tab === "free-schemes" ||
+					searchParams?.tab === "stock") && (
 					<ReportDownloadButtons mrId={mrId} />
 				)}
 				{searchParams?.tab === "party" && (
@@ -677,14 +680,30 @@ export async function MrDashboardContent({
 			{/* DYNAMIC REPORTS */}
 			{searchParams?.tab === "products" && canViewProductWise && (
 				<div>
-					<div className="flex justify-between items-center mb-4">
-						<form action={baseUrl} method="GET" className="flex gap-2 w-full max-w-sm">
+					<div className="mb-4 flex items-center justify-between">
+						<form
+							action={baseUrl}
+							className="flex w-full max-w-sm gap-2"
+							method="GET"
+						>
 							{Object.entries(searchParams || {}).map(([k, v]) => {
 								if (k === "q") return null;
-								return <input key={k} type="hidden" name={k} value={v as string} />;
+								return (
+									<input key={k} name={k} type="hidden" value={v as string} />
+								);
 							})}
-							<input name="q" placeholder="Search product..." defaultValue={searchParams?.q || ""} className="flex-1 rounded-xl border border-gray-300 px-3 py-2" />
-							<button type="submit" className="bg-[#0071BC] text-white px-4 py-2 rounded-xl font-bold">Search</button>
+							<input
+								className="flex-1 rounded-xl border border-gray-300 px-3 py-2"
+								defaultValue={searchParams?.q || ""}
+								name="q"
+								placeholder="Search product..."
+							/>
+							<button
+								className="rounded-xl bg-[#0071BC] px-4 py-2 font-bold text-white"
+								type="submit"
+							>
+								Search
+							</button>
 						</form>
 					</div>
 					<ProductReportView mrId={mrId} searchParams={searchParams} />
@@ -693,14 +712,30 @@ export async function MrDashboardContent({
 
 			{searchParams?.tab === "sales" && canViewSales && (
 				<div>
-					<div className="flex justify-between items-center mb-4">
-						<form action={baseUrl} method="GET" className="flex gap-2 w-full max-w-sm">
+					<div className="mb-4 flex items-center justify-between">
+						<form
+							action={baseUrl}
+							className="flex w-full max-w-sm gap-2"
+							method="GET"
+						>
 							{Object.entries(searchParams || {}).map(([k, v]) => {
 								if (k === "q") return null;
-								return <input key={k} type="hidden" name={k} value={v as string} />;
+								return (
+									<input key={k} name={k} type="hidden" value={v as string} />
+								);
 							})}
-							<input name="q" placeholder="Search product or party..." defaultValue={searchParams?.q || ""} className="flex-1 rounded-xl border border-gray-300 px-3 py-2" />
-							<button type="submit" className="bg-[#0071BC] text-white px-4 py-2 rounded-xl font-bold">Search</button>
+							<input
+								className="flex-1 rounded-xl border border-gray-300 px-3 py-2"
+								defaultValue={searchParams?.q || ""}
+								name="q"
+								placeholder="Search product or party..."
+							/>
+							<button
+								className="rounded-xl bg-[#0071BC] px-4 py-2 font-bold text-white"
+								type="submit"
+							>
+								Search
+							</button>
 						</form>
 					</div>
 					<SalesReportView mrId={mrId} searchParams={searchParams} />
@@ -709,13 +744,10 @@ export async function MrDashboardContent({
 
 			{searchParams?.tab === "party" && canViewPartyWise && (
 				<div>
-					<div className="flex justify-between items-center mb-4">
-					</div>
+					<div className="mb-4 flex items-center justify-between"></div>
 					<OutstandingReportView mrId={mrId} searchParams={searchParams} />
 				</div>
 			)}
-
-
 
 			{/* FREE SCHEME REPORTS TAB */}
 			{canViewFreeScheme && searchParams?.tab === "free-schemes" && (

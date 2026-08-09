@@ -11,7 +11,6 @@ import {
 	user,
 } from "@/server/db/schema";
 
-
 export async function GET(request: Request) {
 	const session = await auth.api.getSession({
 		headers: await headers(),
@@ -39,13 +38,20 @@ export async function GET(request: Request) {
 		return new NextResponse("Forbidden", { status: 403 });
 	}
 
-	const mrInfoArr = await db.select().from(user).where(eq(user.id, mrId)).limit(1);
+	const mrInfoArr = await db
+		.select()
+		.from(user)
+		.where(eq(user.id, mrId))
+		.limit(1);
 	const mrInfo = mrInfoArr[0];
 	if (!mrInfo || (!mrInfo.canViewStock && !isAdmin) || !mrInfo.locNo) {
 		return new NextResponse("Forbidden", { status: 403 });
 	}
 
-	const assigned = await db.select().from(mrManufacturers).where(eq(mrManufacturers.mrId, mrId));
+	const assigned = await db
+		.select()
+		.from(mrManufacturers)
+		.where(eq(mrManufacturers.mrId, mrId));
 	const manufacturerNames = assigned.map((a) => a.manufacturer);
 	const companiesToQuery = company === "All" ? manufacturerNames : [company];
 
@@ -63,9 +69,27 @@ export async function GET(request: Request) {
 		return NextResponse.json([]);
 	}
 
+	let inventoryCondition = and(
+		inArray(mrInventory.productId, productIds),
+		eq(mrInventory.mrId, mrId),
+	);
+	if (to) {
+		const toDate = new Date(to);
+		if (!isNaN(toDate.getTime())) {
+			toDate.setUTCHours(23, 59, 59, 999);
+			inventoryCondition = and(inventoryCondition, lte(mrInventory.date, toDate));
+		}
+	}
+	const inventory = await db.select().from(mrInventory).where(inventoryCondition);
+	inventory.sort((a, b) => {
+		const da = a.date ? new Date(a.date).getTime() : 0;
+		const dbVal = b.date ? new Date(b.date).getTime() : 0;
+		return da - dbVal;
+	});
+
 	const reportData: any[] = [];
 	const limitFromDate = from ? new Date(from) : null;
-	const limitToDate = to ? new Date(to) : new Date('9999-12-31T23:59:59.999Z');
+	const limitToDate = to ? new Date(to) : new Date("9999-12-31T23:59:59.999Z");
 	if (to) limitToDate.setUTCHours(23, 59, 59, 999);
 
 	const { sql } = await import("drizzle-orm");
@@ -94,6 +118,7 @@ export async function GET(request: Request) {
 				FROM "pg-drizzle_legacy_view_stocks" v
 				LEFT JOIN "pg-drizzle_legacy_h_batch" h ON h.id = v.batch_id AND h.item_id = v.item_id
 				WHERE v.item_id = ${prod.id} AND v.loc_no = ${mrInfo.locNo.toString()} AND v.t_date < ${(limitFromDate || new Date(0)).toISOString()}
+				AND (v.t_no IS NULL OR v.t_no NOT LIKE 'BR%') AND (v.entry_type IS NULL OR v.entry_type <> 'GRNO') AND COALESCE(v.qty, 0) <> 0
 				GROUP BY v.batch_id
 				
 				UNION ALL
@@ -104,33 +129,54 @@ export async function GET(request: Request) {
 				FROM "pg-drizzle_legacy_view_stocks" v
 				LEFT JOIN "pg-drizzle_legacy_h_batch" h ON h.id = v.batch_id AND h.item_id = v.item_id
 				WHERE v.item_id = ${prod.id} AND v.loc_no = ${mrInfo.locNo.toString()} AND v.t_date >= ${(limitFromDate || new Date(0)).toISOString()} AND v.t_date <= ${limitToDate.toISOString()}
+				AND (v.t_no IS NULL OR v.t_no NOT LIKE 'BR%') AND (v.entry_type IS NULL OR v.entry_type <> 'GRNO') AND COALESCE(v.qty, 0) <> 0
 				GROUP BY v.batch_id
 			) as a
 		`);
 
 		const r = res[0] as any;
-		
-		const opening = Number(r.opening || 0);
-		const purchase = Number(r.purchase || 0);
-		const salesQty = Number(r.sales_qty || 0);
-		const currQty = Number(r.curr_qty || 0);
 
-		if (r && (opening !== 0 || purchase !== 0 || currQty !== 0 || salesQty !== 0)) {
-			const prate = Number(r.prate || 0);
-			const ptr = Number(r.ptr || 0);
-			const mrp = Number(r.mrp || 0);
+		let opening = Number(r?.opening || 0);
+		let purchase = Number(r?.purchase || 0);
+		const salesQty = Number(r?.sales_qty || 0);
+		let currQty = Number(r?.curr_qty || 0);
+
+		const pInventory = inventory.filter((inv) => inv.productId === prod.id);
+		let rangeInventory = pInventory;
+		if (limitFromDate) {
+			rangeInventory = pInventory.filter((inv) => inv.date && new Date(inv.date) >= limitFromDate);
+		}
+		
+		if (rangeInventory.length > 0) {
+			opening = rangeInventory[0].opening || 0;
+			purchase = rangeInventory.reduce((acc, inv) => acc + (inv.inward || 0), 0);
+		} else {
+			opening = 0;
+			purchase = 0;
+		}
+
+		const sRet = Number(r?.s_return || 0);
+		currQty = purchase + opening + sRet - salesQty;
+
+		if (
+			r &&
+			(opening !== 0 || purchase !== 0 || currQty !== 0 || salesQty !== 0)
+		) {
+			const prate = Number(r?.prate || 0);
+			const ptr = Number(r?.ptr || 0);
+			const mrp = Number(r?.mrp || 0);
 
 			reportData.push({
 				"MR Name": mrInfo.name,
 				"Product Name": prod.name,
-				"Opening": opening,
-				"Purchase": purchase,
+				Opening: opening,
+				Purchase: purchase,
 				"Total In Qty": opening + purchase,
-				"Sales": salesQty,
-				"Closing": currQty,
-				"PRate": prate,
-				"PTR": ptr,
-				"MRP": mrp,
+				Sales: salesQty,
+				Closing: currQty,
+				PRate: prate,
+				PTR: ptr,
+				MRP: mrp,
 			});
 		}
 	}

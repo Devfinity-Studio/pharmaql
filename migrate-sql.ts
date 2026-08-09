@@ -51,7 +51,11 @@ async function flushBatch<T extends { id?: any }>(
 }
 
 async function migrateSql() {
-	const filePath = path.join(process.cwd(), "demo data", "APBARODA_1.sql");
+	const filePath = path.join(
+		process.cwd(),
+		"demo data",
+		"APBARODA-JUNE2026.sql",
+	);
 	console.log(`Starting migration from ${filePath}`);
 
 	if (!fs.existsSync(filePath)) {

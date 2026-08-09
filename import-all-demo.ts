@@ -2,7 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 import readline from "node:readline";
 import { hashPassword } from "better-auth/crypto";
-import { sql, ne, eq } from "drizzle-orm";
+import { eq, ne, sql } from "drizzle-orm";
 import { db } from "./src/server/db";
 import {
 	account,
@@ -45,7 +45,7 @@ async function flushBatch<T extends { id?: any }>(
 				await db.insert(table).values(chunk).onConflictDoNothing();
 			}
 		} catch (e) {
-			console.error(`Error inserting chunk into ${table.key || 'table'}:`, e);
+			console.error(`Error inserting chunk into ${table.key || "table"}:`, e);
 		}
 	}
 }
@@ -140,7 +140,7 @@ async function main() {
 	console.log(`Found ${transactionKeys.size} unique locNo-code keys in transactions.`);
 
 	// 2. Identify unmapped keys and create dummy representative users
-	const mrMap = new Map<string, string>(); // key -> userId (email)
+	const mrMap = new Map<string, string[]>(); // key -> userId (email)
 	const userInsertBatch: any[] = [];
 	const accountInsertBatch: any[] = [];
 	const mfgInsertBatch: any[] = [];
@@ -196,7 +196,7 @@ async function main() {
 			dummyCount++;
 			const userId = `${code.toLowerCase()}_rep`;
 			const email = `${code.toLowerCase()}@demo.com`;
-			mrMap.set(key, userId);
+			mrMap.set(key, [userId]);
 
 			userInsertBatch.push({
 				id: userId,
@@ -322,39 +322,43 @@ async function main() {
 				} else if (currentTable === "t_dailyss") {
 					const [firmno, locNo, code, division, t_date, itemid, opening, inward, outward, prate, ptr, mrp] = parts;
 					if (locNo && code) {
-						const mappedMrId = mrMap.get(`${locNo.trim()}-${code.trim()}`);
-						if (mappedMrId && itemid) {
-							inventoryBatch.push({
-								id: `${mappedMrId}-${itemid}-${t_date || Date.now()}-${Math.random().toString(36).substring(7)}`,
-								mrId: mappedMrId,
-								productId: itemid,
-								stock: parseInt(opening || "0") + parseInt(inward || "0") - parseInt(outward || "0"),
-								date: t_date ? new Date(t_date) : null,
-								opening: parseInt(opening || "0"),
-								inward: parseInt(inward || "0"),
-								outward: parseInt(outward || "0"),
-								ptr: parseFloat(ptr || "0"),
-								mrp: parseFloat(mrp || "0"),
-								prate: parseFloat(prate || "0"),
-							});
+						const mappedMrIds = mrMap.get(`${locNo.trim()}-${code.trim()}`);
+						if (mappedMrIds && itemid) {
+							for (const mappedMrId of mappedMrIds) {
+								inventoryBatch.push({
+									id: `${mappedMrId}-${itemid}-${t_date || Date.now()}-${Math.random().toString(36).substring(7)}`,
+									mrId: mappedMrId,
+									productId: itemid,
+									stock: parseInt(opening || "0") + parseInt(inward || "0") - parseInt(outward || "0"),
+									date: t_date ? new Date(t_date) : null,
+									opening: parseInt(opening || "0"),
+									inward: parseInt(inward || "0"),
+									outward: parseInt(outward || "0"),
+									ptr: parseFloat(ptr || "0"),
+									mrp: parseFloat(mrp || "0"),
+									prate: parseFloat(prate || "0"),
+								});
+							}
 						}
 					}
 				} else if (currentTable === "t_item_sales") {
 					const [firmno, locNo, code, division, t_date, dealer, area, itemId, salesQty, fQty, amount] = parts;
 					if (locNo && code) {
-						const mappedMrId = mrMap.get(`${locNo.trim()}-${code.trim()}`);
-						if (mappedMrId && itemId) {
-							salesBatch.push({
-								id: `${mappedMrId}-${itemId}-${t_date || Date.now()}-${Math.random().toString(36).substring(7)}`,
-								mrId: mappedMrId,
-								productId: itemId,
-								quantity: parseInt(salesQty || "0"),
-								date: t_date ? new Date(t_date) : null,
-								dealer: dealer || null,
-								area: area || null,
-								freeQty: parseInt(fQty || "0"),
-								amount: parseFloat(amount || "0"),
-							});
+						const mappedMrIds = mrMap.get(`${locNo.trim()}-${code.trim()}`);
+						if (mappedMrIds && itemId) {
+							for (const mappedMrId of mappedMrIds) {
+								salesBatch.push({
+									id: `${mappedMrId}-${itemId}-${t_date || Date.now()}-${Math.random().toString(36).substring(7)}`,
+									mrId: mappedMrId,
+									productId: itemId,
+									quantity: parseInt(salesQty || "0"),
+									date: t_date ? new Date(t_date) : null,
+									dealer: dealer || null,
+									area: area || null,
+									freeQty: parseInt(fQty || "0"),
+									amount: parseFloat(amount || "0"),
+								});
+							}
 						}
 					}
 				} else if (currentTable === "t_invoices") {

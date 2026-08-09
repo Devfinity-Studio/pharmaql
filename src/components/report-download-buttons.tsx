@@ -57,11 +57,11 @@ export function ReportDownloadButtons({ mrId }: { mrId: string }) {
 						data,
 						mrName,
 						from,
-						to
+						to,
 					);
 				} else if (currentTab === "sales") {
 					const mrName = data.length > 0 ? data[0]["MR Name"] : "Unknown";
-					
+
 					const columns = [
 						{ header: "Doctor / Party", dataKey: "Doctor / Party" },
 						{ header: "Product Name", dataKey: "Product Name" },
@@ -79,12 +79,12 @@ export function ReportDownloadButtons({ mrId }: { mrId: string }) {
 							columns as any,
 							mrName,
 							from,
-							to
+							to,
 						);
 					});
 				} else if (currentTab === "products") {
 					const mrName = data.length > 0 ? data[0]["MR Name"] : "Unknown";
-					
+
 					const columns = [
 						{ header: "Product Name", dataKey: "Product Name" },
 						{ header: "Free Scheme", dataKey: "Free Scheme" },
@@ -101,7 +101,7 @@ export function ReportDownloadButtons({ mrId }: { mrId: string }) {
 							columns as any,
 							mrName,
 							from,
-							to
+							to,
 						);
 					});
 				} else {

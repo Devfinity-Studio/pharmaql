@@ -1,6 +1,12 @@
 import { and, eq, gte, inArray, lte } from "drizzle-orm";
 import { db } from "@/server/db";
-import { mrInventory, mrManufacturers, products, sales, user } from "@/server/db/schema";
+import {
+	mrInventory,
+	mrManufacturers,
+	products,
+	sales,
+	user,
+} from "@/server/db/schema";
 
 export async function FreeSchemeReportView({
 	mrId,
@@ -14,12 +20,19 @@ export async function FreeSchemeReportView({
 	};
 }) {
 	// 1. Fetch data similar to the PDF API
-	const mrInfoArr = await db.select().from(user).where(eq(user.id, mrId)).limit(1);
+	const mrInfoArr = await db
+		.select()
+		.from(user)
+		.where(eq(user.id, mrId))
+		.limit(1);
 	const mrInfo = mrInfoArr[0];
 	if (!mrInfo) return <div>MR not found</div>;
 
 	const company = searchParams?.division || "All";
-	const assigned = await db.select().from(mrManufacturers).where(eq(mrManufacturers.mrId, mrId));
+	const assigned = await db
+		.select()
+		.from(mrManufacturers)
+		.where(eq(mrManufacturers.mrId, mrId));
 	const manufacturerNames = assigned.map((a) => a.manufacturer);
 	const companiesToQuery = company === "All" ? manufacturerNames : [company];
 
@@ -36,12 +49,18 @@ export async function FreeSchemeReportView({
 	// Stock
 	const stockMap = new Map<string, { mrp: number; ptr: number }>();
 	if (mrInfo.canViewStock) {
-		let inventoryCondition = and(inArray(mrInventory.productId, productIds), eq(mrInventory.mrId, mrId));
+		let inventoryCondition = and(
+			inArray(mrInventory.productId, productIds),
+			eq(mrInventory.mrId, mrId),
+		);
 		if (searchParams?.to) {
 			const toDate = new Date(searchParams.to);
 			if (!isNaN(toDate.getTime())) {
 				toDate.setUTCHours(23, 59, 59, 999);
-				inventoryCondition = and(inventoryCondition, lte(mrInventory.date, toDate));
+				inventoryCondition = and(
+					inventoryCondition,
+					lte(mrInventory.date, toDate),
+				);
 			}
 		}
 
@@ -57,17 +76,27 @@ export async function FreeSchemeReportView({
 			return da - dbVal;
 		});
 
-		inventory.forEach((inv) => stockMap.set(inv.productId, {
-			mrp: Number(inv.mrp) || 0,
-			ptr: Number(inv.ptr) || 0
-		}));
+		inventory.forEach((inv) =>
+			stockMap.set(inv.productId, {
+				mrp: Number(inv.mrp) || 0,
+				ptr: Number(inv.ptr) || 0,
+			}),
+		);
 	}
 
 	// Sales
-	type SaleDetail = { productId: string; quantity: number; freeQty: number | null; dealer: string | null };
+	type SaleDetail = {
+		productId: string;
+		quantity: number;
+		freeQty: number | null;
+		dealer: string | null;
+	};
 	const salesDetails: SaleDetail[] = [];
 	if (mrInfo.canViewSales) {
-		let salesCondition = and(inArray(sales.productId, productIds), eq(sales.mrId, mrId));
+		let salesCondition = and(
+			inArray(sales.productId, productIds),
+			eq(sales.mrId, mrId),
+		);
 		if (searchParams?.from) {
 			const fromDate = new Date(searchParams.from);
 			if (!isNaN(fromDate.getTime())) {
@@ -99,11 +128,11 @@ export async function FreeSchemeReportView({
 	const reportData: any[] = [];
 	accessibleProducts.forEach((p) => {
 		const pStock = stockMap.get(p.id) || { mrp: 0, ptr: 0 };
-		const pSales = salesDetails.filter(s => s.productId === p.id);
-		
+		const pSales = salesDetails.filter((s) => s.productId === p.id);
+
 		if (pSales.length > 0) {
-			const dealerMap = new Map<string, { qty: number, free: number }>();
-			pSales.forEach(s => {
+			const dealerMap = new Map<string, { qty: number; free: number }>();
+			pSales.forEach((s) => {
 				const party = s.dealer || "UNKNOWN PARTY";
 				const curr = dealerMap.get(party) || { qty: 0, free: 0 };
 				curr.qty += s.quantity || 0;
@@ -141,29 +170,53 @@ export async function FreeSchemeReportView({
 	});
 
 	if (reportData.length === 0) {
-		return <div className="p-8 text-center text-gray-500 font-medium border rounded-xl bg-white mt-4">No free scheme data available for the selected filters.</div>;
+		return (
+			<div className="mt-4 rounded-xl border bg-white p-8 text-center font-medium text-gray-500">
+				No free scheme data available for the selected filters.
+			</div>
+		);
 	}
 
 	// Grouping
-	const manufacturers = [...new Set(reportData.map((d) => d.Manufacturer))].sort();
+	const manufacturers = [
+		...new Set(reportData.map((d) => d.Manufacturer)),
+	].sort();
 
-	const Th = ({ children, className = "" }: { children: React.ReactNode; className?: string }) => (
-		<th className={`px-2 py-2 border border-gray-300 font-bold text-[#0B2545] text-[10px] leading-tight uppercase bg-gray-100 ${className}`}>
+	const Th = ({
+		children,
+		className = "",
+	}: {
+		children: React.ReactNode;
+		className?: string;
+	}) => (
+		<th
+			className={`border border-gray-300 bg-gray-100 px-2 py-2 font-bold text-[#0B2545] text-[10px] uppercase leading-tight ${className}`}
+		>
 			{children}
 		</th>
 	);
 
-	const Td = ({ children, className = "" }: { children: React.ReactNode; className?: string }) => (
-		<td className={`px-2 py-1.5 border-x border-gray-200 text-gray-700 text-xs ${className}`}>
+	const Td = ({
+		children,
+		className = "",
+	}: {
+		children: React.ReactNode;
+		className?: string;
+	}) => (
+		<td
+			className={`border-gray-200 border-x px-2 py-1.5 text-gray-700 text-xs ${className}`}
+		>
 			{children}
 		</td>
 	);
 
 	return (
-		<div className="space-y-8 mt-4">
+		<div className="mt-4 space-y-8">
 			{manufacturers.map((mfg) => {
 				const mfgData = reportData.filter((d) => d.Manufacturer === mfg);
-				const claimTypes = [...new Set(mfgData.map((d) => d.SchemeType))].sort();
+				const claimTypes = [
+					...new Set(mfgData.map((d) => d.SchemeType)),
+				].sort();
 
 				let mfgSaleQty = 0;
 				let mfgFreeQty = 0;
@@ -171,41 +224,82 @@ export async function FreeSchemeReportView({
 				let mfgClaimVal = 0;
 
 				return (
-					<div key={mfg} className="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden p-6">
-						
+					<div
+						className="overflow-hidden rounded-xl border border-gray-200 bg-white p-6 shadow-sm"
+						key={mfg}
+					>
 						{/* Header for Manufacturer Group */}
-						<div className="flex flex-col md:flex-row justify-between items-start gap-4 mb-6 pb-4 border-b border-gray-200">
+						<div className="mb-6 flex flex-col items-start justify-between gap-4 border-gray-200 border-b pb-4 md:flex-row">
 							<div>
-								<h2 className="font-extrabold text-[#0B2545] text-xl tracking-tight">ASMEE PHARMA PRIVATE LIMITED</h2>
-								<p className="text-xs text-gray-500 font-medium mt-1 max-w-sm leading-relaxed">
-									BASEMENE-GF, 11/2 ASHOK HOUSE, B/S SANSTHA VASAHAT GATE, PRATAP ROAD, RAOPURA, VADODARA - 390001, GUJARAT - 24
-									<br/>Contact: 9409789800, 9409789700 Mobile: 9409789700
+								<h2 className="font-extrabold text-[#0B2545] text-xl tracking-tight">
+									ASMEE PHARMA PRIVATE LIMITED
+								</h2>
+								<p className="mt-1 max-w-sm font-medium text-gray-500 text-xs leading-relaxed">
+									BASEMENE-GF, 11/2 ASHOK HOUSE, B/S SANSTHA VASAHAT GATE,
+									PRATAP ROAD, RAOPURA, VADODARA - 390001, GUJARAT - 24
+									<br />
+									Contact: 9409789800, 9409789700 Mobile: 9409789700
 								</p>
 							</div>
-							<div className="text-right text-[10px] text-gray-600 bg-gray-50 p-3 rounded-lg border border-gray-100">
-								<div className="flex gap-4 font-bold text-[#0B2545]"><span className="w-20">Qty Scheme :</span> <span className="font-medium text-gray-600">Scheme Value = PTR x SchemeQty</span></div>
-								<div className="flex gap-4 font-bold text-[#0B2545] mt-1"><span className="w-20">Rate Scheme :</span> <span className="font-medium text-gray-600">Scheme Value = (NetRate - InvRate) x SaleQty (Scheme)</span></div>
-								<div className="flex gap-4 font-bold text-[#0B2545]"><span className="w-20"></span> <span className="font-medium text-gray-600">Scheme Value = (PTR - InvRate) x SaleQty (No Scheme)</span></div>
+							<div className="rounded-lg border border-gray-100 bg-gray-50 p-3 text-right text-[10px] text-gray-600">
+								<div className="flex gap-4 font-bold text-[#0B2545]">
+									<span className="w-20">Qty Scheme :</span>{" "}
+									<span className="font-medium text-gray-600">
+										Scheme Value = PTR x SchemeQty
+									</span>
+								</div>
+								<div className="mt-1 flex gap-4 font-bold text-[#0B2545]">
+									<span className="w-20">Rate Scheme :</span>{" "}
+									<span className="font-medium text-gray-600">
+										Scheme Value = (NetRate - InvRate) x SaleQty (Scheme)
+									</span>
+								</div>
+								<div className="flex gap-4 font-bold text-[#0B2545]">
+									<span className="w-20"></span>{" "}
+									<span className="font-medium text-gray-600">
+										Scheme Value = (PTR - InvRate) x SaleQty (No Scheme)
+									</span>
+								</div>
 							</div>
 						</div>
 
-						<h3 className="font-extrabold text-lg text-[#0071BC] mb-4 uppercase">{mfg}</h3>
+						<h3 className="mb-4 font-extrabold text-[#0071BC] text-lg uppercase">
+							{mfg}
+						</h3>
 
 						{claimTypes.map((cType) => {
 							const cTypeData = mfgData.filter((d) => d.SchemeType === cType);
-							const parties = [...new Set(cTypeData.map((d) => d.Party))].sort();
+							const parties = [
+								...new Set(cTypeData.map((d) => d.Party)),
+							].sort();
 
 							return (
-								<div key={cType} className="mb-6">
-									<h4 className="font-bold text-gray-700 text-sm mb-2 underline underline-offset-2">Scheme Type : {cType}</h4>
+								<div className="mb-6" key={cType}>
+									<h4 className="mb-2 font-bold text-gray-700 text-sm underline underline-offset-2">
+										Scheme Type : {cType}
+									</h4>
 
 									{parties.map((party) => {
-										const partyData = cTypeData.filter((d) => d.Party === party);
-										
-										const pSaleQty = partyData.reduce((acc, curr) => acc + curr["Sale Qty"], 0);
-										const pFreeQty = partyData.reduce((acc, curr) => acc + curr["Free Qty"], 0);
-										const pSchemeQty = partyData.reduce((acc, curr) => acc + curr["Scheme Qty"], 0);
-										const pClaimVal = partyData.reduce((acc, curr) => acc + curr["Scheme Value"], 0);
+										const partyData = cTypeData.filter(
+											(d) => d.Party === party,
+										);
+
+										const pSaleQty = partyData.reduce(
+											(acc, curr) => acc + curr["Sale Qty"],
+											0,
+										);
+										const pFreeQty = partyData.reduce(
+											(acc, curr) => acc + curr["Free Qty"],
+											0,
+										);
+										const pSchemeQty = partyData.reduce(
+											(acc, curr) => acc + curr["Scheme Qty"],
+											0,
+										);
+										const pClaimVal = partyData.reduce(
+											(acc, curr) => acc + curr["Scheme Value"],
+											0,
+										);
 
 										mfgSaleQty += pSaleQty;
 										mfgFreeQty += pFreeQty;
@@ -213,10 +307,12 @@ export async function FreeSchemeReportView({
 										mfgClaimVal += pClaimVal;
 
 										return (
-											<div key={party} className="mb-8">
-												<h5 className="font-bold italic text-[#0B2545] text-[13px] mb-2">{party}</h5>
-												<div className="w-full overflow-x-auto rounded-lg border border-gray-300 scrollbar-hide">
-													<table className="w-full min-w-[1200px] text-left border-collapse">
+											<div className="mb-8" key={party}>
+												<h5 className="mb-2 font-bold text-[#0B2545] text-[13px] italic">
+													{party}
+												</h5>
+												<div className="scrollbar-hide w-full overflow-x-auto rounded-lg border border-gray-300">
+													<table className="w-full min-w-[1200px] border-collapse text-left">
 														<thead>
 															<tr>
 																<Th>Code</Th>
@@ -242,38 +338,79 @@ export async function FreeSchemeReportView({
 														</thead>
 														<tbody>
 															{partyData.map((row, idx) => (
-																<tr key={idx} className="hover:bg-gray-50 transition-colors border-b border-gray-200">
+																<tr
+																	className="border-gray-200 border-b transition-colors hover:bg-gray-50"
+																	key={idx}
+																>
 																	<Td>{row.Code}</Td>
-																	<Td className="font-semibold">{row["Product Name"]}</Td>
+																	<Td className="font-semibold">
+																		{row["Product Name"]}
+																	</Td>
 																	<Td>{row.Packing}</Td>
 																	<Td>{row["Batch No."]}</Td>
 																	<Td>{row["Inv. No."]}</Td>
 																	<Td>{row["Inv. Dt."]}</Td>
-																	<Td className="text-right">{row.MRP.toFixed(2)}</Td>
-																	<Td className="text-right">{row.PRate.toFixed(2)}</Td>
-																	<Td className="text-right">{row.PTR.toFixed(2)}</Td>
-																	<Td className="text-right">{row["Net Rate"].toFixed(2)}</Td>
-																	<Td className="text-right">{row["Inv. Rate"].toFixed(2)}</Td>
-																	<Td className="text-right">{row["Sale Qty"]}</Td>
-																	<Td className="text-right">{row["Free Qty"]}</Td>
+																	<Td className="text-right">
+																		{row.MRP.toFixed(2)}
+																	</Td>
+																	<Td className="text-right">
+																		{row.PRate.toFixed(2)}
+																	</Td>
+																	<Td className="text-right">
+																		{row.PTR.toFixed(2)}
+																	</Td>
+																	<Td className="text-right">
+																		{row["Net Rate"].toFixed(2)}
+																	</Td>
+																	<Td className="text-right">
+																		{row["Inv. Rate"].toFixed(2)}
+																	</Td>
+																	<Td className="text-right">
+																		{row["Sale Qty"]}
+																	</Td>
+																	<Td className="text-right">
+																		{row["Free Qty"]}
+																	</Td>
 																	<Td className="text-right">-</Td>
-																	<Td className="text-right">{row["Scheme Qty"]}</Td>
-																	<Td className="text-right">{row["Rate Diff."].toFixed(2)}</Td>
-																	<Td className="text-right">{row["Scheme Value"].toFixed(2)}</Td>
+																	<Td className="text-right">
+																		{row["Scheme Qty"]}
+																	</Td>
+																	<Td className="text-right">
+																		{row["Rate Diff."].toFixed(2)}
+																	</Td>
+																	<Td className="text-right">
+																		{row["Scheme Value"].toFixed(2)}
+																	</Td>
 																	<Td>{row["Item Scheme"]}</Td>
 																	<Td>{row["Applied Scheme"]}</Td>
 																</tr>
 															))}
 															{/* Party Total Row */}
-															<tr className="bg-gray-50 border-t border-gray-300">
-																<td colSpan={11} className="px-2 py-2 text-right font-bold text-[11px] text-gray-500"></td>
-																<td className="px-2 py-2 text-right font-bold text-xs text-[#0B2545] border-x border-gray-200">{pSaleQty}</td>
-																<td className="px-2 py-2 text-right font-bold text-xs text-[#0B2545] border-x border-gray-200">{pFreeQty}</td>
-																<td className="px-2 py-2 text-right font-bold text-xs text-[#0B2545] border-x border-gray-200">-</td>
-																<td className="px-2 py-2 text-right font-bold text-xs text-[#0B2545] border-x border-gray-200">{pSchemeQty}</td>
-																<td className="px-2 py-2 border-x border-gray-200"></td>
-																<td className="px-2 py-2 text-right font-bold text-xs text-[#0B2545] border-x border-gray-200">{pClaimVal.toFixed(2)}</td>
-																<td colSpan={2} className="border-l border-gray-200"></td>
+															<tr className="border-gray-300 border-t bg-gray-50">
+																<td
+																	className="px-2 py-2 text-right font-bold text-[11px] text-gray-500"
+																	colSpan={11}
+																></td>
+																<td className="border-gray-200 border-x px-2 py-2 text-right font-bold text-[#0B2545] text-xs">
+																	{pSaleQty}
+																</td>
+																<td className="border-gray-200 border-x px-2 py-2 text-right font-bold text-[#0B2545] text-xs">
+																	{pFreeQty}
+																</td>
+																<td className="border-gray-200 border-x px-2 py-2 text-right font-bold text-[#0B2545] text-xs">
+																	-
+																</td>
+																<td className="border-gray-200 border-x px-2 py-2 text-right font-bold text-[#0B2545] text-xs">
+																	{pSchemeQty}
+																</td>
+																<td className="border-gray-200 border-x px-2 py-2"></td>
+																<td className="border-gray-200 border-x px-2 py-2 text-right font-bold text-[#0B2545] text-xs">
+																	{pClaimVal.toFixed(2)}
+																</td>
+																<td
+																	className="border-gray-200 border-l"
+																	colSpan={2}
+																></td>
 															</tr>
 														</tbody>
 													</table>
@@ -287,9 +424,11 @@ export async function FreeSchemeReportView({
 
 						{/* Summary Table for Manufacturer */}
 						<div className="mt-8">
-							<h4 className="font-bold text-[#0B2545] text-sm mb-3">Summary :</h4>
-							<div className="w-full sm:w-[800px] overflow-x-auto rounded-lg border border-gray-300">
-								<table className="w-full text-left border-collapse min-w-[600px]">
+							<h4 className="mb-3 font-bold text-[#0B2545] text-sm">
+								Summary :
+							</h4>
+							<div className="w-full overflow-x-auto rounded-lg border border-gray-300 sm:w-[800px]">
+								<table className="w-full min-w-[600px] border-collapse text-left">
 									<thead>
 										<tr>
 											<Th>ItemName</Th>
@@ -314,7 +453,7 @@ export async function FreeSchemeReportView({
 														SaleQty: 0,
 														FreeQty: 0,
 														SchemeQty: 0,
-														ClaimValue: 0
+														ClaimValue: 0,
 													});
 												}
 												const agg = summaryMap.get(key);
@@ -328,23 +467,43 @@ export async function FreeSchemeReportView({
 											return (
 												<>
 													{summaries.map((s, i) => (
-														<tr key={i} className="hover:bg-gray-50 border-b border-gray-200">
+														<tr
+															className="border-gray-200 border-b hover:bg-gray-50"
+															key={i}
+														>
 															<Td className="font-semibold">{s.ItemName}</Td>
 															<Td>{s.Packing}</Td>
 															<Td className="text-right">{s.SaleQty}</Td>
 															<Td className="text-right">{s.FreeQty}</Td>
 															<Td className="text-right">-</Td>
 															<Td className="text-right">{s.SchemeQty}</Td>
-															<Td className="text-right">{s.ClaimValue.toFixed(2)}</Td>
+															<Td className="text-right">
+																{s.ClaimValue.toFixed(2)}
+															</Td>
 														</tr>
 													))}
-													<tr className="bg-gray-100 border-t-2 border-gray-300">
-														<td colSpan={2} className="px-2 py-2 font-bold text-xs text-[#0B2545]">Total :</td>
-														<td className="px-2 py-2 font-bold text-xs text-right text-[#0B2545] border-x border-gray-200">{mfgSaleQty}</td>
-														<td className="px-2 py-2 font-bold text-xs text-right text-[#0B2545] border-x border-gray-200">{mfgFreeQty}</td>
-														<td className="px-2 py-2 font-bold text-xs text-right text-[#0B2545] border-x border-gray-200">-</td>
-														<td className="px-2 py-2 font-bold text-xs text-right text-[#0B2545] border-x border-gray-200">{mfgSchemeQty}</td>
-														<td className="px-2 py-2 font-bold text-xs text-right text-[#0B2545] border-x border-gray-200">{mfgClaimVal.toFixed(2)}</td>
+													<tr className="border-gray-300 border-t-2 bg-gray-100">
+														<td
+															className="px-2 py-2 font-bold text-[#0B2545] text-xs"
+															colSpan={2}
+														>
+															Total :
+														</td>
+														<td className="border-gray-200 border-x px-2 py-2 text-right font-bold text-[#0B2545] text-xs">
+															{mfgSaleQty}
+														</td>
+														<td className="border-gray-200 border-x px-2 py-2 text-right font-bold text-[#0B2545] text-xs">
+															{mfgFreeQty}
+														</td>
+														<td className="border-gray-200 border-x px-2 py-2 text-right font-bold text-[#0B2545] text-xs">
+															-
+														</td>
+														<td className="border-gray-200 border-x px-2 py-2 text-right font-bold text-[#0B2545] text-xs">
+															{mfgSchemeQty}
+														</td>
+														<td className="border-gray-200 border-x px-2 py-2 text-right font-bold text-[#0B2545] text-xs">
+															{mfgClaimVal.toFixed(2)}
+														</td>
 													</tr>
 												</>
 											);
@@ -355,26 +514,32 @@ export async function FreeSchemeReportView({
 						</div>
 
 						{/* Manufacturer Grand Total */}
-						<div className="mt-8 border-t-2 border-gray-300 pt-4 flex flex-col md:flex-row justify-between items-end gap-4">
+						<div className="mt-8 flex flex-col items-end justify-between gap-4 border-gray-300 border-t-2 pt-4 md:flex-row">
 							<div className="font-extrabold text-[#0B2545] text-sm uppercase">
 								Total of {mfg} :
 							</div>
-							<div className="flex gap-8 font-bold text-xs bg-gray-50 py-3 px-6 rounded-xl border border-gray-200 shadow-inner">
+							<div className="flex gap-8 rounded-xl border border-gray-200 bg-gray-50 px-6 py-3 font-bold text-xs shadow-inner">
 								<div className="text-center">
-									<div className="text-[10px] text-gray-500 mb-1">Sale Qty</div>
+									<div className="mb-1 text-[10px] text-gray-500">Sale Qty</div>
 									<div className="text-[#0B2545] text-sm">{mfgSaleQty}</div>
 								</div>
 								<div className="text-center">
-									<div className="text-[10px] text-gray-500 mb-1">Free Qty</div>
+									<div className="mb-1 text-[10px] text-gray-500">Free Qty</div>
 									<div className="text-[#0B2545] text-sm">{mfgFreeQty}</div>
 								</div>
 								<div className="text-center">
-									<div className="text-[10px] text-gray-500 mb-1">Scheme Qty</div>
+									<div className="mb-1 text-[10px] text-gray-500">
+										Scheme Qty
+									</div>
 									<div className="text-[#0071BC] text-sm">{mfgSchemeQty}</div>
 								</div>
 								<div className="text-center">
-									<div className="text-[10px] text-gray-500 mb-1">Scheme Value</div>
-									<div className="text-green-600 text-sm">₹{mfgClaimVal.toFixed(2)}</div>
+									<div className="mb-1 text-[10px] text-gray-500">
+										Scheme Value
+									</div>
+									<div className="text-green-600 text-sm">
+										₹{mfgClaimVal.toFixed(2)}
+									</div>
 								</div>
 							</div>
 						</div>

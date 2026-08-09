@@ -82,12 +82,18 @@ export async function GET(request: Request) {
 	// Fetch Stock details for MRP and PTR
 	const stockMap = new Map<string, { mrp: number; ptr: number }>();
 	if (canViewStock) {
-		let inventoryCondition = and(inArray(mrInventory.productId, productIds), eq(mrInventory.mrId, mrId));
+		let inventoryCondition = and(
+			inArray(mrInventory.productId, productIds),
+			eq(mrInventory.mrId, mrId),
+		);
 		if (to) {
 			const toDate = new Date(to);
 			if (!isNaN(toDate.getTime())) {
 				toDate.setUTCHours(23, 59, 59, 999);
-				inventoryCondition = and(inventoryCondition, lte(mrInventory.date, toDate));
+				inventoryCondition = and(
+					inventoryCondition,
+					lte(mrInventory.date, toDate),
+				);
 			}
 		}
 
@@ -103,14 +109,21 @@ export async function GET(request: Request) {
 			return da - dbVal;
 		});
 
-		inventory.forEach((inv) => stockMap.set(inv.productId, {
-			mrp: Number(inv.mrp) || 0,
-			ptr: Number(inv.ptr) || 0
-		}));
+		inventory.forEach((inv) =>
+			stockMap.set(inv.productId, {
+				mrp: Number(inv.mrp) || 0,
+				ptr: Number(inv.ptr) || 0,
+			}),
+		);
 	}
 
 	// Fetch Sales with dealer (Party)
-	type SaleDetail = { productId: string; quantity: number; freeQty: number | null; dealer: string | null };
+	type SaleDetail = {
+		productId: string;
+		quantity: number;
+		freeQty: number | null;
+		dealer: string | null;
+	};
 	const salesDetails: SaleDetail[] = [];
 	if (canViewSales) {
 		let salesCondition = and(
@@ -152,31 +165,31 @@ export async function GET(request: Request) {
 	const mrName = mrInfo.name || "Unknown MR";
 
 	// Generate rows. We'll create a row for each sale detail.
-	// If a product has no sales, we still might want it in the CSV if they want a stock report, 
+	// If a product has no sales, we still might want it in the CSV if they want a stock report,
 	// but for claims we usually only show sold items. Let's include all products, grouping sales by dealer.
-	
+
 	const reportData: any[] = [];
-	
+
 	accessibleProducts.forEach((p) => {
 		const pStock = stockMap.get(p.id) || { mrp: 0, ptr: 0 };
-		const pSales = salesDetails.filter(s => s.productId === p.id);
-		
+		const pSales = salesDetails.filter((s) => s.productId === p.id);
+
 		if (pSales.length === 0) {
 			// No sales, add a generic row for stock
 			reportData.push({
 				"MR Name": mrName,
-				"Manufacturer": p.manufacturer,
-				"ClaimType": "Qty",
-				"Party": "NO SALES",
-				"Code": p.code || "",
+				Manufacturer: p.manufacturer,
+				ClaimType: "Qty",
+				Party: "NO SALES",
+				Code: p.code || "",
 				"Product Name": p.name,
-				"Packing": "",
+				Packing: "",
 				"Batch No.": "",
 				"Inv. No.": "",
 				"Inv. Dt.": "",
-				"MRP": pStock.mrp,
-				"PRate": pStock.ptr,
-				"PTR": pStock.ptr,
+				MRP: pStock.mrp,
+				PRate: pStock.ptr,
+				PTR: pStock.ptr,
 				"Net Rate": 0,
 				"Inv. Rate": 0,
 				"Sale Qty": 0,
@@ -187,12 +200,12 @@ export async function GET(request: Request) {
 				"Claim Value": 0,
 				"Item Scheme": p.freeScheme || "",
 				"Applied Scheme": "",
-				"Generated At": timestampStr
+				"Generated At": timestampStr,
 			});
 		} else {
 			// Group sales by dealer
-			const dealerMap = new Map<string, { qty: number, free: number }>();
-			pSales.forEach(s => {
+			const dealerMap = new Map<string, { qty: number; free: number }>();
+			pSales.forEach((s) => {
 				const party = s.dealer || "UNKNOWN PARTY";
 				const curr = dealerMap.get(party) || { qty: 0, free: 0 };
 				curr.qty += s.quantity || 0;
@@ -203,18 +216,18 @@ export async function GET(request: Request) {
 			dealerMap.forEach((totals, party) => {
 				reportData.push({
 					"MR Name": mrName,
-					"Manufacturer": p.manufacturer,
-					"ClaimType": "Qty",
-					"Party": party,
-					"Code": p.code || "",
+					Manufacturer: p.manufacturer,
+					ClaimType: "Qty",
+					Party: party,
+					Code: p.code || "",
 					"Product Name": p.name,
-					"Packing": "",
+					Packing: "",
 					"Batch No.": "",
 					"Inv. No.": "",
 					"Inv. Dt.": "",
-					"MRP": pStock.mrp,
-					"PRate": pStock.ptr,
-					"PTR": pStock.ptr,
+					MRP: pStock.mrp,
+					PRate: pStock.ptr,
+					PTR: pStock.ptr,
 					"Net Rate": 0,
 					"Inv. Rate": 0,
 					"Sale Qty": totals.qty,
@@ -225,7 +238,7 @@ export async function GET(request: Request) {
 					"Claim Value": 0, // Logic to be provided later
 					"Item Scheme": p.freeScheme || "",
 					"Applied Scheme": "",
-					"Generated At": timestampStr
+					"Generated At": timestampStr,
 				});
 			});
 		}
@@ -233,8 +246,10 @@ export async function GET(request: Request) {
 
 	// Sort by Manufacturer -> Party -> Product Name
 	reportData.sort((a, b) => {
-		if (a.Manufacturer !== b.Manufacturer) return (a.Manufacturer || "").localeCompare(b.Manufacturer || "");
-		if (a.Party !== b.Party) return (a.Party || "").localeCompare(b.Party || "");
+		if (a.Manufacturer !== b.Manufacturer)
+			return (a.Manufacturer || "").localeCompare(b.Manufacturer || "");
+		if (a.Party !== b.Party)
+			return (a.Party || "").localeCompare(b.Party || "");
 		return a["Product Name"].localeCompare(b["Product Name"]);
 	});
 

@@ -52,9 +52,9 @@ export function OutstandingDownloadButtons({ mrId }: { mrId: string }) {
 				// Format data for the PDF
 				const cleanDataForPdf = filteredData.map((row: any) => {
 					return {
-						"Manufacturer": row["Company Code"] || row["Division"] || "Unknown",
+						Manufacturer: row["Company Code"] || row["Division"] || "Unknown",
 						"Doctor / Party": row["Doctor / Party"],
-						"City": row["City"],
+						City: row["City"],
 						"Invoice No": row["Invoice No"],
 						"Invoice Date": row["Invoice Date"],
 						"Amount Due": row["Amount Due"],
@@ -76,7 +76,7 @@ export function OutstandingDownloadButtons({ mrId }: { mrId: string }) {
 					columns as any,
 					mrName,
 					from,
-					to
+					to,
 				);
 			} catch (e) {
 				console.error(e);
