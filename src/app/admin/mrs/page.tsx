@@ -47,11 +47,18 @@ export default async function AdminMRsPage({
 	// Filter out non-MRs if search hit an admin
 	allMRs = allMRs.filter((u) => u.role === "MR");
 
-	// Get all unique manufacturers currently in products table
+	// Get all unique manufacturers and divisions currently in products table
 	const allManufacturers = await db
-		.selectDistinct({ manufacturer: products.manufacturer })
+		.selectDistinct({ manufacturer: products.manufacturer, division: products.division })
 		.from(products)
 		.where(sql`${products.manufacturer} IS NOT NULL`);
+        
+    allManufacturers.sort((a, b) => {
+        if (a.manufacturer === b.manufacturer) {
+            return (a.division || "").localeCompare(b.division || "");
+        }
+        return (a.manufacturer || "").localeCompare(b.manufacturer || "");
+    });
 
 	// Get all assignments
 	const allAssignments = await db.select().from(mrManufacturers);
@@ -99,7 +106,7 @@ export default async function AdminMRsPage({
 				{allMRs.map((mr) => {
 					const assignments = allAssignments.filter((a) => a.mrId === mr.id);
 					const unassignedManufacturers = allManufacturers.filter(
-						(m) => !assignments.some((a) => a.manufacturer === m.manufacturer),
+						(m) => !assignments.some((a) => a.manufacturer === m.manufacturer && a.division === m.division),
 					);
 
 					return (
@@ -156,6 +163,7 @@ export default async function AdminMRsPage({
 											>
 												<span className="font-semibold text-blue-900 text-sm">
 													{a.manufacturer}
+                                                    {a.division ? ` - ${a.division}` : ""}
 												</span>
 												<form
 													action={async () => {
@@ -254,8 +262,11 @@ export default async function AdminMRsPage({
 								<form
 									action={async (formData) => {
 										"use server";
-										const mfg = formData.get("manufacturer") as string;
-										if (mfg) await assignManufacturer(mr.id, mfg);
+										const val = formData.get("manufacturer") as string;
+										if (val) {
+                                            const [mfg, div] = val.split("::");
+                                            await assignManufacturer(mr.id, mfg!, div || null);
+                                        }
 									}}
 									className="flex gap-2"
 								>
@@ -266,13 +277,17 @@ export default async function AdminMRsPage({
 										required
 									>
 										<option disabled value="">
-											Select Manufacturer
+											Select Manufacturer / Division
 										</option>
-										{unassignedManufacturers.map((m) => (
-											<option key={m.manufacturer} value={m.manufacturer}>
-												{m.manufacturer}
-											</option>
-										))}
+										{unassignedManufacturers.map((m) => {
+                                            const val = `${m.manufacturer}::${m.division || ""}`;
+                                            const label = m.division ? `${m.manufacturer} - ${m.division}` : m.manufacturer;
+                                            return (
+                                                <option key={val} value={val}>
+                                                    {label}
+                                                </option>
+                                            );
+                                        })}
 									</select>
 									<button
 										className="rounded-xl bg-blue-600 px-4 py-2 font-bold text-white shadow-sm transition hover:bg-blue-700"

@@ -8,6 +8,7 @@ import { OutstandingReportView } from "@/components/outstanding-report-view";
 import { ProductReportView } from "@/components/product-report-view";
 import { ReportDownloadButtons } from "@/components/report-download-buttons";
 import { SalesReportView } from "@/components/sales-report-view";
+import { NewSalesReportView } from "@/components/new-sales-report-view";
 import { StockReportView } from "@/components/stock-report-view";
 import { db } from "@/server/db";
 import {
@@ -392,6 +393,8 @@ export async function MrDashboardContent({
 							href={`${baseUrl}?${new URLSearchParams({
 								...(searchParams?.from && { from: searchParams.from }),
 								...(searchParams?.to && { to: searchParams.to }),
+								...(searchParams?.tab && { tab: searchParams.tab }),
+								...(searchParams?.q && { q: searchParams.q }),
 							}).toString()}`}
 						>
 							All Divisions
@@ -401,6 +404,8 @@ export async function MrDashboardContent({
 							p.set("division", div);
 							if (searchParams?.from) p.set("from", searchParams.from);
 							if (searchParams?.to) p.set("to", searchParams.to);
+							if (searchParams?.tab) p.set("tab", searchParams.tab);
+							if (searchParams?.q) p.set("q", searchParams.q);
 
 							return (
 								<Link
@@ -457,6 +462,21 @@ export async function MrDashboardContent({
 						}).toString()}`}
 					>
 						Product Wise
+					</Link>
+				)}
+				{canViewSales && (
+					<Link
+						className={`border-b-4 px-6 py-4 font-bold text-base transition-colors ${
+							searchParams?.tab === "new-sales"
+								? "border-[#0071BC] text-[#0071BC]"
+								: "border-transparent text-gray-500 hover:text-[#0B2545]"
+						}`}
+						href={`${baseUrl}?${new URLSearchParams({
+							...searchParams,
+							tab: "new-sales",
+						}).toString()}`}
+					>
+						New Sales Report
 					</Link>
 				)}
 				{canViewStock && (
@@ -757,6 +777,12 @@ export async function MrDashboardContent({
 			{/* STOCK REPORTS TAB */}
 			{canViewStock && searchParams?.tab === "stock" && (
 				<StockReportView mrId={mrId} searchParams={searchParams} />
+			)}
+			{searchParams?.tab === "sales" && (
+				<SalesReportView mrId={mrId} searchParams={searchParams} />
+			)}
+			{searchParams?.tab === "new-sales" && (
+				<NewSalesReportView mrId={mrId} searchParams={searchParams} />
 			)}
 		</div>
 	);
