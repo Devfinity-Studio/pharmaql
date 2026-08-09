@@ -33,7 +33,7 @@ export async function SalesReportView({
 	if (selectedAssignments.length === 0) return <div>No data assigned</div>;
 
 	const productConditionList = selectedAssignments.map((d) => {
-		const conditions: any[] = [eq(products.manufacturer, d.manufacturer)];
+		const conditions: any[] = [eq(products.code, d.manufacturer)];
 		if (d.division) {
 			conditions.push(eq(products.division, d.division));
 		}
