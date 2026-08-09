@@ -109,26 +109,30 @@ export async function StockReportView({
 	if (searchParams?.to) limitToDate.setUTCHours(23, 59, 59, 999);
 
 	// Calculate exact stock data from inventory
-	const stockDataMap = new Map<string, { opening: number, inward: number, outward: number }>();
+	const stockDataMap = new Map<string, { opening: number, inward: number, outward: number, prate: number, ptr: number }>();
 	inventory.forEach((inv) => {
 		const invDate = inv.date ? new Date(inv.date).getTime() : 0;
 		const limitFromTime = limitFromDate ? limitFromDate.getTime() : 0;
 		const limitToTime = limitToDate ? limitToDate.getTime() : new Date('9999-12-31T23:59:59.999Z').getTime();
 		
-		const existing = stockDataMap.get(inv.productId) || { opening: 0, inward: 0, outward: 0 };
+		const existing = stockDataMap.get(inv.productId || "") || { opening: 0, inward: 0, outward: 0, prate: 0, ptr: 0 };
 		
 		// The exact match for limitFromDate, or closest prior gives the opening stock
 		if (invDate <= limitFromTime) {
 			existing.opening = inv.opening || 0;
+			existing.prate = Number(inv.prate || existing.prate);
+			existing.ptr = Number(inv.ptr || existing.ptr);
 		}
 		
 		// Sum inward/outward for the selected period
 		if (invDate >= limitFromTime && invDate <= limitToTime) {
 			existing.inward += inv.inward || 0;
 			existing.outward += inv.outward || 0;
+			existing.prate = Math.max(existing.prate, Number(inv.prate || 0));
+			existing.ptr = Math.max(existing.ptr, Number(inv.ptr || 0));
 		}
 		
-		stockDataMap.set(inv.productId, existing);
+		stockDataMap.set(inv.productId || "", existing);
 	});
 
 	const { sql } = await import("drizzle-orm");
@@ -156,8 +160,9 @@ export async function StockReportView({
 		const currQty = opening + purchase + sRet + stkAdjAdd - salesQty - pRet - stkAdjLess;
 
 		if (opening !== 0 || purchase !== 0 || currQty !== 0 || salesQty !== 0) {
-			const prate = Number(r?.prate || 0);
-			const ptr = Number(r?.ptr || 0);
+			const prate = Math.max(Number(stockData?.prate || 0), Number(r?.prate || 0));
+			const ptr = Math.max(Number(stockData?.ptr || 0), Number(r?.ptr || 0));
+			
 			const stockValue = currQty * prate;
 			const openingValue = opening * prate;
 			const purchaseValue = purchase * prate;
