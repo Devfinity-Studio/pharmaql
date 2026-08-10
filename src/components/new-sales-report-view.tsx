@@ -90,6 +90,7 @@ export async function NewSalesReportView({
 		WHERE l.item_id IN (${productIds.map(id => `'${id}'`).join(",")})
 		${locNoFilter}
 		${dateCondition}
+		LIMIT 3000
 	`));
 
 	const legacyRows = legacyDataResult as any[];
@@ -183,6 +184,12 @@ export async function NewSalesReportView({
 					<p>Page 1 of 1</p>
 				</div>
 			</div>
+
+			{legacyRows.length >= 3000 && (
+				<div className="mb-4 rounded-lg bg-amber-50 p-4 text-amber-800 border border-amber-200">
+					<strong>Warning:</strong> Displaying maximum of 3,000 records. Please select a shorter date range to view all data.
+				</div>
+			)}
 
 			<div className="w-full overflow-x-auto border-[#0B2545] border-t-2 pt-1">
 				<table className="w-full min-w-[1200px] border-collapse text-left font-sans">
