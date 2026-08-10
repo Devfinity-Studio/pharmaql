@@ -67,6 +67,8 @@ export async function NewSalesReportView({
 		dateCondition += ` AND h.inv_dt <= '${searchParams.to}'`;
 	}
 
+	const locNoFilter = mrInfo.locNo ? `AND h.loc_no = '${mrInfo.locNo}'` : ``;
+
 	const legacyDataResult = await db.execute(sql.raw(`
 		SELECT 
 			h.inv_no as "InvNo",
@@ -86,6 +88,7 @@ export async function NewSalesReportView({
 		JOIN "pg-drizzle_legacy_l_sale" l ON l.rid = h.id
 		LEFT JOIN "pg-drizzle_legacy_customers" c ON c.id = h.cust_id
 		WHERE l.item_id IN (${productIds.map(id => `'${id}'`).join(",")})
+		${locNoFilter}
 		${dateCondition}
 	`));
 
