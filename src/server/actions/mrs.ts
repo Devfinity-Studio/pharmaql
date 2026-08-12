@@ -1,10 +1,11 @@
 "use server";
 
-import { and, eq } from "drizzle-orm";
+import { and, eq, ne, sql } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { headers } from "next/headers";
 import { auth } from "@/server/auth";
 import { db } from "@/server/db";
+import * as schema from "@/server/db/schema";
 import { mrManufacturers, user } from "@/server/db/schema";
 
 export async function assignManufacturer(
@@ -141,7 +142,10 @@ export async function createMR(
 		});
 
 		if (existingUser) {
-			return { success: false, error: "An account with this email already exists." };
+			return {
+				success: false,
+				error: "An account with this email already exists.",
+			};
 		}
 
 		const newMrId = crypto.randomUUID();
@@ -172,6 +176,59 @@ export async function createMR(
 			success: false,
 			error: "An unexpected error occurred while creating the MR.",
 		};
+	}
+}
+
+export async function checkActiveSessions(email: string) {
+	try {
+		const targetUser = await db.query.user.findFirst({
+			where: eq(user.email, email.toLowerCase()),
+		});
+
+		if (!targetUser || targetUser.role !== "MR") {
+			return { success: true, hasActiveSessions: false };
+		}
+
+		// Find any sessions for this user that are not expired
+		const now = new Date();
+		const activeSessions = await db.query.session.findMany({
+			where: and(
+				eq(schema.session.userId, targetUser.id),
+				sql`${schema.session.expiresAt} > ${now}`,
+			),
+		});
+
+		return { success: true, hasActiveSessions: activeSessions.length > 0 };
+	} catch (error) {
+		console.error("Failed to check active sessions", error);
+		return { success: false, hasActiveSessions: false };
+	}
+}
+
+export async function clearOtherSessions() {
+	try {
+		const currentSession = await auth.api.getSession({
+			headers: await headers(),
+		});
+
+		if (!currentSession) {
+			return { success: false, error: "No active session to keep" };
+		}
+
+		// Delete all sessions for this user EXCEPT the current one
+		await db
+			.delete(schema.session)
+			.where(
+				and(
+					eq(schema.session.userId, currentSession.user.id),
+					sql`${schema.session.id} != ${currentSession.session.id}`,
+				),
+			);
+
+		return { success: true };
+	} catch (error) {
+		console.error("Failed to clear other sessions", error);
+		return { success: false, error: "Failed to clear other sessions" };
 	}
 }
 

@@ -1,5 +1,6 @@
 "use client";
 
+import { AlertCircle } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import {
@@ -8,9 +9,12 @@ import {
 	InputOTPSlot,
 } from "@/components/ui/input-otp";
 import { emailOtp, signIn, signOut } from "@/lib/auth-client";
+import { checkActiveSessions, clearOtherSessions } from "@/server/actions/mrs";
 
 export function LoginForm() {
-	const [step, setStep] = useState<"email" | "password" | "otp">("email");
+	const [step, setStep] = useState<
+		"email" | "active-session-warning" | "password" | "otp"
+	>("email");
 	const [email, setEmail] = useState("");
 	const [password, setPassword] = useState("");
 	const [otp, setOtp] = useState("");
@@ -34,19 +38,38 @@ export function LoginForm() {
 			setStep("password");
 			setLoading(false);
 		} else {
-			// Trigger OTP logic for MRs
-			const res = await emailOtp.sendVerificationOtp({
-				email,
-				type: "sign-in",
-			});
-			if (res.error) {
-				setError(res.error.message || "Failed to send OTP.");
+			// Check for active sessions for MRs
+			const sessionCheck = await checkActiveSessions(email);
+			if (sessionCheck.hasActiveSessions) {
+				setStep("active-session-warning");
 				setLoading(false);
-			} else {
-				setStep("otp");
-				setLoading(false);
+				return;
 			}
+
+			// Proceed to OTP
+			await sendOTP(email);
 		}
+	}
+
+	async function sendOTP(emailAddress: string) {
+		setLoading(true);
+		setError("");
+		const res = await emailOtp.sendVerificationOtp({
+			email: emailAddress,
+			type: "sign-in",
+		});
+
+		if (res.error) {
+			setError(res.error.message || "Failed to send OTP.");
+			setLoading(false);
+		} else {
+			setStep("otp");
+			setLoading(false);
+		}
+	}
+
+	async function handleWarningContinue() {
+		await sendOTP(email);
 	}
 
 	async function handlePasswordSubmit(e: React.FormEvent) {
@@ -88,7 +111,14 @@ export function LoginForm() {
 			);
 			setLoading(false);
 		} else {
-			if ((res.data?.user as any)?.role === "ADMIN") {
+			const role = (res.data?.user as any)?.role;
+
+			if (role === "MR") {
+				// Clear any older active sessions now that the new OTP verified session is established
+				await clearOtherSessions();
+			}
+
+			if (role === "ADMIN") {
 				router.push("/admin/dashboard");
 			} else {
 				router.push("/dashboard");
@@ -124,6 +154,42 @@ export function LoginForm() {
 						{loading ? "Please wait..." : "Continue"}
 					</button>
 				</form>
+			)}
+
+			{step === "active-session-warning" && (
+				<div className="space-y-6">
+					<div className="flex flex-col items-center text-center">
+						<div className="mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-yellow-100">
+							<AlertCircle className="h-6 w-6 text-yellow-600" />
+						</div>
+						<h3 className="font-medium text-gray-900 text-lg">
+							Active Session Detected
+						</h3>
+						<p className="mt-2 text-gray-500 text-sm">
+							You are currently logged in on another device. Do you want to log
+							out of other devices and continue logging in here?
+						</p>
+					</div>
+					{error && (
+						<div className="text-center text-red-600 text-sm">{error}</div>
+					)}
+					<div className="flex w-full flex-col gap-3">
+						<button
+							className="flex w-full justify-center rounded-md border border-transparent bg-yellow-600 px-4 py-2 font-medium text-sm text-white shadow-sm hover:bg-yellow-700 focus:outline-none focus:ring-2 focus:ring-yellow-500 focus:ring-offset-2 disabled:opacity-50"
+							disabled={loading}
+							onClick={handleWarningContinue}
+						>
+							{loading ? "Sending OTP..." : "Yes, log out others and send OTP"}
+						</button>
+						<button
+							className="flex w-full justify-center rounded-md border border-gray-300 bg-white px-4 py-2 font-medium text-gray-700 text-sm shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50"
+							disabled={loading}
+							onClick={() => setStep("email")}
+						>
+							Cancel
+						</button>
+					</div>
+				</div>
 			)}
 
 			{step === "password" && (
