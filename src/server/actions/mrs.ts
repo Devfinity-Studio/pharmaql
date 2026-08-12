@@ -161,6 +161,7 @@ export async function createMR(
 		if (manufacturers.length > 0) {
 			await db.insert(mrManufacturers).values(
 				manufacturers.map((m) => ({
+					id: crypto.randomUUID(),
 					mrId: newMrId,
 					manufacturer: m.manufacturer,
 					division: m.division,
