@@ -6,7 +6,10 @@ async function run() {
 	const dataDir = path.join(process.cwd(), "demo data");
 	const filePath = path.join(dataDir, "dataexport.sql");
 	const fileStream = fs.createReadStream(filePath);
-	const rl = readline.createInterface({ input: fileStream, crlfDelay: Infinity });
+	const rl = readline.createInterface({
+		input: fileStream,
+		crlfDelay: Infinity,
+	});
 
 	for await (const line of rl) {
 		const trimmed = line.trim();
@@ -17,4 +20,6 @@ async function run() {
 	}
 }
 
-run().catch(console.error).then(() => process.exit(0));
+run()
+	.catch(console.error)
+	.then(() => process.exit(0));

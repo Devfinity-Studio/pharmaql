@@ -1,8 +1,7 @@
-import { and, eq, gte, inArray, lte, or } from "drizzle-orm";
+import { and, eq, gte, inArray, lte, or, sql } from "drizzle-orm";
 import React from "react";
 import { db } from "@/server/db";
 import { mrManufacturers, products, user } from "@/server/db/schema";
-import { sql } from "drizzle-orm";
 
 export async function NewSalesReportView({
 	mrId,
@@ -69,7 +68,8 @@ export async function NewSalesReportView({
 
 	const locNoFilter = mrInfo.locNo ? `AND h.loc_no = '${mrInfo.locNo}'` : ``;
 
-	const legacyDataResult = await db.execute(sql.raw(`
+	const legacyDataResult = await db.execute(
+		sql.raw(`
 		SELECT 
 			h.inv_no as "InvNo",
 			h.inv_dt as "InvDt",
@@ -87,19 +87,18 @@ export async function NewSalesReportView({
 		FROM "pg-drizzle_legacy_h_sale" h
 		JOIN "pg-drizzle_legacy_l_sale" l ON l.rid = h.id
 		LEFT JOIN "pg-drizzle_legacy_customers" c ON c.id = h.cust_id
-		WHERE l.item_id IN (${productIds.map(id => `'${id}'`).join(",")})
+		WHERE l.item_id IN (${productIds.map((id) => `'${id}'`).join(",")})
 		${locNoFilter}
 		${dateCondition}
 		LIMIT 3000
-	`));
+	`),
+	);
 
 	const legacyRows = legacyDataResult as any[];
-	
+
 	const reportData: any[] = [];
 	legacyRows.forEach((row: any) => {
-		const p = accessibleProducts.find(
-			(prod) => prod.id === String(row.ItemID),
-		);
+		const p = accessibleProducts.find((prod) => prod.id === String(row.ItemID));
 		if (p) {
 			reportData.push({
 				Division: p.division || p.manufacturer,
@@ -162,11 +161,13 @@ export async function NewSalesReportView({
 							ASMEE PHARMA PRIVATE LIMITED
 						</h2>
 						<p className="mt-1 font-medium text-[#0B2545] text-sm leading-relaxed">
-							BASEMENE-GF, 11/2 ASHOK HOUSE, B/S SANSTHA VASAHAT GATE, PRATAP ROAD,
+							BASEMENE-GF, 11/2 ASHOK HOUSE, B/S SANSTHA VASAHAT GATE, PRATAP
+							ROAD,
 							<br />
 							RAOPURA, VADODARA - 390001, GUJARAT - 24
 							<br />
-							Contact: 9409789800, 9409789700 Mobile: 9409789700 Email: asmeepharma2022@gmail.com
+							Contact: 9409789800, 9409789700 Mobile: 9409789700 Email:
+							asmeepharma2022@gmail.com
 						</p>
 					</div>
 				</div>
@@ -186,8 +187,9 @@ export async function NewSalesReportView({
 			</div>
 
 			{legacyRows.length >= 3000 && (
-				<div className="mb-4 rounded-lg bg-amber-50 p-4 text-amber-800 border border-amber-200">
-					<strong>Warning:</strong> Displaying maximum of 3,000 records. Please select a shorter date range to view all data.
+				<div className="mb-4 rounded-lg border border-amber-200 bg-amber-50 p-4 text-amber-800">
+					<strong>Warning:</strong> Displaying maximum of 3,000 records. Please
+					select a shorter date range to view all data.
 				</div>
 			)}
 
@@ -195,28 +197,56 @@ export async function NewSalesReportView({
 				<table className="w-full min-w-[1200px] border-collapse text-left font-sans">
 					<thead>
 						<tr className="border-[#0B2545] border-y-2">
-							<th className="py-2 pl-2 font-bold text-[#0B2545] text-xs">Sr.</th>
-							<th className="py-2 font-bold text-[#0B2545] text-xs">Inv. No.</th>
-							<th className="py-2 font-bold text-[#0B2545] text-xs">Inv. Date</th>
+							<th className="py-2 pl-2 font-bold text-[#0B2545] text-xs">
+								Sr.
+							</th>
+							<th className="py-2 font-bold text-[#0B2545] text-xs">
+								Inv. No.
+							</th>
+							<th className="py-2 font-bold text-[#0B2545] text-xs">
+								Inv. Date
+							</th>
 							<th className="py-2 font-bold text-[#0B2545] text-xs">Code</th>
-							<th className="py-2 font-bold text-[#0B2545] text-xs">Item Name</th>
+							<th className="py-2 font-bold text-[#0B2545] text-xs">
+								Item Name
+							</th>
 							<th className="py-2 font-bold text-[#0B2545] text-xs">Packing</th>
-							<th className="py-2 font-bold text-[#0B2545] text-xs">Batch No.</th>
-							<th className="py-2 font-bold text-[#0B2545] text-xs text-right">MRP</th>
-							<th className="py-2 font-bold text-[#0B2545] text-xs text-center">Exp. Dt.</th>
-							<th className="py-2 text-right font-bold text-[#0B2545] text-xs">Qty.</th>
-							<th className="py-2 text-right font-bold text-[#0B2545] text-xs">FQty.</th>
-							<th className="py-2 text-right font-bold text-[#0B2545] text-xs">Rate</th>
-							<th className="py-2 text-right font-bold text-[#0B2545] text-xs">Taxable Amount</th>
-							<th className="py-2 text-right font-bold text-[#0B2545] text-xs">GST Amount</th>
-							<th className="py-2 pr-2 text-right font-bold text-[#0B2545] text-xs">Amount</th>
+							<th className="py-2 font-bold text-[#0B2545] text-xs">
+								Batch No.
+							</th>
+							<th className="py-2 text-right font-bold text-[#0B2545] text-xs">
+								MRP
+							</th>
+							<th className="py-2 text-center font-bold text-[#0B2545] text-xs">
+								Exp. Dt.
+							</th>
+							<th className="py-2 text-right font-bold text-[#0B2545] text-xs">
+								Qty.
+							</th>
+							<th className="py-2 text-right font-bold text-[#0B2545] text-xs">
+								FQty.
+							</th>
+							<th className="py-2 text-right font-bold text-[#0B2545] text-xs">
+								Rate
+							</th>
+							<th className="py-2 text-right font-bold text-[#0B2545] text-xs">
+								Taxable Amount
+							</th>
+							<th className="py-2 text-right font-bold text-[#0B2545] text-xs">
+								GST Amount
+							</th>
+							<th className="py-2 pr-2 text-right font-bold text-[#0B2545] text-xs">
+								Amount
+							</th>
 						</tr>
 					</thead>
 					<tbody className="font-medium text-xs">
 						{divisions.map((div, divIdx) => {
 							const divData = reportData.filter((d) => d.Division === div);
-							const customers = [...new Set(divData.map((d) => d.Customer))].sort();
-							
+							const customers = [
+								...new Set(divData.map((d) => d.Customer)),
+							].sort();
+
 							let divQty = 0;
 							let divTaxable = 0;
 							let divGST = 0;
@@ -280,14 +310,20 @@ export async function NewSalesReportView({
 															<td className="py-1.5">{row.Packing}</td>
 															<td className="py-1.5">{row.BatchNo}</td>
 															<td className="py-1.5 text-right">{row.MRP}</td>
-															<td className="py-1.5 text-center">{row.ExpDt}</td>
+															<td className="py-1.5 text-center">
+																{row.ExpDt}
+															</td>
 															<td className="py-1.5 text-right font-bold text-[#0B2545]">
 																{row.Qty}
 															</td>
 															<td className="py-1.5 text-right">{row.FQty}</td>
 															<td className="py-1.5 text-right">{row.Rate}</td>
-															<td className="py-1.5 text-right">{row.TaxableAmt.toFixed(2)}</td>
-															<td className="py-1.5 text-right">{row.GSTAmt.toFixed(2)}</td>
+															<td className="py-1.5 text-right">
+																{row.TaxableAmt.toFixed(2)}
+															</td>
+															<td className="py-1.5 text-right">
+																{row.GSTAmt.toFixed(2)}
+															</td>
 															<td className="py-1.5 pr-2 text-right font-bold text-[#0B2545]">
 																{row.Amount.toFixed(2)}
 															</td>
@@ -296,25 +332,42 @@ export async function NewSalesReportView({
 												})}
 												{/* Customer Subtotal */}
 												<tr className="border-gray-300 border-y bg-white font-bold text-[#0B2545]">
-													<td className="py-1.5 pl-2 text-right text-gray-500" colSpan={9}>Party Total</td>
-													<td className="py-1.5 text-right border-t border-[#0B2545]">{custQty}</td>
+													<td
+														className="py-1.5 pl-2 text-right text-gray-500"
+														colSpan={9}
+													>
+														Party Total
+													</td>
+													<td className="border-[#0B2545] border-t py-1.5 text-right">
+														{custQty}
+													</td>
 													<td className="py-1.5 text-right" colSpan={2}></td>
-													<td className="py-1.5 text-right border-t border-[#0B2545]">{custTaxable.toFixed(2)}</td>
-													<td className="py-1.5 text-right border-t border-[#0B2545]">{custGST.toFixed(2)}</td>
-													<td className="py-1.5 pr-2 text-right border-t border-[#0B2545] text-[#0056b3]">{custAmt.toFixed(2)}</td>
+													<td className="border-[#0B2545] border-t py-1.5 text-right">
+														{custTaxable.toFixed(2)}
+													</td>
+													<td className="border-[#0B2545] border-t py-1.5 text-right">
+														{custGST.toFixed(2)}
+													</td>
+													<td className="border-[#0B2545] border-t py-1.5 pr-2 text-right text-[#0056b3]">
+														{custAmt.toFixed(2)}
+													</td>
 												</tr>
 											</React.Fragment>
 										);
 									})}
-									
+
 									{/* Division Subtotal */}
 									<tr className="border-[#6b4c2a] border-y-2 bg-[#fdf5e6] font-bold text-[#6b4c2a] text-sm">
-										<td className="py-2 pl-2 text-right" colSpan={9}>{div.toUpperCase()} TOTAL</td>
+										<td className="py-2 pl-2 text-right" colSpan={9}>
+											{div.toUpperCase()} TOTAL
+										</td>
 										<td className="py-2 text-right">{divQty}</td>
 										<td className="py-2 text-right" colSpan={2}></td>
 										<td className="py-2 text-right">{divTaxable.toFixed(2)}</td>
 										<td className="py-2 text-right">{divGST.toFixed(2)}</td>
-										<td className="py-2 pr-2 text-right">{divAmt.toFixed(2)}</td>
+										<td className="py-2 pr-2 text-right">
+											{divAmt.toFixed(2)}
+										</td>
 									</tr>
 								</React.Fragment>
 							);
@@ -324,7 +377,7 @@ export async function NewSalesReportView({
 						{divisions.length > 1 && reportData.length > 0 && (
 							<>
 								<tr>
-									<td colSpan={15} className="py-4"></td>
+									<td className="py-4" colSpan={15}></td>
 								</tr>
 								{divisions.map((div, divIdx) => {
 									const divData = reportData.filter((d) => d.Division === div);
@@ -340,15 +393,17 @@ export async function NewSalesReportView({
 									});
 									return (
 										<tr
-											key={`summary-${divIdx}`}
 											className="border-gray-300 border-y-2 bg-[#f0f4f8] font-bold text-[#0B2545] text-sm"
+											key={`summary-${divIdx}`}
 										>
 											<td className="py-2 pl-2 text-right" colSpan={9}>
 												{div.toUpperCase()} SUMMARY
 											</td>
 											<td className="py-2 text-right">{divQty}</td>
 											<td className="py-2 text-right" colSpan={2}></td>
-											<td className="py-2 text-right">{divTaxable.toFixed(2)}</td>
+											<td className="py-2 text-right">
+												{divTaxable.toFixed(2)}
+											</td>
 											<td className="py-2 text-right">{divGST.toFixed(2)}</td>
 											<td className="py-2 pr-2 text-right text-[#0056b3]">
 												{divAmt.toFixed(2)}
@@ -362,12 +417,18 @@ export async function NewSalesReportView({
 						{/* Grand Total Row */}
 						{reportData.length > 0 && (
 							<tr className="border-[#0B2545] border-y-4 bg-[#e6f0fa] font-black text-[#0B2545] text-sm">
-								<td className="py-3 pl-2 text-right uppercase" colSpan={9}>Grand Total</td>
+								<td className="py-3 pl-2 text-right uppercase" colSpan={9}>
+									Grand Total
+								</td>
 								<td className="py-3 text-right">{grandTotalQty}</td>
 								<td className="py-3 text-right" colSpan={2}></td>
-								<td className="py-3 text-right">{grandTotalTaxable.toFixed(2)}</td>
+								<td className="py-3 text-right">
+									{grandTotalTaxable.toFixed(2)}
+								</td>
 								<td className="py-3 text-right">{grandTotalGST.toFixed(2)}</td>
-								<td className="py-3 pr-2 text-right">{grandTotalAmount.toFixed(2)}</td>
+								<td className="py-3 pr-2 text-right">
+									{grandTotalAmount.toFixed(2)}
+								</td>
 							</tr>
 						)}
 					</tbody>

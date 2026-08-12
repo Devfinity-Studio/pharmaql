@@ -7,7 +7,11 @@ import { auth } from "@/server/auth";
 import { db } from "@/server/db";
 import { mrManufacturers, user } from "@/server/db/schema";
 
-export async function assignManufacturer(mrId: string, manufacturer: string, division?: string | null) {
+export async function assignManufacturer(
+	mrId: string,
+	manufacturer: string,
+	division?: string | null,
+) {
 	const session = await auth.api.getSession({
 		headers: await headers(),
 	});
@@ -17,13 +21,13 @@ export async function assignManufacturer(mrId: string, manufacturer: string, div
 	}
 
 	try {
-        const conditions = [
-            eq(mrManufacturers.mrId, mrId),
-            eq(mrManufacturers.manufacturer, manufacturer),
-        ];
-        if (division) {
-            conditions.push(eq(mrManufacturers.division, division));
-        }
+		const conditions = [
+			eq(mrManufacturers.mrId, mrId),
+			eq(mrManufacturers.manufacturer, manufacturer),
+		];
+		if (division) {
+			conditions.push(eq(mrManufacturers.division, division));
+		}
 
 		const existing = await db
 			.select()
@@ -36,7 +40,7 @@ export async function assignManufacturer(mrId: string, manufacturer: string, div
 				id: crypto.randomUUID(),
 				mrId,
 				manufacturer,
-                division: division || null,
+				division: division || null,
 			});
 		}
 
@@ -107,5 +111,45 @@ export async function updateMRPermissions(
 		return { success: true };
 	} catch (error) {
 		return { success: false, error: "Failed to update permissions" };
+	}
+}
+
+export async function createMR(name: string, email: string) {
+	const session = await auth.api.getSession({
+		headers: await headers(),
+	});
+
+	if (!session || session.user.role !== "ADMIN") {
+		throw new Error("Unauthorized");
+	}
+
+	try {
+		await db.insert(user).values({
+			id: crypto.randomUUID(),
+			name,
+			email: email.toLowerCase(),
+			role: "MR",
+		});
+		revalidatePath("/admin/mrs");
+		return { success: true };
+	} catch (error) {
+		console.error("Failed to create MR", error);
+		return {
+			success: false,
+			error: "Failed to create MR. Email might already exist.",
+		};
+	}
+}
+
+export async function checkMRExists(email: string) {
+	try {
+		const result = await db.query.user.findFirst({
+			where: (users, { eq, and }) =>
+				and(eq(users.email, email.toLowerCase()), eq(users.role, "MR")),
+		});
+		return !!result;
+	} catch (error) {
+		console.error("Failed to check if MR exists", error);
+		return false;
 	}
 }

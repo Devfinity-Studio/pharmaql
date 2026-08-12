@@ -1,9 +1,9 @@
-import { db } from "./src/server/db/index";
 import { sql } from "drizzle-orm";
+import { db } from "./src/server/db/index";
 
 async function run() {
-    console.log("Mapping customers from sales...");
-    const q = `
+	console.log("Mapping customers from sales...");
+	const q = `
         WITH matched AS (
             SELECT h.cust_id, s.dealer, s.area,
                    ROW_NUMBER() OVER(PARTITION BY h.cust_id ORDER BY h.inv_dt DESC) as rn
@@ -20,8 +20,8 @@ async function run() {
         WHERE rn = 1
         ON CONFLICT (id) DO UPDATE SET name = EXCLUDED.name, city = EXCLUDED.city;
     `;
-    const res = await db.execute(sql.raw(q));
-    console.log("Mapping done.", res);
-    process.exit(0);
+	const res = await db.execute(sql.raw(q));
+	console.log("Mapping done.", res);
+	process.exit(0);
 }
 run();

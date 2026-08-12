@@ -106,7 +106,8 @@ export async function GET(request: Request) {
 			dateCondition += ` AND h.inv_dt <= '${to}'`;
 		}
 
-		const legacyDataResult = await db.execute(sql.raw(`
+		const legacyDataResult = await db.execute(
+			sql.raw(`
 			SELECT 
 				h.inv_no as "InvNo",
 				h.inv_dt as "InvDt",
@@ -124,12 +125,13 @@ export async function GET(request: Request) {
 			FROM "pg-drizzle_legacy_h_sale" h
 			JOIN "pg-drizzle_legacy_l_sale" l ON l.rid = h.id
 			LEFT JOIN "pg-drizzle_legacy_customers" c ON c.id = h.cust_id
-			WHERE l.item_id IN (${productIds.map(id => `'${id}'`).join(",")})
+			WHERE l.item_id IN (${productIds.map((id) => `'${id}'`).join(",")})
 			${dateCondition}
-		`));
+		`),
+		);
 
 		const legacyRows = legacyDataResult as any[];
-		
+
 		legacyRows.forEach((row: any) => {
 			const p = accessibleProducts.find(
 				(prod) => prod.id === String(row.ItemID),
@@ -137,21 +139,21 @@ export async function GET(request: Request) {
 			if (p) {
 				reportData.push({
 					"MR Name": mrName,
-					"Division": p.division || p.manufacturer,
-					"Customer": row.Customer || "Unknown Party",
+					Division: p.division || p.manufacturer,
+					Customer: row.Customer || "Unknown Party",
 					"Inv No": row.InvNo,
-					"Date": row.InvDt ? new Date(row.InvDt).toLocaleDateString() : "-",
-					"Code": p.code || "-",
+					Date: row.InvDt ? new Date(row.InvDt).toLocaleDateString() : "-",
+					Code: p.code || "-",
 					"Product Name": p.name,
-					"Packing": "10 Tablets",
+					Packing: "10 Tablets",
 					"Batch No": row.BatchNo,
-					"MRP": Number(row.MRP).toFixed(2),
+					MRP: Number(row.MRP).toFixed(2),
 					"Exp Dt": row.ExpDt,
-					"Qty": Number(row.Qty),
+					Qty: Number(row.Qty),
 					"Free Qty": Number(row.FQty),
-					"Rate": Number(row.Rate).toFixed(2),
-					"Taxable": Number(row.TaxableAmt).toFixed(2),
-					"Amount": (Number(row.TaxableAmt) + Number(row.GSTAmt)).toFixed(2),
+					Rate: Number(row.Rate).toFixed(2),
+					Taxable: Number(row.TaxableAmt).toFixed(2),
+					Amount: (Number(row.TaxableAmt) + Number(row.GSTAmt)).toFixed(2),
 				});
 			}
 		});
@@ -198,7 +200,8 @@ export async function GET(request: Request) {
 			}),
 		);
 
-		const legacyDataResult = await db.execute(sql.raw(`
+		const legacyDataResult = await db.execute(
+			sql.raw(`
 			SELECT 
 				h.inv_no as "InvNo",
 				h.inv_dt as "InvDt",
@@ -216,12 +219,13 @@ export async function GET(request: Request) {
 			FROM "pg-drizzle_legacy_h_sale" h
 			JOIN "pg-drizzle_legacy_l_sale" l ON l.rid = h.id
 			LEFT JOIN "pg-drizzle_legacy_customers" c ON c.id = h.cust_id
-			WHERE l.item_id IN (${productIds.map(id => `'${id}'`).join(",")})
+			WHERE l.item_id IN (${productIds.map((id) => `'${id}'`).join(",")})
 			${dateCondition}
-		`));
+		`),
+		);
 
 		const legacyRows = legacyDataResult as any[];
-		
+
 		legacyRows.forEach((row: any) => {
 			const p = accessibleProducts.find(
 				(prod) => prod.id === String(row.ItemID),
@@ -238,18 +242,20 @@ export async function GET(request: Request) {
 
 				reportData.push({
 					"MR Name": mrName,
-					"Division": p.division || p.manufacturer,
-					"SchemeType": "Qty",
-					"Customer": row.Customer || "Unknown Party",
-					"Code": p.code || "-",
+					Division: p.division || p.manufacturer,
+					SchemeType: "Qty",
+					Customer: row.Customer || "Unknown Party",
+					Code: p.code || "-",
 					"Product Name": p.name,
-					"Packing": "10 Tablets",
+					Packing: "10 Tablets",
 					"Batch No.": row.BatchNo || "-",
 					"Inv. No.": row.InvNo || "-",
-					"Inv. Dt.": row.InvDt ? new Date(row.InvDt).toLocaleDateString() : "-",
-					"MRP": Number(row.MRP || pStock.mrp).toFixed(2),
-					"PRate": invRate.toFixed(2),
-					"PTR": invRate.toFixed(2),
+					"Inv. Dt.": row.InvDt
+						? new Date(row.InvDt).toLocaleDateString()
+						: "-",
+					MRP: Number(row.MRP || pStock.mrp).toFixed(2),
+					PRate: invRate.toFixed(2),
+					PTR: invRate.toFixed(2),
 					"Net Rate": netRate.toFixed(2),
 					"Inv. Rate": netRate.toFixed(2),
 					"Sale Qty": qty,
@@ -361,15 +367,15 @@ export async function GET(request: Request) {
 		let excelData = reportData;
 		if (tab === "free-schemes") {
 			excelData = reportData.map((row) => ({
-				"Code": row["Code"],
+				Code: row["Code"],
 				"Product Name": row["Product Name"],
-				"Packing": row["Packing"],
+				Packing: row["Packing"],
 				"Batch No.": row["Batch No."],
 				"Inv. No.": row["Inv. No."],
 				"Inv. Dt.": row["Inv. Dt."],
-				"MRP": row["MRP"],
-				"PRate": row["PRate"],
-				"PTR": row["PTR"],
+				MRP: row["MRP"],
+				PRate: row["PRate"],
+				PTR: row["PTR"],
 				"Net Rate": row["Net Rate"],
 				"Inv. Rate": row["Inv. Rate"],
 				"Sale Qty": row["Sale Qty"],
@@ -383,16 +389,23 @@ export async function GET(request: Request) {
 			}));
 		}
 
-		const headerInfo = [[`MR: ${mrName} | Division/Company: ${company === "All" ? "All Divisions" : company} | Period: ${from || 'Start'} to ${to || 'End'}`]];
-		
+		const headerInfo = [
+			[
+				`MR: ${mrName} | Division/Company: ${company === "All" ? "All Divisions" : company} | Period: ${from || "Start"} to ${to || "End"}`,
+			],
+		];
+
 		const keys = excelData.length > 0 ? Object.keys(excelData[0]) : [];
-		const aoa = [keys, ...excelData.map((row) => keys.map((k) => (row as any)[k]))];
+		const aoa = [
+			keys,
+			...excelData.map((row) => keys.map((k) => (row as any)[k])),
+		];
 		const fullAoa = [...headerInfo, [], ...aoa];
-		
+
 		const worksheet = xlsx.utils.aoa_to_sheet(fullAoa);
-		
-		if(!worksheet['!merges']) worksheet['!merges'] = [];
-		worksheet['!merges'].push({ s: { r: 0, c: 0 }, e: { r: 0, c: 10 } }); 
+
+		if (!worksheet["!merges"]) worksheet["!merges"] = [];
+		worksheet["!merges"].push({ s: { r: 0, c: 0 }, e: { r: 0, c: 10 } });
 
 		const workbook = xlsx.utils.book_new();
 		xlsx.utils.book_append_sheet(workbook, worksheet, "Report");

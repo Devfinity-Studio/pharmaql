@@ -11,6 +11,7 @@ import {
 import { auth } from "@/server/auth";
 import { db } from "@/server/db";
 import { mrManufacturers, products, user } from "@/server/db/schema";
+import { AddMRButton } from "./add-mr-button";
 
 export default async function AdminMRsPage({
 	searchParams,
@@ -49,16 +50,19 @@ export default async function AdminMRsPage({
 
 	// Get all unique manufacturers and divisions currently in products table
 	const allManufacturers = await db
-		.selectDistinct({ manufacturer: products.manufacturer, division: products.division })
+		.selectDistinct({
+			manufacturer: products.manufacturer,
+			division: products.division,
+		})
 		.from(products)
 		.where(sql`${products.manufacturer} IS NOT NULL`);
-        
-    allManufacturers.sort((a, b) => {
-        if (a.manufacturer === b.manufacturer) {
-            return (a.division || "").localeCompare(b.division || "");
-        }
-        return (a.manufacturer || "").localeCompare(b.manufacturer || "");
-    });
+
+	allManufacturers.sort((a, b) => {
+		if (a.manufacturer === b.manufacturer) {
+			return (a.division || "").localeCompare(b.division || "");
+		}
+		return (a.manufacturer || "").localeCompare(b.manufacturer || "");
+	});
 
 	// Get all assignments
 	const allAssignments = await db.select().from(mrManufacturers);
@@ -100,13 +104,19 @@ export default async function AdminMRsPage({
 						</Link>
 					)}
 				</form>
+				<AddMRButton />
 			</div>
 
-			<div className="grid grid-cols-1 gap-6 md:grid-cols-2 xl:grid-cols-3">
+			<div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
 				{allMRs.map((mr) => {
 					const assignments = allAssignments.filter((a) => a.mrId === mr.id);
 					const unassignedManufacturers = allManufacturers.filter(
-						(m) => !assignments.some((a) => a.manufacturer === m.manufacturer && a.division === m.division),
+						(m) =>
+							!assignments.some(
+								(a) =>
+									a.manufacturer === m.manufacturer &&
+									a.division === m.division,
+							),
 					);
 
 					return (
@@ -163,7 +173,7 @@ export default async function AdminMRsPage({
 											>
 												<span className="font-semibold text-blue-900 text-sm">
 													{a.manufacturer}
-                                                    {a.division ? ` - ${a.division}` : ""}
+													{a.division ? ` - ${a.division}` : ""}
 												</span>
 												<form
 													action={async () => {
@@ -264,9 +274,9 @@ export default async function AdminMRsPage({
 										"use server";
 										const val = formData.get("manufacturer") as string;
 										if (val) {
-                                            const [mfg, div] = val.split("::");
-                                            await assignManufacturer(mr.id, mfg!, div || null);
-                                        }
+											const [mfg, div] = val.split("::");
+											await assignManufacturer(mr.id, mfg!, div || null);
+										}
 									}}
 									className="flex gap-2"
 								>
@@ -280,14 +290,16 @@ export default async function AdminMRsPage({
 											Select Manufacturer / Division
 										</option>
 										{unassignedManufacturers.map((m) => {
-                                            const val = `${m.manufacturer}::${m.division || ""}`;
-                                            const label = m.division ? `${m.manufacturer} - ${m.division}` : m.manufacturer;
-                                            return (
-                                                <option key={val} value={val}>
-                                                    {label}
-                                                </option>
-                                            );
-                                        })}
+											const val = `${m.manufacturer}::${m.division || ""}`;
+											const label = m.division
+												? `${m.manufacturer} - ${m.division}`
+												: m.manufacturer;
+											return (
+												<option key={val} value={val}>
+													{label}
+												</option>
+											);
+										})}
 									</select>
 									<button
 										className="rounded-xl bg-blue-600 px-4 py-2 font-bold text-white shadow-sm transition hover:bg-blue-700"
