@@ -114,7 +114,18 @@ export async function updateMRPermissions(
 	}
 }
 
-export async function createMR(name: string, email: string) {
+export async function createMR(
+	name: string,
+	email: string,
+	permissions: {
+		canViewFreeScheme: boolean;
+		canViewStock: boolean;
+		canViewSales: boolean;
+		canViewPartyWise: boolean;
+		canViewProductWise: boolean;
+	},
+	manufacturers: { manufacturer: string; division: string | null }[],
+) {
 	const session = await auth.api.getSession({
 		headers: await headers(),
 	});
@@ -124,19 +135,42 @@ export async function createMR(name: string, email: string) {
 	}
 
 	try {
+		// Explicitly check if the email already exists
+		const existingUser = await db.query.user.findFirst({
+			where: eq(user.email, email.toLowerCase()),
+		});
+
+		if (existingUser) {
+			return { success: false, error: "An account with this email already exists." };
+		}
+
+		const newMrId = crypto.randomUUID();
+
 		await db.insert(user).values({
-			id: crypto.randomUUID(),
+			id: newMrId,
 			name,
 			email: email.toLowerCase(),
 			role: "MR",
+			...permissions,
 		});
+
+		if (manufacturers.length > 0) {
+			await db.insert(mrManufacturers).values(
+				manufacturers.map((m) => ({
+					mrId: newMrId,
+					manufacturer: m.manufacturer,
+					division: m.division,
+				})),
+			);
+		}
+
 		revalidatePath("/admin/mrs");
 		return { success: true };
 	} catch (error) {
 		console.error("Failed to create MR", error);
 		return {
 			success: false,
-			error: "Failed to create MR. Email might already exist.",
+			error: "An unexpected error occurred while creating the MR.",
 		};
 	}
 }
