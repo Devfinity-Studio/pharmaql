@@ -107,7 +107,7 @@ export async function NewSalesReportView({
 				InvDate: row.InvDt ? new Date(row.InvDt).toLocaleDateString() : "-",
 				Code: p.code || "-",
 				ItemName: p.name,
-				Packing: "10 Tablets", // Hardcoded placeholder per request context, or could be p.packing if available
+				Packing: p.freeScheme || "-",
 				BatchNo: row.BatchNo,
 				MRP: Number(row.MRP).toFixed(2),
 				ExpDt: row.ExpDt,

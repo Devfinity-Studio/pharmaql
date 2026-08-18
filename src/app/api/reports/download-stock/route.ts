@@ -200,8 +200,7 @@ export async function GET(request: Request) {
 				"MR Name": mrInfo.name,
 				"Item Name": prod.name, // PDF uses "Item Name"
 				"Product Name": prod.name, // Keep for backward compatibility if needed
-				Packing: "-", // Default placeholder if no packing info
-				"Purc Days": "-", // Could calculate if needed, using placeholder for now
+				Packing: prod.freeScheme || "-",
 				"Opening Qty.": opening,
 				"Purchase Qty": purchase,
 				"S.Ret Qty.": sRet,

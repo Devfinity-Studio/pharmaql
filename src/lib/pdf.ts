@@ -486,7 +486,7 @@ export function generateStockPdfReport(
 	fromDate?: string,
 	toDate?: string,
 ) {
-	const doc = new jsPDF("landscape");
+	const doc = new jsPDF("p", "mm", "a4");
 
 	if (data.length === 0) {
 		doc.text("No stock data available for the selected filters.", 14, 20);
@@ -521,7 +521,7 @@ export function generateStockPdfReport(
 	doc.setTextColor(11, 37, 69);
 	doc.setFontSize(10);
 	doc.setFont("helvetica", "bold");
-	doc.text("Stock Movement Statement", 280, currentY - 4, { align: "right" });
+	doc.text("Stock Movement Statement", 195, currentY - 4, { align: "right" });
 
 	let rightY = currentY;
 	doc.setFontSize(9);
@@ -530,36 +530,27 @@ export function generateStockPdfReport(
 	if (fromDate || toDate) {
 		doc.text(
 			`For the Period of : ${fromDate || ""} to ${toDate || ""}`,
-			280,
+			195,
 			rightY,
 			{ align: "right" },
 		);
 		rightY += 4;
 	}
 
-	doc.text(
-		"Purc Days : Difference between last purchase date and today's date",
-		280,
-		rightY,
-		{ align: "right" },
-	);
-
-	rightY += 6;
 	doc.setFontSize(10);
-	doc.text("Value Calc. on : PRate", 280, rightY, { align: "right" });
+	doc.text("Value Calc. on : PRate", 195, rightY, { align: "right" });
 
 	currentY += 16;
 	doc.setDrawColor(11, 37, 69);
 	doc.setLineWidth(0.5);
-	doc.line(14, currentY, 280, currentY);
+	doc.line(14, currentY, 195, currentY);
 
 	currentY += 5;
 
-	// Define 13 columns
+	// Define columns
 	const columns = [
 		{ header: "Item Name", dataKey: "Item Name" },
 		{ header: "Packing", dataKey: "Packing" },
-		{ header: "Purc\nDays", dataKey: "Purc Days" },
 		{ header: "Opening\nQty.", dataKey: "Opening Qty." },
 		{ header: "Purchase\nQty", dataKey: "Purchase Qty" },
 		{ header: "S.Ret\nQty.", dataKey: "S.Ret Qty." },
@@ -613,7 +604,7 @@ export function generateStockPdfReport(
 
 		doc.setDrawColor(200, 200, 200);
 		doc.setFillColor(245, 245, 245);
-		doc.rect(14, currentY - 3, 270, 6, "FD"); // Header background
+		doc.rect(14, currentY - 3, 181, 6, "FD"); // Header background
 		doc.text(`Division : ${div.toUpperCase()}`, 16, currentY + 1);
 
 		currentY += 4;
@@ -657,7 +648,7 @@ export function generateStockPdfReport(
 			body: bodyData,
 			theme: "plain",
 			styles: {
-				fontSize: 8,
+				fontSize: 7,
 				cellPadding: 1,
 				textColor: [0, 0, 0],
 			},
@@ -668,7 +659,6 @@ export function generateStockPdfReport(
 				lineColor: [100, 100, 100], // Darker borders for head
 			},
 			columnStyles: {
-				"Purc Days": { halign: "right" },
 				"Opening Qty.": { halign: "right" },
 				"Purchase Qty": { halign: "right" },
 				"S.Ret Qty.": { halign: "right" },
@@ -693,7 +683,6 @@ export function generateStockPdfReport(
 				[
 					`Total value of ${div.toUpperCase()} :`,
 					"",
-					"",
 					divOpeningValue.toFixed(2),
 					divPurchaseValue.toFixed(2),
 					"",
@@ -707,16 +696,16 @@ export function generateStockPdfReport(
 				],
 			],
 			styles: {
-				fontSize: 8,
+				fontSize: 7,
 				fontStyle: "bold",
 				cellPadding: 1,
 				textColor: [0, 0, 0],
 			},
 			columnStyles: {
+				2: { halign: "right" },
 				3: { halign: "right" },
-				4: { halign: "right" },
-				8: { halign: "right" },
-				12: { halign: "right" },
+				7: { halign: "right" },
+				11: { halign: "right" },
 			},
 			willDrawCell: (data) => {
 				if (data.section === "body") {
@@ -768,7 +757,6 @@ export function generateStockPdfReport(
 					[
 						`Total value of ${div.toUpperCase()} :`,
 						"",
-						"",
 						summaryOpening.toFixed(2),
 						summaryPurchase.toFixed(2),
 						"",
@@ -782,17 +770,17 @@ export function generateStockPdfReport(
 					],
 				],
 				styles: {
-					fontSize: 8,
+					fontSize: 7,
 					fontStyle: "bold",
 					cellPadding: 1,
 					textColor: [11, 37, 69],
 					fillColor: [240, 244, 248],
 				},
 				columnStyles: {
+					2: { halign: "right" },
 					3: { halign: "right" },
-					4: { halign: "right" },
-					8: { halign: "right" },
-					12: { halign: "right", textColor: [0, 86, 179] },
+					7: { halign: "right" },
+					11: { halign: "right", textColor: [0, 86, 179] },
 				},
 				willDrawCell: (data) => {
 					if (data.section === "body") {
@@ -826,7 +814,6 @@ export function generateStockPdfReport(
 			[
 				"Total Value :",
 				"",
-				"",
 				grandTotalOpeningValue.toFixed(2),
 				grandTotalPurchaseValue.toFixed(2),
 				"",
@@ -840,17 +827,17 @@ export function generateStockPdfReport(
 			],
 		],
 		styles: {
-			fontSize: 10,
+			fontSize: 8,
 			fontStyle: "bold",
 			cellPadding: 2,
 			textColor: [11, 37, 69],
 			fillColor: [243, 244, 246],
 		},
 		columnStyles: {
+			2: { halign: "right" },
 			3: { halign: "right" },
-			4: { halign: "right" },
-			8: { halign: "right" },
-			12: { halign: "right" },
+			7: { halign: "right" },
+			11: { halign: "right" },
 		},
 		willDrawCell: (data) => {
 			if (data.section === "body") {

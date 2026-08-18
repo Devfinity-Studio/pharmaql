@@ -145,7 +145,7 @@ export async function GET(request: Request) {
 					Date: row.InvDt ? new Date(row.InvDt).toLocaleDateString() : "-",
 					Code: p.code || "-",
 					"Product Name": p.name,
-					Packing: "10 Tablets",
+					Packing: p.freeScheme || "-",
 					"Batch No": row.BatchNo,
 					MRP: Number(row.MRP).toFixed(2),
 					"Exp Dt": row.ExpDt,
@@ -247,7 +247,7 @@ export async function GET(request: Request) {
 					Customer: row.Customer || "Unknown Party",
 					Code: p.code || "-",
 					"Product Name": p.name,
-					Packing: "10 Tablets",
+					Packing: p.freeScheme || "-",
 					"Batch No.": row.BatchNo || "-",
 					"Inv. No.": row.InvNo || "-",
 					"Inv. Dt.": row.InvDt

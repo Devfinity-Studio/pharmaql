@@ -140,7 +140,7 @@ export async function FreeSchemeReportView({
 				Party: row.Customer || "Unknown Party",
 				Code: p.code || "-",
 				"Product Name": p.name,
-				Packing: "10 Tablets",
+				Packing: p.freeScheme || "-",
 				"Batch No.": row.BatchNo || "-",
 				"Inv. No.": row.InvNo || "-",
 				"Inv. Dt.": row.InvDt ? new Date(row.InvDt).toLocaleDateString() : "-",
