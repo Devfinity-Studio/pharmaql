@@ -514,7 +514,8 @@ export function generateStockPdfReport(
 	doc.setFont("helvetica", "bold");
 	doc.text("Stock Movement Statement", 195, currentY - 4, { align: "right" });
 
-	let rightY = currentY;
+	// Right side details (move them below the address to avoid overlap on narrow A4)
+	let rightY = currentY + 14; 
 	doc.setFontSize(9);
 	doc.setFont("helvetica", "normal");
 	doc.setTextColor(50, 50, 50);
@@ -531,7 +532,7 @@ export function generateStockPdfReport(
 	doc.setFontSize(10);
 	doc.text("Value Calc. on : PRate", 195, rightY, { align: "right" });
 
-	currentY += 16;
+	currentY = rightY + 6;
 	doc.setDrawColor(11, 37, 69);
 	doc.setLineWidth(0.5);
 	doc.line(14, currentY, 195, currentY);
