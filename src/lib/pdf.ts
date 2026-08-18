@@ -627,15 +627,15 @@ export function generateStockPdfReport(
 			return {
 				...row,
 				"Stock Value": stockVal.toFixed(2),
-				"Opening Qty.": row["Opening Qty."] ?? "0",
-				"Purchase Qty": row["Purchase Qty"] ?? "0",
-				"S.Ret Qty.": row["S.Ret Qty."] ?? "0",
-				"Stk Adj Add": row["Stk Adj Add"] ?? "0",
-				"Total In Qty": row["Total In Qty"] ?? "0",
-				"Sales Qty.": row["Sales Qty."] ?? "0",
-				"P.Ret Qty.": row["P.Ret Qty."] ?? "0",
-				"Stk Adj Less": row["Stk Adj Less"] ?? "0",
-				"Balance Qty.": row["Balance Qty."] ?? "0",
+				"Opening Qty.": row["Opening Qty."] || "-",
+				"Purchase Qty": row["Purchase Qty"] || "-",
+				"S.Ret Qty.": row["S.Ret Qty."] || "-",
+				"Stk Adj Add": row["Stk Adj Add"] || "-",
+				"Total In Qty": row["Total In Qty"] || "-",
+				"Sales Qty.": row["Sales Qty."] || "-",
+				"P.Ret Qty.": row["P.Ret Qty."] || "-",
+				"Stk Adj Less": row["Stk Adj Less"] || "-",
+				"Balance Qty.": row["Balance Qty."] || "-",
 			};
 		});
 
