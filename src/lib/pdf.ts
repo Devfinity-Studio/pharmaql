@@ -1342,7 +1342,7 @@ export function generateSalesPdfReport(
 					Code: row.Code || "-",
 					ItemName: row.ItemName || row["Product Name"] || "-",
 					Packing: row.Packing || "-",
-					BatchNo: row.BatchNo || row.Batch || "-",
+					BatchNo: row.BatchNo || row["Batch No"] || "-",
 					MRP: Number(row.MRP || 0).toFixed(2),
 					ExpDt: row.ExpDt || row["Exp Dt"] || "-",
 					Qty: qty.toString(),
