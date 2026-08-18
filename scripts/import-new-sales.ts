@@ -5,10 +5,10 @@ import { sql } from "drizzle-orm";
 import { db } from "./src/server/db";
 
 async function main() {
-	console.log("Truncating new legacy tables...");
-	await db.execute(sql.raw(`TRUNCATE TABLE "pg-drizzle_legacy_h_sale" CASCADE`));
-	await db.execute(sql.raw(`TRUNCATE TABLE "pg-drizzle_legacy_l_sale" CASCADE`));
-	await db.execute(sql.raw(`TRUNCATE TABLE "pg-drizzle_legacy_m_ledger" CASCADE`));
+	console.log("Upserting into new legacy tables (no truncate)...");
+	// await db.execute(sql.raw(`TRUNCATE TABLE "pg-drizzle_legacy_h_sale" CASCADE`));
+	// await db.execute(sql.raw(`TRUNCATE TABLE "pg-drizzle_legacy_l_sale" CASCADE`));
+	// await db.execute(sql.raw(`TRUNCATE TABLE "pg-drizzle_legacy_m_ledger" CASCADE`));
 
 	const filePath = path.join(process.cwd(), "demo data", "dataexport.sql");
 	console.log(`Starting migration from ${filePath}`);
@@ -72,10 +72,7 @@ async function main() {
             (id, name) 
             VALUES ` +
 			mlBatch
-				.map(
-					(v) =>
-						`(${v.id}, '${v.name.replace(/'/g, "''")}')`,
-				)
+				.map((v) => `(${v.id}, '${v.name.replace(/'/g, "''")}')`)
 				.join(",") +
 			` ON CONFLICT (id) DO NOTHING`;
 		try {
@@ -96,51 +93,72 @@ async function main() {
 		}
 
 		if (currentTable === "h_sale" && trimmed.startsWith("(")) {
-            const match = trimmed.match(/^\((.*)\)[,;]$/);
-            if (match) {
-                const p = match[1].split(/,(?=(?:(?:[^']*'){2})*[^']*$)/).map(s => {
+			const match = trimmed.match(/^\((.*)\)[,;]$/);
+			if (match) {
+				const p = match[1].split(/,(?=(?:(?:[^']*'){2})*[^']*$)/).map((s) => {
 					let c = s.trim();
-					if (c.startsWith("'") && c.endsWith("'")) c = c.slice(1, -1).replace(/\\'/g, "'");
+					if (c.startsWith("'") && c.endsWith("'"))
+						c = c.slice(1, -1).replace(/\\'/g, "'");
 					return c;
 				});
-                if (p.length >= 8) {
-                    hsBatch.push({
-                        id: p[0]||'0', cmp_no: p[1]||'0', loc_no: p[2]||'0', inv_dt: p[5] === 'NULL' ? null : (p[5]||'0'), inv_no: p[6]||'0', cust_id: p[7]||'0', inv_type: p[8]||'0'
-                    });
-                    if (hsBatch.length >= BATCH_SIZE) await flushHs();
-                }
-            }
-        } else if (currentTable === "l_sale" && trimmed.startsWith("(")) {
-             const match = trimmed.match(/^\((.*)\)[,;]$/);
-            if (match) {
-                const p = match[1].split(/,(?=(?:(?:[^']*'){2})*[^']*$)/).map(s => {
+				if (p.length >= 8) {
+					hsBatch.push({
+						id: p[0] || "0",
+						cmp_no: p[1] || "0",
+						loc_no: p[2] || "0",
+						inv_dt: p[5] === "NULL" ? null : p[5] || "0",
+						inv_no: p[6] || "0",
+						cust_id: p[7] || "0",
+						inv_type: p[8] || "0",
+					});
+					if (hsBatch.length >= BATCH_SIZE) await flushHs();
+				}
+			}
+		} else if (currentTable === "l_sale" && trimmed.startsWith("(")) {
+			const match = trimmed.match(/^\((.*)\)[,;]$/);
+			if (match) {
+				const p = match[1].split(/,(?=(?:(?:[^']*'){2})*[^']*$)/).map((s) => {
 					let c = s.trim();
-					if (c.startsWith("'") && c.endsWith("'")) c = c.slice(1, -1).replace(/\\'/g, "'");
+					if (c.startsWith("'") && c.endsWith("'"))
+						c = c.slice(1, -1).replace(/\\'/g, "'");
 					return c;
 				});
-                if (p.length >= 35) {
-                    lsBatch.push({
-                        id: p[0]||'0', rid: p[3]||'0', item_id: p[7]||'0', batch_no: p[11]||'0', exp_dt: p[14]||'0', mrp: p[15]||0, rate: p[21]||0, qty: p[23]||0, f_qty: p[27]||0, taxable_amt: p[34]||0, vat_amt: p[36]||0, line_amt: p[32]||0
-                    });
-                    if (lsBatch.length >= BATCH_SIZE) await flushLs();
-                }
-            }
-        } else if (currentTable === "m_ledger" && trimmed.startsWith("(")) {
-             const match = trimmed.match(/^\((.*)\)[,;]$/);
-            if (match) {
-                const p = match[1].split(/,(?=(?:(?:[^']*'){2})*[^']*$)/).map(s => {
+				if (p.length >= 35) {
+					lsBatch.push({
+						id: p[0] || "0",
+						rid: p[3] || "0",
+						item_id: p[7] || "0",
+						batch_no: p[11] || "0",
+						exp_dt: p[14] || "0",
+						mrp: p[15] || 0,
+						rate: p[21] || 0,
+						qty: p[23] || 0,
+						f_qty: p[27] || 0,
+						taxable_amt: p[34] || 0,
+						vat_amt: p[36] || 0,
+						line_amt: p[32] || 0,
+					});
+					if (lsBatch.length >= BATCH_SIZE) await flushLs();
+				}
+			}
+		} else if (currentTable === "m_ledger" && trimmed.startsWith("(")) {
+			const match = trimmed.match(/^\((.*)\)[,;]$/);
+			if (match) {
+				const p = match[1].split(/,(?=(?:(?:[^']*'){2})*[^']*$)/).map((s) => {
 					let c = s.trim();
-					if (c.startsWith("'") && c.endsWith("'")) c = c.slice(1, -1).replace(/\\'/g, "'");
+					if (c.startsWith("'") && c.endsWith("'"))
+						c = c.slice(1, -1).replace(/\\'/g, "'");
 					return c;
 				});
-                if (p.length >= 2) {
-                    mlBatch.push({
-                        id: p[0]||'0', name: p[1]||'0'
-                    });
-                    if (mlBatch.length >= BATCH_SIZE) await flushMl();
-                }
-            }
-        }
+				if (p.length >= 2) {
+					mlBatch.push({
+						id: p[0] || "0",
+						name: p[1] || "0",
+					});
+					if (mlBatch.length >= BATCH_SIZE) await flushMl();
+				}
+			}
+		}
 
 		if (trimmed.endsWith(";")) {
 			currentTable = "";
@@ -151,7 +169,7 @@ async function main() {
 
 	await flushHs();
 	await flushLs();
-    await flushMl();
+	await flushMl();
 	console.log("Legacy sales tables import complete!");
 	process.exit(0);
 }

@@ -486,7 +486,7 @@ export function generateStockPdfReport(
 	fromDate?: string,
 	toDate?: string,
 ) {
-	const doc = new jsPDF("landscape");
+	const doc = new jsPDF("p", "mm", "a4");
 
 	if (data.length === 0) {
 		doc.text("No stock data available for the selected filters.", 14, 20);
@@ -500,7 +500,7 @@ export function generateStockPdfReport(
 	doc.setFontSize(28);
 	doc.setFont("helvetica", "bolditalic");
 	doc.setTextColor(11, 37, 69); // #0B2545
-	doc.text("A", 14, currentY); 
+	doc.text("A", 14, currentY);
 
 	doc.setFontSize(16);
 	doc.setFont("helvetica", "bold");
@@ -515,45 +515,42 @@ export function generateStockPdfReport(
 		currentY + 1,
 	);
 	doc.text("ROAD, RAOPURA, VADODARA - 390001, GUJARAT", 26, currentY + 5);
-	doc.text(
-		"Contact: 9409789800, Mobile: 9409789700",
-		26,
-		currentY + 9,
-	);
+	doc.text("Contact: 9409789800, Mobile: 9409789700", 26, currentY + 9);
 
 	// Right side details
 	doc.setTextColor(11, 37, 69);
 	doc.setFontSize(10);
 	doc.setFont("helvetica", "bold");
-	doc.text("Stock Movement Statement", 280, currentY - 4, { align: "right" });
+	doc.text("Stock Movement Statement", 195, currentY - 4, { align: "right" });
 
 	let rightY = currentY;
 	doc.setFontSize(9);
 	doc.setFont("helvetica", "normal");
 	doc.setTextColor(50, 50, 50);
 	if (fromDate || toDate) {
-		doc.text(`For the Period of : ${fromDate || ""} to ${toDate || ""}`, 280, rightY, { align: "right" });
+		doc.text(
+			`For the Period of : ${fromDate || ""} to ${toDate || ""}`,
+			195,
+			rightY,
+			{ align: "right" },
+		);
 		rightY += 4;
 	}
 
-	doc.text("Purc Days : Difference between last purchase date and today's date", 280, rightY, { align: "right" });
-	
-	rightY += 6;
 	doc.setFontSize(10);
-	doc.text("Value Calc. on : PRate", 280, rightY, { align: "right" });
+	doc.text("Value Calc. on : PRate", 195, rightY, { align: "right" });
 
 	currentY += 16;
 	doc.setDrawColor(11, 37, 69);
 	doc.setLineWidth(0.5);
-	doc.line(14, currentY, 280, currentY);
-	
+	doc.line(14, currentY, 195, currentY);
+
 	currentY += 5;
 
-	// Define 13 columns
+	// Define columns
 	const columns = [
 		{ header: "Item Name", dataKey: "Item Name" },
 		{ header: "Packing", dataKey: "Packing" },
-		{ header: "Purc\nDays", dataKey: "Purc Days" },
 		{ header: "Opening\nQty.", dataKey: "Opening Qty." },
 		{ header: "Purchase\nQty", dataKey: "Purchase Qty" },
 		{ header: "S.Ret\nQty.", dataKey: "S.Ret Qty." },
@@ -567,7 +564,9 @@ export function generateStockPdfReport(
 	];
 
 	const divisions = [
-		...new Set(data.map((item) => item.Division || item.Manufacturer || "UNKNOWN")),
+		...new Set(
+			data.map((item) => item.Division || item.Manufacturer || "UNKNOWN"),
+		),
 	].sort();
 
 	let grandTotalOpeningValue = 0;
@@ -605,7 +604,7 @@ export function generateStockPdfReport(
 
 		doc.setDrawColor(200, 200, 200);
 		doc.setFillColor(245, 245, 245);
-		doc.rect(14, currentY - 3, 270, 6, "FD"); // Header background
+		doc.rect(14, currentY - 3, 181, 6, "FD"); // Header background
 		doc.text(`Division : ${div.toUpperCase()}`, 16, currentY + 1);
 
 		currentY += 4;
@@ -649,7 +648,7 @@ export function generateStockPdfReport(
 			body: bodyData,
 			theme: "plain",
 			styles: {
-				fontSize: 8,
+				fontSize: 7,
 				cellPadding: 1,
 				textColor: [0, 0, 0],
 			},
@@ -660,7 +659,6 @@ export function generateStockPdfReport(
 				lineColor: [100, 100, 100], // Darker borders for head
 			},
 			columnStyles: {
-				"Purc Days": { halign: "right" },
 				"Opening Qty.": { halign: "right" },
 				"Purchase Qty": { halign: "right" },
 				"S.Ret Qty.": { halign: "right" },
@@ -685,7 +683,6 @@ export function generateStockPdfReport(
 				[
 					`Total value of ${div.toUpperCase()} :`,
 					"",
-					"",
 					divOpeningValue.toFixed(2),
 					divPurchaseValue.toFixed(2),
 					"",
@@ -699,16 +696,16 @@ export function generateStockPdfReport(
 				],
 			],
 			styles: {
-				fontSize: 8,
+				fontSize: 7,
 				fontStyle: "bold",
 				cellPadding: 1,
 				textColor: [0, 0, 0],
 			},
 			columnStyles: {
+				2: { halign: "right" },
 				3: { halign: "right" },
-				4: { halign: "right" },
-				8: { halign: "right" },
-				12: { halign: "right" },
+				7: { halign: "right" },
+				11: { halign: "right" },
 			},
 			willDrawCell: (data) => {
 				if (data.section === "body") {
@@ -735,12 +732,12 @@ export function generateStockPdfReport(
 
 	if (divisions.length > 1) {
 		currentY += 4;
-		
+
 		for (const div of divisions) {
 			const divData = data.filter(
 				(item) => (item.Division || item.Manufacturer || "UNKNOWN") === div,
 			);
-			
+
 			let summaryOpening = 0;
 			let summaryPurchase = 0;
 			let summarySales = 0;
@@ -760,7 +757,6 @@ export function generateStockPdfReport(
 					[
 						`Total value of ${div.toUpperCase()} :`,
 						"",
-						"",
 						summaryOpening.toFixed(2),
 						summaryPurchase.toFixed(2),
 						"",
@@ -774,17 +770,17 @@ export function generateStockPdfReport(
 					],
 				],
 				styles: {
-					fontSize: 8,
+					fontSize: 7,
 					fontStyle: "bold",
 					cellPadding: 1,
 					textColor: [11, 37, 69],
 					fillColor: [240, 244, 248],
 				},
 				columnStyles: {
+					2: { halign: "right" },
 					3: { halign: "right" },
-					4: { halign: "right" },
-					8: { halign: "right" },
-					12: { halign: "right", textColor: [0, 86, 179] },
+					7: { halign: "right" },
+					11: { halign: "right", textColor: [0, 86, 179] },
 				},
 				willDrawCell: (data) => {
 					if (data.section === "body") {
@@ -818,7 +814,6 @@ export function generateStockPdfReport(
 			[
 				"Total Value :",
 				"",
-				"",
 				grandTotalOpeningValue.toFixed(2),
 				grandTotalPurchaseValue.toFixed(2),
 				"",
@@ -832,17 +827,17 @@ export function generateStockPdfReport(
 			],
 		],
 		styles: {
-			fontSize: 10,
+			fontSize: 8,
 			fontStyle: "bold",
 			cellPadding: 2,
 			textColor: [11, 37, 69],
 			fillColor: [243, 244, 246],
 		},
 		columnStyles: {
+			2: { halign: "right" },
 			3: { halign: "right" },
-			4: { halign: "right" },
-			8: { halign: "right" },
-			12: { halign: "right" },
+			7: { halign: "right" },
+			11: { halign: "right" },
 		},
 		willDrawCell: (data) => {
 			if (data.section === "body") {
@@ -1261,7 +1256,9 @@ export function generateSalesPdfReport(
 
 	for (const div of divisions) {
 		const divData = data.filter((item) => (item.Division || "UNKNOWN") === div);
-		const customers = [...new Set(divData.map((d) => d.Customer || "Unknown Party"))].sort();
+		const customers = [
+			...new Set(divData.map((d) => d.Customer || "Unknown Party")),
+		].sort();
 
 		let divQty = 0;
 		let divTaxable = 0;
@@ -1296,8 +1293,10 @@ export function generateSalesPdfReport(
 		currentY = (doc as any).lastAutoTable.finalY;
 
 		for (const cust of customers) {
-			const custData = divData.filter((d) => (d.Customer || "Unknown Party") === cust);
-			
+			const custData = divData.filter(
+				(d) => (d.Customer || "Unknown Party") === cust,
+			);
+
 			let custQty = 0;
 			let custTaxable = 0;
 			let custGST = 0;
@@ -1317,7 +1316,10 @@ export function generateSalesPdfReport(
 				return {
 					Sr: (idx + 1).toString(),
 					InvNo: row.InvNo || "-",
-					InvDate: row.InvDate || row.InvDt ? new Date(row.InvDate || row.InvDt).toLocaleDateString() : "-",
+					InvDate:
+						row.InvDate || row.InvDt
+							? new Date(row.InvDate || row.InvDt).toLocaleDateString()
+							: "-",
 					Code: row.Code || "-",
 					ItemName: row.ItemName || row.Product || "-",
 					Packing: row.Packing || "10 Tablets",
@@ -1652,12 +1654,24 @@ export function generateFreeSchemePdfReport(
 	let legendY = 15;
 	doc.setFontSize(8);
 	doc.setFont("helvetica", "bold");
-	doc.text("Qty Claim : Claim Value = PTR x ClaimQty", legendRightX, legendY, { align: "right" });
+	doc.text("Qty Claim : Claim Value = PTR x ClaimQty", legendRightX, legendY, {
+		align: "right",
+	});
 	legendY += 4;
-	doc.text("Rate Claim : Claim Value = (NetRate - InvRate) x SaleQty ( Scheme )", legendRightX, legendY, { align: "right" });
+	doc.text(
+		"Rate Claim : Claim Value = (NetRate - InvRate) x SaleQty ( Scheme )",
+		legendRightX,
+		legendY,
+		{ align: "right" },
+	);
 	legendY += 4;
 	doc.setFont("helvetica", "normal");
-	doc.text("Claim Value = (PTR - InvRate) x SaleQty ( No Scheme )", legendRightX, legendY, { align: "right" });
+	doc.text(
+		"Claim Value = (PTR - InvRate) x SaleQty ( No Scheme )",
+		legendRightX,
+		legendY,
+		{ align: "right" },
+	);
 
 	currentY += 6;
 	const currentYear = new Date().getFullYear();
@@ -1722,7 +1736,9 @@ export function generateFreeSchemePdfReport(
 	};
 
 	const divisions = [
-		...new Set(data.map((item) => item.Division || item.Manufacturer || "UNKNOWN")),
+		...new Set(
+			data.map((item) => item.Division || item.Manufacturer || "UNKNOWN"),
+		),
 	].sort();
 
 	for (const div of divisions) {
@@ -1757,11 +1773,13 @@ export function generateFreeSchemePdfReport(
 		});
 		currentY = (doc as any).lastAutoTable.finalY + 2;
 
-		const claimTypes = [...new Set(divData.map((d) => d.SchemeType || "Qty"))].sort();
+		const claimTypes = [
+			...new Set(divData.map((d) => d.SchemeType || "Qty")),
+		].sort();
 
 		for (const cType of claimTypes) {
 			const typeData = divData.filter((d) => (d.SchemeType || "Qty") === cType);
-			
+
 			// Claim Type Header (Underlined italic)
 			doc.setFontSize(8);
 			doc.setFont("helvetica", "italic", "bold");
@@ -1772,7 +1790,11 @@ export function generateFreeSchemePdfReport(
 			doc.line(14, currentY + 1, 40, currentY + 1); // Simple underline
 			currentY += 4;
 
-			const customers = [...new Set(typeData.map((d) => d.Party || d.Customer || "Unknown Party"))].sort();
+			const customers = [
+				...new Set(
+					typeData.map((d) => d.Party || d.Customer || "Unknown Party"),
+				),
+			].sort();
 
 			let typeSaleQty = 0;
 			let typeFreeQty = 0;
@@ -1783,7 +1805,9 @@ export function generateFreeSchemePdfReport(
 			const typeSummaryMap = new Map<string, any>(); // For the "Summary :" table at the end of the type
 
 			for (const cust of customers) {
-				const custData = typeData.filter((d) => (d.Party || d.Customer || "Unknown Party") === cust);
+				const custData = typeData.filter(
+					(d) => (d.Party || d.Customer || "Unknown Party") === cust,
+				);
 
 				// Customer Header Row (Bold italic)
 				doc.setFontSize(8);
@@ -1818,7 +1842,7 @@ export function generateFreeSchemePdfReport(
 							freeQty: 0,
 							actualFQty: 0,
 							claimQty: 0,
-							claimValue: 0
+							claimValue: 0,
 						});
 					}
 					const sum = typeSummaryMap.get(pName);
@@ -1882,7 +1906,7 @@ export function generateFreeSchemePdfReport(
 			const lastTable = (doc as any).lastAutoTable;
 			doc.setDrawColor(0, 0, 0);
 			doc.setLineWidth(0.5);
-			
+
 			// Try to find the exact X position for Sale Qty and others
 			// We can just use an autoTable to make it align perfectly!
 			autoTable(doc, {
@@ -1891,15 +1915,15 @@ export function generateFreeSchemePdfReport(
 				columns: columns,
 				body: [
 					{
-						"Code": "",
+						Code: "",
 						"Product Name": "",
-						"Packing": "",
+						Packing: "",
 						"Batch No.": "",
 						"Inv. No.": "",
 						"Inv. Dt.": "",
-						"MRP": "",
-						"PRate": "",
-						"PTR": "",
+						MRP: "",
+						PRate: "",
+						PTR: "",
 						"Net Rate": "",
 						"Inv. Rate": "",
 						"Sale Qty": typeSaleQty.toString(),
@@ -1909,8 +1933,8 @@ export function generateFreeSchemePdfReport(
 						"Rate Diff.": "",
 						"Claim Value": typeClaimValue.toFixed(2),
 						"Item Scheme": "",
-						"Applied Scheme": ""
-					}
+						"Applied Scheme": "",
+					},
 				],
 				styles: {
 					fontSize: 7,
@@ -1922,17 +1946,30 @@ export function generateFreeSchemePdfReport(
 				willDrawCell: (data) => {
 					if (data.section === "body") {
 						// Only draw borders above and below the totals
-						if (data.column.dataKey === "Sale Qty" || data.column.dataKey === "Free Qty" || 
-							data.column.dataKey === "Actual FQty" || data.column.dataKey === "Claim Qty" ||
-							data.column.dataKey === "Claim Value") {
-							
+						if (
+							data.column.dataKey === "Sale Qty" ||
+							data.column.dataKey === "Free Qty" ||
+							data.column.dataKey === "Actual FQty" ||
+							data.column.dataKey === "Claim Qty" ||
+							data.column.dataKey === "Claim Value"
+						) {
 							doc.setDrawColor(0, 0, 0);
 							doc.setLineWidth(0.5);
-							doc.line(data.cell.x, data.cell.y, data.cell.x + data.cell.width, data.cell.y);
-							doc.line(data.cell.x, data.cell.y + data.cell.height, data.cell.x + data.cell.width, data.cell.y + data.cell.height);
+							doc.line(
+								data.cell.x,
+								data.cell.y,
+								data.cell.x + data.cell.width,
+								data.cell.y,
+							);
+							doc.line(
+								data.cell.x,
+								data.cell.y + data.cell.height,
+								data.cell.x + data.cell.width,
+								data.cell.y + data.cell.height,
+							);
 						}
 					}
-				}
+				},
 			});
 			currentY = (doc as any).lastAutoTable.finalY + 8;
 
@@ -1940,29 +1977,41 @@ export function generateFreeSchemePdfReport(
 			doc.setFontSize(8);
 			doc.setFont("helvetica", "bold");
 			doc.setFillColor(230, 230, 230);
-			doc.rect(14, currentY, 20, 5, 'F');
+			doc.rect(14, currentY, 20, 5, "F");
 			doc.text("Summary :", 15, currentY + 3.5);
 			currentY += 6;
 
 			const summaryBody: any[] = [];
-			Array.from(typeSummaryMap.keys()).sort().forEach(pName => {
-				const v = typeSummaryMap.get(pName);
-				summaryBody.push([
-					pName,
-					v.Packing,
-					v.saleQty.toString(),
-					v.freeQty.toString(),
-					v.actualFQty > 0 ? v.actualFQty.toString() : "-",
-					v.claimQty.toString(),
-					v.claimValue.toFixed(2)
-				]);
-			});
-			
+			Array.from(typeSummaryMap.keys())
+				.sort()
+				.forEach((pName) => {
+					const v = typeSummaryMap.get(pName);
+					summaryBody.push([
+						pName,
+						v.Packing,
+						v.saleQty.toString(),
+						v.freeQty.toString(),
+						v.actualFQty > 0 ? v.actualFQty.toString() : "-",
+						v.claimQty.toString(),
+						v.claimValue.toFixed(2),
+					]);
+				});
+
 			// Summary Table
 			autoTable(doc, {
 				startY: currentY,
 				margin: { left: 14, right: 140 }, // Keep it on the left side
-				head: [["ItemName", "Packing", "Sale\nQty", "Free\nQty", "Actual\nFQty", "Claim\nQty", "Claim\nValue"]],
+				head: [
+					[
+						"ItemName",
+						"Packing",
+						"Sale\nQty",
+						"Free\nQty",
+						"Actual\nFQty",
+						"Claim\nQty",
+						"Claim\nValue",
+					],
+				],
 				body: summaryBody,
 				theme: "plain",
 				styles: {
@@ -1974,16 +2023,16 @@ export function generateFreeSchemePdfReport(
 					fontSize: 7,
 					fontStyle: "bold",
 					textColor: [0, 0, 0],
-					lineColor: [0,0,0],
-					lineWidth: {top: 0.5, bottom: 0.5}
+					lineColor: [0, 0, 0],
+					lineWidth: { top: 0.5, bottom: 0.5 },
 				},
 				columnStyles: {
 					2: { halign: "right" },
 					3: { halign: "right" },
 					4: { halign: "right" },
 					5: { halign: "right" },
-					6: { halign: "right" }
-				}
+					6: { halign: "right" },
+				},
 			});
 			currentY = (doc as any).lastAutoTable.finalY;
 
@@ -1992,15 +2041,17 @@ export function generateFreeSchemePdfReport(
 				startY: currentY,
 				margin: { left: 14, right: 140 },
 				theme: "plain",
-				body: [[
-					"Total :",
-					"",
-					typeSaleQty.toString(),
-					typeFreeQty.toString(),
-					typeActualFQty > 0 ? typeActualFQty.toString() : "-",
-					typeClaimQty.toString(),
-					typeClaimValue.toFixed(2)
-				]],
+				body: [
+					[
+						"Total :",
+						"",
+						typeSaleQty.toString(),
+						typeFreeQty.toString(),
+						typeActualFQty > 0 ? typeActualFQty.toString() : "-",
+						typeClaimQty.toString(),
+						typeClaimValue.toFixed(2),
+					],
+				],
 				styles: {
 					fontSize: 7,
 					fontStyle: "bold",
@@ -2012,45 +2063,57 @@ export function generateFreeSchemePdfReport(
 					3: { halign: "right" },
 					4: { halign: "right" },
 					5: { halign: "right" },
-					6: { halign: "right" }
+					6: { halign: "right" },
 				},
 				willDrawCell: (data) => {
 					if (data.section === "body") {
 						doc.setDrawColor(0, 0, 0);
 						doc.setLineWidth(0.5);
-						doc.line(data.cell.x, data.cell.y, data.cell.x + data.cell.width, data.cell.y);
-						doc.line(data.cell.x, data.cell.y + data.cell.height, data.cell.x + data.cell.width, data.cell.y + data.cell.height);
+						doc.line(
+							data.cell.x,
+							data.cell.y,
+							data.cell.x + data.cell.width,
+							data.cell.y,
+						);
+						doc.line(
+							data.cell.x,
+							data.cell.y + data.cell.height,
+							data.cell.x + data.cell.width,
+							data.cell.y + data.cell.height,
+						);
 					}
-				}
+				},
 			});
 			currentY = (doc as any).lastAutoTable.finalY + 6;
-			
+
 			// Total of DIVISION
 			autoTable(doc, {
 				startY: currentY,
 				margin: { left: 14, right: 14 },
 				theme: "plain",
-				body: [[
-					`Total of ${div.toUpperCase()} :`,
-					"",
-					"",
-					"",
-					"",
-					"",
-					"",
-					"",
-					"",
-					"",
-					"",
-					typeSaleQty.toString(),
-					typeFreeQty.toString(),
-					"-",
-					typeClaimQty.toString(),
-					"",
-					typeClaimValue.toFixed(2),
-					"",
-					""
-				]],
+				body: [
+					[
+						`Total of ${div.toUpperCase()} :`,
+						"",
+						"",
+						"",
+						"",
+						"",
+						"",
+						"",
+						"",
+						"",
+						"",
+						typeSaleQty.toString(),
+						typeFreeQty.toString(),
+						"-",
+						typeClaimQty.toString(),
+						"",
+						typeClaimValue.toFixed(2),
+						"",
+						"",
+					],
+				],
 				styles: {
 					fontSize: 7,
 					fontStyle: "bold",
@@ -2068,10 +2131,20 @@ export function generateFreeSchemePdfReport(
 					if (data.section === "body") {
 						doc.setDrawColor(0, 0, 0);
 						doc.setLineWidth(0.5);
-						doc.line(data.cell.x, data.cell.y, data.cell.x + data.cell.width, data.cell.y);
-						doc.line(data.cell.x, data.cell.y + data.cell.height, data.cell.x + data.cell.width, data.cell.y + data.cell.height);
+						doc.line(
+							data.cell.x,
+							data.cell.y,
+							data.cell.x + data.cell.width,
+							data.cell.y,
+						);
+						doc.line(
+							data.cell.x,
+							data.cell.y + data.cell.height,
+							data.cell.x + data.cell.width,
+							data.cell.y + data.cell.height,
+						);
 					}
-				}
+				},
 			});
 			currentY = (doc as any).lastAutoTable.finalY + 6;
 		}
@@ -2091,11 +2164,7 @@ export function generateFreeSchemePdfReport(
 			minute: "2-digit",
 			second: "2-digit",
 		});
-		doc.text(
-			`ADMIN (${footerDate})`,
-			14,
-			doc.internal.pageSize.height - 10,
-		);
+		doc.text(`ADMIN (${footerDate})`, 14, doc.internal.pageSize.height - 10);
 	}
 
 	doc.save(filename);

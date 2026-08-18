@@ -17,9 +17,9 @@ async function main() {
 		console.log("Error adding columns (might already exist):", e);
 	}
 
-	console.log("Truncating legacy tables to remove old incorrect data...");
-	await db.execute(sql.raw(`TRUNCATE TABLE "pg-drizzle_legacy_view_stocks" CASCADE`));
-	await db.execute(sql.raw(`TRUNCATE TABLE "pg-drizzle_legacy_h_batch" CASCADE`));
+	console.log("Upserting into legacy tables (no truncate)...");
+	// await db.execute(sql.raw(`TRUNCATE TABLE "pg-drizzle_legacy_view_stocks" CASCADE`));
+	// await db.execute(sql.raw(`TRUNCATE TABLE "pg-drizzle_legacy_h_batch" CASCADE`));
 
 	const filePath = path.join(process.cwd(), "demo data", "dataexport.sql");
 	console.log(`Starting migration from ${filePath}`);
@@ -85,37 +85,60 @@ async function main() {
 		}
 
 		if (currentTable === "view_stocks" && trimmed.startsWith("(")) {
-            const match = trimmed.match(/^\((.*)\)[,;]$/);
-            if (match) {
-                const p = match[1].split(/,(?=(?:(?:[^']*'){2})*[^']*$)/).map(s => {
+			const match = trimmed.match(/^\((.*)\)[,;]$/);
+			if (match) {
+				const p = match[1].split(/,(?=(?:(?:[^']*'){2})*[^']*$)/).map((s) => {
 					let c = s.trim();
-					if (c.startsWith("'") && c.endsWith("'")) c = c.slice(1, -1).replace(/\\'/g, "'");
+					if (c.startsWith("'") && c.endsWith("'"))
+						c = c.slice(1, -1).replace(/\\'/g, "'");
 					return c;
 				});
-                if (p.length >= 23) {
-                    vsBatch.push({
-                        id: `${p[1]}-${p[2]}-${p[4]}-${p[5]}-${p[7]}-${p[8]}-${p[9]}-${Math.random().toString(36).substring(7)}`, cmp_no: p[1]||'0', loc_no: p[2]||'0', t_date: p[4] === 'NULL' ? null : (p[4]||'0'), t_no: p[5]||'0', item_id: p[7]||'0', batch_id: p[8]||'0', entry_type: p[9]||'0',
-                        opening: p[10]||0, inward: p[11]||0, s_ret_inward: p[12]||0, add_stock_adj: p[17]||0, outward: p[14]||0, sale_qty: p[15]||0, sale_f_qty: p[16]||0, less_stock_adj: p[18]||0, qty: p[22]||0
-                    });
-                    if (vsBatch.length >= BATCH_SIZE) await flushVs();
-                }
-            }
-        } else if (currentTable === "h_batch" && trimmed.startsWith("(")) {
-             const match = trimmed.match(/^\((.*)\)[,;]$/);
-            if (match) {
-                const p = match[1].split(/,(?=(?:(?:[^']*'){2})*[^']*$)/).map(s => {
+				if (p.length >= 23) {
+					vsBatch.push({
+						id: `${p[1]}-${p[2]}-${p[4]}-${p[5]}-${p[7]}-${p[8]}-${p[9]}-${Math.random().toString(36).substring(7)}`,
+						cmp_no: p[1] || "0",
+						loc_no: p[2] || "0",
+						t_date: p[4] === "NULL" ? null : p[4] || "0",
+						t_no: p[5] || "0",
+						item_id: p[7] || "0",
+						batch_id: p[8] || "0",
+						entry_type: p[9] || "0",
+						opening: p[10] || 0,
+						inward: p[11] || 0,
+						s_ret_inward: p[12] || 0,
+						add_stock_adj: p[17] || 0,
+						outward: p[14] || 0,
+						sale_qty: p[15] || 0,
+						sale_f_qty: p[16] || 0,
+						less_stock_adj: p[18] || 0,
+						qty: p[22] || 0,
+					});
+					if (vsBatch.length >= BATCH_SIZE) await flushVs();
+				}
+			}
+		} else if (currentTable === "h_batch" && trimmed.startsWith("(")) {
+			const match = trimmed.match(/^\((.*)\)[,;]$/);
+			if (match) {
+				const p = match[1].split(/,(?=(?:(?:[^']*'){2})*[^']*$)/).map((s) => {
 					let c = s.trim();
-					if (c.startsWith("'") && c.endsWith("'")) c = c.slice(1, -1).replace(/\\'/g, "'");
+					if (c.startsWith("'") && c.endsWith("'"))
+						c = c.slice(1, -1).replace(/\\'/g, "'");
 					return c;
 				});
-                if (p.length >= 13) {
-                    hbBatch.push({
-                        id: p[0]||'0', item_id: p[4]||'0', batch_no: p[5]||'0', mrp: p[9]||0, prate: p[10]||0, ptr: p[11]||0, cost_rate: p[12]||0
-                    });
-                    if (hbBatch.length >= BATCH_SIZE) await flushHb();
-                }
-            }
-        }
+				if (p.length >= 13) {
+					hbBatch.push({
+						id: p[0] || "0",
+						item_id: p[4] || "0",
+						batch_no: p[5] || "0",
+						mrp: p[9] || 0,
+						prate: p[10] || 0,
+						ptr: p[11] || 0,
+						cost_rate: p[12] || 0,
+					});
+					if (hbBatch.length >= BATCH_SIZE) await flushHb();
+				}
+			}
+		}
 
 		if (trimmed.endsWith(";")) {
 			currentTable = "";

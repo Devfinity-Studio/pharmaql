@@ -93,7 +93,8 @@ export async function FreeSchemeReportView({
 		dateCondition += ` AND h.inv_dt <= '${searchParams.to}'`;
 	}
 
-	const legacyDataResult = await db.execute(sql.raw(`
+	const legacyDataResult = await db.execute(
+		sql.raw(`
 		SELECT 
 			h.inv_no as "InvNo",
 			h.inv_dt as "InvDt",
@@ -113,15 +114,14 @@ export async function FreeSchemeReportView({
 		LEFT JOIN "pg-drizzle_legacy_customers" c ON c.id = h.cust_id
 		WHERE l.item_id IN (${productIds.map((id) => `'${id}'`).join(",")})
 		${dateCondition}
-	`));
+	`),
+	);
 
 	const legacyRows = legacyDataResult as any[];
 
 	const reportData: any[] = [];
 	legacyRows.forEach((row: any) => {
-		const p = accessibleProducts.find(
-			(prod) => prod.id === String(row.ItemID),
-		);
+		const p = accessibleProducts.find((prod) => prod.id === String(row.ItemID));
 		if (p) {
 			const pStock = stockMap.get(p.id) || { mrp: 0, ptr: 0 };
 			const qty = Number(row.Qty) || 0;
@@ -130,17 +130,17 @@ export async function FreeSchemeReportView({
 			const invRate = pStock.ptr;
 			const schemeQty = 0; // Requires deeper scheme evaluation
 			const claimQty = fQty; // Using FQty for now as ClaimQty
-			
+
 			// Claim Value = (PTR - InvRate) x SaleQty ( No Scheme ) or PTR x ClaimQty
 			const claimValue = invRate * claimQty;
-			
+
 			reportData.push({
 				Manufacturer: p.division || p.manufacturer,
 				SchemeType: "Qty",
 				Party: row.Customer || "Unknown Party",
 				Code: p.code || "-",
 				"Product Name": p.name,
-				Packing: "10 Tablets",
+				Packing: p.freeScheme || "-",
 				"Batch No.": row.BatchNo || "-",
 				"Inv. No.": row.InvNo || "-",
 				"Inv. Dt.": row.InvDt ? new Date(row.InvDt).toLocaleDateString() : "-",
@@ -153,7 +153,7 @@ export async function FreeSchemeReportView({
 				"Free Qty": fQty,
 				"Actual FQty": fQty,
 				"Scheme Qty": schemeQty,
-				"Rate Diff.": (invRate - netRate),
+				"Rate Diff.": invRate - netRate,
 				"Claim Qty": claimQty,
 				"Claim Value": claimValue,
 				"Scheme Value": claimValue,

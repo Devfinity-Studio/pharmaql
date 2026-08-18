@@ -41,7 +41,11 @@ export function ReportDownloadButtons({ mrId }: { mrId: string }) {
 			try {
 				let endpoint = "/api/reports/download"; // free schemes
 				if (currentTab === "stock") endpoint = "/api/reports/download-stock";
-				else if (currentTab === "sales" || currentTab === "products" || currentTab === "new-sales") {
+				else if (
+					currentTab === "sales" ||
+					currentTab === "products" ||
+					currentTab === "new-sales"
+				) {
 					endpoint = "/api/reports/download-sales";
 					params.set("tab", currentTab);
 				}
@@ -51,7 +55,7 @@ export function ReportDownloadButtons({ mrId }: { mrId: string }) {
 				const data = await res.json();
 
 				const safeDivision = division.replace(/[^a-zA-Z0-9]/g, "_");
-				
+
 				let formattedFromForFilename = from;
 				let formattedToForFilename = to;
 				let displayFrom = from;
@@ -73,9 +77,12 @@ export function ReportDownloadButtons({ mrId }: { mrId: string }) {
 				}
 
 				let fromToSuffix = "";
-				if (formattedFromForFilename && formattedToForFilename) fromToSuffix = `_${formattedFromForFilename}_${formattedToForFilename}`;
-				else if (formattedFromForFilename) fromToSuffix = `_${formattedFromForFilename}`;
-				else if (formattedToForFilename) fromToSuffix = `_${formattedToForFilename}`;
+				if (formattedFromForFilename && formattedToForFilename)
+					fromToSuffix = `_${formattedFromForFilename}_${formattedToForFilename}`;
+				else if (formattedFromForFilename)
+					fromToSuffix = `_${formattedFromForFilename}`;
+				else if (formattedToForFilename)
+					fromToSuffix = `_${formattedToForFilename}`;
 
 				if (currentTab === "stock") {
 					const mrName = data.length > 0 ? data[0]["MR Name"] : "Unknown";
@@ -155,7 +162,12 @@ export function ReportDownloadButtons({ mrId }: { mrId: string }) {
 		} else {
 			params.set("format", format);
 			let endpoint = "/api/reports/download";
-			if (currentTab === "sales" || currentTab === "products" || currentTab === "new-sales" || currentTab === "free-schemes") {
+			if (
+				currentTab === "sales" ||
+				currentTab === "products" ||
+				currentTab === "new-sales" ||
+				currentTab === "free-schemes"
+			) {
 				endpoint = "/api/reports/download-sales";
 				params.set("tab", currentTab);
 			} else if (currentTab === "stock") {

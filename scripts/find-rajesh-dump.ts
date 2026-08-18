@@ -4,12 +4,15 @@ import readline from "readline";
 
 async function run() {
 	const dataDir = path.join(process.cwd(), "demo data");
-	const files = fs.readdirSync(dataDir).filter(f => f.endsWith(".sql"));
+	const files = fs.readdirSync(dataDir).filter((f) => f.endsWith(".sql"));
 
 	for (const file of files) {
 		const filePath = path.join(dataDir, file);
 		const fileStream = fs.createReadStream(filePath);
-		const rl = readline.createInterface({ input: fileStream, crlfDelay: Infinity });
+		const rl = readline.createInterface({
+			input: fileStream,
+			crlfDelay: Infinity,
+		});
 
 		let currentTable = "";
 		for await (const line of rl) {
@@ -33,4 +36,6 @@ async function run() {
 	}
 }
 
-run().catch(console.error).then(() => process.exit(0));
+run()
+	.catch(console.error)
+	.then(() => process.exit(0));

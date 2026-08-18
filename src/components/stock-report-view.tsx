@@ -40,9 +40,7 @@ export async function StockReportView({
 	const selectedAssignments =
 		company === "All"
 			? assignments
-			: assignments.filter(
-				(a) => (a.division || a.manufacturer) === company,
-			);
+			: assignments.filter((a) => (a.division || a.manufacturer) === company);
 
 	const productConditionList = selectedAssignments.map((d) => {
 		const conditions = [eq(products.manufacturer, d.manufacturer)];
@@ -162,7 +160,7 @@ export async function StockReportView({
 		const r = res[0] as any;
 
 		let opening = Number(r?.opening || 0);
-		let purchase = Number(r?.purchase || 0);
+		const purchase = Number(r?.purchase || 0);
 		const salesQty = Number(r?.sales_qty || 0);
 		let currQty = Number(r?.curr_qty || 0);
 
@@ -170,7 +168,9 @@ export async function StockReportView({
 		const pInventory = inventory.filter((inv) => inv.productId === p.id);
 		let rangeInventory = pInventory;
 		if (limitFromDate) {
-			rangeInventory = pInventory.filter((inv) => inv.date && new Date(inv.date) >= limitFromDate);
+			rangeInventory = pInventory.filter(
+				(inv) => inv.date && new Date(inv.date) >= limitFromDate,
+			);
 		}
 
 		if (rangeInventory.length > 0) {
@@ -187,11 +187,19 @@ export async function StockReportView({
 
 		// Recalculate Balance Qty
 		// total qty = purchase + opening + stock return + stock adjust add - sales - purchase return + stock adjust less (which is negative)
-		currQty = purchase + opening + sRet + stkAdjAdd - salesQty - pRet + stkAdjLess;
+		currQty =
+			purchase + opening + sRet + stkAdjAdd - salesQty - pRet + stkAdjLess;
 
 		if (
 			r &&
-			(opening !== 0 || purchase !== 0 || currQty !== 0 || salesQty !== 0 || sRet !== 0 || stkAdjAdd !== 0 || stkAdjLess !== 0 || pRet !== 0)
+			(opening !== 0 ||
+				purchase !== 0 ||
+				currQty !== 0 ||
+				salesQty !== 0 ||
+				sRet !== 0 ||
+				stkAdjAdd !== 0 ||
+				stkAdjLess !== 0 ||
+				pRet !== 0)
 		) {
 			const prate = Number(r?.prate || 0);
 			const ptr = Number(r?.ptr || 0);
@@ -229,9 +237,7 @@ export async function StockReportView({
 	}
 
 	// Grouping by Division
-	const divisions = [
-		...new Set(reportData.map((d) => d.Division)),
-	].sort();
+	const divisions = [...new Set(reportData.map((d) => d.Division))].sort();
 	let grandTotalOpeningValue = 0;
 	let grandTotalPurchaseValue = 0;
 	let grandTotalSalesValue = 0;
@@ -262,13 +268,8 @@ export async function StockReportView({
 					{(searchParams?.from || searchParams?.to) && (
 						<p className="mt-1">
 							For the Period of :{" "}
-							<span className="font-bold">
-								{searchParams?.from || ""}
-							</span>{" "}
-							to{" "}
-							<span className="font-bold">
-								{searchParams?.to || ""}
-							</span>
+							<span className="font-bold">{searchParams?.from || ""}</span> to{" "}
+							<span className="font-bold">{searchParams?.to || ""}</span>
 						</p>
 					)}
 					<p className="mt-0.5">
@@ -462,7 +463,7 @@ export async function StockReportView({
 						{divisions.length > 1 && reportData.length > 0 && (
 							<>
 								<tr>
-									<td colSpan={13} className="py-4"></td>
+									<td className="py-4" colSpan={13}></td>
 								</tr>
 								{divisions.map((div, divIdx) => {
 									const divData = reportData.filter((d) => d.Division === div);
@@ -478,16 +479,22 @@ export async function StockReportView({
 									});
 									return (
 										<tr
-											key={`summary-${divIdx}`}
 											className="border-gray-300 border-y-2 bg-[#f0f4f8] font-bold text-[#0B2545] text-sm"
+											key={`summary-${divIdx}`}
 										>
 											<td className="py-2 pl-2" colSpan={3}>
 												Total value of {div.toUpperCase()} :
 											</td>
-											<td className="py-2 text-right">{summaryOpening.toFixed(2)}</td>
-											<td className="py-2 text-right">{summaryPurchase.toFixed(2)}</td>
+											<td className="py-2 text-right">
+												{summaryOpening.toFixed(2)}
+											</td>
+											<td className="py-2 text-right">
+												{summaryPurchase.toFixed(2)}
+											</td>
 											<td colSpan={3}></td>
-											<td className="py-2 text-right">{summarySales.toFixed(2)}</td>
+											<td className="py-2 text-right">
+												{summarySales.toFixed(2)}
+											</td>
 											<td colSpan={3}></td>
 											<td className="py-2 pr-2 text-right text-[#0056b3]">
 												{summaryStock.toFixed(2)}
