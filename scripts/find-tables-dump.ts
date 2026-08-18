@@ -6,9 +6,12 @@ async function run() {
 	const dataDir = path.join(process.cwd(), "demo data");
 	const filePath = path.join(dataDir, "dataexport.sql");
 	const fileStream = fs.createReadStream(filePath);
-	const rl = readline.createInterface({ input: fileStream, crlfDelay: Infinity });
+	const rl = readline.createInterface({
+		input: fileStream,
+		crlfDelay: Infinity,
+	});
 
-    const tables = new Set<string>();
+	const tables = new Set<string>();
 
 	for await (const line of rl) {
 		const trimmed = line.trim();
@@ -19,7 +22,9 @@ async function run() {
 			}
 		}
 	}
-    console.log("Tables in dataexport.sql:", Array.from(tables));
+	console.log("Tables in dataexport.sql:", Array.from(tables));
 }
 
-run().catch(console.error).then(() => process.exit(0));
+run()
+	.catch(console.error)
+	.then(() => process.exit(0));

@@ -3,11 +3,11 @@ import Link from "next/link";
 import { DateRangePicker } from "@/components/date-range-picker";
 import { FilterSelect } from "@/components/filter-select";
 import { FreeSchemeReportView } from "@/components/free-scheme-report-view";
+import { NewSalesReportView } from "@/components/new-sales-report-view";
 import { OutstandingDownloadButtons } from "@/components/outstanding-download-buttons";
 import { OutstandingReportView } from "@/components/outstanding-report-view";
 import { ProductReportView } from "@/components/product-report-view";
 import { ReportDownloadButtons } from "@/components/report-download-buttons";
-import { NewSalesReportView } from "@/components/new-sales-report-view";
 import { StockReportView } from "@/components/stock-report-view";
 import { db } from "@/server/db";
 import {

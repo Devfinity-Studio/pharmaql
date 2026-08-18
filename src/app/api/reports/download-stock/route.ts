@@ -87,10 +87,16 @@ export async function GET(request: Request) {
 		const toDate = new Date(to);
 		if (!isNaN(toDate.getTime())) {
 			toDate.setUTCHours(23, 59, 59, 999);
-			inventoryCondition = and(inventoryCondition, lte(mrInventory.date, toDate));
+			inventoryCondition = and(
+				inventoryCondition,
+				lte(mrInventory.date, toDate),
+			);
 		}
 	}
-	const inventory = await db.select().from(mrInventory).where(inventoryCondition);
+	const inventory = await db
+		.select()
+		.from(mrInventory)
+		.where(inventoryCondition);
 	inventory.sort((a, b) => {
 		const da = a.date ? new Date(a.date).getTime() : 0;
 		const dbVal = b.date ? new Date(b.date).getTime() : 0;
@@ -147,16 +153,18 @@ export async function GET(request: Request) {
 		const r = res[0] as any;
 
 		let opening = Number(r?.opening || 0);
-		let purchase = Number(r?.purchase || 0);
+		const purchase = Number(r?.purchase || 0);
 		const salesQty = Number(r?.sales_qty || 0);
 		let currQty = Number(r?.curr_qty || 0);
 
 		const pInventory = inventory.filter((inv) => inv.productId === prod.id);
 		let rangeInventory = pInventory;
 		if (limitFromDate) {
-			rangeInventory = pInventory.filter((inv) => inv.date && new Date(inv.date) >= limitFromDate);
+			rangeInventory = pInventory.filter(
+				(inv) => inv.date && new Date(inv.date) >= limitFromDate,
+			);
 		}
-		
+
 		if (rangeInventory.length > 0) {
 			opening = rangeInventory[0]?.opening || 0;
 		} else {
@@ -168,11 +176,19 @@ export async function GET(request: Request) {
 		const pRet = Number(r?.p_return || 0);
 		const stkAdjLess = Number(r?.stk_adj_less || 0);
 
-		currQty = purchase + opening + sRet + stkAdjAdd - salesQty - pRet + stkAdjLess;
+		currQty =
+			purchase + opening + sRet + stkAdjAdd - salesQty - pRet + stkAdjLess;
 
 		if (
 			r &&
-			(opening !== 0 || purchase !== 0 || currQty !== 0 || salesQty !== 0 || sRet !== 0 || stkAdjAdd !== 0 || stkAdjLess !== 0 || pRet !== 0)
+			(opening !== 0 ||
+				purchase !== 0 ||
+				currQty !== 0 ||
+				salesQty !== 0 ||
+				sRet !== 0 ||
+				stkAdjAdd !== 0 ||
+				stkAdjLess !== 0 ||
+				pRet !== 0)
 		) {
 			const prate = Number(r?.prate || 0);
 			const ptr = Number(r?.ptr || 0);
@@ -184,8 +200,7 @@ export async function GET(request: Request) {
 				"MR Name": mrInfo.name,
 				"Item Name": prod.name, // PDF uses "Item Name"
 				"Product Name": prod.name, // Keep for backward compatibility if needed
-				"Packing": "-", // Default placeholder if no packing info
-				"Purc Days": "-", // Could calculate if needed, using placeholder for now
+				Packing: prod.freeScheme || "-",
 				"Opening Qty.": opening,
 				"Purchase Qty": purchase,
 				"S.Ret Qty.": sRet,

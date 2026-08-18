@@ -54,22 +54,25 @@ async function main() {
 	const files = [
 		"demo data/APBARODA-APRIL2026.sql",
 		"demo data/APBARODA-MAY2026.sql",
-		"demo data/APBARODA-JUNE2026.sql"
+		"demo data/APBARODA-JUNE2026.sql",
 	];
 
 	console.log("Starting master migration scan...");
 
 	// 1. Gather all unique MRs and unique locNo-code pairs in transactions
-	const mrSpecs = new Map<string, {
-		firmNo: string;
-		locNo: string;
-		code: string;
-		division: string;
-		company: string;
-		name: string;
-		loginId: string;
-		loginPassword?: string;
-	}>();
+	const mrSpecs = new Map<
+		string,
+		{
+			firmNo: string;
+			locNo: string;
+			code: string;
+			division: string;
+			company: string;
+			name: string;
+			loginId: string;
+			loginPassword?: string;
+		}
+	>();
 
 	const transactionKeys = new Set<string>();
 
@@ -81,7 +84,10 @@ async function main() {
 		}
 		console.log(`Scanning metadata from ${file}...`);
 		const fileStream = fs.createReadStream(filePath);
-		const rl = readline.createInterface({ input: fileStream, crlfDelay: Infinity });
+		const rl = readline.createInterface({
+			input: fileStream,
+			crlfDelay: Infinity,
+		});
 
 		let currentTable = "";
 		for await (const line of rl) {
@@ -91,23 +97,35 @@ async function main() {
 				currentTable = insertMatch[1].toLowerCase();
 				continue;
 			}
-			
+
 			if (trimmed.startsWith("(")) {
 				const match = trimmed.match(/^\((.*)\)[,;]$/);
 				if (!match) continue;
 				const valuesStr = match[1];
 				if (!valuesStr) continue;
 
-				const parts = valuesStr.split(/,(?=(?:(?:[^']*'){2})*[^']*$)/).map(s => {
-					let clean = s.trim();
-					if (clean.startsWith("'") && clean.endsWith("'")) {
-						clean = clean.slice(1, -1).replace(/\\'/g, "'");
-					}
-					return clean;
-				});
+				const parts = valuesStr
+					.split(/,(?=(?:(?:[^']*'){2})*[^']*$)/)
+					.map((s) => {
+						let clean = s.trim();
+						if (clean.startsWith("'") && clean.endsWith("'")) {
+							clean = clean.slice(1, -1).replace(/\\'/g, "'");
+						}
+						return clean;
+					});
 
 				if (currentTable === "m_mr") {
-					const [firmNo, locno, code, division, company, mrName, loginId, loginPassword, rank] = parts;
+					const [
+						firmNo,
+						locno,
+						code,
+						division,
+						company,
+						mrName,
+						loginId,
+						loginPassword,
+						rank,
+					] = parts;
 					if (loginId && mrName && locno && code) {
 						const key = `${locno.trim()}-${code.trim()}`;
 						mrSpecs.set(key, {
@@ -118,10 +136,14 @@ async function main() {
 							company: company || "",
 							name: mrName,
 							loginId: loginId.trim(),
-							loginPassword: loginPassword || undefined
+							loginPassword: loginPassword || undefined,
 						});
 					}
-				} else if (["t_dailyss", "t_item_sales", "t_invoices", "t_outstanding"].includes(currentTable)) {
+				} else if (
+					["t_dailyss", "t_item_sales", "t_invoices", "t_outstanding"].includes(
+						currentTable,
+					)
+				) {
 					const locNo = parts[1];
 					const code = parts[2];
 					if (locNo && code) {
@@ -137,7 +159,9 @@ async function main() {
 	}
 
 	console.log(`Found ${mrSpecs.size} MR definitions in m_mr.`);
-	console.log(`Found ${transactionKeys.size} unique locNo-code keys in transactions.`);
+	console.log(
+		`Found ${transactionKeys.size} unique locNo-code keys in transactions.`,
+	);
 
 	// 2. Identify unmapped keys and create dummy representative users
 	const mrMap = new Map<string, string[]>(); // key -> userId (email)
@@ -147,7 +171,9 @@ async function main() {
 
 	// Process defined MRs
 	for (const [key, spec] of mrSpecs.entries()) {
-		const email = spec.loginId.includes("@") ? spec.loginId.toLowerCase() : `${spec.loginId.toLowerCase()}@demo.com`;
+		const email = spec.loginId.includes("@")
+			? spec.loginId.toLowerCase()
+			: `${spec.loginId.toLowerCase()}@demo.com`;
 		mrMap.set(key, spec.loginId);
 
 		userInsertBatch.push({
@@ -234,7 +260,9 @@ async function main() {
 		}
 	}
 
-	console.log(`Created ${dummyCount} dummy representative users for unmapped transaction keys.`);
+	console.log(
+		`Created ${dummyCount} dummy representative users for unmapped transaction keys.`,
+	);
 
 	// 3. Wipe old tables to start fresh (excluding Admin user)
 	console.log("Wiping existing transaction and MR data...");
@@ -245,15 +273,18 @@ async function main() {
 	await db.delete(mrManufacturers);
 
 	// Get all MR user IDs to wipe their credentials
-	const mrUsers = await db.select({ id: user.id }).from(user).where(eq(user.role, "MR"));
+	const mrUsers = await db
+		.select({ id: user.id })
+		.from(user)
+		.where(eq(user.role, "MR"));
 	const mrUserIds = mrUsers.map((u) => u.id);
-	
+
 	if (mrUserIds.length > 0) {
 		const { inArray } = await import("drizzle-orm");
 		await db.delete(account).where(inArray(account.userId, mrUserIds));
 		await db.delete(user).where(inArray(user.id, mrUserIds));
 	}
-	
+
 	await db.delete(products);
 
 	console.log("Database cleared successfully.");
@@ -278,7 +309,10 @@ async function main() {
 		if (!fs.existsSync(filePath)) continue;
 		console.log(`Importing data from ${file}...`);
 		const fileStream = fs.createReadStream(filePath);
-		const rl = readline.createInterface({ input: fileStream, crlfDelay: Infinity });
+		const rl = readline.createInterface({
+			input: fileStream,
+			crlfDelay: Infinity,
+		});
 
 		let currentTable = "";
 		let linesRead = 0;
@@ -298,13 +332,15 @@ async function main() {
 				const valuesStr = match[1];
 				if (!valuesStr) continue;
 
-				const parts = valuesStr.split(/,(?=(?:(?:[^']*'){2})*[^']*$)/).map(s => {
-					let clean = s.trim();
-					if (clean.startsWith("'") && clean.endsWith("'")) {
-						clean = clean.slice(1, -1).replace(/\\'/g, "'");
-					}
-					return clean;
-				});
+				const parts = valuesStr
+					.split(/,(?=(?:(?:[^']*'){2})*[^']*$)/)
+					.map((s) => {
+						let clean = s.trim();
+						if (clean.startsWith("'") && clean.endsWith("'")) {
+							clean = clean.slice(1, -1).replace(/\\'/g, "'");
+						}
+						return clean;
+					});
 
 				if (currentTable === "m_item") {
 					const [firmNo, itemId, itemName, packing, code, division] = parts;
@@ -320,7 +356,20 @@ async function main() {
 						});
 					}
 				} else if (currentTable === "t_dailyss") {
-					const [firmno, locNo, code, division, t_date, itemid, opening, inward, outward, prate, ptr, mrp] = parts;
+					const [
+						firmno,
+						locNo,
+						code,
+						division,
+						t_date,
+						itemid,
+						opening,
+						inward,
+						outward,
+						prate,
+						ptr,
+						mrp,
+					] = parts;
 					if (locNo && code) {
 						const mappedMrIds = mrMap.get(`${locNo.trim()}-${code.trim()}`);
 						if (mappedMrIds && itemid) {
@@ -329,7 +378,10 @@ async function main() {
 									id: `${mappedMrId}-${itemid}-${t_date || Date.now()}-${Math.random().toString(36).substring(7)}`,
 									mrId: mappedMrId,
 									productId: itemid,
-									stock: parseInt(opening || "0") + parseInt(inward || "0") - parseInt(outward || "0"),
+									stock:
+										parseInt(opening || "0") +
+										parseInt(inward || "0") -
+										parseInt(outward || "0"),
 									date: t_date ? new Date(t_date) : null,
 									opening: parseInt(opening || "0"),
 									inward: parseInt(inward || "0"),
@@ -342,7 +394,19 @@ async function main() {
 						}
 					}
 				} else if (currentTable === "t_item_sales") {
-					const [firmno, locNo, code, division, t_date, dealer, area, itemId, salesQty, fQty, amount] = parts;
+					const [
+						firmno,
+						locNo,
+						code,
+						division,
+						t_date,
+						dealer,
+						area,
+						itemId,
+						salesQty,
+						fQty,
+						amount,
+					] = parts;
 					if (locNo && code) {
 						const mappedMrIds = mrMap.get(`${locNo.trim()}-${code.trim()}`);
 						if (mappedMrIds && itemId) {
@@ -362,7 +426,8 @@ async function main() {
 						}
 					}
 				} else if (currentTable === "t_invoices") {
-					const [firmNo, locNo, code, t_date, inwDt, invno, invAmt, invType] = parts;
+					const [firmNo, locNo, code, t_date, inwDt, invno, invAmt, invType] =
+						parts;
 					if (locNo && code) {
 						const mappedMrId = mrMap.get(`${locNo.trim()}-${code.trim()}`);
 						if (mappedMrId && invno) {
@@ -379,7 +444,18 @@ async function main() {
 						}
 					}
 				} else if (currentTable === "t_outstanding") {
-					const [firmNo, locNo, code, division, t_date, doctor, city, invNo, invDt, invAmt] = parts;
+					const [
+						firmNo,
+						locNo,
+						code,
+						division,
+						t_date,
+						doctor,
+						city,
+						invNo,
+						invDt,
+						invAmt,
+					] = parts;
 					if (locNo && code) {
 						const mappedMrId = mrMap.get(`${locNo.trim()}-${code.trim()}`);
 						if (mappedMrId && invNo) {
@@ -404,8 +480,10 @@ async function main() {
 			}
 		}
 
-		console.log(`Finished scanning ${file} (${linesRead} lines). Flashing batches to database...`);
-		
+		console.log(
+			`Finished scanning ${file} (${linesRead} lines). Flashing batches to database...`,
+		);
+
 		await flushBatch(products, productsBatch, products.id, {
 			name: sql`EXCLUDED.name`,
 			freeScheme: sql`EXCLUDED.free_scheme`,
@@ -428,7 +506,9 @@ async function main() {
 		outstandingBatch = [];
 	}
 
-	console.log("Master migration completed successfully! All data loaded with zero leftover transaction rows.");
+	console.log(
+		"Master migration completed successfully! All data loaded with zero leftover transaction rows.",
+	);
 	process.exit(0);
 }
 

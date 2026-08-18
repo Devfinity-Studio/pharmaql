@@ -33,7 +33,7 @@ async function main() {
         );
     `);
 
-    await db.execute(`
+	await db.execute(`
         CREATE TABLE IF NOT EXISTS "pg-drizzle_legacy_h_sale" (
             "id" varchar(255) PRIMARY KEY,
             "cmp_no" varchar(50),
@@ -45,7 +45,7 @@ async function main() {
         );
     `);
 
-    await db.execute(`
+	await db.execute(`
         CREATE TABLE IF NOT EXISTS "pg-drizzle_legacy_l_sale" (
             "id" varchar(255) PRIMARY KEY,
             "rid" varchar(255),
@@ -62,7 +62,7 @@ async function main() {
         );
     `);
 
-    await db.execute(`
+	await db.execute(`
         CREATE TABLE IF NOT EXISTS "pg-drizzle_legacy_m_ledger" (
             "id" integer PRIMARY KEY,
             "name" text
