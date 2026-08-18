@@ -153,6 +153,7 @@ export async function FreeSchemeReportView({
 				"Free Qty": fQty,
 				"Actual FQty": fQty,
 				"Claim Qty": claimQty,
+				"Rate Diff.": invRate - netRate,
 				"Claim Value": claimValue,
 				"Item Scheme": p.freeScheme || "-",
 				"Applied Scheme": "-",
