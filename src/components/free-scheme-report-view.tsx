@@ -1,3 +1,4 @@
+import React from "react";
 import { and, eq, gte, inArray, lte, sql } from "drizzle-orm";
 import { db } from "@/server/db";
 import {
@@ -202,312 +203,260 @@ export async function FreeSchemeReportView({
 		</td>
 	);
 
+	const currentYear = new Date().getFullYear();
+
 	return (
-		<div className="mt-4 space-y-8">
-			{manufacturers.map((mfg) => {
-				const mfgData = reportData.filter((d) => d.Manufacturer === mfg);
-				const claimTypes = [
-					...new Set(mfgData.map((d) => d.SchemeType)),
-				].sort();
+		<div className="mt-4 bg-white p-8 shadow-sm print:shadow-none print:p-0">
+			<div className="flex flex-col md:flex-row justify-between mb-4">
+				<div>
+					<h2 className="font-bold text-[#0B2545] text-xl">ASMEE PHARMA PRIVATE LIMITED</h2>
+					<p className="text-xs text-black mt-1">
+						BASEMENE-GF, 11/2 ASHOK HOUSE, B/S SANSTHA VASAHAT GATE,, PRATAP ROAD,<br/>
+						RAOPURA, VADODARA - 390001, GUJARAT - 24<br/>
+						Contact: 9409789800,9409789700 Mobile: 9409789700 Email: asmeepharma2022@gmail.com
+					</p>
+				</div>
+				<div className="text-right text-[10px] text-black font-bold">
+					<div className="flex justify-end gap-2">
+						<span className="underline">Qty Claim :</span>
+						<span>Claim Value = PTR x ClaimQty</span>
+					</div>
+					<div className="flex justify-end gap-2 mt-1">
+						<span className="underline">Rate Claim :</span>
+						<span>Claim Value = (NetRate - InvRate) x SaleQty ( Scheme )</span>
+					</div>
+					<div className="flex justify-end gap-2 mt-1">
+						<span className="opacity-0">Rate Claim :</span>
+						<span>Claim Value = (PTR - InvRate) x SaleQty ( No Scheme )</span>
+					</div>
+				</div>
+			</div>
+			
+			<div className="text-[11px] font-bold text-black mb-1">
+				Year : {currentYear}-{String(currentYear + 1).slice(2)}
+			</div>
+			<div className="text-[11px] font-bold text-black mb-2">
+				Qty / Special Rate Claim Report for the period of {searchParams?.from ? new Date(searchParams.from).toLocaleDateString("en-GB").replace(/\//g, "-") : "Start"} to {searchParams?.to ? new Date(searchParams.to).toLocaleDateString("en-GB").replace(/\//g, "-") : "End"}
+			</div>
 
-				let mfgSaleQty = 0;
-				let mfgFreeQty = 0;
-				let mfgClaimQty = 0;
-				let mfgClaimVal = 0;
-
-				return (
-					<div
-						className="overflow-hidden rounded-xl border border-gray-200 bg-white p-6 shadow-sm"
-						key={mfg}
-					>
-						{/* Header for Manufacturer Group */}
-						<div className="mb-6 flex flex-col items-start justify-between gap-4 border-gray-200 border-b pb-4 md:flex-row">
-							<div>
-								<h2 className="font-extrabold text-[#0B2545] text-xl tracking-tight">
-									ASMEE PHARMA PRIVATE LIMITED
-								</h2>
-								<p className="mt-1 max-w-sm font-medium text-gray-500 text-xs leading-relaxed">
-									BASEMENE-GF, 11/2 ASHOK HOUSE, B/S SANSTHA VASAHAT GATE,
-									PRATAP ROAD, RAOPURA, VADODARA - 390001, GUJARAT - 24
-									<br />
-									Contact: 9409789800, 9409789700 Mobile: 9409789700
-								</p>
-							</div>
-							<div className="rounded-lg border border-gray-100 bg-gray-50 p-3 text-right text-[10px] text-gray-600">
-								<div className="flex gap-4 font-bold text-[#0B2545]">
-									<span className="w-20">Qty Claim :</span>{" "}
-									<span className="font-medium text-gray-600">
-										Claim Value = PTR x ClaimQty
-									</span>
-								</div>
-								<div className="mt-1 flex gap-4 font-bold text-[#0B2545]">
-									<span className="w-20">Rate Claim :</span>{" "}
-									<span className="font-medium text-gray-600">
-										Claim Value = (NetRate - InvRate) x SaleQty ( Scheme )
-									</span>
-								</div>
-								<div className="flex gap-4 font-bold text-[#0B2545]">
-									<span className="w-20"></span>{" "}
-									<span className="font-medium text-gray-600">
-										Claim Value = (PTR - InvRate) x SaleQty ( No Scheme )
-									</span>
-								</div>
-							</div>
-						</div>
-
-						<h3 className="mb-4 font-extrabold text-[#0071BC] text-lg uppercase">
-							{mfg}
-						</h3>
-
-						{claimTypes.map((cType) => {
-							const cTypeData = mfgData.filter((d) => d.SchemeType === cType);
-							const parties = [
-								...new Set(cTypeData.map((d) => d.Party)),
-							].sort();
+			<div className="w-full overflow-x-auto mt-4 border-t border-b border-gray-300">
+				<table className="w-full min-w-[1200px] border-collapse text-left">
+					<thead>
+						<tr>
+							<Th className="border-none">Code</Th>
+							<Th className="border-none">Product Name</Th>
+							<Th className="border-none">Packing</Th>
+							<Th className="border-none">Batch No.</Th>
+							<Th className="border-none">Inv. No.</Th>
+							<Th className="border-none">Inv. Dt.</Th>
+							<Th className="text-right border-none">MRP</Th>
+							<Th className="text-right border-none">PRate</Th>
+							<Th className="text-right border-none">PTR</Th>
+							<Th className="text-right border-none">Net Rate</Th>
+							<Th className="text-right border-none">Inv. Rate</Th>
+							<Th className="text-right border-none">Sale Qty</Th>
+							<Th className="text-right border-none">Free Qty</Th>
+							<Th className="text-right border-none">Actual FQty</Th>
+							<Th className="text-right border-none">Claim Qty</Th>
+							<Th className="text-right border-none">Rate Diff.</Th>
+							<Th className="text-right border-none">Claim Value</Th>
+							<Th className="text-center border-none">Item Scheme</Th>
+							<Th className="text-center border-none">Applied Scheme</Th>
+						</tr>
+					</thead>
+					<tbody className="border-t border-gray-300">
+						{manufacturers.map((mfg) => {
+							const mfgData = reportData.filter((d) => d.Manufacturer === mfg);
+							const claimTypes = [...new Set(mfgData.map((d) => d.SchemeType))].sort();
 
 							return (
-								<div className="mb-6" key={cType}>
-									<h4 className="mb-2 font-bold text-gray-700 text-sm underline underline-offset-2">
-										Scheme Type : {cType}
-									</h4>
+								<React.Fragment key={mfg}>
+									<tr>
+										<td colSpan={19} className="px-2 pt-4 pb-2 text-[#0071BC] font-bold text-sm uppercase">
+											{mfg} - {mfg}
+										</td>
+									</tr>
+									{claimTypes.map((cType) => {
+										const cTypeData = mfgData.filter((d) => d.SchemeType === cType);
+										const parties = [...new Set(cTypeData.map((d) => d.Party))].sort();
 
-									{parties.map((party) => {
-										const partyData = cTypeData.filter(
-											(d) => d.Party === party,
-										);
-
-										const pSaleQty = partyData.reduce(
-											(acc, curr) => acc + curr["Sale Qty"],
-											0,
-										);
-										const pFreeQty = partyData.reduce(
-											(acc, curr) => acc + curr["Free Qty"],
-											0,
-										);
-										const pClaimQty = partyData.reduce(
-											(acc, curr) => acc + curr["Claim Qty"],
-											0,
-										);
-										const pClaimVal = partyData.reduce(
-											(acc, curr) => acc + curr["Claim Value"],
-											0,
-										);
-
-										mfgSaleQty += pSaleQty;
-										mfgFreeQty += pFreeQty;
-										mfgClaimQty += pClaimQty;
-										mfgClaimVal += pClaimVal;
+										let typeSaleQty = 0;
+										let typeFreeQty = 0;
+										let typeActualFQty = 0;
+										let typeClaimQty = 0;
+										let typeClaimVal = 0;
 
 										return (
-											<div className="mb-8" key={party}>
-												<h5 className="mb-2 font-bold text-[#0B2545] text-[13px] italic">
-													{party}
-												</h5>
-												<div className="scrollbar-hide w-full overflow-x-auto rounded-lg border border-gray-300">
-													<table className="w-full min-w-[1200px] border-collapse text-left">
-														<thead>
+											<React.Fragment key={cType}>
+												<tr>
+													<td colSpan={19} className="px-2 pt-2 pb-1 font-bold italic text-[11px] underline">
+														Claim Type : {cType}
+													</td>
+												</tr>
+												{parties.map((party) => {
+													const partyData = cTypeData.filter((d) => d.Party === party);
+													return (
+														<React.Fragment key={party}>
 															<tr>
-																<Th>Code</Th>
-																<Th>Product Name</Th>
-																<Th>Packing</Th>
-																<Th>Batch No.</Th>
-																<Th>Inv. No.</Th>
-																<Th>Inv. Dt.</Th>
-																<Th className="text-right">MRP</Th>
-																<Th className="text-right">PRate</Th>
-																<Th className="text-right">PTR</Th>
-																<Th className="text-right">Net Rate</Th>
-																<Th className="text-right">Inv. Rate</Th>
-																<Th className="text-right">Sale Qty</Th>
-																<Th className="text-right">Free Qty</Th>
-																<Th className="text-right">Actual FQty</Th>
-																<Th className="text-right">Claim Qty</Th>
-																<Th className="text-right">Rate Diff.</Th>
-																<Th className="text-right">Claim Value</Th>
-																<Th>Item Scheme</Th>
-																<Th>Applied Scheme</Th>
+																<td colSpan={19} className="px-2 pt-1 pb-1 font-bold italic text-[11px]">
+																	{party}
+																</td>
 															</tr>
-														</thead>
-														<tbody>
-															{partyData.map((row, idx) => (
-																<tr
-																	className="border-gray-200 border-b transition-colors hover:bg-gray-50"
-																	key={idx}
-																>
-																	<Td>{row.Code}</Td>
-																	<Td className="font-semibold">
-																		{row["Product Name"]}
-																	</Td>
-																	<Td>{row.Packing}</Td>
-																	<Td>{row["Batch No."]}</Td>
-																	<Td>{row["Inv. No."]}</Td>
-																	<Td>{row["Inv. Dt."]}</Td>
-																	<Td className="text-right">
-																		{row.MRP.toFixed(2)}
-																	</Td>
-																	<Td className="text-right">
-																		{row.PRate.toFixed(2)}
-																	</Td>
-																	<Td className="text-right">
-																		{row.PTR.toFixed(2)}
-																	</Td>
-																	<Td className="text-right">
-																		{row["Net Rate"].toFixed(2)}
-																	</Td>
-																	<Td className="text-right">
-																		{row["Inv. Rate"].toFixed(2)}
-																	</Td>
-																	<Td className="text-right">
-																		{row["Sale Qty"]}
-																	</Td>
-																	<Td className="text-right">
-																		{row["Free Qty"]}
-																	</Td>
-																	<Td className="text-right">-</Td>
-																	<Td className="text-right">
-																		{row["Claim Qty"]}
-																	</Td>
-																	<Td className="text-right">
-																		{row["Rate Diff."].toFixed(2)}
-																	</Td>
-																	<Td className="text-right">
-																		{row["Claim Value"].toFixed(2)}
-																	</Td>
-																	<Td>{row["Item Scheme"]}</Td>
-																	<Td>{row["Applied Scheme"]}</Td>
-																</tr>
-															))}
-														</tbody>
-													</table>
-												</div>
-											</div>
+															{partyData.map((row, idx) => {
+																typeSaleQty += row["Sale Qty"];
+																typeFreeQty += row["Free Qty"];
+																typeActualFQty += row["Actual FQty"];
+																typeClaimQty += row["Claim Qty"];
+																typeClaimVal += row["Claim Value"];
+
+																return (
+																	<tr key={idx}>
+																		<Td className="border-none pb-0 pt-0.5">{row.Code}</Td>
+																		<Td className="border-none pb-0 pt-0.5">{row["Product Name"]}</Td>
+																		<Td className="border-none pb-0 pt-0.5">{row.Packing}</Td>
+																		<Td className="border-none pb-0 pt-0.5">{row["Batch No."]}</Td>
+																		<Td className="border-none pb-0 pt-0.5">{row["Inv. No."]}</Td>
+																		<Td className="border-none pb-0 pt-0.5">{row["Inv. Dt."]}</Td>
+																		<Td className="text-right border-none pb-0 pt-0.5">{row.MRP.toFixed(2)}</Td>
+																		<Td className="text-right border-none pb-0 pt-0.5">{row.PRate.toFixed(2)}</Td>
+																		<Td className="text-right border-none pb-0 pt-0.5">{row.PTR.toFixed(2)}</Td>
+																		<Td className="text-right border-none pb-0 pt-0.5">{row["Net Rate"].toFixed(2)}</Td>
+																		<Td className="text-right border-none pb-0 pt-0.5">{row["Inv. Rate"].toFixed(2)}</Td>
+																		<Td className="text-right border-none pb-0 pt-0.5">{row["Sale Qty"]}</Td>
+																		<Td className="text-right border-none pb-0 pt-0.5">{row["Free Qty"]}</Td>
+																		<Td className="text-right border-none pb-0 pt-0.5">-</Td>
+																		<Td className="text-right border-none pb-0 pt-0.5">{row["Claim Qty"]}</Td>
+																		<Td className="text-right border-none pb-0 pt-0.5">{row["Rate Diff."].toFixed(2)}</Td>
+																		<Td className="text-right border-none pb-0 pt-0.5">{row["Claim Value"].toFixed(2)}</Td>
+																		<Td className="text-center border-none pb-0 pt-0.5">{row["Item Scheme"]}</Td>
+																		<Td className="text-center border-none pb-0 pt-0.5">{row["Applied Scheme"]}</Td>
+																	</tr>
+																);
+															})}
+														</React.Fragment>
+													);
+												})}
+												{/* Claim Type Total Row */}
+												<tr>
+													<td colSpan={11}></td>
+													<td className="border-y border-gray-400 px-2 py-1 text-right font-bold text-[11px]">{typeSaleQty}</td>
+													<td className="border-y border-gray-400 px-2 py-1 text-right font-bold text-[11px]">{typeFreeQty}</td>
+													<td className="border-y border-gray-400 px-2 py-1 text-right font-bold text-[11px]">-</td>
+													<td className="border-y border-gray-400 px-2 py-1 text-right font-bold text-[11px]">{typeClaimQty}</td>
+													<td className="px-2 py-1"></td>
+													<td className="border-y border-gray-400 px-2 py-1 text-right font-bold text-[11px]">{typeClaimVal.toFixed(2)}</td>
+													<td colSpan={2}></td>
+												</tr>
+												<tr><td colSpan={19} className="h-4"></td></tr>
+											</React.Fragment>
 										);
 									})}
-								</div>
+								</React.Fragment>
 							);
 						})}
+					</tbody>
+				</table>
+			</div>
 
-						{/* Summary Table for Manufacturer */}
-						<div className="mt-8">
-							<h4 className="mb-3 font-bold text-[#0B2545] text-sm">
-								Summary :
-							</h4>
-							<div className="w-full overflow-x-auto rounded-lg border border-gray-300 sm:w-[800px]">
-								<table className="w-full min-w-[600px] border-collapse text-left">
-									<thead>
-										<tr>
-											<Th>ItemName</Th>
-											<Th>Packing</Th>
-											<Th className="text-right">Sale Qty</Th>
-											<Th className="text-right">Free Qty</Th>
-											<Th className="text-right">Actual FQty</Th>
-											<Th className="text-right">Claim Qty</Th>
-											<Th className="text-right">Claim Value</Th>
+			<div className="mt-6 flex flex-row">
+				<div className="font-bold text-[10px] uppercase w-32 bg-gray-100 py-1 px-4 self-start rounded-t-sm">Summary :</div>
+				<table className="w-full max-w-[800px] border-collapse text-left -ml-32 mt-6">
+					<thead>
+						<tr>
+							<th className="border-y border-gray-300 px-2 py-1 font-bold text-black text-[10px] uppercase">ItemName</th>
+							<th className="border-y border-gray-300 px-2 py-1 font-bold text-black text-[10px] uppercase text-center">Packing</th>
+							<th className="border-y border-gray-300 px-2 py-1 font-bold text-black text-[10px] uppercase text-right">Sale Qty</th>
+							<th className="border-y border-gray-300 px-2 py-1 font-bold text-black text-[10px] uppercase text-right">Free Qty</th>
+							<th className="border-y border-gray-300 px-2 py-1 font-bold text-black text-[10px] uppercase text-right">Actual FQty</th>
+							<th className="border-y border-gray-300 px-2 py-1 font-bold text-black text-[10px] uppercase text-right">Claim Qty</th>
+							<th className="border-y border-gray-300 px-2 py-1 font-bold text-black text-[10px] uppercase text-right">Claim Value</th>
+						</tr>
+					</thead>
+					<tbody>
+						{(() => {
+							const summaryMap = new Map();
+							reportData.forEach((item) => {
+								const key = item["Product Name"];
+								if (!summaryMap.has(key)) {
+									summaryMap.set(key, {
+										ItemName: key,
+										Packing: item.Packing,
+										SaleQty: 0,
+										FreeQty: 0,
+										ClaimQty: 0,
+										ClaimValue: 0,
+									});
+								}
+								const agg = summaryMap.get(key);
+								agg.SaleQty += item["Sale Qty"];
+								agg.FreeQty += item["Free Qty"];
+								agg.ClaimQty += item["Claim Qty"];
+								agg.ClaimValue += item["Claim Value"];
+							});
+
+							const summaries = Array.from(summaryMap.values());
+							const totals = summaries.reduce((acc, curr) => {
+								acc.SaleQty += curr.SaleQty;
+								acc.FreeQty += curr.FreeQty;
+								acc.ClaimQty += curr.ClaimQty;
+								acc.ClaimValue += curr.ClaimValue;
+								return acc;
+							}, { SaleQty: 0, FreeQty: 0, ClaimQty: 0, ClaimValue: 0 });
+
+							return (
+								<>
+									{summaries.map((s, i) => (
+										<tr key={i}>
+											<Td className="font-bold border-none pb-0">{s.ItemName}</Td>
+											<Td className="text-center border-none pb-0">{s.Packing}</Td>
+											<Td className="text-right border-none pb-0">{s.SaleQty}</Td>
+											<Td className="text-right border-none pb-0">{s.FreeQty}</Td>
+											<Td className="text-right border-none pb-0">-</Td>
+											<Td className="text-right border-none pb-0">{s.ClaimQty}</Td>
+											<Td className="text-right border-none pb-0">{s.ClaimValue.toFixed(2)}</Td>
 										</tr>
-									</thead>
-									<tbody>
-										{/* Compute Summary */}
-										{(() => {
-											const summaryMap = new Map();
-											mfgData.forEach((item) => {
-												const key = item["Product Name"];
-												if (!summaryMap.has(key)) {
-													summaryMap.set(key, {
-														ItemName: key,
-														Packing: item.Packing,
-														SaleQty: 0,
-														FreeQty: 0,
-														ClaimQty: 0,
-														ClaimValue: 0,
-													});
-												}
-												const agg = summaryMap.get(key);
-												agg.SaleQty += item["Sale Qty"];
-												agg.FreeQty += item["Free Qty"];
-												agg.ClaimQty += item["Claim Qty"];
-												agg.ClaimValue += item["Claim Value"];
-											});
+									))}
+									<tr>
+										<td colSpan={2} className="border-y border-gray-300 px-2 py-1 font-bold text-[11px] mt-2">Total :</td>
+										<td className="border-y border-gray-300 px-2 py-1 font-bold text-[11px] text-right mt-2">{totals.SaleQty}</td>
+										<td className="border-y border-gray-300 px-2 py-1 font-bold text-[11px] text-right mt-2">{totals.FreeQty}</td>
+										<td className="border-y border-gray-300 px-2 py-1 font-bold text-[11px] text-right mt-2">-</td>
+										<td className="border-y border-gray-300 px-2 py-1 font-bold text-[11px] text-right mt-2">{totals.ClaimQty}</td>
+										<td className="border-y border-gray-300 px-2 py-1 font-bold text-[11px] text-right mt-2">{totals.ClaimValue.toFixed(2)}</td>
+									</tr>
+								</>
+							);
+						})()}
+					</tbody>
+				</table>
+			</div>
 
-											const summaries = Array.from(summaryMap.values());
-											return (
-												<>
-													{summaries.map((s, i) => (
-														<tr
-															className="border-gray-200 border-b hover:bg-gray-50"
-															key={i}
-														>
-															<Td className="font-semibold">{s.ItemName}</Td>
-															<Td>{s.Packing}</Td>
-															<Td className="text-right">{s.SaleQty}</Td>
-															<Td className="text-right">{s.FreeQty}</Td>
-															<Td className="text-right">-</Td>
-															<Td className="text-right">{s.ClaimQty}</Td>
-															<Td className="text-right">
-																{s.ClaimValue.toFixed(2)}
-															</Td>
-														</tr>
-													))}
-													<tr className="border-gray-300 border-t-2 bg-gray-100">
-														<td
-															className="px-2 py-2 font-bold text-[#0B2545] text-xs"
-															colSpan={2}
-														>
-															Total :
-														</td>
-														<td className="border-gray-200 border-x px-2 py-2 text-right font-bold text-[#0B2545] text-xs">
-															{mfgSaleQty}
-														</td>
-														<td className="border-gray-200 border-x px-2 py-2 text-right font-bold text-[#0B2545] text-xs">
-															{mfgFreeQty}
-														</td>
-														<td className="border-gray-200 border-x px-2 py-2 text-right font-bold text-[#0B2545] text-xs">
-															-
-														</td>
-														<td className="border-gray-200 border-x px-2 py-2 text-right font-bold text-[#0B2545] text-xs">
-															{mfgClaimQty}
-														</td>
-														<td className="border-gray-200 border-x px-2 py-2 text-right font-bold text-[#0B2545] text-xs">
-															{mfgClaimVal.toFixed(2)}
-														</td>
-													</tr>
-												</>
-											);
-										})()}
-									</tbody>
-								</table>
-							</div>
-						</div>
+			{manufacturers.map((mfg) => {
+				const mfgData = reportData.filter((d) => d.Manufacturer === mfg);
+				const mfgTotals = mfgData.reduce((acc, curr) => {
+					acc.SaleQty += curr["Sale Qty"];
+					acc.FreeQty += curr["Free Qty"];
+					acc.ClaimQty += curr["Claim Qty"];
+					acc.ClaimValue += curr["Claim Value"];
+					return acc;
+				}, { SaleQty: 0, FreeQty: 0, ClaimQty: 0, ClaimValue: 0 });
 
-						{/* Manufacturer Grand Total */}
-						<div className="mt-8 flex flex-col items-end justify-between gap-4 border-gray-300 border-t-2 pt-4 md:flex-row">
-							<div className="font-extrabold text-[#0B2545] text-sm uppercase">
-								Total of {mfg} :
-							</div>
-							<div className="flex gap-8 rounded-xl border border-gray-200 bg-gray-50 px-6 py-3 font-bold text-xs shadow-inner">
-								<div className="text-center">
-									<div className="mb-1 text-[10px] text-gray-500">Sale Qty</div>
-									<div className="text-[#0B2545] text-sm">{mfgSaleQty}</div>
-								</div>
-								<div className="text-center">
-									<div className="mb-1 text-[10px] text-gray-500">Free Qty</div>
-									<div className="text-[#0B2545] text-sm">{mfgFreeQty}</div>
-								</div>
-								<div className="text-center">
-									<div className="mb-1 text-[10px] text-gray-500">
-										Claim Qty
-									</div>
-									<div className="text-[#0071BC] text-sm">{mfgClaimQty}</div>
-								</div>
-								<div className="text-center">
-									<div className="mb-1 text-[10px] text-gray-500">
-										Claim Value
-									</div>
-									<div className="text-green-600 text-sm">
-										₹{mfgClaimVal.toFixed(2)}
-									</div>
-								</div>
-							</div>
-						</div>
+				return (
+					<div key={mfg} className="mt-8 w-full border-y border-gray-300 py-2 text-[11px] font-bold text-black">
+						<table className="w-full min-w-[1200px] text-left">
+							<tbody>
+								<tr>
+									<td colSpan={11} className="w-[60%]">Total of {mfg} :</td>
+									<td className="text-right">{mfgTotals.SaleQty}</td>
+									<td className="text-right">{mfgTotals.FreeQty}</td>
+									<td className="text-right">-</td>
+									<td className="text-right">{mfgTotals.ClaimQty}</td>
+									<td></td>
+									<td className="text-right">{mfgTotals.ClaimValue.toFixed(2)}</td>
+									<td colSpan={2}></td>
+								</tr>
+							</tbody>
+						</table>
 					</div>
 				);
 			})}
