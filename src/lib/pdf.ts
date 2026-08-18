@@ -1692,7 +1692,7 @@ export function generateFreeSchemePdfReport(
 		"Rate Claim : Claim Value = (NetRate - InvRate) x SaleQty ( Scheme )",
 		legendRightX,
 		legendY,
-		{ align: "right" },
+		{ align: "right", },
 	);
 	legendY += 4;
 	doc.setFont("helvetica", "normal");
@@ -1700,7 +1700,7 @@ export function generateFreeSchemePdfReport(
 		"Claim Value = (PTR - InvRate) x SaleQty ( No Scheme )",
 		legendRightX,
 		legendY,
-		{ align: "right" },
+		{ align: "right", },
 	);
 
 	currentY += 6;
@@ -1776,7 +1776,6 @@ export function generateFreeSchemePdfReport(
 			(item) => (item.Division || item.Manufacturer || "UNKNOWN") === div,
 		);
 
-		// Division Header Row
 		autoTable(doc, {
 			startY: currentY,
 			theme: "plain",
@@ -1787,18 +1786,6 @@ export function generateFreeSchemePdfReport(
 				textColor: [0, 0, 200], // Blue-ish
 				fillColor: [253, 245, 230],
 				cellPadding: 2,
-			},
-			willDrawCell: (data) => {
-				if (data.section === "body") {
-					doc.setDrawColor(200, 200, 200);
-					doc.setLineWidth(0.5);
-					doc.line(
-						data.cell.x,
-						data.cell.y + data.cell.height,
-						data.cell.x + data.cell.width,
-						data.cell.y + data.cell.height,
-					);
-				}
 			},
 		});
 		currentY = (doc as any).lastAutoTable.finalY + 2;
@@ -1921,87 +1908,62 @@ export function generateFreeSchemePdfReport(
 						fontSize: 7,
 						cellPadding: 1,
 						textColor: [0, 0, 0],
+						overflow: "linebreak"
 					},
 					headStyles: {
 						fontSize: 7,
 						fontStyle: "bold",
 						textColor: [0, 0, 0],
+						fillColor: [255, 255, 255],
+						lineColor: [0, 0, 0],
+						lineWidth: { top: 0.5, bottom: 0.5 },
+					},
+					bodyStyles: {
+						lineWidth: 0,
 					},
 					columnStyles: columnStyles,
 				});
 				currentY = (doc as any).lastAutoTable.finalY;
+
 			}
 
-			// Subtotal for Claim Type
-			const lastTable = (doc as any).lastAutoTable;
-			doc.setDrawColor(0, 0, 0);
-			doc.setLineWidth(0.5);
-
-			// Try to find the exact X position for Sale Qty and others
-			// We can just use an autoTable to make it align perfectly!
+			// Claim Type Footer Row (Totals)
 			autoTable(doc, {
 				startY: currentY,
 				theme: "plain",
-				columns: columns,
 				body: [
-					{
-						Code: "",
-						"Product Name": "",
-						Packing: "",
-						"Batch No.": "",
-						"Inv. No.": "",
-						"Inv. Dt.": "",
-						MRP: "",
-						PRate: "",
-						PTR: "",
-						"Net Rate": "",
-						"Inv. Rate": "",
-						"Sale Qty": typeSaleQty.toString(),
-						"Free Qty": typeFreeQty.toString(),
-						"Actual FQty": typeActualFQty > 0 ? typeActualFQty.toString() : "-",
-						"Claim Qty": typeClaimQty.toString(),
-						"Rate Diff.": "",
-						"Claim Value": typeClaimValue.toFixed(2),
-						"Item Scheme": "",
-						"Applied Scheme": "",
-					},
+					[
+						"", "", "", "", "", "", "", "", "", "", "",
+						typeSaleQty.toString(),
+						typeFreeQty.toString(),
+						"-",
+						typeClaimQty.toString(),
+						"",
+						typeClaimValue.toFixed(2),
+						"", "",
+					]
 				],
-				styles: {
-					fontSize: 7,
-					fontStyle: "bold",
-					textColor: [0, 0, 0],
-					cellPadding: 1,
-				},
+				columns: columns,
+				styles: { fontSize: 7, fontStyle: "bold", cellPadding: 1 },
 				columnStyles: columnStyles,
-				willDrawCell: (data) => {
+				didDrawCell: (data) => {
 					if (data.section === "body") {
-						// Only draw borders above and below the totals
-						if (
-							data.column.dataKey === "Sale Qty" ||
-							data.column.dataKey === "Free Qty" ||
-							data.column.dataKey === "Actual FQty" ||
-							data.column.dataKey === "Claim Qty" ||
-							data.column.dataKey === "Claim Value"
-						) {
+						// Only draw lines for the total columns that have values
+						const k = data.column.dataKey;
+						if (["Sale Qty", "Free Qty", "Actual FQty", "Claim Qty", "Claim Value"].includes(k as string)) {
 							doc.setDrawColor(0, 0, 0);
 							doc.setLineWidth(0.5);
-							doc.line(
-								data.cell.x,
-								data.cell.y,
-								data.cell.x + data.cell.width,
-								data.cell.y,
-							);
-							doc.line(
-								data.cell.x,
-								data.cell.y + data.cell.height,
-								data.cell.x + data.cell.width,
-								data.cell.y + data.cell.height,
-							);
+							// Top line
+							doc.line(data.cell.x, data.cell.y, data.cell.x + data.cell.width, data.cell.y);
+							// Bottom line
+							doc.line(data.cell.x, data.cell.y + data.cell.height, data.cell.x + data.cell.width, data.cell.y + data.cell.height);
 						}
 					}
-				},
+				}
 			});
-			currentY = (doc as any).lastAutoTable.finalY + 8;
+			currentY = (doc as any).lastAutoTable.finalY;
+
+			currentY += 8;
 
 			// SUMMARY BLOCK
 			doc.setFontSize(8);

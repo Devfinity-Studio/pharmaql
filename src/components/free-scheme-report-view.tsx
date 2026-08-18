@@ -152,11 +152,8 @@ export async function FreeSchemeReportView({
 				"Sale Qty": qty,
 				"Free Qty": fQty,
 				"Actual FQty": fQty,
-				"Scheme Qty": schemeQty,
-				"Rate Diff.": invRate - netRate,
 				"Claim Qty": claimQty,
 				"Claim Value": claimValue,
-				"Scheme Value": claimValue,
 				"Item Scheme": p.freeScheme || "-",
 				"Applied Scheme": "-",
 			});
@@ -184,7 +181,7 @@ export async function FreeSchemeReportView({
 		className?: string;
 	}) => (
 		<th
-			className={`border border-gray-300 bg-gray-100 px-2 py-2 font-bold text-[#0B2545] text-[10px] uppercase leading-tight ${className}`}
+			className={`border-y border-gray-300 px-2 py-2 font-bold text-[#0B2545] text-[10px] uppercase leading-tight bg-white ${className}`}
 		>
 			{children}
 		</th>
@@ -198,7 +195,7 @@ export async function FreeSchemeReportView({
 		className?: string;
 	}) => (
 		<td
-			className={`border-gray-200 border-x px-2 py-1.5 text-gray-700 text-xs ${className}`}
+			className={`border-b border-gray-200 px-2 py-1.5 text-gray-700 text-xs ${className}`}
 		>
 			{children}
 		</td>
@@ -214,7 +211,7 @@ export async function FreeSchemeReportView({
 
 				let mfgSaleQty = 0;
 				let mfgFreeQty = 0;
-				let mfgSchemeQty = 0;
+				let mfgClaimQty = 0;
 				let mfgClaimVal = 0;
 
 				return (
@@ -237,21 +234,21 @@ export async function FreeSchemeReportView({
 							</div>
 							<div className="rounded-lg border border-gray-100 bg-gray-50 p-3 text-right text-[10px] text-gray-600">
 								<div className="flex gap-4 font-bold text-[#0B2545]">
-									<span className="w-20">Qty Scheme :</span>{" "}
+									<span className="w-20">Qty Claim :</span>{" "}
 									<span className="font-medium text-gray-600">
-										Scheme Value = PTR x SchemeQty
+										Claim Value = PTR x ClaimQty
 									</span>
 								</div>
 								<div className="mt-1 flex gap-4 font-bold text-[#0B2545]">
-									<span className="w-20">Rate Scheme :</span>{" "}
+									<span className="w-20">Rate Claim :</span>{" "}
 									<span className="font-medium text-gray-600">
-										Scheme Value = (NetRate - InvRate) x SaleQty (Scheme)
+										Claim Value = (NetRate - InvRate) x SaleQty ( Scheme )
 									</span>
 								</div>
 								<div className="flex gap-4 font-bold text-[#0B2545]">
 									<span className="w-20"></span>{" "}
 									<span className="font-medium text-gray-600">
-										Scheme Value = (PTR - InvRate) x SaleQty (No Scheme)
+										Claim Value = (PTR - InvRate) x SaleQty ( No Scheme )
 									</span>
 								</div>
 							</div>
@@ -286,18 +283,18 @@ export async function FreeSchemeReportView({
 											(acc, curr) => acc + curr["Free Qty"],
 											0,
 										);
-										const pSchemeQty = partyData.reduce(
-											(acc, curr) => acc + curr["Scheme Qty"],
+										const pClaimQty = partyData.reduce(
+											(acc, curr) => acc + curr["Claim Qty"],
 											0,
 										);
 										const pClaimVal = partyData.reduce(
-											(acc, curr) => acc + curr["Scheme Value"],
+											(acc, curr) => acc + curr["Claim Value"],
 											0,
 										);
 
 										mfgSaleQty += pSaleQty;
 										mfgFreeQty += pFreeQty;
-										mfgSchemeQty += pSchemeQty;
+										mfgClaimQty += pClaimQty;
 										mfgClaimVal += pClaimVal;
 
 										return (
@@ -323,9 +320,9 @@ export async function FreeSchemeReportView({
 																<Th className="text-right">Sale Qty</Th>
 																<Th className="text-right">Free Qty</Th>
 																<Th className="text-right">Actual FQty</Th>
-																<Th className="text-right">Scheme Qty</Th>
+																<Th className="text-right">Claim Qty</Th>
 																<Th className="text-right">Rate Diff.</Th>
-																<Th className="text-right">Scheme Value</Th>
+																<Th className="text-right">Claim Value</Th>
 																<Th>Item Scheme</Th>
 																<Th>Applied Scheme</Th>
 															</tr>
@@ -367,45 +364,18 @@ export async function FreeSchemeReportView({
 																	</Td>
 																	<Td className="text-right">-</Td>
 																	<Td className="text-right">
-																		{row["Scheme Qty"]}
+																		{row["Claim Qty"]}
 																	</Td>
 																	<Td className="text-right">
 																		{row["Rate Diff."].toFixed(2)}
 																	</Td>
 																	<Td className="text-right">
-																		{row["Scheme Value"].toFixed(2)}
+																		{row["Claim Value"].toFixed(2)}
 																	</Td>
 																	<Td>{row["Item Scheme"]}</Td>
 																	<Td>{row["Applied Scheme"]}</Td>
 																</tr>
 															))}
-															{/* Party Total Row */}
-															<tr className="border-gray-300 border-t bg-gray-50">
-																<td
-																	className="px-2 py-2 text-right font-bold text-[11px] text-gray-500"
-																	colSpan={11}
-																></td>
-																<td className="border-gray-200 border-x px-2 py-2 text-right font-bold text-[#0B2545] text-xs">
-																	{pSaleQty}
-																</td>
-																<td className="border-gray-200 border-x px-2 py-2 text-right font-bold text-[#0B2545] text-xs">
-																	{pFreeQty}
-																</td>
-																<td className="border-gray-200 border-x px-2 py-2 text-right font-bold text-[#0B2545] text-xs">
-																	-
-																</td>
-																<td className="border-gray-200 border-x px-2 py-2 text-right font-bold text-[#0B2545] text-xs">
-																	{pSchemeQty}
-																</td>
-																<td className="border-gray-200 border-x px-2 py-2"></td>
-																<td className="border-gray-200 border-x px-2 py-2 text-right font-bold text-[#0B2545] text-xs">
-																	{pClaimVal.toFixed(2)}
-																</td>
-																<td
-																	className="border-gray-200 border-l"
-																	colSpan={2}
-																></td>
-															</tr>
 														</tbody>
 													</table>
 												</div>
@@ -430,8 +400,8 @@ export async function FreeSchemeReportView({
 											<Th className="text-right">Sale Qty</Th>
 											<Th className="text-right">Free Qty</Th>
 											<Th className="text-right">Actual FQty</Th>
-											<Th className="text-right">Scheme Qty</Th>
-											<Th className="text-right">Scheme Value</Th>
+											<Th className="text-right">Claim Qty</Th>
+											<Th className="text-right">Claim Value</Th>
 										</tr>
 									</thead>
 									<tbody>
@@ -446,15 +416,15 @@ export async function FreeSchemeReportView({
 														Packing: item.Packing,
 														SaleQty: 0,
 														FreeQty: 0,
-														SchemeQty: 0,
+														ClaimQty: 0,
 														ClaimValue: 0,
 													});
 												}
 												const agg = summaryMap.get(key);
 												agg.SaleQty += item["Sale Qty"];
 												agg.FreeQty += item["Free Qty"];
-												agg.SchemeQty += item["Scheme Qty"];
-												agg.ClaimValue += item["Scheme Value"];
+												agg.ClaimQty += item["Claim Qty"];
+												agg.ClaimValue += item["Claim Value"];
 											});
 
 											const summaries = Array.from(summaryMap.values());
@@ -470,7 +440,7 @@ export async function FreeSchemeReportView({
 															<Td className="text-right">{s.SaleQty}</Td>
 															<Td className="text-right">{s.FreeQty}</Td>
 															<Td className="text-right">-</Td>
-															<Td className="text-right">{s.SchemeQty}</Td>
+															<Td className="text-right">{s.ClaimQty}</Td>
 															<Td className="text-right">
 																{s.ClaimValue.toFixed(2)}
 															</Td>
@@ -493,7 +463,7 @@ export async function FreeSchemeReportView({
 															-
 														</td>
 														<td className="border-gray-200 border-x px-2 py-2 text-right font-bold text-[#0B2545] text-xs">
-															{mfgSchemeQty}
+															{mfgClaimQty}
 														</td>
 														<td className="border-gray-200 border-x px-2 py-2 text-right font-bold text-[#0B2545] text-xs">
 															{mfgClaimVal.toFixed(2)}
