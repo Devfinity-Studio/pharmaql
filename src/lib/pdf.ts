@@ -1230,9 +1230,8 @@ export function generateSalesPdfReport(
 
 	currentY += 5;
 	doc.setFont("helvetica", "normal");
-	const periodText = `Company / Customer / Itemwise Sales for period of ${
-		fromDate || "Start"
-	} to ${toDate || "End"}`;
+	const periodText = `Company / Customer / Itemwise Sales for period of ${fromDate || "Start"
+		} to ${toDate || "End"}`;
 	doc.text(periodText, 14, currentY);
 
 	currentY += 3;
@@ -1321,7 +1320,7 @@ export function generateSalesPdfReport(
 				const qty = Number(row.Qty) || 0;
 				const taxable = Number(row.TaxableAmt || row.Taxable) || 0;
 				const amt = Number(row.Amount) || 0;
-				const gst = Number(row.GSTAmt || (amt - taxable)) || 0;
+				const gst = Number(row.GSTAmt || amt - taxable) || 0;
 
 				custQty += qty;
 				custTaxable += taxable;
@@ -1692,7 +1691,7 @@ export function generateFreeSchemePdfReport(
 		"Rate Claim : Claim Value = (NetRate - InvRate) x SaleQty ( Scheme )",
 		legendRightX,
 		legendY,
-		{ align: "right", },
+		{ align: "right" },
 	);
 	legendY += 4;
 	doc.setFont("helvetica", "normal");
@@ -1700,7 +1699,7 @@ export function generateFreeSchemePdfReport(
 		"Claim Value = (PTR - InvRate) x SaleQty ( No Scheme )",
 		legendRightX,
 		legendY,
-		{ align: "right", },
+		{ align: "right" },
 	);
 
 	currentY += 6;
@@ -1717,9 +1716,8 @@ export function generateFreeSchemePdfReport(
 
 	currentY += 5;
 	doc.setFont("helvetica", "bold");
-	const periodText = `Qty / Special Rate Claim Report for the period of ${
-		fromDate || "Start"
-	} to ${toDate || "End"}`;
+	const periodText = `Qty / Special Rate Claim Report for the period of ${fromDate || "Start"
+		} to ${toDate || "End"}`;
 	doc.text(periodText, 14, currentY);
 
 	currentY += 3;
@@ -1820,17 +1818,26 @@ export function generateFreeSchemePdfReport(
 			let typeClaimValue = 0;
 
 			const typeSummaryMap = new Map<string, any>(); // For the "Summary :" table at the end of the type
+			const typeBodyData: any[] = [];
 
 			for (const cust of customers) {
 				const custData = typeData.filter(
 					(d) => (d.Party || d.Customer || "Unknown Party") === cust,
 				);
 
-				// Customer Header Row (Bold italic)
-				doc.setFontSize(8);
-				doc.setFont("helvetica", "italic", "bold");
-				doc.text(cust.toUpperCase(), 14, currentY);
-				currentY += 2;
+				typeBodyData.push([
+					{
+						content: cust.toUpperCase(),
+						colSpan: columns.length,
+						styles: {
+							fontStyle: "italic",
+							halign: "left",
+							font: "helvetica",
+							fontSize: 8,
+							textColor: [0, 0, 0],
+						},
+					},
+				]);
 
 				let custSaleQty = 0;
 				let custFreeQty = 0;
@@ -1838,7 +1845,7 @@ export function generateFreeSchemePdfReport(
 				let custClaimQty = 0;
 				let custClaimValue = 0;
 
-				const bodyData = custData.map((row) => {
+				const custRows = custData.map((row) => {
 					const saleQty = Number(row["Sale Qty"]) || 0;
 					const freeQty = Number(row["Free Qty"]) || 0;
 					const actualFQty = Number(row["Actual FQty"]) || 0;
@@ -1869,99 +1876,76 @@ export function generateFreeSchemePdfReport(
 					sum.claimQty += claimQty;
 					sum.claimValue += claimValue;
 
-					return {
-						Code: row.Code || "-",
-						"Product Name": pName,
-						Packing: row.Packing || "-",
-						"Batch No.": row["Batch No."] || "-",
-						"Inv. No.": row["Inv. No."] || "-",
-						"Inv. Dt.": row["Inv. Dt."] || "-",
-						MRP: Number(row.MRP || 0).toFixed(2),
-						PRate: Number(row.PRate || 0).toFixed(2),
-						PTR: Number(row.PTR || 0).toFixed(2),
-						"Net Rate": Number(row["Net Rate"] || 0).toFixed(2),
-						"Inv. Rate": Number(row["Inv. Rate"] || 0).toFixed(2),
-						"Sale Qty": saleQty.toString(),
-						"Free Qty": freeQty.toString(),
-						"Actual FQty": actualFQty > 0 ? actualFQty.toString() : "-",
-						"Claim Qty": claimQty.toString(),
-						"Rate Diff.": Number(row["Rate Diff."] || 0).toFixed(2),
-						"Claim Value": claimValue.toFixed(2),
-						"Item Scheme": row["Item Scheme"] || "-",
-						"Applied Scheme": row["Applied Scheme"] || "-",
-					};
+					return [
+						row.Code || "-",
+						pName,
+						row.Packing || "-",
+						row["Batch No."] || "-",
+						row["Inv. No."] || "-",
+						row["Inv. Dt."] || "-",
+						Number(row.MRP || 0).toFixed(2),
+						Number(row.PRate || 0).toFixed(2),
+						Number(row.PTR || 0).toFixed(2),
+						Number(row["Net Rate"] || 0).toFixed(2),
+						Number(row["Inv. Rate"] || 0).toFixed(2),
+						saleQty > 0 ? saleQty.toString() : "-",
+						freeQty > 0 ? freeQty.toString() : "-",
+						actualFQty > 0 ? actualFQty.toString() : "-",
+						claimQty > 0 ? claimQty.toString() : "-",
+						Number(row["Rate Diff."] || 0).toFixed(2),
+						claimValue > 0 ? claimValue.toFixed(2) : "-",
+						row["Item Scheme"] || "-",
+						row["Applied Scheme"] || "-",
+					];
 				});
+
+				typeBodyData.push(...custRows);
 
 				typeSaleQty += custSaleQty;
 				typeFreeQty += custFreeQty;
 				typeActualFQty += custActualFQty;
 				typeClaimQty += custClaimQty;
 				typeClaimValue += custClaimValue;
-
-				// Draw Customer Rows
-				autoTable(doc, {
-					startY: currentY,
-					columns: columns,
-					body: bodyData,
-					theme: "plain",
-					styles: {
-						fontSize: 7,
-						cellPadding: 1,
-						textColor: [0, 0, 0],
-						overflow: "linebreak"
-					},
-					headStyles: {
-						fontSize: 7,
-						fontStyle: "bold",
-						textColor: [0, 0, 0],
-						fillColor: [255, 255, 255],
-						lineColor: [0, 0, 0],
-						lineWidth: { top: 0.5, bottom: 0.5 },
-					},
-					bodyStyles: {
-						lineWidth: 0,
-					},
-					columnStyles: columnStyles,
-				});
-				currentY = (doc as any).lastAutoTable.finalY;
-
 			}
 
-			// Claim Type Footer Row (Totals)
+			// Add Totals Row
+			typeBodyData.push([
+				{ content: "TOTAL :", colSpan: 11, styles: { fontStyle: "bold", halign: "right" } },
+				{ content: typeSaleQty > 0 ? typeSaleQty.toString() : "-", styles: { fontStyle: "bold", halign: "right" } },
+				{ content: typeFreeQty > 0 ? typeFreeQty.toString() : "-", styles: { fontStyle: "bold", halign: "right" } },
+				{ content: typeActualFQty > 0 ? typeActualFQty.toString() : "-", styles: { fontStyle: "bold", halign: "right" } },
+				{ content: typeClaimQty > 0 ? typeClaimQty.toString() : "-", styles: { fontStyle: "bold", halign: "right" } },
+				{ content: "", styles: { fontStyle: "bold" } },
+				{ content: typeClaimValue > 0 ? typeClaimValue.toFixed(2) : "-", styles: { fontStyle: "bold", halign: "right" } },
+				{ content: "", colSpan: 2 },
+			]);
+
+			// Draw Claim Type Table
 			autoTable(doc, {
 				startY: currentY,
-				theme: "plain",
-				body: [
-					[
-						"", "", "", "", "", "", "", "", "", "", "",
-						typeSaleQty.toString(),
-						typeFreeQty.toString(),
-						"-",
-						typeClaimQty.toString(),
-						"",
-						typeClaimValue.toFixed(2),
-						"", "",
-					]
-				],
 				columns: columns,
-				styles: { fontSize: 7, fontStyle: "bold", cellPadding: 1 },
+				body: typeBodyData,
+				theme: "plain",
+				styles: {
+					fontSize: 7,
+					cellPadding: 1,
+					textColor: [0, 0, 0],
+					overflow: "linebreak",
+				},
+				headStyles: {
+					fontSize: 7,
+					fontStyle: "bold",
+					textColor: [0, 0, 0],
+					fillColor: [255, 255, 255],
+					lineColor: [0, 0, 0],
+					lineWidth: { top: 0.5, bottom: 0.5 },
+				},
+				bodyStyles: {
+					lineWidth: 0,
+				},
 				columnStyles: columnStyles,
-				didDrawCell: (data) => {
-					if (data.section === "body") {
-						// Only draw lines for the total columns that have values
-						const k = data.column.dataKey;
-						if (["Sale Qty", "Free Qty", "Actual FQty", "Claim Qty", "Claim Value"].includes(k as string)) {
-							doc.setDrawColor(0, 0, 0);
-							doc.setLineWidth(0.5);
-							// Top line
-							doc.line(data.cell.x, data.cell.y, data.cell.x + data.cell.width, data.cell.y);
-							// Bottom line
-							doc.line(data.cell.x, data.cell.y + data.cell.height, data.cell.x + data.cell.width, data.cell.y + data.cell.height);
-						}
-					}
-				}
 			});
-			currentY = (doc as any).lastAutoTable.finalY;
+			currentY = (doc as any).lastAutoTable.finalY + 4;
 
 			currentY += 8;
 

@@ -109,19 +109,19 @@ export async function GET(request: Request) {
 		const legacyDataResult = await db.execute(
 			sql.raw(`
 			SELECT 
-				h.inv_no as "InvNo",
-				h.inv_dt as "InvDt",
-				CONCAT(h.cust_id, ' ', COALESCE(c.name, 'Unknown Party'), ' , ', COALESCE(c.city, '')) as "Customer",
-				l.item_id as "ItemID",
-				l.batch_no as "BatchNo",
-				l.mrp as "MRP",
-				l.exp_dt as "ExpDt",
-				l.qty as "Qty",
-				l.f_qty as "FQty",
-				l.rate as "Rate",
-				l.taxable_amt as "TaxableAmt",
-				l.vat_amt as "GSTAmt",
-				l.line_amt as "Amount"
+				h.inv_no as inv_no,
+				h.inv_dt as inv_dt,
+				CONCAT(h.cust_id, ' ', COALESCE(c.name, 'Unknown Party'), ' , ', COALESCE(c.city, '')) as customer,
+				l.item_id as item_id,
+				l.batch_no as batch_no,
+				l.mrp as mrp,
+				l.exp_dt as exp_dt,
+				l.qty as qty,
+				l.f_qty as f_qty,
+				l.rate as rate,
+				l.taxable_amt as taxable_amt,
+				l.vat_amt as gst_amt,
+				l.line_amt as amount
 			FROM "pg-drizzle_legacy_h_sale" h
 			JOIN "pg-drizzle_legacy_l_sale" l ON l.rid = h.id
 			LEFT JOIN "pg-drizzle_legacy_customers" c ON c.id = h.cust_id
@@ -134,26 +134,26 @@ export async function GET(request: Request) {
 
 		legacyRows.forEach((row: any) => {
 			const p = accessibleProducts.find(
-				(prod) => prod.id === String(row.ItemID),
+				(prod) => prod.id === String(row.item_id),
 			);
 			if (p) {
 				reportData.push({
 					"MR Name": mrName,
 					Division: p.division || p.manufacturer,
-					Customer: row.Customer || "Unknown Party",
-					"Inv No": row.InvNo,
-					Date: row.InvDt ? new Date(row.InvDt).toLocaleDateString() : "-",
+					Customer: row.customer || "Unknown Party",
+					"Inv No": row.inv_no,
+					Date: row.inv_dt ? new Date(row.inv_dt).toLocaleDateString("en-GB").replace(/\//g, "-") : "-",
 					Code: p.code || "-",
 					"Product Name": p.name,
 					Packing: p.freeScheme || "-",
-					"Batch No": row.BatchNo,
-					MRP: Number(row.MRP).toFixed(2),
-					"Exp Dt": row.ExpDt,
-					Qty: Number(row.Qty),
-					"Free Qty": Number(row.FQty),
-					Rate: Number(row.Rate).toFixed(2),
-					Taxable: Number(row.TaxableAmt).toFixed(2),
-					Amount: (Number(row.TaxableAmt) + Number(row.GSTAmt)).toFixed(2),
+					"Batch No": row.batch_no,
+					MRP: Number(row.mrp).toFixed(2),
+					"Exp Dt": row.exp_dt,
+					Qty: Number(row.qty),
+					"Free Qty": Number(row.f_qty),
+					Rate: Number(row.rate).toFixed(2),
+					Taxable: Number(row.taxable_amt).toFixed(2),
+					Amount: (Number(row.taxable_amt) + Number(row.gst_amt)).toFixed(2),
 				});
 			}
 		});
@@ -203,19 +203,19 @@ export async function GET(request: Request) {
 		const legacyDataResult = await db.execute(
 			sql.raw(`
 			SELECT 
-				h.inv_no as "InvNo",
-				h.inv_dt as "InvDt",
-				CONCAT(h.cust_id, ' ', COALESCE(c.name, 'Unknown Party'), ' , ', COALESCE(c.city, '')) as "Customer",
-				l.item_id as "ItemID",
-				l.batch_no as "BatchNo",
-				l.mrp as "MRP",
-				l.exp_dt as "ExpDt",
-				l.qty as "Qty",
-				l.f_qty as "FQty",
-				l.rate as "Rate",
-				l.taxable_amt as "TaxableAmt",
-				l.vat_amt as "GSTAmt",
-				l.line_amt as "Amount"
+				h.inv_no as inv_no,
+				h.inv_dt as inv_dt,
+				CONCAT(h.cust_id, ' ', COALESCE(c.name, 'Unknown Party'), ' , ', COALESCE(c.city, '')) as customer,
+				l.item_id as item_id,
+				l.batch_no as batch_no,
+				l.mrp as mrp,
+				l.exp_dt as exp_dt,
+				l.qty as qty,
+				l.f_qty as f_qty,
+				l.rate as rate,
+				l.taxable_amt as taxable_amt,
+				l.vat_amt as gst_amt,
+				l.line_amt as amount
 			FROM "pg-drizzle_legacy_h_sale" h
 			JOIN "pg-drizzle_legacy_l_sale" l ON l.rid = h.id
 			LEFT JOIN "pg-drizzle_legacy_customers" c ON c.id = h.cust_id
@@ -228,13 +228,16 @@ export async function GET(request: Request) {
 
 		legacyRows.forEach((row: any) => {
 			const p = accessibleProducts.find(
-				(prod) => prod.id === String(row.ItemID),
+				(prod) => prod.id === String(row.item_id),
 			);
 			if (p) {
 				const pStock = stockMap.get(p.id) || { mrp: 0, ptr: 0 };
-				const qty = Number(row.Qty) || 0;
-				const fQty = Number(row.FQty) || 0;
-				const netRate = Number(row.Rate) || 0;
+				const qty = Number(row.qty) || 0;
+				const fQty = Number(row.f_qty) || 0;
+				
+				if (fQty <= 0) return;
+
+				const netRate = Number(row.rate) || 0;
 				const invRate = pStock.ptr;
 				const schemeQty = 0;
 				const claimQty = fQty;
@@ -244,16 +247,16 @@ export async function GET(request: Request) {
 					"MR Name": mrName,
 					Division: p.division || p.manufacturer,
 					SchemeType: "Qty",
-					Customer: row.Customer || "Unknown Party",
+					Customer: row.customer || "Unknown Party",
 					Code: p.code || "-",
 					"Product Name": p.name,
 					Packing: p.freeScheme || "-",
-					"Batch No.": row.BatchNo || "-",
-					"Inv. No.": row.InvNo || "-",
-					"Inv. Dt.": row.InvDt
-						? new Date(row.InvDt).toLocaleDateString()
+					"Batch No.": row.batch_no || "-",
+					"Inv. No.": row.inv_no || "-",
+					"Inv. Dt.": row.inv_dt
+						? new Date(row.inv_dt).toLocaleDateString("en-GB").replace(/\//g, "-")
 						: "-",
-					MRP: Number(row.MRP || pStock.mrp).toFixed(2),
+					MRP: Number(row.mrp || pStock.mrp).toFixed(2),
 					PRate: invRate.toFixed(2),
 					PTR: invRate.toFixed(2),
 					"Net Rate": netRate.toFixed(2),

@@ -39,12 +39,13 @@ export function ReportDownloadButtons({ mrId }: { mrId: string }) {
 		if (format === "pdf" || format === "print") {
 			params.set("format", "json");
 			try {
-				let endpoint = "/api/reports/download"; // free schemes
+				let endpoint = "/api/reports/download"; // fallback
 				if (currentTab === "stock") endpoint = "/api/reports/download-stock";
 				else if (
 					currentTab === "sales" ||
 					currentTab === "products" ||
-					currentTab === "new-sales"
+					currentTab === "new-sales" ||
+					currentTab === "free-schemes"
 				) {
 					endpoint = "/api/reports/download-sales";
 					params.set("tab", currentTab);

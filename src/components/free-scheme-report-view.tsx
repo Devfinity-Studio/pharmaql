@@ -97,19 +97,19 @@ export async function FreeSchemeReportView({
 	const legacyDataResult = await db.execute(
 		sql.raw(`
 		SELECT 
-			h.inv_no as "InvNo",
-			h.inv_dt as "InvDt",
-			CONCAT(h.cust_id, ' ', COALESCE(c.name, 'Unknown Party'), ' , ', COALESCE(c.city, '')) as "Customer",
-			l.item_id as "ItemID",
-			l.batch_no as "BatchNo",
-			l.mrp as "MRP",
-			l.exp_dt as "ExpDt",
-			l.qty as "Qty",
-			l.f_qty as "FQty",
-			l.rate as "Rate",
-			l.taxable_amt as "TaxableAmt",
-			l.vat_amt as "GSTAmt",
-			l.line_amt as "Amount"
+			h.inv_no as inv_no,
+			h.inv_dt as inv_dt,
+			CONCAT(h.cust_id, ' ', COALESCE(c.name, 'Unknown Party'), ' , ', COALESCE(c.city, '')) as customer,
+			l.item_id as item_id,
+			l.batch_no as batch_no,
+			l.mrp as mrp,
+			l.exp_dt as exp_dt,
+			l.qty as qty,
+			l.f_qty as f_qty,
+			l.rate as rate,
+			l.taxable_amt as taxable_amt,
+			l.vat_amt as gst_amt,
+			l.line_amt as amount
 		FROM "pg-drizzle_legacy_h_sale" h
 		JOIN "pg-drizzle_legacy_l_sale" l ON l.rid = h.id
 		LEFT JOIN "pg-drizzle_legacy_customers" c ON c.id = h.cust_id
@@ -122,12 +122,15 @@ export async function FreeSchemeReportView({
 
 	const reportData: any[] = [];
 	legacyRows.forEach((row: any) => {
-		const p = accessibleProducts.find((prod) => prod.id === String(row.ItemID));
+		const p = accessibleProducts.find((prod) => prod.id === String(row.item_id));
 		if (p) {
 			const pStock = stockMap.get(p.id) || { mrp: 0, ptr: 0 };
-			const qty = Number(row.Qty) || 0;
-			const fQty = Number(row.FQty) || 0;
-			const netRate = Number(row.Rate) || 0;
+			const qty = Number(row.qty) || 0;
+			const fQty = Number(row.f_qty) || 0;
+			
+			if (fQty <= 0) return;
+
+			const netRate = Number(row.rate) || 0;
 			const invRate = pStock.ptr;
 			const schemeQty = 0; // Requires deeper scheme evaluation
 			const claimQty = fQty; // Using FQty for now as ClaimQty
@@ -138,14 +141,14 @@ export async function FreeSchemeReportView({
 			reportData.push({
 				Manufacturer: p.division || p.manufacturer,
 				SchemeType: "Qty",
-				Party: row.Customer || "Unknown Party",
+				Party: row.customer || "Unknown Party",
 				Code: p.code || "-",
 				"Product Name": p.name,
 				Packing: p.freeScheme || "-",
-				"Batch No.": row.BatchNo || "-",
-				"Inv. No.": row.InvNo || "-",
-				"Inv. Dt.": row.InvDt ? new Date(row.InvDt).toLocaleDateString() : "-",
-				MRP: Number(row.MRP || pStock.mrp),
+				"Batch No.": row.batch_no || "-",
+				"Inv. No.": row.inv_no || "-",
+				"Inv. Dt.": row.inv_dt ? new Date(row.inv_dt).toLocaleDateString("en-GB").replace(/\//g, "-") : "-",
+				MRP: Number(row.mrp || pStock.mrp),
 				PRate: invRate,
 				PTR: invRate,
 				"Net Rate": netRate,
@@ -247,8 +250,8 @@ export async function FreeSchemeReportView({
 							<Th className="border-none">Product Name</Th>
 							<Th className="border-none">Packing</Th>
 							<Th className="border-none">Batch No.</Th>
-							<Th className="border-none">Inv. No.</Th>
-							<Th className="border-none">Inv. Dt.</Th>
+							<Th className="border-none whitespace-nowrap">Inv. No.</Th>
+							<Th className="border-none whitespace-nowrap">Inv. Dt.</Th>
 							<Th className="text-right border-none">MRP</Th>
 							<Th className="text-right border-none">PRate</Th>
 							<Th className="text-right border-none">PTR</Th>
@@ -315,19 +318,19 @@ export async function FreeSchemeReportView({
 																		<Td className="border-none pb-0 pt-0.5">{row["Product Name"]}</Td>
 																		<Td className="border-none pb-0 pt-0.5">{row.Packing}</Td>
 																		<Td className="border-none pb-0 pt-0.5">{row["Batch No."]}</Td>
-																		<Td className="border-none pb-0 pt-0.5">{row["Inv. No."]}</Td>
-																		<Td className="border-none pb-0 pt-0.5">{row["Inv. Dt."]}</Td>
+																		<Td className="border-none pb-0 pt-0.5 whitespace-nowrap">{row["Inv. No."]}</Td>
+																		<Td className="border-none pb-0 pt-0.5 whitespace-nowrap">{row["Inv. Dt."]}</Td>
 																		<Td className="text-right border-none pb-0 pt-0.5">{row.MRP.toFixed(2)}</Td>
 																		<Td className="text-right border-none pb-0 pt-0.5">{row.PRate.toFixed(2)}</Td>
 																		<Td className="text-right border-none pb-0 pt-0.5">{row.PTR.toFixed(2)}</Td>
 																		<Td className="text-right border-none pb-0 pt-0.5">{row["Net Rate"].toFixed(2)}</Td>
 																		<Td className="text-right border-none pb-0 pt-0.5">{row["Inv. Rate"].toFixed(2)}</Td>
-																		<Td className="text-right border-none pb-0 pt-0.5">{row["Sale Qty"]}</Td>
-																		<Td className="text-right border-none pb-0 pt-0.5">{row["Free Qty"]}</Td>
-																		<Td className="text-right border-none pb-0 pt-0.5">-</Td>
-																		<Td className="text-right border-none pb-0 pt-0.5">{row["Claim Qty"]}</Td>
-																		<Td className="text-right border-none pb-0 pt-0.5">{row["Rate Diff."].toFixed(2)}</Td>
-																		<Td className="text-right border-none pb-0 pt-0.5">{row["Claim Value"].toFixed(2)}</Td>
+																		<Td className="text-right border-none pb-0 pt-0.5">{row["Sale Qty"] > 0 ? row["Sale Qty"] : "-"}</Td>
+																		<Td className="text-right border-none pb-0 pt-0.5">{row["Free Qty"] > 0 ? row["Free Qty"] : "-"}</Td>
+																		<Td className="text-right border-none pb-0 pt-0.5">{row["Actual FQty"] > 0 ? row["Actual FQty"] : "-"}</Td>
+																		<Td className="text-right border-none pb-0 pt-0.5">{row["Claim Qty"] > 0 ? row["Claim Qty"] : "-"}</Td>
+																		<Td className="text-right border-none pb-0 pt-0.5">{row["Rate Diff."] > 0 ? row["Rate Diff."].toFixed(2) : "-"}</Td>
+																		<Td className="text-right border-none pb-0 pt-0.5">{row["Claim Value"] > 0 ? row["Claim Value"].toFixed(2) : "-"}</Td>
 																		<Td className="text-center border-none pb-0 pt-0.5">{row["Item Scheme"]}</Td>
 																		<Td className="text-center border-none pb-0 pt-0.5">{row["Applied Scheme"]}</Td>
 																	</tr>
@@ -339,12 +342,12 @@ export async function FreeSchemeReportView({
 												{/* Claim Type Total Row */}
 												<tr>
 													<td colSpan={11}></td>
-													<td className="border-y border-gray-400 px-2 py-1 text-right font-bold text-[11px]">{typeSaleQty}</td>
-													<td className="border-y border-gray-400 px-2 py-1 text-right font-bold text-[11px]">{typeFreeQty}</td>
-													<td className="border-y border-gray-400 px-2 py-1 text-right font-bold text-[11px]">-</td>
-													<td className="border-y border-gray-400 px-2 py-1 text-right font-bold text-[11px]">{typeClaimQty}</td>
+													<td className="border-y border-gray-400 px-2 py-1 text-right font-bold text-[11px]">{typeSaleQty > 0 ? typeSaleQty : "-"}</td>
+													<td className="border-y border-gray-400 px-2 py-1 text-right font-bold text-[11px]">{typeFreeQty > 0 ? typeFreeQty : "-"}</td>
+													<td className="border-y border-gray-400 px-2 py-1 text-right font-bold text-[11px]">{typeActualFQty > 0 ? typeActualFQty : "-"}</td>
+													<td className="border-y border-gray-400 px-2 py-1 text-right font-bold text-[11px]">{typeClaimQty > 0 ? typeClaimQty : "-"}</td>
 													<td className="px-2 py-1"></td>
-													<td className="border-y border-gray-400 px-2 py-1 text-right font-bold text-[11px]">{typeClaimVal.toFixed(2)}</td>
+													<td className="border-y border-gray-400 px-2 py-1 text-right font-bold text-[11px]">{typeClaimVal > 0 ? typeClaimVal.toFixed(2) : "-"}</td>
 													<td colSpan={2}></td>
 												</tr>
 												<tr><td colSpan={19} className="h-4"></td></tr>
@@ -411,7 +414,7 @@ export async function FreeSchemeReportView({
 											<Td className="text-center border-none pb-0">{s.Packing}</Td>
 											<Td className="text-right border-none pb-0">{s.SaleQty}</Td>
 											<Td className="text-right border-none pb-0">{s.FreeQty}</Td>
-											<Td className="text-right border-none pb-0">-</Td>
+											<Td className="text-right border-none pb-0">{s.FreeQty > 0 ? s.FreeQty : "-"}</Td>
 											<Td className="text-right border-none pb-0">{s.ClaimQty}</Td>
 											<Td className="text-right border-none pb-0">{s.ClaimValue.toFixed(2)}</Td>
 										</tr>
@@ -420,7 +423,7 @@ export async function FreeSchemeReportView({
 										<td colSpan={2} className="border-y border-gray-300 px-2 py-1 font-bold text-[11px] mt-2">Total :</td>
 										<td className="border-y border-gray-300 px-2 py-1 font-bold text-[11px] text-right mt-2">{totals.SaleQty}</td>
 										<td className="border-y border-gray-300 px-2 py-1 font-bold text-[11px] text-right mt-2">{totals.FreeQty}</td>
-										<td className="border-y border-gray-300 px-2 py-1 font-bold text-[11px] text-right mt-2">-</td>
+										<td className="border-y border-gray-300 px-2 py-1 font-bold text-[11px] text-right mt-2">{totals.FreeQty > 0 ? totals.FreeQty : "-"}</td>
 										<td className="border-y border-gray-300 px-2 py-1 font-bold text-[11px] text-right mt-2">{totals.ClaimQty}</td>
 										<td className="border-y border-gray-300 px-2 py-1 font-bold text-[11px] text-right mt-2">{totals.ClaimValue.toFixed(2)}</td>
 									</tr>
