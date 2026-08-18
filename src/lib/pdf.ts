@@ -1319,30 +1319,34 @@ export function generateSalesPdfReport(
 
 			const bodyData = custData.map((row, idx) => {
 				const qty = Number(row.Qty) || 0;
-				const taxable = Number(row.TaxableAmt) || 0;
-				const gst = Number(row.GSTAmt) || 0;
-				const amt = taxable + gst;
+				const taxable = Number(row.TaxableAmt || row.Taxable) || 0;
+				const amt = Number(row.Amount) || 0;
+				const gst = Number(row.GSTAmt || (amt - taxable)) || 0;
 
 				custQty += qty;
 				custTaxable += taxable;
 				custGST += gst;
 				custAmount += amt;
 
+				let invDate = "-";
+				if (row.InvDate || row.InvDt) {
+					invDate = new Date(row.InvDate || row.InvDt).toLocaleDateString();
+				} else if (row.Date) {
+					invDate = row.Date;
+				}
+
 				return {
 					Sr: (idx + 1).toString(),
-					InvNo: row.InvNo || "-",
-					InvDate:
-						row.InvDate || row.InvDt
-							? new Date(row.InvDate || row.InvDt).toLocaleDateString()
-							: "-",
+					InvNo: row.InvNo || row["Inv No"] || "-",
+					InvDate: invDate,
 					Code: row.Code || "-",
-					ItemName: row.ItemName || row.Product || "-",
-					Packing: row.Packing || "10 Tablets",
-					BatchNo: row.BatchNo || "-",
+					ItemName: row.ItemName || row["Product Name"] || "-",
+					Packing: row.Packing || "-",
+					BatchNo: row.BatchNo || row.Batch || "-",
 					MRP: Number(row.MRP || 0).toFixed(2),
-					ExpDt: row.ExpDt || "-",
+					ExpDt: row.ExpDt || row["Exp Dt"] || "-",
 					Qty: qty.toString(),
-					FQty: Number(row.FQty || 0).toString(),
+					FQty: Number(row.FQty || row["Free Qty"] || 0).toString(),
 					Rate: Number(row.Rate || 0).toFixed(2),
 					TaxableAmt: taxable.toFixed(2),
 					GSTAmt: gst.toFixed(2),
