@@ -110,20 +110,11 @@ export function generatePdfReport(
 		);
 
 		// Manufacturer Header
-		autoTable(doc, {
-			startY: currentY,
-			theme: "plain",
-			head: [[""]], // Dummy header to trick autoTable into a full-width row
-			body: [[]],
-			didDrawPage: (data) => {
-				// We don't want standard drawing for this block, just space allocation
-			},
-			willDrawCell: (data) => {
-				if (data.section === "head") return false;
-			},
-		});
-
-		currentY = (doc as any).lastAutoTable.finalY + 4;
+		// Check for page break before drawing manufacturer header
+		if (currentY > doc.internal.pageSize.height - 30) {
+			doc.addPage();
+			currentY = 20;
+		}
 		doc.setFontSize(10);
 		doc.setFont("helvetica", "bold");
 		doc.setTextColor(30, 58, 138); // Blue
@@ -584,18 +575,11 @@ export function generateStockPdfReport(
 		let divSalesValue = 0;
 		let divStockValue = 0;
 
-		autoTable(doc, {
-			startY: currentY,
-			theme: "plain",
-			head: [[""]],
-			body: [[]],
-			didDrawPage: (data) => {},
-			willDrawCell: (data) => {
-				if (data.section === "head") return false;
-			},
-		});
-
-		currentY = (doc as any).lastAutoTable.finalY + 4;
+		// Check for page break before drawing division header
+		if (currentY > doc.internal.pageSize.height - 30) {
+			doc.addPage();
+			currentY = 20;
+		}
 
 		// Division Header Row
 		doc.setFontSize(9);
@@ -977,18 +961,11 @@ export function generateGroupedPdfReport(
 		let mfgAmount = 0;
 		let mfgQty = 0;
 
-		autoTable(doc, {
-			startY: currentY,
-			theme: "plain",
-			head: [[""]],
-			body: [[]],
-			didDrawPage: (data) => {},
-			willDrawCell: (data) => {
-				if (data.section === "head") return false;
-			},
-		});
-
-		currentY = (doc as any).lastAutoTable.finalY + 4;
+		// Check for page break before drawing company header
+		if (currentY > doc.internal.pageSize.height - 30) {
+			doc.addPage();
+			currentY = 20;
+		}
 
 		// Company Header Row
 		doc.setFontSize(9);
