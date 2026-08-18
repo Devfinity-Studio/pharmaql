@@ -12,12 +12,14 @@ export function OutstandingDownloadButtons({ mrId }: { mrId: string }) {
 	const party = searchParams.get("party") || "";
 
 	const [isOpen, setIsOpen] = useState(false);
-	const [format, setFormat] = useState<"csv" | "excel" | "pdf">("csv");
+	const [format, setFormat] = useState<"csv" | "excel" | "pdf" | "print">(
+		"csv",
+	);
 	const [from, setFrom] = useState(defaultFrom);
 	const [to, setTo] = useState(defaultTo);
 	const [isDownloading, setIsDownloading] = useState(false);
 
-	const openModal = (fmt: "csv" | "excel" | "pdf") => {
+	const openModal = (fmt: "csv" | "excel" | "pdf" | "print") => {
 		setFormat(fmt);
 		setFrom(defaultFrom);
 		setTo(defaultTo);
@@ -33,7 +35,7 @@ export function OutstandingDownloadButtons({ mrId }: { mrId: string }) {
 		if (to) params.set("to", to);
 		if (party) params.set("party", party);
 
-		if (format === "pdf") {
+		if (format === "pdf" || format === "print") {
 			params.set("format", "json");
 			try {
 				const res = await fetch(
@@ -140,6 +142,70 @@ export function OutstandingDownloadButtons({ mrId }: { mrId: string }) {
 					className="flex h-[36px] items-center justify-center gap-1.5 rounded-xl border border-red-700 bg-red-600 px-3 py-2 font-bold text-white text-xs transition hover:bg-red-700"
 					onClick={() => openModal("pdf")}
 					title="Download Outstanding Invoices (PDF)"
+				>
+					<svg
+						className="h-3.5 w-3.5"
+						fill="none"
+						stroke="currentColor"
+						viewBox="0 0 24 24"
+						xmlns="http://www.w3.org/2000/svg"
+					>
+						<path
+							d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+							strokeLinecap="round"
+							strokeLinejoin="round"
+							strokeWidth="2"
+						></path>
+					</svg>
+					PDF
+				</button>
+
+				<button
+					className="flex h-[36px] items-center justify-center gap-1.5 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 font-bold text-rose-700 text-xs transition hover:bg-rose-100"
+					onClick={() => openModal("csv")}
+					title="Download Outstanding Invoices (CSV)"
+				>
+					<svg
+						className="h-3.5 w-3.5"
+						fill="none"
+						stroke="currentColor"
+						viewBox="0 0 24 24"
+						xmlns="http://www.w3.org/2000/svg"
+					>
+						<path
+							d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+							strokeLinecap="round"
+							strokeLinejoin="round"
+							strokeWidth="2"
+						></path>
+					</svg>
+					CSV
+				</button>
+				<button
+					className="flex h-[36px] items-center justify-center gap-1.5 rounded-xl border border-rose-700 bg-rose-600 px-3 py-2 font-bold text-white text-xs transition hover:bg-rose-700"
+					onClick={() => openModal("excel")}
+					title="Download Outstanding Invoices (Excel)"
+				>
+					<svg
+						className="h-3.5 w-3.5"
+						fill="none"
+						stroke="currentColor"
+						viewBox="0 0 24 24"
+						xmlns="http://www.w3.org/2000/svg"
+					>
+						<path
+							d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+							strokeLinecap="round"
+							strokeLinejoin="round"
+							strokeWidth="2"
+						></path>
+					</svg>
+					Excel
+				</button>
+				<button
+					className="flex h-[36px] items-center justify-center gap-1.5 rounded-xl border border-red-700 bg-red-600 px-3 py-2 font-bold text-white text-xs transition hover:bg-red-700"
+					onClick={() => openModal("print")}
+					title="Download Outstanding Invoices (Print)"
 				>
 					<svg
 						className="h-3.5 w-3.5"

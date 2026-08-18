@@ -6,12 +6,18 @@ export function generatePdfReport(
 	filename: string,
 	data: any[],
 	mrName?: string,
+	action: "download" | "print" = "download",
 ) {
 	const doc = new jsPDF("landscape");
 
 	if (data.length === 0) {
 		doc.text("No data available for the selected filters.", 14, 20);
-		doc.save(filename);
+		if (action === "print") {
+			doc.autoPrint();
+			window.open(URL.createObjectURL(doc.output("blob")), "_blank");
+		} else {
+			doc.save(filename);
+		}
 		return;
 	}
 
@@ -467,7 +473,12 @@ export function generatePdfReport(
 		);
 	}
 
-	doc.save(filename);
+	if (action === "print") {
+		doc.autoPrint();
+		window.open(URL.createObjectURL(doc.output("blob")), "_blank");
+	} else {
+		doc.save(filename);
+	}
 }
 
 export function generateStockPdfReport(
@@ -476,12 +487,18 @@ export function generateStockPdfReport(
 	mrName?: string,
 	fromDate?: string,
 	toDate?: string,
+	action: "download" | "print" = "download",
 ) {
 	const doc = new jsPDF("p", "mm", "a4");
 
 	if (data.length === 0) {
 		doc.text("No stock data available for the selected filters.", 14, 20);
-		doc.save(filename);
+		if (action === "print") {
+			doc.autoPrint();
+			window.open(URL.createObjectURL(doc.output("blob")), "_blank");
+		} else {
+			doc.save(filename);
+		}
 		return;
 	}
 
@@ -859,7 +876,12 @@ export function generateStockPdfReport(
 		);
 	}
 
-	doc.save(filename);
+	if (action === "print") {
+		doc.autoPrint();
+		window.open(URL.createObjectURL(doc.output("blob")), "_blank");
+	} else {
+		doc.save(filename);
+	}
 }
 
 export function generateGroupedPdfReport(
@@ -871,6 +893,7 @@ export function generateGroupedPdfReport(
 		dataKey: string;
 		halign?: "left" | "center" | "right";
 	}[],
+	action: "download" | "print" = "download",
 	mrName?: string,
 	fromDate?: string,
 	toDate?: string,
@@ -879,7 +902,12 @@ export function generateGroupedPdfReport(
 
 	if (data.length === 0) {
 		doc.text("No data available for the selected filters.", 14, 20);
-		doc.save(filename);
+		if (action === "print") {
+			doc.autoPrint();
+			window.open(URL.createObjectURL(doc.output("blob")), "_blank");
+		} else {
+			doc.save(filename);
+		}
 		return;
 	}
 
@@ -1123,7 +1151,12 @@ export function generateGroupedPdfReport(
 		);
 	}
 
-	doc.save(filename);
+	if (action === "print") {
+		doc.autoPrint();
+		window.open(URL.createObjectURL(doc.output("blob")), "_blank");
+	} else {
+		doc.save(filename);
+	}
 }
 
 export function generateSalesPdfReport(
@@ -1132,12 +1165,18 @@ export function generateSalesPdfReport(
 	mrName?: string,
 	fromDate?: string,
 	toDate?: string,
+	action: "download" | "print" = "download",
 ) {
 	const doc = new jsPDF("landscape");
 
 	if (data.length === 0) {
 		doc.text("No data available for the selected filters.", 14, 20);
-		doc.save(filename);
+		if (action === "print") {
+			doc.autoPrint();
+			window.open(URL.createObjectURL(doc.output("blob")), "_blank");
+		} else {
+			doc.save(filename);
+		}
 		return;
 	}
 
@@ -1577,7 +1616,12 @@ export function generateSalesPdfReport(
 		);
 	}
 
-	doc.save(filename);
+	if (action === "print") {
+		doc.autoPrint();
+		window.open(URL.createObjectURL(doc.output("blob")), "_blank");
+	} else {
+		doc.save(filename);
+	}
 }
 
 export function generateFreeSchemePdfReport(
@@ -1586,12 +1630,18 @@ export function generateFreeSchemePdfReport(
 	mrName?: string,
 	fromDate?: string,
 	toDate?: string,
+	action: "download" | "print" = "download",
 ) {
 	const doc = new jsPDF("landscape");
 
 	if (data.length === 0) {
 		doc.text("No data available for the selected filters.", 14, 20);
-		doc.save(filename);
+		if (action === "print") {
+			doc.autoPrint();
+			window.open(URL.createObjectURL(doc.output("blob")), "_blank");
+		} else {
+			doc.save(filename);
+		}
 		return;
 	}
 
@@ -2143,5 +2193,10 @@ export function generateFreeSchemePdfReport(
 		doc.text(`ADMIN (${footerDate})`, 14, doc.internal.pageSize.height - 10);
 	}
 
-	doc.save(filename);
+	if (action === "print") {
+		doc.autoPrint();
+		window.open(URL.createObjectURL(doc.output("blob")), "_blank");
+	} else {
+		doc.save(filename);
+	}
 }
