@@ -515,7 +515,7 @@ export function generateStockPdfReport(
 	doc.text("Stock Movement Statement", 195, currentY - 4, { align: "right" });
 
 	// Right side details (move them below the address to avoid overlap on narrow A4)
-	let rightY = currentY + 14; 
+	let rightY = currentY + 14;
 	doc.setFontSize(9);
 	doc.setFont("helvetica", "normal");
 	doc.setTextColor(50, 50, 50);
@@ -610,15 +610,15 @@ export function generateStockPdfReport(
 			return {
 				...row,
 				"Stock Value": stockVal.toFixed(2),
-				"Opening Qty.": row["Opening Qty."] || "-",
-				"Purchase Qty": row["Purchase Qty"] || "-",
-				"S.Ret Qty.": row["S.Ret Qty."] !== 0 ? row["S.Ret Qty."] : "-",
-				"Stk Adj Add": row["Stk Adj Add"] !== 0 ? row["Stk Adj Add"] : "-",
-				"Total In Qty": row["Total In Qty"] || "-",
-				"Sales Qty.": row["Sales Qty."] || "-",
-				"P.Ret Qty.": row["P.Ret Qty."] !== 0 ? row["P.Ret Qty."] : "-",
-				"Stk Adj Less": row["Stk Adj Less"] !== 0 ? row["Stk Adj Less"] : "-",
-				"Balance Qty.": row["Balance Qty."] || "-",
+				"Opening Qty.": row["Opening Qty."] ?? "0",
+				"Purchase Qty": row["Purchase Qty"] ?? "0",
+				"S.Ret Qty.": row["S.Ret Qty."] ?? "0",
+				"Stk Adj Add": row["Stk Adj Add"] ?? "0",
+				"Total In Qty": row["Total In Qty"] ?? "0",
+				"Sales Qty.": row["Sales Qty."] ?? "0",
+				"P.Ret Qty.": row["P.Ret Qty."] ?? "0",
+				"Stk Adj Less": row["Stk Adj Less"] ?? "0",
+				"Balance Qty.": row["Balance Qty."] ?? "0",
 			};
 		});
 
@@ -626,6 +626,22 @@ export function generateStockPdfReport(
 		grandTotalPurchaseValue += divPurchaseValue;
 		grandTotalSalesValue += divSalesValue;
 		grandTotalStockValue += divStockValue;
+
+		bodyData.push({
+			"Item Name": `Total value of ${div.toUpperCase()} :`,
+			Packing: "",
+			"Opening Qty.": divOpeningValue.toFixed(2),
+			"Purchase Qty": divPurchaseValue.toFixed(2),
+			"S.Ret Qty.": "",
+			"Stk Adj Add": "",
+			"Total In Qty": "",
+			"Sales Qty.": divSalesValue.toFixed(2),
+			"P.Ret Qty.": "",
+			"Stk Adj Less": "",
+			"Balance Qty.": "",
+			"Stock Value": divStockValue.toFixed(2),
+			isTotal: true,
+		} as any);
 
 		autoTable(doc, {
 			startY: currentY,
@@ -642,6 +658,7 @@ export function generateStockPdfReport(
 				textColor: [0, 0, 0],
 				lineWidth: { top: 0.5, bottom: 0.5 },
 				lineColor: [100, 100, 100], // Darker borders for head
+				halign: "right", // Right align headers for numeric columns
 			},
 			columnStyles: {
 				"Opening Qty.": { halign: "right" },
@@ -656,44 +673,24 @@ export function generateStockPdfReport(
 				"Stock Value": { halign: "right" },
 				Packing: { halign: "center" },
 			},
-		});
-
-		currentY = (doc as any).lastAutoTable.finalY;
-
-		// Division Total Row
-		autoTable(doc, {
-			startY: currentY,
-			theme: "plain",
-			body: [
-				[
-					`Total value of ${div.toUpperCase()} :`,
-					"",
-					divOpeningValue.toFixed(2),
-					divPurchaseValue.toFixed(2),
-					"",
-					"",
-					"",
-					divSalesValue.toFixed(2),
-					"",
-					"",
-					"",
-					divStockValue.toFixed(2),
-				],
-			],
-			styles: {
-				fontSize: 7,
-				fontStyle: "bold",
-				cellPadding: 1,
-				textColor: [0, 0, 0],
-			},
-			columnStyles: {
-				2: { halign: "right" },
-				3: { halign: "right" },
-				7: { halign: "right" },
-				11: { halign: "right" },
+			didParseCell: (data) => {
+				// Reset halign for string columns in header
+				if (data.section === "head") {
+					if (data.column.dataKey === "Item Name") {
+						data.cell.styles.halign = "left";
+					} else if (data.column.dataKey === "Packing") {
+						data.cell.styles.halign = "center";
+					}
+				}
+				if (data.section === "body" && data.row.raw.isTotal) {
+					data.cell.styles.fontStyle = "bold";
+					if (data.column.dataKey === "Item Name") {
+						data.cell.colSpan = 2; // Span over Packing
+					}
+				}
 			},
 			willDrawCell: (data) => {
-				if (data.section === "body") {
+				if (data.section === "body" && data.row.raw.isTotal) {
 					doc.setDrawColor(200, 200, 200);
 					doc.setLineWidth(0.5);
 					doc.line(
@@ -712,8 +709,10 @@ export function generateStockPdfReport(
 			},
 		});
 
-		currentY = (doc as any).lastAutoTable.finalY + 6;
+		currentY = (doc as any).lastAutoTable.finalY + 4;
 	}
+
+	const finalTableData: any[] = [];
 
 	if (divisions.length > 1) {
 		currentY += 4;
@@ -735,105 +734,104 @@ export function generateStockPdfReport(
 				summaryStock += row["Stock Value"] || 0;
 			});
 
-			autoTable(doc, {
-				startY: currentY,
-				theme: "plain",
-				body: [
-					[
-						`Total value of ${div.toUpperCase()} :`,
-						"",
-						summaryOpening.toFixed(2),
-						summaryPurchase.toFixed(2),
-						"",
-						"",
-						"",
-						summarySales.toFixed(2),
-						"",
-						"",
-						"",
-						summaryStock.toFixed(2),
-					],
-				],
-				styles: {
-					fontSize: 7,
-					fontStyle: "bold",
-					cellPadding: 1,
-					textColor: [11, 37, 69],
-					fillColor: [240, 244, 248],
-				},
-				columnStyles: {
-					2: { halign: "right" },
-					3: { halign: "right" },
-					7: { halign: "right" },
-					11: { halign: "right", textColor: [0, 86, 179] },
-				},
-				willDrawCell: (data) => {
-					if (data.section === "body") {
-						doc.setDrawColor(200, 200, 200);
-						doc.setLineWidth(1.0);
-						doc.line(
-							data.cell.x,
-							data.cell.y,
-							data.cell.x + data.cell.width,
-							data.cell.y,
-						);
-						doc.line(
-							data.cell.x,
-							data.cell.y + data.cell.height,
-							data.cell.x + data.cell.width,
-							data.cell.y + data.cell.height,
-						);
-					}
-				},
+			finalTableData.push({
+				"Item Name": `Total value of ${div.toUpperCase()} :`,
+				Packing: "",
+				"Opening Qty.": summaryOpening.toFixed(2),
+				"Purchase Qty": summaryPurchase.toFixed(2),
+				"S.Ret Qty.": "",
+				"Stk Adj Add": "",
+				"Total In Qty": "",
+				"Sales Qty.": summarySales.toFixed(2),
+				"P.Ret Qty.": "",
+				"Stk Adj Less": "",
+				"Balance Qty.": "",
+				"Stock Value": summaryStock.toFixed(2),
+				isSummaryRow: true,
 			});
-			currentY = (doc as any).lastAutoTable.finalY;
 		}
-		currentY += 4;
 	}
 
-	// Grand Total Row
+	finalTableData.push({
+		"Item Name": "Total Value :",
+		Packing: "",
+		"Opening Qty.": grandTotalOpeningValue.toFixed(2),
+		"Purchase Qty": grandTotalPurchaseValue.toFixed(2),
+		"S.Ret Qty.": "",
+		"Stk Adj Add": "",
+		"Total In Qty": "",
+		"Sales Qty.": grandTotalSalesValue.toFixed(2),
+		"P.Ret Qty.": "",
+		"Stk Adj Less": "",
+		"Balance Qty.": "",
+		"Stock Value": grandTotalStockValue.toFixed(2),
+		isGrandTotalRow: true,
+	});
+
 	autoTable(doc, {
 		startY: currentY,
+		columns: columns,
+		body: finalTableData,
 		theme: "plain",
-		body: [
-			[
-				"Total Value :",
-				"",
-				grandTotalOpeningValue.toFixed(2),
-				grandTotalPurchaseValue.toFixed(2),
-				"",
-				"",
-				"",
-				grandTotalSalesValue.toFixed(2),
-				"",
-				"",
-				"",
-				grandTotalStockValue.toFixed(2),
-			],
-		],
 		styles: {
-			fontSize: 8,
-			fontStyle: "bold",
-			cellPadding: 2,
+			fontSize: 7,
+			cellPadding: 1,
 			textColor: [11, 37, 69],
-			fillColor: [243, 244, 246],
+		},
+		didParseCell: (data) => {
+			if (data.section === "head") {
+				// Hide headers for the summary table to just seamlessly append to the doc
+				data.cell.styles.cellHeight = 0;
+				data.cell.styles.fontSize = 0;
+				data.cell.styles.cellPadding = 0;
+				data.cell.styles.minCellHeight = 0;
+			}
+			if (data.section === "body") {
+				data.cell.styles.fontStyle = "bold";
+				if (data.row.raw.isGrandTotalRow) {
+					data.cell.styles.fontSize = 8;
+					data.cell.styles.fillColor = [243, 244, 246];
+				} else if (data.row.raw.isSummaryRow) {
+					data.cell.styles.fillColor = [240, 244, 248];
+				}
+				if (data.column.dataKey === "Item Name") {
+					data.cell.colSpan = 2; // Span Item Name and Packing
+				}
+			}
 		},
 		columnStyles: {
-			2: { halign: "right" },
-			3: { halign: "right" },
-			7: { halign: "right" },
-			11: { halign: "right" },
+			"Opening Qty.": { halign: "right" },
+			"Purchase Qty": { halign: "right" },
+			"Sales Qty.": { halign: "right" },
+			"Stock Value": { halign: "right", textColor: [0, 86, 179] },
 		},
 		willDrawCell: (data) => {
 			if (data.section === "body") {
-				doc.setDrawColor(11, 37, 69);
-				doc.setLineWidth(2.0);
-				doc.line(
-					data.cell.x,
-					data.cell.y + data.cell.height,
-					data.cell.x + data.cell.width,
-					data.cell.y + data.cell.height,
-				);
+				if (data.row.raw.isSummaryRow) {
+					doc.setDrawColor(200, 200, 200);
+					doc.setLineWidth(1.0);
+					doc.line(
+						data.cell.x,
+						data.cell.y,
+						data.cell.x + data.cell.width,
+						data.cell.y,
+					);
+					doc.line(
+						data.cell.x,
+						data.cell.y + data.cell.height,
+						data.cell.x + data.cell.width,
+						data.cell.y + data.cell.height,
+					);
+				} else if (data.row.raw.isGrandTotalRow) {
+					doc.setDrawColor(11, 37, 69);
+					doc.setLineWidth(2.0);
+					doc.line(
+						data.cell.x,
+						data.cell.y + data.cell.height,
+						data.cell.x + data.cell.width,
+						data.cell.y + data.cell.height,
+					);
+				}
 			}
 		},
 	});
