@@ -13,9 +13,7 @@ export function ReportDownloadButtons({ mrId }: { mrId: string }) {
 	const currentTab = searchParams.get("tab");
 
 	const [isOpen, setIsOpen] = useState(false);
-	const [format, setFormat] = useState<"csv" | "excel" | "pdf" | "print">(
-		"csv",
-	);
+	const [format, setFormat] = useState<"csv" | "excel" | "pdf" | "print">("csv");
 	const [from, setFrom] = useState(defaultFrom);
 	const [to, setTo] = useState(defaultTo);
 	const [isDownloading, setIsDownloading] = useState(false);
@@ -94,8 +92,7 @@ export function ReportDownloadButtons({ mrId }: { mrId: string }) {
 						data,
 						mrName,
 						displayFrom,
-						displayTo,
-						format === "print" ? "print" : "download",
+						displayTo, format === "print" ? "print" : "download",
 					);
 				} else if (currentTab === "sales") {
 					const mrName = data.length > 0 ? data[0]["MR Name"] : "Unknown";
@@ -107,8 +104,7 @@ export function ReportDownloadButtons({ mrId }: { mrId: string }) {
 							data,
 							mrName,
 							displayFrom,
-							displayTo,
-							format === "print" ? "print" : "download",
+							displayTo, format === "print" ? "print" : "download",
 						);
 					});
 				} else if (currentTab === "products") {
@@ -155,8 +151,7 @@ export function ReportDownloadButtons({ mrId }: { mrId: string }) {
 							cleanDataForPdf,
 							mrName,
 							displayFrom,
-							displayTo,
-							format === "print" ? "print" : "download",
+							displayTo, format === "print" ? "print" : "download",
 						);
 					});
 				}
@@ -253,50 +248,6 @@ export function ReportDownloadButtons({ mrId }: { mrId: string }) {
 						></path>
 					</svg>
 					PDF
-				</button>
-
-				<button
-					className="flex h-[38px] items-center justify-center gap-1.5 rounded-xl border border-[#BAE6FD] bg-[#E0F2FE] px-4 py-2 font-bold text-[#0071BC] text-sm transition-colors hover:bg-[#BAE6FD]"
-					onClick={() => openModal("csv")}
-					title="Download Product Report (CSV)"
-				>
-					<svg
-						className="h-4 w-4"
-						fill="none"
-						stroke="currentColor"
-						viewBox="0 0 24 24"
-						xmlns="http://www.w3.org/2000/svg"
-					>
-						<path
-							d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
-							strokeLinecap="round"
-							strokeLinejoin="round"
-							strokeWidth="2.5"
-						></path>
-					</svg>
-					CSV
-				</button>
-
-				<button
-					className="flex h-[38px] items-center justify-center gap-1.5 rounded-xl bg-[#0071BC] px-4 py-2 font-bold text-sm text-white shadow-sm transition-colors hover:bg-[#134074]"
-					onClick={() => openModal("excel")}
-					title="Download Product Report (Excel)"
-				>
-					<svg
-						className="h-4 w-4"
-						fill="none"
-						stroke="currentColor"
-						viewBox="0 0 24 24"
-						xmlns="http://www.w3.org/2000/svg"
-					>
-						<path
-							d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
-							strokeLinecap="round"
-							strokeLinejoin="round"
-							strokeWidth="2.5"
-						></path>
-					</svg>
-					Excel
 				</button>
 
 				<button
