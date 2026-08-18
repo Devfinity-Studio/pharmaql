@@ -494,13 +494,13 @@ export async function FreeSchemeReportView({
 								</div>
 								<div className="text-center">
 									<div className="mb-1 text-[10px] text-gray-500">
-										Scheme Qty
+										Claim Qty
 									</div>
-									<div className="text-[#0071BC] text-sm">{mfgSchemeQty}</div>
+									<div className="text-[#0071BC] text-sm">{mfgClaimQty}</div>
 								</div>
 								<div className="text-center">
 									<div className="mb-1 text-[10px] text-gray-500">
-										Scheme Value
+										Claim Value
 									</div>
 									<div className="text-green-600 text-sm">
 										₹{mfgClaimVal.toFixed(2)}
