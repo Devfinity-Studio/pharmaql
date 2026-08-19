@@ -80,7 +80,7 @@ export default async function AdminMRsPage({
 			</div>
 
 			{/* Search Bar */}
-			<div className="flex flex-col gap-4 rounded-2xl border border-gray-100 bg-white p-4 shadow-sm md:flex-row md:items-center">
+			<div className="flex flex-col gap-4 rounded-2xl border border-gray-100 bg-white p-4 shadow-sm xl:flex-row xl:items-center">
 				<form className="flex flex-grow flex-col gap-4 sm:flex-row" method="GET">
 					<input
 						className="block w-full flex-grow rounded-xl border border-gray-200 bg-gray-50 p-3 font-medium text-gray-900 text-sm outline-none focus:border-blue-500 focus:ring-blue-500"
@@ -171,7 +171,7 @@ export default async function AdminMRsPage({
 												className="flex items-center justify-between rounded-xl border border-blue-100 bg-blue-50/50 px-3 py-2"
 												key={a.id}
 											>
-												<span className="font-semibold text-blue-900 text-sm">
+												<span className="truncate font-semibold text-blue-900 text-sm">
 													{a.manufacturer}
 													{a.division ? ` - ${a.division}` : ""}
 												</span>
