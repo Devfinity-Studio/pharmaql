@@ -80,8 +80,8 @@ export default async function AdminMRsPage({
 			</div>
 
 			{/* Search Bar */}
-			<div className="flex items-center gap-4 rounded-2xl border border-gray-100 bg-white p-4 shadow-sm">
-				<form className="flex flex-grow gap-4" method="GET">
+			<div className="flex flex-col gap-4 rounded-2xl border border-gray-100 bg-white p-4 shadow-sm xl:flex-row xl:items-center">
+				<form className="flex flex-grow flex-col gap-4 sm:flex-row" method="GET">
 					<input
 						className="block w-full flex-grow rounded-xl border border-gray-200 bg-gray-50 p-3 font-medium text-gray-900 text-sm outline-none focus:border-blue-500 focus:ring-blue-500"
 						defaultValue={searchQuery}
@@ -90,14 +90,14 @@ export default async function AdminMRsPage({
 						type="text"
 					/>
 					<button
-						className="rounded-xl bg-gray-900 px-6 py-2 font-bold text-white shadow-sm transition hover:bg-gray-800"
+						className="rounded-xl bg-gray-900 px-6 py-3 font-bold text-white shadow-sm transition hover:bg-gray-800"
 						type="submit"
 					>
 						Search
 					</button>
 					{searchQuery && (
 						<Link
-							className="rounded-xl bg-gray-100 px-6 py-3 font-bold text-gray-700 shadow-sm transition hover:bg-gray-200"
+							className="flex items-center justify-center rounded-xl bg-gray-100 px-6 py-3 font-bold text-gray-700 shadow-sm transition hover:bg-gray-200"
 							href="/admin/mrs"
 						>
 							Clear
@@ -107,7 +107,7 @@ export default async function AdminMRsPage({
 				<AddMRButton manufacturers={allManufacturers} />
 			</div>
 
-			<div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
+			<div className="grid grid-cols-1 gap-6 xl:grid-cols-2 2xl:grid-cols-3">
 				{allMRs.map((mr) => {
 					const assignments = allAssignments.filter((a) => a.mrId === mr.id);
 					const unassignedManufacturers = allManufacturers.filter(
@@ -124,12 +124,12 @@ export default async function AdminMRsPage({
 							className="relative flex h-full flex-col rounded-2xl border border-gray-100 bg-white p-6 shadow-sm"
 							key={mr.id}
 						>
-							<div className="mb-4 flex items-start justify-between gap-4">
+							<div className="mb-4 flex flex-col items-start justify-between gap-4 sm:flex-row">
 								<div>
 									<h3 className="font-bold text-gray-900 text-xl">{mr.name}</h3>
 									<p className="text-gray-500 text-sm">{mr.email}</p>
 								</div>
-								<div className="flex gap-2">
+								<div className="flex flex-wrap gap-2">
 									<form
 										action={async () => {
 											"use server";
@@ -171,7 +171,7 @@ export default async function AdminMRsPage({
 												className="flex items-center justify-between rounded-xl border border-blue-100 bg-blue-50/50 px-3 py-2"
 												key={a.id}
 											>
-												<span className="font-semibold text-blue-900 text-sm">
+												<span className="truncate font-semibold text-blue-900 text-sm">
 													{a.manufacturer}
 													{a.division ? ` - ${a.division}` : ""}
 												</span>

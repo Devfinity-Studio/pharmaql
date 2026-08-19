@@ -189,7 +189,7 @@ export function ReportDownloadButtons({ mrId }: { mrId: string }) {
   return (
     <>
       {/* Unified Corporate Blue Tonal Export Button Family */}
-      <div className="flex gap-2">
+      <div className="flex flex-wrap gap-2">
         <button
           className="flex h-[38px] items-center justify-center gap-1.5 rounded-xl border border-[#BAE6FD] bg-[#E0F2FE] px-4 py-2 font-bold text-[#0071BC] text-sm transition-colors hover:bg-[#BAE6FD]"
           onClick={() => openModal("csv")}

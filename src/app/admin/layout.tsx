@@ -19,7 +19,7 @@ export default async function AdminLayout({
 	}
 
 	return (
-		<div className="relative flex h-screen flex-col overflow-hidden bg-gray-50 text-gray-900 md:flex-row">
+		<div className="relative flex min-h-screen flex-col bg-gray-50 text-gray-900 md:h-screen md:flex-row md:overflow-hidden">
 			<div className="pointer-events-none absolute inset-0 z-0 bg-[url('/devfinity.png')] bg-repeat opacity-[0.03] [background-size:120px]"></div>
 			<aside className="relative z-10 flex w-full flex-col border-gray-800 border-r bg-gray-900 p-4 text-white md:w-64">
 				<div className="mb-8 font-bold text-2xl text-white">PharmaQL Admin</div>
@@ -62,7 +62,7 @@ export default async function AdminLayout({
 					</div>
 				</div>
 			</aside>
-			<main className="relative z-10 flex-1 overflow-y-auto p-4 md:p-8">
+			<main className="relative z-10 flex-1 p-4 md:overflow-y-auto md:p-8">
 				{children}
 			</main>
 		</div>
