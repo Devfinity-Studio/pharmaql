@@ -39,7 +39,7 @@ export default async function AdminDashboardPage() {
 
 	return (
 		<div className="mt-4 space-y-8">
-			<div className="flex items-center justify-between">
+			<div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
 				<div>
 					<h1 className="font-extrabold text-3xl text-gray-900">
 						Global Admin Dashboard
@@ -48,7 +48,7 @@ export default async function AdminDashboardPage() {
 						Overview of global stock and manufacturer metrics across all MRs.
 					</p>
 				</div>
-				<div className="flex gap-4">
+				<div className="flex flex-wrap gap-4">
 					<Link
 						className="rounded-xl border border-gray-200 bg-white px-4 py-2 font-bold text-gray-700 shadow-sm transition hover:bg-gray-50"
 						href="/admin/mrs"
