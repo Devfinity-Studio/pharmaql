@@ -12,6 +12,7 @@ import { auth } from "@/server/auth";
 import { db } from "@/server/db";
 import { mrManufacturers, products, user } from "@/server/db/schema";
 import { AddMRButton } from "./add-mr-button";
+import { MRSearchForm } from "./MRSearchForm";
 
 export default async function AdminMRsPage({
   searchParams,
@@ -54,26 +55,22 @@ export default async function AdminMRsPage({
     if (sortQuery === "name_asc") {
       return (a.name || "").localeCompare(b.name || "");
     }
-    if (sortQuery === "name_desc") {
-      return (b.name || "").localeCompare(a.name || "");
+    if (sortQuery === "email_asc") {
+      return (a.email || "").localeCompare(b.email || "");
     }
-    if (sortQuery === "assignments_desc") {
-      const aCount = allAssignments.filter(
+    if (sortQuery === "company_asc") {
+      // Find primary company for a
+      const aAssigns = allAssignments.filter(
         (aAssign) => aAssign.mrId === a.id,
-      ).length;
-      const bCount = allAssignments.filter(
+      );
+      const aCompany = aAssigns[0]?.manufacturer || "ZZZ";
+      // Find primary company for b
+      const bAssigns = allAssignments.filter(
         (bAssign) => bAssign.mrId === b.id,
-      ).length;
-      return bCount - aCount;
-    }
-    if (sortQuery === "assignments_asc") {
-      const aCount = allAssignments.filter(
-        (aAssign) => aAssign.mrId === a.id,
-      ).length;
-      const bCount = allAssignments.filter(
-        (bAssign) => bAssign.mrId === b.id,
-      ).length;
-      return aCount - bCount;
+      );
+      const bCompany = bAssigns[0]?.manufacturer || "ZZZ";
+
+      return aCompany.localeCompare(bCompany);
     }
     return 0;
   });
@@ -108,42 +105,9 @@ export default async function AdminMRsPage({
 
       {/* Search Bar */}
       <div className="flex flex-col gap-4 rounded-2xl border border-gray-100 bg-white p-4 shadow-sm xl:flex-row xl:items-center">
-        <form
-          className="flex flex-grow flex-col gap-4 sm:flex-row"
-          method="GET"
-        >
-          <input
-            className="block w-full flex-grow rounded-xl border border-gray-200 bg-gray-50 p-3 font-medium text-gray-900 text-sm outline-none focus:border-blue-500 focus:ring-blue-500"
-            defaultValue={awaitedParams.search || ""}
-            name="search"
-            placeholder="Search MRs by name, email, or company..."
-            type="text"
-          />
-          <select
-            className="block rounded-xl border border-gray-200 bg-gray-50 p-3 font-medium text-gray-900 text-sm outline-none focus:border-blue-500 focus:ring-blue-500"
-            defaultValue={sortQuery}
-            name="sort"
-          >
-            <option value="name_asc">Name (A-Z)</option>
-            <option value="name_desc">Name (Z-A)</option>
-            <option value="assignments_desc">Assignments (High to Low)</option>
-            <option value="assignments_asc">Assignments (Low to High)</option>
-          </select>
-          <button
-            className="rounded-xl bg-gray-900 px-6 py-3 font-bold text-white shadow-sm transition hover:bg-gray-800"
-            type="submit"
-          >
-            Search
-          </button>
-          {searchQuery && (
-            <Link
-              className="flex items-center justify-center rounded-xl bg-gray-100 px-6 py-3 font-bold text-gray-700 shadow-sm transition hover:bg-gray-200"
-              href="/admin/mrs"
-            >
-              Clear
-            </Link>
-          )}
-        </form>
+        <div className="flex flex-grow items-center">
+          <MRSearchForm />
+        </div>
         <AddMRButton manufacturers={allManufacturers} />
       </div>
 
