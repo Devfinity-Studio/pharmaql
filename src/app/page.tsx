@@ -134,6 +134,28 @@ export default async function Home() {
             </div>
           </div>
         </section>
+
+        {/* Footer */}
+        <footer
+          className="relative z-10 w-full border-t border-white/10 bg-[#020817]/40 py-6 text-center backdrop-blur-md animate-fade-in-up"
+          style={{ animationDelay: "600ms", animationFillMode: "both" }}
+        >
+          <p className="text-sm text-slate-400">
+            &copy; {new Date().getFullYear()} Asmee Pharma. All rights reserved.
+          </p>
+          <p className="mt-2 flex items-center justify-center gap-1 text-xs text-slate-500">
+            Made with{" "}
+            <span className="text-red-500 text-sm animate-pulse">❤️</span> by{" "}
+            <a
+              href="https://devfinity.net"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="font-semibold text-cyan-500 transition-colors hover:text-cyan-400"
+            >
+              Devfinity
+            </a>
+          </p>
+        </footer>
       </main>
     </div>
   );
