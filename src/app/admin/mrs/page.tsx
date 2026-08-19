@@ -107,7 +107,7 @@ export default async function AdminMRsPage({
 				<AddMRButton manufacturers={allManufacturers} />
 			</div>
 
-			<div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
+			<div className="grid grid-cols-1 gap-6 xl:grid-cols-2 2xl:grid-cols-3">
 				{allMRs.map((mr) => {
 					const assignments = allAssignments.filter((a) => a.mrId === mr.id);
 					const unassignedManufacturers = allManufacturers.filter(
