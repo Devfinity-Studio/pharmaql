@@ -93,7 +93,7 @@ export function OutstandingDownloadButtons({ mrId }: { mrId: string }) {
 
 	return (
 		<>
-			<div className="flex gap-2">
+			<div className="flex flex-wrap gap-2">
 				<button
 					className="flex h-[36px] items-center justify-center gap-1.5 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 font-bold text-rose-700 text-xs transition hover:bg-rose-100"
 					onClick={() => openModal("csv")}
