@@ -6,6 +6,7 @@ import { FreeSchemeReportView } from "@/components/free-scheme-report-view";
 import { NewSalesReportView } from "@/components/new-sales-report-view";
 import { OutstandingDownloadButtons } from "@/components/outstanding-download-buttons";
 import { OutstandingReportView } from "@/components/outstanding-report-view";
+import { OverdueReportView } from "@/components/overdue-report-view";
 import { ProductReportView } from "@/components/product-report-view";
 import { ReportDownloadButtons } from "@/components/report-download-buttons";
 import { StockReportView } from "@/components/stock-report-view";
@@ -311,7 +312,7 @@ export async function MrDashboardContent({
 			<div className="flex flex-col justify-between gap-4 md:flex-row md:items-center">
 				<div>
 					<h1 className="font-extrabold text-3xl text-[#0B2545] tracking-tight md:text-4xl">
-						{isAdminView ? `${mrInfo.name}'s Data` : "Your Reports Dashboard"}
+						{isAdminView ? `${mrInfo.name}'s Data` : `Welcome, ${mrInfo.name}`}
 					</h1>
 					<p className="mt-1 font-semibold text-base text-gray-500">
 						Viewing aggregated sales & financial data
@@ -448,36 +449,6 @@ export async function MrDashboardContent({
 						Overview
 					</Link>
 				)}
-				{canViewProductWise && (
-					<Link
-						className={`border-b-4 px-6 py-4 font-bold text-base transition-colors ${
-							searchParams?.tab === "products"
-								? "border-[#0071BC] text-[#0071BC]"
-								: "border-transparent text-gray-500 hover:text-[#0B2545]"
-						}`}
-						href={`${baseUrl}?${new URLSearchParams({
-							...searchParams,
-							tab: "products",
-						}).toString()}`}
-					>
-						Product Wise
-					</Link>
-				)}
-				{canViewSales && (
-					<Link
-						className={`border-b-4 px-6 py-4 font-bold text-base transition-colors ${
-							searchParams?.tab === "sales"
-								? "border-[#0071BC] text-[#0071BC]"
-								: "border-transparent text-gray-500 hover:text-[#0B2545]"
-						}`}
-						href={`${baseUrl}?${new URLSearchParams({
-							...searchParams,
-							tab: "sales",
-						}).toString()}`}
-					>
-						Sales Reports
-					</Link>
-				)}
 				{canViewStock && (
 					<Link
 						className={`border-b-4 px-6 py-4 font-bold text-base transition-colors ${
@@ -490,22 +461,7 @@ export async function MrDashboardContent({
 							tab: "stock",
 						}).toString()}`}
 					>
-						Stock Reports
-					</Link>
-				)}
-				{canViewFreeScheme && (
-					<Link
-						className={`border-b-4 px-6 py-4 font-bold text-base transition-colors ${
-							searchParams?.tab === "free-schemes"
-								? "border-[#0071BC] text-[#0071BC]"
-								: "border-transparent text-gray-500 hover:text-[#0B2545]"
-						}`}
-						href={`${baseUrl}?${new URLSearchParams({
-							...searchParams,
-							tab: "free-schemes",
-						}).toString()}`}
-					>
-						Free Schemes
+						Stock & Sales
 					</Link>
 				)}
 				{canViewPartyWise && (
@@ -523,6 +479,49 @@ export async function MrDashboardContent({
 						Party Wise
 					</Link>
 				)}
+				{canViewProductWise && (
+					<Link
+						className={`border-b-4 px-6 py-4 font-bold text-base transition-colors ${
+							searchParams?.tab === "products"
+								? "border-[#0071BC] text-[#0071BC]"
+								: "border-transparent text-gray-500 hover:text-[#0B2545]"
+						}`}
+						href={`${baseUrl}?${new URLSearchParams({
+							...searchParams,
+							tab: "products",
+						}).toString()}`}
+					>
+						Product Wise
+					</Link>
+				)}
+				{canViewFreeScheme && (
+					<Link
+						className={`border-b-4 px-6 py-4 font-bold text-base transition-colors ${
+							searchParams?.tab === "free-schemes"
+								? "border-[#0071BC] text-[#0071BC]"
+								: "border-transparent text-gray-500 hover:text-[#0B2545]"
+						}`}
+						href={`${baseUrl}?${new URLSearchParams({
+							...searchParams,
+							tab: "free-schemes",
+						}).toString()}`}
+					>
+						Claim Qty
+					</Link>
+				)}
+				<Link
+					className={`border-b-4 px-6 py-4 font-bold text-base transition-colors ${
+						searchParams?.tab === "overdue"
+							? "border-[#0071BC] text-[#0071BC]"
+							: "border-transparent text-gray-500 hover:text-[#0B2545]"
+					}`}
+					href={`${baseUrl}?${new URLSearchParams({
+						...searchParams,
+						tab: "overdue",
+					}).toString()}`}
+				>
+					Overdue
+				</Link>
 			</div>
 
 			{/* OVERVIEW TAB */}
@@ -714,37 +713,7 @@ export async function MrDashboardContent({
 				</div>
 			)}
 
-			{searchParams?.tab === "sales" && canViewSales && (
-				<div>
-					<div className="mb-4 flex items-center justify-between">
-						<form
-							action={baseUrl}
-							className="flex w-full max-w-sm gap-2"
-							method="GET"
-						>
-							{Object.entries(searchParams || {}).map(([k, v]) => {
-								if (k === "q") return null;
-								return (
-									<input key={k} name={k} type="hidden" value={v as string} />
-								);
-							})}
-							<input
-								className="flex-1 rounded-xl border border-gray-300 px-3 py-2"
-								defaultValue={searchParams?.q || ""}
-								name="q"
-								placeholder="Search product or party..."
-							/>
-							<button
-								className="rounded-xl bg-[#0071BC] px-4 py-2 font-bold text-white"
-								type="submit"
-							>
-								Search
-							</button>
-						</form>
-					</div>
-					<NewSalesReportView mrId={mrId} searchParams={searchParams} />
-				</div>
-			)}
+
 
 			{searchParams?.tab === "party" && canViewPartyWise && (
 				<div>
@@ -756,6 +725,11 @@ export async function MrDashboardContent({
 			{/* FREE SCHEME REPORTS TAB */}
 			{canViewFreeScheme && searchParams?.tab === "free-schemes" && (
 				<FreeSchemeReportView mrId={mrId} searchParams={searchParams} />
+			)}
+
+			{/* OVERDUE TAB */}
+			{searchParams?.tab === "overdue" && (
+				<OverdueReportView mrId={mrId} searchParams={searchParams} />
 			)}
 
 			{/* STOCK REPORTS TAB */}

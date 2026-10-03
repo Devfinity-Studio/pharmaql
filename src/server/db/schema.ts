@@ -158,6 +158,19 @@ export const mrManufacturers = createTable(
 	(t) => [index("mr_mfg_mr_id_idx").on(t.mrId)],
 );
 
+export const companies = createTable("company", (d) => ({
+	name: d.text("name").primaryKey(),
+	isActive: d.boolean("is_active").default(true).notNull(),
+	createdAt: d
+		.timestamp("created_at")
+		.$defaultFn(() => new Date())
+		.notNull(),
+	updatedAt: d
+		.timestamp("updated_at")
+		.$defaultFn(() => new Date())
+		.notNull(),
+}));
+
 export const mrInventory = createTable(
 	"mr_inventory",
 	(d) => ({

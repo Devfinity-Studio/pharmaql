@@ -26,3 +26,8 @@
 
 - Parse and ingest legacy MySQL dumps (e.g. `demo data/APBARODA.sql`) into the Postgres database.
 - Map and seed product data correctly for MR assignments.
+
+## Phase 6: Overdue (Purchase Days & Outstanding)
+
+- Implement the backend logic to calculate purchase days and outstanding amounts per party.
+- Complete the "Overdue" tab in the MR Dashboard UI to render this data.

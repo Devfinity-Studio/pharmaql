@@ -60,8 +60,8 @@ export default async function MRLayout({ children }: { children: ReactNode }) {
 				<div className="mb-10">
 					<div className="flex items-center gap-2 font-black text-2xl">
 						<Link className="flex gap-2" href="/">
-							<span className="text-[#0B2545]">Pharma</span>
-							<span className="text-[#0071BC]">QL</span>
+							<span className="text-[#0B2545]">Asmee</span>
+							<span className="text-[#0071BC]">Pharma</span>
 						</Link>
 					</div>
 					<div className="mt-1.5 font-bold text-gray-400 text-xs uppercase tracking-widest">
@@ -90,7 +90,7 @@ export default async function MRLayout({ children }: { children: ReactNode }) {
 					</div>
 					<LogoutButton className="w-full rounded-lg border-2 border-red-200 bg-white px-4 py-2.5 text-center font-bold text-red-600 transition-colors hover:bg-red-50" />
 					<div className="mt-2 text-center text-[10px] text-gray-400">
-						<p>© {new Date().getFullYear()} PharmaQL. All rights reserved.</p>
+						<p>© {new Date().getFullYear()} Asmee Pharma Pvt. Ltd. All rights reserved.</p>
 						<p className="mt-1 flex items-center justify-center gap-1">
 							Made with{" "}
 							<span className="cursor-pointer text-red-500 transition-transform duration-200 hover:scale-125">

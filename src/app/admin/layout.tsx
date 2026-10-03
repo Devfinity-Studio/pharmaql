@@ -22,7 +22,7 @@ export default async function AdminLayout({
 		<div className="relative flex min-h-screen flex-col bg-gray-50 text-gray-900 md:h-screen md:flex-row md:overflow-hidden">
 			<div className="pointer-events-none absolute inset-0 z-0 bg-[url('/devfinity.png')] bg-repeat opacity-[0.03] [background-size:120px]"></div>
 			<aside className="relative z-10 flex w-full flex-col border-gray-800 border-r bg-gray-900 p-4 text-white md:w-64">
-				<div className="mb-8 font-bold text-2xl text-white">PharmaQL Admin</div>
+				<div className="mb-8 font-bold text-2xl text-white">Asmee Pharma Pvt. Ltd. Admin</div>
 				<nav className="flex flex-col space-y-2">
 					<Link
 						className="rounded p-2 font-medium hover:bg-gray-800"
@@ -36,6 +36,12 @@ export default async function AdminLayout({
 					>
 						MR Access Management
 					</Link>
+					<Link
+						className="rounded p-2 font-medium hover:bg-gray-800"
+						href="/admin/companies"
+					>
+						Company Display
+					</Link>
 				</nav>
 				<div className="mt-auto flex flex-col gap-3 border-gray-800 border-t pt-4">
 					<div className="text-gray-400 text-sm">
@@ -43,7 +49,7 @@ export default async function AdminLayout({
 					</div>
 					<LogoutButton className="w-full rounded bg-red-600 px-4 py-2 text-center font-bold text-white transition hover:bg-red-700" />
 					<div className="mt-2 text-center text-[10px] text-gray-400">
-						<p>© {new Date().getFullYear()} PharmaQL. All rights reserved.</p>
+						<p>© {new Date().getFullYear()} Asmee Pharma Pvt. Ltd. All rights reserved.</p>
 						<p className="mt-1 flex items-center justify-center gap-1">
 							Made with{" "}
 							<span className="cursor-pointer text-red-500 transition-transform duration-200 hover:scale-125">

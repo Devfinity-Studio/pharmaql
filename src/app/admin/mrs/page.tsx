@@ -1,4 +1,4 @@
-import { eq, ilike, or, sql } from "drizzle-orm";
+import { eq, ilike, or, sql, isNotNull } from "drizzle-orm";
 import { headers } from "next/headers";
 import Link from "next/link";
 import { redirect } from "next/navigation";
@@ -10,7 +10,7 @@ import {
 } from "@/server/actions/mrs";
 import { auth } from "@/server/auth";
 import { db } from "@/server/db";
-import { mrManufacturers, products, user } from "@/server/db/schema";
+import { mrManufacturers, products, user, session as sessionTable } from "@/server/db/schema";
 import { AddMRButton } from "./add-mr-button";
 import { MRSearchForm } from "./MRSearchForm";
 
@@ -34,6 +34,7 @@ export default async function AdminMRsPage({
   // Fetch all MRs and Assignments
   let allMRs = await db.select().from(user).where(eq(user.role, "MR"));
   const allAssignments = await db.select().from(mrManufacturers);
+  const allSessions = await db.select().from(sessionTable);
 
   // Filter MRs by Search Query
   if (searchQuery) {
@@ -82,7 +83,7 @@ export default async function AdminMRsPage({
       division: products.division,
     })
     .from(products)
-    .where(sql`${products.manufacturer} IS NOT NULL`);
+    .where(isNotNull(products.manufacturer));
 
   allManufacturers.sort((a, b) => {
     if (a.manufacturer === b.manufacturer) {
@@ -114,6 +115,11 @@ export default async function AdminMRsPage({
       <div className="grid grid-cols-1 gap-6 xl:grid-cols-2 2xl:grid-cols-3">
         {allMRs.map((mr) => {
           const assignments = allAssignments.filter((a) => a.mrId === mr.id);
+          const mrSessions = allSessions.filter((s) => s.userId === mr.id);
+          const lastLogin = mrSessions.length > 0 
+            ? new Date(Math.max(...mrSessions.map(s => s.createdAt.getTime()))).toLocaleString()
+            : "Never";
+
           const unassignedManufacturers = allManufacturers.filter(
             (m) =>
               !assignments.some(
@@ -132,6 +138,7 @@ export default async function AdminMRsPage({
                 <div>
                   <h3 className="font-bold text-gray-900 text-xl">{mr.name}</h3>
                   <p className="text-gray-500 text-sm">{mr.email}</p>
+                  <p className="mt-1 text-xs text-gray-400 font-medium">Last Login: {lastLogin}</p>
                 </div>
                 <div className="flex flex-wrap gap-2">
                   <form

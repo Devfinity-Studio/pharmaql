@@ -1,6 +1,7 @@
 import { type NextRequest, NextResponse } from "next/server";
 import { db } from "@/server/db";
-import { products } from "@/server/db/schema";
+import { products, companies as companiesTable } from "@/server/db/schema";
+import { eq } from "drizzle-orm";
 
 export async function GET(request: NextRequest) {
 	try {
@@ -15,9 +16,12 @@ export async function GET(request: NextRequest) {
 				.from(products)
 				.groupBy(products.manufacturer);
 
+			const allSettings = await db.select().from(companiesTable);
+			const inactiveSet = new Set(allSettings.filter(c => !c.isActive).map(c => c.name));
+
 			const companies = companiesData
 				.map((c) => c.name)
-				.filter((n): n is string => Boolean(n && n !== "Unknown"))
+				.filter((n): n is string => Boolean(n && n !== "Unknown" && !inactiveSet.has(n)))
 				.sort();
 
 			return NextResponse.json({ companies });

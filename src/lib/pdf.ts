@@ -1,18 +1,52 @@
 import { jsPDF } from "jspdf";
 import autoTable from "jspdf-autotable";
 
+function addFooterToAllPages(doc: jsPDF, mrName: string | undefined, serverTimeStr: string | undefined) {
+  const pageCount = (doc.internal as any).getNumberOfPages();
+  const personName = mrName || "Unknown";
+  
+  let dateObj = serverTimeStr ? new Date(serverTimeStr) : new Date();
+  
+  const dd = String(dateObj.getDate()).padStart(2, "0");
+  const mm = String(dateObj.getMonth() + 1).padStart(2, "0");
+  const yyyy = dateObj.getFullYear();
+  let hh = dateObj.getHours();
+  const min = String(dateObj.getMinutes()).padStart(2, "0");
+  const ss = String(dateObj.getSeconds()).padStart(2, "0");
+  const ampm = hh >= 12 ? "PM" : "AM";
+  hh = hh % 12;
+  if (hh === 0) hh = 12;
+  const strHh = String(hh).padStart(2, "0");
+  
+  const formattedDate = `${dd}/${mm}/${yyyy} ${strHh}:${min}:${ss} ${ampm}`;
+  const footerText = `${personName} (${formattedDate})`;
+
+  for (let i = 1; i <= pageCount; i++) {
+    doc.setPage(i);
+    doc.setFontSize(8);
+    doc.setTextColor(100);
+    // Print at bottom right
+    const pageWidth = doc.internal.pageSize.width;
+    const pageHeight = doc.internal.pageSize.height;
+    doc.text(footerText, pageWidth - 14, pageHeight - 5, { align: 'right' });
+  }
+}
+
+
 export function generatePdfReport(
   title: string,
   filename: string,
   data: any[],
   mrName?: string,
   action: "download" | "print" = "download",
+  serverTimeStr?: string
 ) {
   const doc = new jsPDF("landscape");
 
   if (data.length === 0) {
     doc.text("No data available for the selected filters.", 14, 20);
-    if (action === "print") {
+    addFooterToAllPages(doc, mrName, serverTimeStr);
+  if (action === "print") {
       doc.autoPrint();
       window.open(URL.createObjectURL(doc.output("blob")), "_blank");
     } else {
@@ -473,6 +507,7 @@ export function generatePdfReport(
     );
   }
 
+  addFooterToAllPages(doc, mrName, serverTimeStr);
   if (action === "print") {
     doc.autoPrint();
     window.open(URL.createObjectURL(doc.output("blob")), "_blank");
@@ -488,12 +523,14 @@ export function generateStockPdfReport(
   fromDate?: string,
   toDate?: string,
   action: "download" | "print" = "download",
+  serverTimeStr?: string
 ) {
   const doc = new jsPDF("p", "mm", "a4");
 
   if (data.length === 0) {
     doc.text("No stock data available for the selected filters.", 14, 20);
-    if (action === "print") {
+    addFooterToAllPages(doc, mrName, serverTimeStr);
+  if (action === "print") {
       doc.autoPrint();
       window.open(URL.createObjectURL(doc.output("blob")), "_blank");
     } else {
@@ -875,6 +912,7 @@ export function generateStockPdfReport(
     );
   }
 
+  addFooterToAllPages(doc, mrName, serverTimeStr);
   if (action === "print") {
     doc.autoPrint();
     window.open(URL.createObjectURL(doc.output("blob")), "_blank");
@@ -901,7 +939,8 @@ export function generateGroupedPdfReport(
 
   if (data.length === 0) {
     doc.text("No data available for the selected filters.", 14, 20);
-    if (action === "print") {
+    addFooterToAllPages(doc, mrName, serverTimeStr);
+  if (action === "print") {
       doc.autoPrint();
       window.open(URL.createObjectURL(doc.output("blob")), "_blank");
     } else {
@@ -1150,6 +1189,7 @@ export function generateGroupedPdfReport(
     );
   }
 
+  addFooterToAllPages(doc, mrName, serverTimeStr);
   if (action === "print") {
     doc.autoPrint();
     window.open(URL.createObjectURL(doc.output("blob")), "_blank");
@@ -1165,12 +1205,14 @@ export function generateSalesPdfReport(
   fromDate?: string,
   toDate?: string,
   action: "download" | "print" = "download",
+  serverTimeStr?: string
 ) {
   const doc = new jsPDF("landscape");
 
   if (data.length === 0) {
     doc.text("No data available for the selected filters.", 14, 20);
-    if (action === "print") {
+    addFooterToAllPages(doc, mrName, serverTimeStr);
+  if (action === "print") {
       doc.autoPrint();
       window.open(URL.createObjectURL(doc.output("blob")), "_blank");
     } else {
@@ -1619,6 +1661,7 @@ export function generateSalesPdfReport(
     );
   }
 
+  addFooterToAllPages(doc, mrName, serverTimeStr);
   if (action === "print") {
     doc.autoPrint();
     window.open(URL.createObjectURL(doc.output("blob")), "_blank");
@@ -1634,12 +1677,14 @@ export function generateFreeSchemePdfReport(
   fromDate?: string,
   toDate?: string,
   action: "download" | "print" = "download",
+  serverTimeStr?: string
 ) {
   const doc = new jsPDF("landscape");
 
   if (data.length === 0) {
     doc.text("No data available for the selected filters.", 14, 20);
-    if (action === "print") {
+    addFooterToAllPages(doc, mrName, serverTimeStr);
+  if (action === "print") {
       doc.autoPrint();
       window.open(URL.createObjectURL(doc.output("blob")), "_blank");
     } else {
@@ -2163,6 +2208,7 @@ export function generateFreeSchemePdfReport(
     doc.text(`ADMIN (${footerDate})`, 14, doc.internal.pageSize.height - 10);
   }
 
+  addFooterToAllPages(doc, mrName, serverTimeStr);
   if (action === "print") {
     doc.autoPrint();
     window.open(URL.createObjectURL(doc.output("blob")), "_blank");
