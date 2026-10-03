@@ -117,7 +117,7 @@ export const auth = betterAuth({
 										<!-- Header -->
 										<tr>
 											<td align="center" style="background-color: #1a1a1a; padding: 30px 20px;">
-												<h1 style="color: #ffffff; margin: 0; font-size: 24px; font-weight: 700; letter-spacing: 1px;">PHARMAQL</h1>
+												<h1 style="color: #ffffff; margin: 0; font-size: 24px; font-weight: 700; letter-spacing: 1px;">ASMEE PHARMA PVT. LTD.</h1>
 											</td>
 										</tr>
 										<!-- Body -->
@@ -143,7 +143,7 @@ export const auth = betterAuth({
 										<tr>
 											<td align="center" style="background-color: #f9fafb; padding: 20px; border-top: 1px solid #eeeeee;">
 												<p style="color: #888888; font-size: 12px; margin: 0;">
-													&copy; ${new Date().getFullYear()} PharmaQL. All rights reserved.
+													&copy; ${new Date().getFullYear()} Asmee Pharma Pvt. Ltd. All rights reserved.
 												</p>
 											</td>
 										</tr>
@@ -158,7 +158,7 @@ export const auth = betterAuth({
 				await transporter.sendMail({
 					from: env.GMAIL_USER,
 					to: email,
-					subject: "Your OTP Code - PharmaQL",
+					subject: "Your OTP Code - Asmee Pharma Pvt. Ltd.",
 					html: htmlTemplate,
 				});
 			},

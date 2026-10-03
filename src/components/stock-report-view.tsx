@@ -1,4 +1,4 @@
-import { and, eq, gte, inArray, lte, or } from "drizzle-orm";
+import { and, eq, gte, inArray, lte, or, sql } from "drizzle-orm";
 import React from "react";
 import { db } from "@/server/db";
 import {
@@ -211,12 +211,36 @@ export async function StockReportView({
 
 			const totalIn = opening + purchase + sRet + stkAdjAdd;
 
+			const maxPurcRes = await db.execute(sql`
+				SELECT 
+					MAX(CASE WHEN entry_type = 'PURC' THEN t_date END) as max_purc_date,
+					MAX(t_date) as max_any_date
+				FROM "pg-drizzle_legacy_view_stocks"
+				WHERE item_id = ${p.id} AND loc_no = ${mrInfo.locNo.toString()} 
+				AND t_date <= ${limitToDate.toISOString()}
+			`);
+			const maxPurcDateStr = (maxPurcRes[0] as any)?.max_purc_date;
+			const maxAnyDateStr = (maxPurcRes[0] as any)?.max_any_date;
+			
+			const maxPurcDate = maxPurcDateStr ? new Date(maxPurcDateStr) : (p.createdAt ? new Date(p.createdAt) : new Date());
+			const maxAnyDate = maxAnyDateStr ? new Date(maxAnyDateStr) : (p.createdAt ? new Date(p.createdAt) : new Date());
+			
+			// Use limitToDate or today for the upper bound of the report
+			const endDate = searchParams?.to ? new Date(searchParams.to) : new Date();
+			
+			// Logic 1: End Date - Last PURC (Keeping this as the default for now)
+			let purcDays = Math.floor((endDate.getTime() - maxPurcDate.getTime()) / (1000 * 60 * 60 * 24));
+			if (purcDays < 0) purcDays = 0;
+			
+			const isDeadStock = purcDays > 90 && salesQty === 0;
+
 			reportData.push({
 				Manufacturer: p.manufacturer,
 				Division: p.division || p.manufacturer,
 				"Item Name": p.name,
 				Packing: p.freeScheme || "-",
-				"Purc Days": 30, // Default to 30 days
+				"Purc Days": purcDays,
+				"Is Dead Stock": isDeadStock,
 				"Opening Qty.": opening,
 				"Purchase Qty": purchase,
 				"S.Ret Qty.": sRet,
@@ -379,7 +403,12 @@ export async function StockReportView({
 
 										return (
 											<tr
-												className="border-gray-100 border-b text-[#0B2545] hover:bg-gray-50"
+												className={`border-gray-100 border-b ${
+													row["Is Dead Stock"]
+														? "bg-red-50 text-red-900 font-bold hover:bg-red-100"
+														: "text-[#0B2545] hover:bg-gray-50"
+												}`}
+												title={row["Is Dead Stock"] ? "Dead Stock: Purchased >90 days ago with 0 sales." : ""}
 												key={rowIdx}
 											>
 												<td className="whitespace-nowrap py-1.5 pl-2">

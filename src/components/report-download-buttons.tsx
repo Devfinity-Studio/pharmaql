@@ -55,6 +55,7 @@ export function ReportDownloadButtons({ mrId }: { mrId: string }) {
 
         const res = await fetch(`${endpoint}?${params.toString()}`);
         if (!res.ok) throw new Error("Failed to fetch data");
+        const serverDateStr = res.headers.get("date") || undefined;
         const data = await res.json();
 
         const safeDivision = division.replace(/[^a-zA-Z0-9]/g, "_");
@@ -97,6 +98,7 @@ export function ReportDownloadButtons({ mrId }: { mrId: string }) {
             displayFrom,
             displayTo,
             format === "print" ? "print" : "download",
+            serverDateStr
           );
         } else if (currentTab === "sales") {
           const mrName = data.length > 0 ? data[0]["MR Name"] : "Unknown";

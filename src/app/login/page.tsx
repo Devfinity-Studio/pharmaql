@@ -25,8 +25,8 @@ export default async function LoginPage() {
 			<div className="relative z-10 text-center sm:mx-auto sm:w-full sm:max-w-md">
 				{/* Simple Text Branding */}
 				<div className="mb-4 inline-flex items-center gap-1 font-black text-3xl tracking-tight">
-					<span>Pharma</span>
-					<span className="text-[#0071BC]">QL</span>
+					<span>Asmee</span>
+					<span className="text-[#0071BC]">Pharma</span>
 				</div>
 
 				<h2 className="font-extrabold text-3xl text-[#0B2545] tracking-tight md:text-4xl">

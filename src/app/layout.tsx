@@ -9,7 +9,7 @@ import { TRPCReactProvider } from "@/trpc/react";
 const inter = Inter({ subsets: ["latin"], variable: "--font-sans" });
 
 export const metadata: Metadata = {
-	title: "PharmaQL",
+	title: "Asmee Pharma Pvt. Ltd.",
 	description:
 		"The Modern Medicine Portal empowering medical representatives and distributors with real-time insights, effortless ordering and intelligent inventory tracking.",
 	authors: [{ name: "TheAstronautGuy" }],

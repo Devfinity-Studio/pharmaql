@@ -40,7 +40,8 @@ export function OutstandingDownloadButtons({ mrId }: { mrId: string }) {
 					`/api/reports/download-outstanding?${params.toString()}`,
 				);
 				if (!res.ok) throw new Error("Failed to fetch data");
-				const data = await res.json();
+				const serverDateStr = res.headers.get("date") || undefined;
+        const data = await res.json();
 
 				// Filter by party if specified
 				const filteredData = party
@@ -77,6 +78,8 @@ export function OutstandingDownloadButtons({ mrId }: { mrId: string }) {
 					mrName,
 					from,
 					to,
+					format === "print" ? "print" : "download",
+					serverDateStr
 				);
 			} catch (e) {
 				console.error(e);

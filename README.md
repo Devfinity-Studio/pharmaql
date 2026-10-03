@@ -1,4 +1,4 @@
-# PharmaQL
+# Asmee Pharma Pvt. Ltd.
 
 The Modern Medicine Portal empowering medical representatives and distributors with real-time insights, effortless ordering and intelligent inventory tracking.
 
