@@ -31,3 +31,9 @@
 
 - Implement the backend logic to calculate purchase days and outstanding amounts per party.
 - Complete the "Overdue" tab in the MR Dashboard UI to render this data.
+
+## Phase 7: Performance Optimization & UI Loading States
+
+- Add DB indexes to improve query speeds on large tables.
+- Implement React Suspense, skeleton loaders, and `useTransition` for tabs and date filters.
+- Optimize data fetching for reports with caching or efficient aggregations.
