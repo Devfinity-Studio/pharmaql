@@ -70,7 +70,7 @@ export function OutstandingDownloadButtons({ mrId }: { mrId: string }) {
 					{ header: "Amount Due", dataKey: "Amount Due" },
 				];
 
-				generateGroupedPdfReport(
+				await generateGroupedPdfReport(
 					`Party Wise Outstanding Statement`,
 					`Outstanding_${division}_${new Date().toISOString().split("T")[0]}.pdf`,
 					cleanDataForPdf,
