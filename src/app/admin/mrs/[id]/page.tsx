@@ -5,6 +5,8 @@ import { MrDashboardContent } from "@/components/mr-dashboard-content";
 import { auth } from "@/server/auth";
 import { db } from "@/server/db";
 import { user } from "@/server/db/schema";
+import { Suspense } from "react";
+import { TableSkeleton } from "@/components/ui/table-skeleton";
 
 export default async function AdminMRViewPage({
 	params,
@@ -56,10 +58,12 @@ export default async function AdminMRViewPage({
 	}
 
 	return (
-		<MrDashboardContent
-			isAdminView={true}
-			mrId={decodedId}
-			searchParams={cleanParams}
-		/>
+		<Suspense key={JSON.stringify(cleanParams)} fallback={<div className="p-4"><TableSkeleton rows={10} columns={5} /></div>}>
+			<MrDashboardContent
+				isAdminView={true}
+				mrId={decodedId}
+				searchParams={cleanParams}
+			/>
+		</Suspense>
 	);
 }

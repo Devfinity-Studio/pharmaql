@@ -7,6 +7,8 @@ import { db } from "@/server/db";
 import { notices } from "@/server/db/schema";
 import { eq } from "drizzle-orm";
 import { NoticeModal } from "@/components/notice-modal";
+import { Suspense } from "react";
+import { TableSkeleton } from "@/components/ui/table-skeleton";
 
 export const dynamic = "force-dynamic";
 
@@ -47,11 +49,13 @@ export default async function MRDashboardPage({
 	return (
 		<>
 			<NoticeModal notices={activeNotices} />
-			<MrDashboardContent
-				isAdminView={false}
-				mrId={session.user.id}
-				searchParams={cleanParams}
-			/>
+			<Suspense key={JSON.stringify(cleanParams)} fallback={<div className="p-4"><TableSkeleton rows={10} columns={5} /></div>}>
+				<MrDashboardContent
+					isAdminView={false}
+					mrId={session.user.id}
+					searchParams={cleanParams}
+				/>
+			</Suspense>
 		</>
 	);
 }
