@@ -572,14 +572,14 @@ export async function generateStockPdfReport(
   doc.setFontSize(28);
   doc.setFont("helvetica", "bolditalic");
   doc.setTextColor(11, 37, 69); // #0B2545
-  doc.text("A", 14, currentY);
+  //doc.text("A", 14, currentY);
 
   doc.setFontSize(16);
   doc.setFont("helvetica", "bold");
     let textX = 26;
   if (logoDataUrl) {
-    doc.addImage(logoDataUrl, "PNG", 26, currentY - 8, 45, 12);
-    textX = 76; // move address to the right of the logo
+    doc.addImage(logoDataUrl, "PNG", 14, currentY - 8, 35, 15);
+    textX = 50; // move address to the right of the logo
   } else {
     doc.text("ASMEE PHARMA PRIVATE LIMITED", 26, currentY - 4);
   }
@@ -588,11 +588,11 @@ export async function generateStockPdfReport(
   doc.setFont("helvetica", "normal");
   doc.setTextColor(100, 100, 100);
   doc.text(
-    "BASEMENT-GF, 11/2 ASHOK HOUSE, B/S SANSTHA VASAHAT GATE, PRATAP",
+    "BASEMENT-GF, 11/2 ASHOK HOUSE, B/S SANSTHA VASAHAT ",
     textX,
     currentY - 4, // align with logo vertically
   );
-  doc.text("ROAD, RAOPURA, VADODARA - 390001, GUJARAT", textX, currentY);
+  doc.text("GATE, PRATAP ROAD, RAOPURA, VADODARA - 390001, GUJARAT", textX, currentY);
   doc.text("Contact: 9409789800, Mobile: 9409789700", textX, currentY + 4);
 
   // Right side details
@@ -1271,14 +1271,14 @@ export async function generateSalesPdfReport(
   doc.setFontSize(36);
   doc.setFont("times", "italic", "bold");
   doc.setTextColor(11, 37, 69); // #0B2545
-  doc.text("A", 14, currentY + 8);
+ // doc.text("A", 14, currentY + 8);
 
   doc.setFontSize(16);
   doc.setFont("helvetica", "bold");
   
   let textX = 30;
   if (logoDataUrl) {
-    doc.addImage(logoDataUrl, "PNG", 30, currentY - 8, 45, 12);
+    doc.addImage(logoDataUrl, "PNG", 14, currentY - 8, 45, 12);
     textX = parseInt("30") + 50; // Move text to the right of the logo
     // Do not shift currentY down, so the text aligns horizontally with the logo
   } else {
@@ -1752,14 +1752,14 @@ export async function generateFreeSchemePdfReport(
   doc.setFontSize(36);
   doc.setFont("times", "italic", "bold");
   doc.setTextColor(11, 37, 69); // #0B2545
-  doc.text("A", 14, currentY + 8);
+  //doc.text("A", 14, currentY + 8);
 
   doc.setFontSize(16);
   doc.setFont("helvetica", "bold");
   
   let textX = 30;
   if (logoDataUrl) {
-    doc.addImage(logoDataUrl, "PNG", 30, currentY - 8, 45, 12);
+    doc.addImage(logoDataUrl, "PNG", 14, currentY - 0, 45, 12);
     textX = parseInt("30") + 50; // Move text to the right of the logo
     // Do not shift currentY down, so the text aligns horizontally with the logo
   } else {
