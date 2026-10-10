@@ -1,3 +1,4 @@
+import Image from "next/image";
 import { and, eq, gte, inArray, lte, or, sql } from "drizzle-orm";
 import React from "react";
 import { db } from "@/server/db";
@@ -155,10 +156,9 @@ export async function NewSalesReportView({
 			{/* Header */}
 			<div className="mb-2 flex flex-col items-start justify-between gap-4 border-[#0B2545] border-b-2 pb-2 md:flex-row">
 				<div className="flex items-center gap-4">
-					<div className="font-black text-5xl text-[#0B2545] italic">A</div>
 					<div>
 						<h2 className="font-extrabold text-2xl text-[#0B2545] tracking-tight">
-							ASMEE PHARMA PRIVATE LIMITED
+							<Image src="/logo.png" alt="Asmee Pharma Logo" width={180} height={50} className="object-contain" priority />
 						</h2>
 						<p className="mt-1 font-medium text-[#0B2545] text-sm leading-relaxed">
 							BASEMENE-GF, 11/2 ASHOK HOUSE, B/S SANSTHA VASAHAT GATE, PRATAP
