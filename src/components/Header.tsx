@@ -2,6 +2,7 @@ import { headers } from "next/headers";
 import Link from "next/link";
 import { LogoutButton } from "@/components/logout-button";
 import { auth } from "@/server/auth";
+import Image from "next/image";
 
 export default async function Header() {
   const session = await auth.api.getSession({ headers: await headers() });
@@ -11,8 +12,7 @@ export default async function Header() {
       <div className="mx-auto flex max-w-7xl items-center justify-between px-8 py-5">
         <div className="font-extrabold text-3xl tracking-tight transition-transform hover:scale-[1.02]">
           <Link href={"/"}>
-            <span className="text-white">Asmee</span>
-            <span className="text-cyan-400">Pharma</span>
+            <Image src="/logo.png" alt="Asmee Pharma Logo" width={160} height={40} className="object-contain" priority />
           </Link>
         </div>
 

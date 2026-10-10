@@ -1,6 +1,23 @@
 import { jsPDF } from "jspdf";
 import autoTable from "jspdf-autotable";
 
+async function getLogoDataUrl(): Promise<string | null> {
+  try {
+    const res = await fetch("/logo.png");
+    if (!res.ok) return null;
+    const blob = await res.blob();
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onloadend = () => resolve(reader.result as string);
+      reader.onerror = reject;
+      reader.readAsDataURL(blob);
+    });
+  } catch (e) {
+    return null;
+  }
+}
+
+
 function addFooterToAllPages(doc: jsPDF, mrName: string | undefined, serverTimeStr: string | undefined) {
   const pageCount = (doc.internal as any).getNumberOfPages();
   const personName = mrName || "Unknown";
@@ -33,7 +50,7 @@ function addFooterToAllPages(doc: jsPDF, mrName: string | undefined, serverTimeS
 }
 
 
-export function generatePdfReport(
+export async function generatePdfReport(
   title: string,
   filename: string,
   data: any[],
@@ -41,6 +58,7 @@ export function generatePdfReport(
   action: "download" | "print" = "download",
   serverTimeStr?: string
 ) {
+  const logoDataUrl = await getLogoDataUrl();
   const doc = new jsPDF("landscape");
 
   if (data.length === 0) {
@@ -61,7 +79,11 @@ export function generatePdfReport(
   doc.setFontSize(16);
   doc.setFont("helvetica", "bold");
   doc.setTextColor(30, 58, 138); // Blue
-  doc.text("ASMEE PHARMA PRIVATE LIMITED", 14, currentY);
+  if (logoDataUrl) {
+    doc.addImage(logoDataUrl, "PNG", 14, currentY - 5, 45, 12);
+  } else {
+    doc.text("ASMEE PHARMA PRIVATE LIMITED", 14, currentY);
+  }
 
   currentY += 5;
   doc.setFontSize(9);
@@ -516,7 +538,7 @@ export function generatePdfReport(
   }
 }
 
-export function generateStockPdfReport(
+export async function generateStockPdfReport(
   filename: string,
   data: any[],
   mrName?: string,
@@ -525,6 +547,7 @@ export function generateStockPdfReport(
   action: "download" | "print" = "download",
   serverTimeStr?: string
 ) {
+  const logoDataUrl = await getLogoDataUrl();
   const doc = new jsPDF("p", "mm", "a4");
 
   if (data.length === 0) {
@@ -549,7 +572,11 @@ export function generateStockPdfReport(
 
   doc.setFontSize(16);
   doc.setFont("helvetica", "bold");
-  doc.text("ASMEE PHARMA PRIVATE LIMITED", 26, currentY - 4);
+  if (logoDataUrl) {
+    doc.addImage(logoDataUrl, "PNG", 26, currentY - 4 - 5, 45, 12);
+  } else {
+    doc.text("ASMEE PHARMA PRIVATE LIMITED", 26, currentY - 4);
+  }
 
   doc.setFontSize(9);
   doc.setFont("helvetica", "normal");
@@ -921,7 +948,7 @@ export function generateStockPdfReport(
   }
 }
 
-export function generateGroupedPdfReport(
+export async function generateGroupedPdfReport(
   title: string,
   filename: string,
   data: any[],
@@ -936,6 +963,7 @@ export function generateGroupedPdfReport(
   toDate?: string,
   serverTimeStr?: string,
 ) {
+  const logoDataUrl = await getLogoDataUrl();
   const doc = new jsPDF("landscape");
 
   if (data.length === 0) {
@@ -956,7 +984,11 @@ export function generateGroupedPdfReport(
   doc.setFontSize(16);
   doc.setFont("helvetica", "bold");
   doc.setTextColor(30, 58, 138); // Blue
-  doc.text("ASMEE PHARMA PRIVATE LIMITED", 14, currentY);
+  if (logoDataUrl) {
+    doc.addImage(logoDataUrl, "PNG", 14, currentY - 5, 45, 12);
+  } else {
+    doc.text("ASMEE PHARMA PRIVATE LIMITED", 14, currentY);
+  }
 
   currentY += 5;
   doc.setFontSize(9);
@@ -1199,7 +1231,7 @@ export function generateGroupedPdfReport(
   }
 }
 
-export function generateSalesPdfReport(
+export async function generateSalesPdfReport(
   filename: string,
   data: any[],
   mrName?: string,
@@ -1208,6 +1240,7 @@ export function generateSalesPdfReport(
   action: "download" | "print" = "download",
   serverTimeStr?: string
 ) {
+  const logoDataUrl = await getLogoDataUrl();
   const doc = new jsPDF("landscape");
 
   if (data.length === 0) {
@@ -1232,7 +1265,11 @@ export function generateSalesPdfReport(
 
   doc.setFontSize(16);
   doc.setFont("helvetica", "bold");
-  doc.text("ASMEE PHARMA PRIVATE LIMITED", 30, currentY);
+  if (logoDataUrl) {
+    doc.addImage(logoDataUrl, "PNG", 30, currentY - 5, 45, 12);
+  } else {
+    doc.text("ASMEE PHARMA PRIVATE LIMITED", 30, currentY);
+  }
 
   currentY += 5;
   doc.setFontSize(9);
@@ -1671,7 +1708,7 @@ export function generateSalesPdfReport(
   }
 }
 
-export function generateFreeSchemePdfReport(
+export async function generateFreeSchemePdfReport(
   filename: string,
   data: any[],
   mrName?: string,
@@ -1680,6 +1717,7 @@ export function generateFreeSchemePdfReport(
   action: "download" | "print" = "download",
   serverTimeStr?: string
 ) {
+  const logoDataUrl = await getLogoDataUrl();
   const doc = new jsPDF("landscape");
 
   if (data.length === 0) {
@@ -1704,7 +1742,11 @@ export function generateFreeSchemePdfReport(
 
   doc.setFontSize(16);
   doc.setFont("helvetica", "bold");
-  doc.text("ASMEE PHARMA PRIVATE LIMITED", 30, currentY);
+  if (logoDataUrl) {
+    doc.addImage(logoDataUrl, "PNG", 30, currentY - 5, 45, 12);
+  } else {
+    doc.text("ASMEE PHARMA PRIVATE LIMITED", 30, currentY);
+  }
 
   currentY += 5;
   doc.setFontSize(9);
