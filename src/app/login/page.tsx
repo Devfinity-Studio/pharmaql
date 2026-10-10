@@ -2,6 +2,7 @@ import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { auth } from "@/server/auth";
 import { LoginForm } from "./login-form";
+import Image from "next/image";
 
 export default async function LoginPage() {
 	const session = await auth.api.getSession({
@@ -24,9 +25,8 @@ export default async function LoginPage() {
 			{/* Text Headers */}
 			<div className="relative z-10 text-center sm:mx-auto sm:w-full sm:max-w-md">
 				{/* Simple Text Branding */}
-				<div className="mb-4 inline-flex items-center gap-1 font-black text-3xl tracking-tight">
-					<span>Asmee</span>
-					<span className="text-[#0071BC]">Pharma</span>
+				<div className="mb-4 flex justify-center">
+					<Image src="/logo.png" alt="Asmee Pharma Logo" width={200} height={60} className="object-contain" priority />
 				</div>
 
 				<h2 className="font-extrabold text-3xl text-[#0B2545] tracking-tight md:text-4xl">
