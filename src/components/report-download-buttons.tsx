@@ -91,7 +91,7 @@ export function ReportDownloadButtons({ mrId }: { mrId: string }) {
         if (currentTab === "stock") {
           const mrName = data.length > 0 ? data[0]["MR Name"] : "Unknown";
           const safeMrName = mrName.replace(/[^a-zA-Z0-9]/g, "_");
-          generateStockPdfReport(
+          await generateStockPdfReport(
             `${safeMrName}_${safeDivision}_stock_${fromToSuffix}.pdf`,
             data,
             mrName,
@@ -104,8 +104,8 @@ export function ReportDownloadButtons({ mrId }: { mrId: string }) {
           const mrName = data.length > 0 ? data[0]["MR Name"] : "Unknown";
           const safeMrName = mrName.replace(/[^a-zA-Z0-9]/g, "_");
 
-          import("@/lib/pdf").then(({ generateSalesPdfReport }) => {
-            generateSalesPdfReport(
+          import("@/lib/pdf").then(async ({ generateSalesPdfReport }) => {
+            await generateSalesPdfReport(
               `${safeMrName}_${safeDivision}${fromToSuffix}.pdf`,
               data,
               mrName,
@@ -127,8 +127,8 @@ export function ReportDownloadButtons({ mrId }: { mrId: string }) {
             { header: "Total Sales Amt", dataKey: "Total Sales Amt" },
           ];
 
-          import("@/lib/pdf").then(({ generateGroupedPdfReport }) => {
-            generateGroupedPdfReport(
+          import("@/lib/pdf").then(async ({ generateGroupedPdfReport }) => {
+            await generateGroupedPdfReport(
               `Product Wise Statement`,
               `${safeMrName}_${safeDivision}_products_${fromToSuffix}.pdf`,
               data,
@@ -155,8 +155,8 @@ export function ReportDownloadButtons({ mrId }: { mrId: string }) {
             return rest;
           });
 
-          import("@/lib/pdf").then(({ generateFreeSchemePdfReport }) => {
-            generateFreeSchemePdfReport(
+          import("@/lib/pdf").then(async ({ generateFreeSchemePdfReport }) => {
+            await generateFreeSchemePdfReport(
               `${safeMrName}_${safeDivision}_free_schemes_${fromToSuffix}.pdf`,
               cleanDataForPdf,
               mrName,
