@@ -79,8 +79,12 @@ export async function generatePdfReport(
   doc.setFontSize(16);
   doc.setFont("helvetica", "bold");
   doc.setTextColor(30, 58, 138); // Blue
+  
+  let textX = 14;
   if (logoDataUrl) {
-    doc.addImage(logoDataUrl, "PNG", 14, currentY - 5, 45, 12);
+    doc.addImage(logoDataUrl, "PNG", 14, currentY - 8, 45, 12);
+    textX = parseInt("14") + 50; // Move text to the right of the logo
+    // Do not shift currentY down, so the text aligns horizontally with the logo
   } else {
     doc.text("ASMEE PHARMA PRIVATE LIMITED", 14, currentY);
   }
@@ -90,16 +94,16 @@ export async function generatePdfReport(
   doc.setFont("helvetica", "normal");
   doc.setTextColor(50, 50, 50);
   doc.text(
-    "BASEMENE-GF, 11/2 ASHOK HOUSE, B/S SANSTHA VASAHAT GATE,, PRATAP ROAD,",
-    14,
+    "BASEMENE-GF, 11/2 ASHOK HOUSE, B/S SANSTHA VASAHAT GATE, PRATAP ROAD,",
+    textX,
     currentY,
   );
   currentY += 4;
-  doc.text("RAOPURA, VADODARA - 390001, GUJARAT - 24", 14, currentY);
+  doc.text("RAOPURA, VADODARA - 390001, GUJARAT", textX, currentY);
   currentY += 4;
   doc.text(
-    "Contact: 9409789800, 9409789700 Mobile: 9409789700 Email: asmeepharma2022@gmail.com",
-    14,
+    "Contact: 9409789800, Mobile: 9409789700 Email: asmeepharma2022@gmail.com",
+    textX,
     currentY,
   );
 
@@ -572,8 +576,10 @@ export async function generateStockPdfReport(
 
   doc.setFontSize(16);
   doc.setFont("helvetica", "bold");
+    let textX = 26;
   if (logoDataUrl) {
-    doc.addImage(logoDataUrl, "PNG", 26, currentY - 4 - 5, 45, 12);
+    doc.addImage(logoDataUrl, "PNG", 26, currentY - 8, 45, 12);
+    textX = 76; // move address to the right of the logo
   } else {
     doc.text("ASMEE PHARMA PRIVATE LIMITED", 26, currentY - 4);
   }
@@ -583,11 +589,11 @@ export async function generateStockPdfReport(
   doc.setTextColor(100, 100, 100);
   doc.text(
     "BASEMENT-GF, 11/2 ASHOK HOUSE, B/S SANSTHA VASAHAT GATE, PRATAP",
-    26,
-    currentY + 1,
+    textX,
+    currentY - 4, // align with logo vertically
   );
-  doc.text("ROAD, RAOPURA, VADODARA - 390001, GUJARAT", 26, currentY + 5);
-  doc.text("Contact: 9409789800, Mobile: 9409789700", 26, currentY + 9);
+  doc.text("ROAD, RAOPURA, VADODARA - 390001, GUJARAT", textX, currentY);
+  doc.text("Contact: 9409789800, Mobile: 9409789700", textX, currentY + 4);
 
   // Right side details
   doc.setTextColor(11, 37, 69);
@@ -984,8 +990,12 @@ export async function generateGroupedPdfReport(
   doc.setFontSize(16);
   doc.setFont("helvetica", "bold");
   doc.setTextColor(30, 58, 138); // Blue
+  
+  let textX = 14;
   if (logoDataUrl) {
-    doc.addImage(logoDataUrl, "PNG", 14, currentY - 5, 45, 12);
+    doc.addImage(logoDataUrl, "PNG", 14, currentY - 8, 45, 12);
+    textX = parseInt("14") + 50; // Move text to the right of the logo
+    // Do not shift currentY down, so the text aligns horizontally with the logo
   } else {
     doc.text("ASMEE PHARMA PRIVATE LIMITED", 14, currentY);
   }
@@ -995,16 +1005,16 @@ export async function generateGroupedPdfReport(
   doc.setFont("helvetica", "normal");
   doc.setTextColor(50, 50, 50);
   doc.text(
-    "BASEMENE-GF, 11/2 ASHOK HOUSE, B/S SANSTHA VASAHAT GATE,, PRATAP ROAD,",
-    14,
+    "BASEMENE-GF, 11/2 ASHOK HOUSE, B/S SANSTHA VASAHAT GATE, PRATAP ROAD,",
+    textX,
     currentY,
   );
   currentY += 4;
-  doc.text("RAOPURA, VADODARA - 390001, GUJARAT - 24", 14, currentY);
+  doc.text("RAOPURA, VADODARA - 390001, GUJARAT", textX, currentY);
   currentY += 4;
   doc.text(
-    "Contact: 9409789800, 9409789700 Mobile: 9409789700 Email: asmeepharma2022@gmail.com",
-    14,
+    "Contact: 9409789800, Mobile: 9409789700 Email: asmeepharma2022@gmail.com",
+    textX,
     currentY,
   );
 
@@ -1265,8 +1275,12 @@ export async function generateSalesPdfReport(
 
   doc.setFontSize(16);
   doc.setFont("helvetica", "bold");
+  
+  let textX = 30;
   if (logoDataUrl) {
-    doc.addImage(logoDataUrl, "PNG", 30, currentY - 5, 45, 12);
+    doc.addImage(logoDataUrl, "PNG", 30, currentY - 8, 45, 12);
+    textX = parseInt("30") + 50; // Move text to the right of the logo
+    // Do not shift currentY down, so the text aligns horizontally with the logo
   } else {
     doc.text("ASMEE PHARMA PRIVATE LIMITED", 30, currentY);
   }
@@ -1276,16 +1290,16 @@ export async function generateSalesPdfReport(
   doc.setFont("helvetica", "normal");
   doc.setTextColor(11, 37, 69);
   doc.text(
-    "BASEMENE-GF, 11/2 ASHOK HOUSE, B/S SANSTHA VASAHAT GATE,, PRATAP ROAD,",
-    30,
+    "BASEMENE-GF, 11/2 ASHOK HOUSE, B/S SANSTHA VASAHAT GATE, PRATAP ROAD,",
+    textX,
     currentY,
   );
   currentY += 4;
-  doc.text("RAOPURA, VADODARA - 390001, GUJARAT - 24", 30, currentY);
+  doc.text("RAOPURA, VADODARA - 390001, GUJARAT", textX, currentY);
   currentY += 4;
   doc.text(
-    "Contact: 9409789800, 9409789700 Mobile: 9409789700 Email: asmeepharma2022@gmail.com",
-    30,
+    "Contact: 9409789800, Mobile: 9409789700 Email: asmeepharma2022@gmail.com",
+    textX,
     currentY,
   );
 
@@ -1742,8 +1756,12 @@ export async function generateFreeSchemePdfReport(
 
   doc.setFontSize(16);
   doc.setFont("helvetica", "bold");
+  
+  let textX = 30;
   if (logoDataUrl) {
-    doc.addImage(logoDataUrl, "PNG", 30, currentY - 5, 45, 12);
+    doc.addImage(logoDataUrl, "PNG", 30, currentY - 8, 45, 12);
+    textX = parseInt("30") + 50; // Move text to the right of the logo
+    // Do not shift currentY down, so the text aligns horizontally with the logo
   } else {
     doc.text("ASMEE PHARMA PRIVATE LIMITED", 30, currentY);
   }
@@ -1753,16 +1771,16 @@ export async function generateFreeSchemePdfReport(
   doc.setFont("helvetica", "normal");
   doc.setTextColor(11, 37, 69);
   doc.text(
-    "BASEMENE-GF, 11/2 ASHOK HOUSE, B/S SANSTHA VASAHAT GATE,, PRATAP ROAD,",
-    30,
+    "BASEMENE-GF, 11/2 ASHOK HOUSE, B/S SANSTHA VASAHAT GATE, PRATAP ROAD,",
+    textX,
     currentY,
   );
   currentY += 4;
-  doc.text("RAOPURA, VADODARA - 390001, GUJARAT - 24", 30, currentY);
+  doc.text("RAOPURA, VADODARA - 390001, GUJARAT", textX, currentY);
   currentY += 4;
   doc.text(
-    "Contact: 9409789800, 9409789700 Mobile: 9409789700 Email: asmeepharma2022@gmail.com",
-    30,
+    "Contact: 9409789800, Mobile: 9409789700 Email: asmeepharma2022@gmail.com",
+    textX,
     currentY,
   );
 
