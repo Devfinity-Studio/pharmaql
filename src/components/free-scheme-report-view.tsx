@@ -1,3 +1,4 @@
+import Image from "next/image";
 import React from "react";
 import { and, eq, gte, inArray, lte, sql } from "drizzle-orm";
 import { db } from "@/server/db";
@@ -217,7 +218,7 @@ export async function FreeSchemeReportView({
       <div className="flex flex-col md:flex-row justify-between mb-4">
         <div>
           <h2 className="font-bold text-[#0B2545] text-xl">
-            ASMEE PHARMA PRIVATE LIMITED
+            <Image src="/logo.png" alt="Asmee Pharma Logo" width={180} height={50} className="object-contain" priority />
           </h2>
           <p className="text-xs text-black mt-1">
             BASEMENE-GF, 11/2 ASHOK HOUSE, B/S SANSTHA VASAHAT GATE,, PRATAP
