@@ -75,10 +75,10 @@ export function OutstandingDownloadButtons({ mrId }: { mrId: string }) {
 					`Outstanding_${division}_${new Date().toISOString().split("T")[0]}.pdf`,
 					cleanDataForPdf,
 					columns as any,
+					format === "print" ? "print" : "download",
 					mrName,
 					from,
 					to,
-					format === "print" ? "print" : "download",
 					serverDateStr
 				);
 			} catch (e) {
