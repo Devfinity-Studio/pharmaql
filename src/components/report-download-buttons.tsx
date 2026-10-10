@@ -112,6 +112,7 @@ export function ReportDownloadButtons({ mrId }: { mrId: string }) {
               displayFrom,
               displayTo,
               format === "print" ? "print" : "download",
+              serverDateStr
             );
           });
         } else if (currentTab === "products") {
@@ -132,9 +133,11 @@ export function ReportDownloadButtons({ mrId }: { mrId: string }) {
               `${safeMrName}_${safeDivision}_products_${fromToSuffix}.pdf`,
               data,
               columns as any,
+              format === "print" ? "print" : "download",
               mrName,
               displayFrom,
               displayTo,
+              serverDateStr
             );
           });
         } else {
@@ -160,6 +163,7 @@ export function ReportDownloadButtons({ mrId }: { mrId: string }) {
               displayFrom,
               displayTo,
               format === "print" ? "print" : "download",
+              serverDateStr
             );
           });
         }

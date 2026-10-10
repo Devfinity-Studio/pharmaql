@@ -934,6 +934,7 @@ export function generateGroupedPdfReport(
   mrName?: string,
   fromDate?: string,
   toDate?: string,
+  serverTimeStr?: string,
 ) {
   const doc = new jsPDF("landscape");
 
