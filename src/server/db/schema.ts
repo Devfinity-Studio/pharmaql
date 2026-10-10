@@ -171,6 +171,23 @@ export const companies = createTable("company", (d) => ({
 		.notNull(),
 }));
 
+export const notices = createTable("notice", (d) => ({
+	id: d.text("id").primaryKey(),
+	title: d.text("title").notNull().default("Notice"),
+	content: d.text("content").notNull(),
+	variant: d.text("variant").notNull().default("info"),
+	isActive: d.boolean("is_active").default(true).notNull(),
+	expiresAt: d.timestamp("expires_at"),
+	createdAt: d
+		.timestamp("created_at")
+		.$defaultFn(() => new Date())
+		.notNull(),
+	updatedAt: d
+		.timestamp("updated_at")
+		.$defaultFn(() => new Date())
+		.notNull(),
+}));
+
 export const mrInventory = createTable(
 	"mr_inventory",
 	(d) => ({

@@ -3,6 +3,11 @@ import { redirect } from "next/navigation";
 import { MrDashboardContent } from "@/components/mr-dashboard-content";
 import { auth } from "@/server/auth";
 
+import { db } from "@/server/db";
+import { notices } from "@/server/db/schema";
+import { eq } from "drizzle-orm";
+import { NoticeModal } from "@/components/notice-modal";
+
 export const dynamic = "force-dynamic";
 
 export default async function MRDashboardPage({
@@ -34,11 +39,19 @@ export default async function MRDashboardPage({
 		}
 	}
 
+	const activeNotices = await db
+		.select()
+		.from(notices)
+		.where(eq(notices.isActive, true));
+
 	return (
-		<MrDashboardContent
-			isAdminView={false}
-			mrId={session.user.id}
-			searchParams={cleanParams}
-		/>
+		<>
+			<NoticeModal notices={activeNotices} />
+			<MrDashboardContent
+				isAdminView={false}
+				mrId={session.user.id}
+				searchParams={cleanParams}
+			/>
+		</>
 	);
 }

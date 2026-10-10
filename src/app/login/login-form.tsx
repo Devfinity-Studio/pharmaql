@@ -10,8 +10,20 @@ import {
 } from "@/components/ui/input-otp";
 import { emailOtp, signIn, signOut } from "@/lib/auth-client";
 import { checkActiveSessions, clearOtherSessions } from "@/server/actions/mrs";
+import { useEffect } from "react";
 
 export function LoginForm() {
+	useEffect(() => {
+		// Clear notice session storage so they see it on every new login
+		const keysToRemove = [];
+		for (let i = 0; i < sessionStorage.length; i++) {
+			const key = sessionStorage.key(i);
+			if (key && key.startsWith("seen_notice_")) {
+				keysToRemove.push(key);
+			}
+		}
+		keysToRemove.forEach(k => sessionStorage.removeItem(k));
+	}, []);
 	const [step, setStep] = useState<
 		"email" | "active-session-warning" | "password" | "otp"
 	>("email");
