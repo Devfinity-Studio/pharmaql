@@ -3,8 +3,7 @@ import { headers } from "next/headers";
 import { notFound, redirect } from "next/navigation";
 import { MrDashboardContent } from "@/components/mr-dashboard-content";
 import { auth } from "@/server/auth";
-import { db } from "@/server/db";
-import { user } from "@/server/db/schema";
+import { getMRInfo } from "@/server/actions/mrInfo";
 import { Suspense } from "react";
 import { TableSkeleton } from "@/components/ui/table-skeleton";
 
@@ -47,13 +46,9 @@ export default async function AdminMRViewPage({
 		}
 	}
 
-	const mrArr = await db
-		.select()
-		.from(user)
-		.where(eq(user.id, decodedId))
-		.limit(1);
-	console.log("[DEBUG] Query result for decodedId = ", decodedId, ":", mrArr);
-	if (mrArr.length === 0) {
+	const mrInfo = await getMRInfo(decodedId);
+	console.log("[DEBUG] Query result for decodedId = ", decodedId, ":", mrInfo);
+	if (!mrInfo) {
 		notFound();
 	}
 

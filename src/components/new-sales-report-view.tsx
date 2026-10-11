@@ -2,7 +2,8 @@ import Image from "next/image";
 import { and, eq, gte, inArray, lte, or, sql } from "drizzle-orm";
 import React from "react";
 import { db } from "@/server/db";
-import { mrManufacturers, products, user } from "@/server/db/schema";
+import { mrManufacturers, products } from "@/server/db/schema";
+import { getMRInfo } from "@/server/actions/mrInfo";
 
 export async function NewSalesReportView({
 	mrId,
@@ -17,20 +18,32 @@ export async function NewSalesReportView({
 	};
 }) {
 	// Fetch MR and assignments
-	const mrInfoArr = await db
-		.select()
-		.from(user)
-		.where(eq(user.id, mrId))
-		.limit(1);
-	const mrInfo = mrInfoArr[0];
+	const mrInfo = await getMRInfo(mrId);
 	if (!mrInfo || !mrInfo.canViewSales)
 		return <div>No access to sales data.</div>;
 
 	const company = searchParams?.division || "All";
-	const selectedAssignments = await db
+	const dbAssignments = await db
 		.select()
 		.from(mrManufacturers)
 		.where(eq(mrManufacturers.mrId, mrId));
+
+	const selectedAssignments =
+		dbAssignments.length > 0
+			? dbAssignments
+			: mrInfo.company
+				? [
+						{
+							id: `legacy-${mrId}`,
+							mrId,
+							manufacturer: mrInfo.company,
+							firmNo: null,
+							division: mrInfo.division || null,
+							company: mrInfo.company,
+							createdAt: new Date(),
+						},
+					]
+				: [];
 
 	let validAssignments = selectedAssignments;
 	if (company !== "All") {

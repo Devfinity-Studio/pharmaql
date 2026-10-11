@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { auth } from "@/server/auth";
 import { db } from "@/server/db";
 import { companies, products } from "@/server/db/schema";
+import { getAllMarketingCompaniesWithDivisions } from "@/server/actions/mrInfo";
 import ClientCompanyList from "./ClientCompanyList";
 
 export default async function AdminCompaniesPage() {
@@ -15,7 +16,7 @@ export default async function AdminCompaniesPage() {
 		redirect("/login");
 	}
 
-	// Fetch all distinct manufacturers
+	// Fetch all distinct manufacturers from products and m_mktcompany
 	const allProducts = await db
 		.selectDistinct({
 			manufacturer: products.manufacturer,
@@ -23,18 +24,25 @@ export default async function AdminCompaniesPage() {
 		.from(products)
 		.where(isNotNull(products.manufacturer));
 
+	const mktCompanies = await getAllMarketingCompaniesWithDivisions();
+	const mktCompanyNames = Array.from(new Set(mktCompanies.map((c) => c.companyName || c.companyCode)));
+	const productCompanyNames = allProducts.map((p) => p.manufacturer);
+	const allCompanyNames = Array.from(new Set([...mktCompanyNames, ...productCompanyNames])).filter(Boolean);
+
 	// Fetch existing company settings
 	const allCompanies = await db.select().from(companies);
 	const companyStatusMap = new Map(
 		allCompanies.map((c) => [c.name, c.isActive]),
 	);
 
-	const companyInfoList = allProducts.map((p) => ({
-		name: p.manufacturer,
-		isActive: companyStatusMap.has(p.manufacturer)
-			? companyStatusMap.get(p.manufacturer)!
-			: true, // active by default
-	})).sort((a, b) => a.name.localeCompare(b.name));
+	const companyInfoList = allCompanyNames
+		.map((name) => ({
+			name,
+			isActive: companyStatusMap.has(name)
+				? companyStatusMap.get(name)!
+				: true, // active by default
+		}))
+		.sort((a, b) => a.name.localeCompare(b.name));
 
 	return (
 		<div className="mt-4 space-y-8">

@@ -1,14 +1,38 @@
+import { eq } from "drizzle-orm";
 import Image from "next/image";
-import { and, eq, gte, inArray, lte, or, sql } from "drizzle-orm";
 import React from "react";
-import { db } from "@/server/db";
+import { getMRInfo } from "@/server/actions/mrInfo";
 import {
-	mrInventory,
-	mrManufacturers,
-	products,
-	sales,
-	user,
-} from "@/server/db/schema";
+	getStockMovement,
+	type StockMovementRow,
+} from "@/server/actions/stockreports";
+import { db } from "@/server/db";
+import { mrManufacturers } from "@/server/db/schema";
+
+interface StockReportItem {
+	ItemId: number;
+	Manufacturer: string;
+	Division: string;
+	"Item Name": string;
+	Packing: string;
+	"Purc Days": number;
+	"Is Dead Stock": boolean;
+	"Opening Qty.": number;
+	"Purchase Qty": number;
+	"S.Ret Qty.": number;
+	"Stk Adj Add": number;
+	"Total In Qty": number;
+	"Sales Qty.": number;
+	"P.Ret Qty.": number;
+	"Stk Adj Less": number;
+	"Balance Qty.": number;
+	"Stock Value": number;
+	"Opening Value": number;
+	"Purchase Value": number;
+	"Sales Value": number;
+	prate: number;
+	ptr: number;
+}
 
 export async function StockReportView({
 	mrId,
@@ -21,227 +45,130 @@ export async function StockReportView({
 		to?: string;
 	};
 }) {
-	// Fetch data
-	const mrInfoArr = await db
-		.select()
-		.from(user)
-		.where(eq(user.id, mrId))
-		.limit(1);
-	const mrInfo = mrInfoArr[0];
-	if (!mrInfo || !mrInfo.canViewStock)
-		return <div>No access to stock data.</div>;
+	// Fetch MR Info & permissions from legacy schema
+	const mrInfo = await getMRInfo(mrId);
+	if (!mrInfo?.canViewStock) return <div>No access to stock data.</div>;
 
 	const effectiveLocNo = mrInfo.locNo || "11";
-
 	const company = searchParams?.division || "All";
 
-	const assignments = await db
+	const dbAssignments = await db
 		.select()
 		.from(mrManufacturers)
 		.where(eq(mrManufacturers.mrId, mrId));
+
+	const assignments =
+		dbAssignments.length > 0
+			? dbAssignments
+			: mrInfo.company
+				? [
+						{
+							id: `legacy-${mrId}`,
+							mrId,
+							manufacturer: mrInfo.company,
+							firmNo: null,
+							division: mrInfo.division || null,
+							company: mrInfo.company,
+							createdAt: new Date(),
+						},
+					]
+				: [];
+
+	if (assignments.length === 0) return <div>No data assigned</div>;
 
 	const selectedAssignments =
 		company === "All"
 			? assignments
 			: assignments.filter((a) => (a.division || a.manufacturer) === company);
 
-	const productConditionList = selectedAssignments.map((d) => {
-		const conditions = [eq(products.manufacturer, d.manufacturer)];
-		if (d.division) {
-			conditions.push(eq(products.division, d.division));
-		}
-		return and(...conditions);
-	});
+	if (selectedAssignments.length === 0) return <div>No data assigned</div>;
 
-	if (productConditionList.length === 0) return <div>No data assigned</div>;
+	const targetCompanies = Array.from(
+		new Set(selectedAssignments.map((a) => a.manufacturer).filter(Boolean)),
+	) as string[];
 
-	const accessibleProducts = await db
-		.select()
-		.from(products)
-		.where(or(...productConditionList));
+	if (targetCompanies.length === 0) return <div>No data assigned</div>;
 
-	const productIds = accessibleProducts.map((p) => p.id);
+	const finYearStart = "2026-04-01";
+	const fromDate = searchParams?.from || finYearStart;
+	const toDate = searchParams?.to || new Date().toISOString().slice(0, 10);
 
-	if (productIds.length === 0) return <div>No products found</div>;
-
-	// Inventory
-	let inventoryCondition = and(
-		inArray(mrInventory.productId, productIds),
-		eq(mrInventory.mrId, mrId),
+	const response = await getStockMovement(
+		targetCompanies,
+		fromDate,
+		toDate,
+		effectiveLocNo,
 	);
-	if (searchParams?.to) {
-		const toDate = new Date(searchParams.to);
-		if (!isNaN(toDate.getTime())) {
-			toDate.setUTCHours(23, 59, 59, 999);
-			inventoryCondition = and(
-				inventoryCondition,
-				lte(mrInventory.date, toDate),
-			);
-		}
+
+	if (!response.success || !response.data) {
+		return (
+			<div className="p-4 font-semibold text-red-500">
+				Failed to load stock report: {response.error || "Unknown error"}
+			</div>
+		);
 	}
 
-	const inventory = await db
-		.select()
-		.from(mrInventory)
-		.where(inventoryCondition);
+	// Filter rows by assigned divisions/companies
+	const matchingRows = response.data.filter((row: StockMovementRow) => {
+		return selectedAssignments.some((a) => {
+			const mfgName = a.manufacturer?.trim().toUpperCase();
+			const divName = a.division?.trim().toUpperCase();
+			const rowMake = (row.Make || "").toString().trim().toUpperCase();
+			const rowDiv = (row.Division || "").toString().trim().toUpperCase();
 
-	const nextDayInventoryMap = new Map<string, number>();
-	if (searchParams?.to) {
-		const toDate = new Date(searchParams.to);
-		if (!isNaN(toDate.getTime())) {
-			toDate.setUTCDate(toDate.getUTCDate() + 1);
-			toDate.setUTCHours(0, 0, 0, 0);
-			const nextInv = await db
-				.select({
-					productId: mrInventory.productId,
-					opening: mrInventory.opening,
-				})
-				.from(mrInventory)
-				.where(and(eq(mrInventory.mrId, mrId), eq(mrInventory.date, toDate)));
-			nextInv.forEach((inv) => {
-				nextDayInventoryMap.set(inv.productId, inv.opening || 0);
-			});
-		}
-	}
+			const matchesMfg =
+				!mfgName ||
+				rowMake.includes(mfgName) ||
+				(a.company && rowMake === a.company.trim().toUpperCase());
 
-	// Sort by date ascending
-	inventory.sort((a, b) => {
-		const da = a.date ? new Date(a.date).getTime() : 0;
-		const dbVal = b.date ? new Date(b.date).getTime() : 0;
-		return da - dbVal;
+			const matchesDiv =
+				!divName ||
+				divName === mfgName ||
+				rowDiv === divName ||
+				rowDiv.includes(divName);
+
+			return matchesMfg && matchesDiv;
+		});
 	});
 
-	const reportData: any[] = [];
-	const limitFromDate = searchParams?.from ? new Date(searchParams.from) : null;
-	const limitToDate = searchParams?.to
-		? new Date(searchParams.to)
-		: new Date("9999-12-31T23:59:59.999Z");
-	if (searchParams?.to) limitToDate.setUTCHours(23, 59, 59, 999);
+	const reportData: StockReportItem[] = [];
 
-	const { sql } = await import("drizzle-orm");
-	for (const p of accessibleProducts) {
-		const res = await db.execute(sql`
-			SELECT 
-				SUM(opening) as opening,
-				SUM(inward) as purchase,
-				SUM(s_ret_inward) as s_return,
-				SUM(add_stock_adj) as stk_adj_add,
-				SUM(sale_qty + sale_f_qty) as sales_qty,
-				SUM(outward) as p_return,
-				SUM(less_stock_adj) as stk_adj_less,
-				SUM(opening + curr_qty) as curr_qty,
-				MAX(prate) as prate,
-				MAX(ptr) as ptr,
-				MAX(mrp) as mrp,
-				SUM(opening) * MAX(prate) as opening_value,
-				SUM(inward) * MAX(prate) as purchase_value,
-				SUM(sale_qty + sale_f_qty) * MAX(prate) as sales_value,
-				SUM(opening + curr_qty) * MAX(prate) as stock_value
-			FROM (
-				SELECT SUM(v.qty) as opening, 0 as inward, 0 as s_ret_inward, 0 as add_stock_adj, 0 as sale_qty, 0 as sale_f_qty, 0 as outward, 0 as less_stock_adj, 0 as curr_qty,
-				v.batch_id,
-				MAX(h.prate) as prate, MAX(h.ptr) as ptr, MAX(h.mrp) as mrp
-				FROM "pg-drizzle_legacy_view_stocks" v
-				LEFT JOIN "pg-drizzle_legacy_h_batch" h ON h.id = v.batch_id AND h.item_id = v.item_id
-				WHERE v.item_id = ${p.id} AND v.loc_no = ${effectiveLocNo} AND v.t_date < ${(limitFromDate || new Date(0)).toISOString()}
-				AND (v.t_no IS NULL OR v.t_no NOT LIKE 'BR%') AND (v.entry_type IS NULL OR v.entry_type <> 'GRNO') AND COALESCE(v.qty, 0) <> 0
-				GROUP BY v.batch_id
-				
-				UNION ALL
-				
-				SELECT 0 as opening, SUM(v.inward) as inward, SUM(v.s_ret_inward) as s_ret_inward, SUM(v.add_stock_adj) as add_stock_adj, SUM(v.sale_qty) as sale_qty, SUM(v.sale_f_qty) as sale_f_qty, SUM(v.outward) as outward, SUM(v.less_stock_adj) as less_stock_adj, SUM(v.qty) as curr_qty,
-				v.batch_id,
-				MAX(h.prate) as prate, MAX(h.ptr) as ptr, MAX(h.mrp) as mrp
-				FROM "pg-drizzle_legacy_view_stocks" v
-				LEFT JOIN "pg-drizzle_legacy_h_batch" h ON h.id = v.batch_id AND h.item_id = v.item_id
-				WHERE v.item_id = ${p.id} AND v.loc_no = ${effectiveLocNo} AND v.t_date >= ${(limitFromDate || new Date(0)).toISOString()} AND v.t_date <= ${limitToDate.toISOString()}
-				AND (v.t_no IS NULL OR v.t_no NOT LIKE 'BR%') AND (v.entry_type IS NULL OR v.entry_type <> 'GRNO') AND COALESCE(v.qty, 0) <> 0
-				GROUP BY v.batch_id
-			) as a
-		`);
-
-		const r = res[0] as any;
-
-		let opening = Number(r?.opening || 0);
-		const purchase = Number(r?.purchase || 0);
-		const salesQty = Number(r?.sales_qty || 0);
-		let currQty = Number(r?.curr_qty || 0);
-
-		// Override opening and purchase using APBaroda file data (mrInventory)
-		const pInventory = inventory.filter((inv) => inv.productId === p.id);
-		let rangeInventory = pInventory;
-		if (limitFromDate) {
-			rangeInventory = pInventory.filter(
-				(inv) => inv.date && new Date(inv.date) >= limitFromDate,
-			);
-		}
-
-		if (rangeInventory.length > 0) {
-			opening = rangeInventory[0]?.opening || 0;
-		} else {
-			opening = 0;
-		}
-
-		const sRet = Number(r?.s_return || 0);
-
-		const stkAdjAdd = Number(r?.stk_adj_add || 0);
-		const pRet = Number(r?.p_return || 0);
-		const stkAdjLess = Number(r?.stk_adj_less || 0);
-
-		// Recalculate Balance Qty
-		// total qty = purchase + opening + stock return + stock adjust add - sales - purchase return + stock adjust less (which is negative)
-		currQty =
-			purchase + opening + sRet + stkAdjAdd - salesQty - pRet + stkAdjLess;
+	for (const row of matchingRows) {
+		const opening = Number(row.Opening || 0);
+		const purchase = Number(row.Purchase || 0);
+		const sRet = Number(row.SReturn || 0);
+		const stkAdjAdd = Number(row.StkAdjAdd || 0);
+		const salesQty = Number(row.SalesQty || 0);
+		const pRet = Number(row.PReturn || 0);
+		const stkAdjLess = Number(row.StkAdjLess || 0);
+		const currQty = Number(row.Qty || 0);
+		const prate = Number(row.Prate || 0);
+		const ptr = Number(row.PTR || 0);
+		const purcDays = Number(row.Days || 0);
 
 		if (
-			r &&
-			(opening !== 0 ||
-				purchase !== 0 ||
-				currQty !== 0 ||
-				salesQty !== 0 ||
-				sRet !== 0 ||
-				stkAdjAdd !== 0 ||
-				stkAdjLess !== 0 ||
-				pRet !== 0)
+			opening !== 0 ||
+			purchase !== 0 ||
+			currQty !== 0 ||
+			salesQty !== 0 ||
+			sRet !== 0 ||
+			stkAdjAdd !== 0 ||
+			stkAdjLess !== 0 ||
+			pRet !== 0
 		) {
-			const prate = Number(r?.prate || 0);
-			const ptr = Number(r?.ptr || 0);
-
+			const totalIn = opening + purchase + sRet + stkAdjAdd;
 			const stockValue = currQty * prate;
 			const openingValue = opening * prate;
 			const purchaseValue = purchase * prate;
-			const salesValue = Number(r?.sales_value || 0);
-
-			const totalIn = opening + purchase + sRet + stkAdjAdd;
-
-			const maxPurcRes = await db.execute(sql`
-				SELECT 
-					MAX(CASE WHEN entry_type = 'PURC' THEN t_date END) as max_purc_date,
-					MAX(t_date) as max_any_date
-				FROM "pg-drizzle_legacy_view_stocks"
-				WHERE item_id = ${p.id} AND loc_no = ${effectiveLocNo} 
-				AND t_date <= ${limitToDate.toISOString()}
-			`);
-			const maxPurcDateStr = (maxPurcRes[0] as any)?.max_purc_date;
-			const maxAnyDateStr = (maxPurcRes[0] as any)?.max_any_date;
-			
-			const maxPurcDate = maxPurcDateStr ? new Date(maxPurcDateStr) : (p.createdAt ? new Date(p.createdAt) : new Date());
-			const maxAnyDate = maxAnyDateStr ? new Date(maxAnyDateStr) : (p.createdAt ? new Date(p.createdAt) : new Date());
-			
-			// Use limitToDate or today for the upper bound of the report
-			const endDate = searchParams?.to ? new Date(searchParams.to) : new Date();
-			
-			// Logic 1: End Date - Last PURC (Keeping this as the default for now)
-			let purcDays = Math.floor((endDate.getTime() - maxPurcDate.getTime()) / (1000 * 60 * 60 * 24));
-			if (purcDays < 0) purcDays = 0;
-			
+			const salesValue = salesQty * prate;
 			const isDeadStock = purcDays > 90 && salesQty === 0;
 
 			reportData.push({
-				Manufacturer: p.manufacturer,
-				Division: p.division || p.manufacturer,
-				"Item Name": p.name,
-				Packing: p.freeScheme || "-",
+				ItemId: row.ItemId,
+				Manufacturer: row.Make || "",
+				Division: (row.Division || row.Make || "General").toString().trim(),
+				"Item Name": row.ItemName || "",
+				Packing: row.Packing || "-",
 				"Purc Days": purcDays,
 				"Is Dead Stock": isDeadStock,
 				"Opening Qty.": opening,
@@ -257,11 +184,13 @@ export async function StockReportView({
 				"Opening Value": openingValue,
 				"Purchase Value": purchaseValue,
 				"Sales Value": salesValue,
-				prate: prate,
-				ptr: ptr,
+				prate,
+				ptr,
 			});
 		}
 	}
+
+	reportData.sort((a, b) => a["Item Name"].localeCompare(b["Item Name"]));
 
 	// Grouping by Division
 	const divisions = [...new Set(reportData.map((d) => d.Division))].sort();
@@ -277,7 +206,14 @@ export async function StockReportView({
 				<div className="flex items-center gap-4">
 					<div>
 						<h2 className="font-extrabold text-[#0B2545] text-xl tracking-tight">
-							<Image src="/logo.png" alt="Asmee Pharma Logo" width={180} height={50} className="object-contain" priority />
+							<Image
+								alt="Asmee Pharma Logo"
+								className="object-contain"
+								height={50}
+								priority
+								src="/logo.png"
+								width={180}
+							/>
 						</h2>
 						<p className="mt-0.5 max-w-sm font-medium text-gray-500 text-xs leading-relaxed">
 							BASEMENT-GF, 11/2 ASHOK HOUSE, B/S SANSTHA VASAHAT GATE, PRATAP
@@ -378,7 +314,7 @@ export async function StockReportView({
 						</tr>
 					</thead>
 					<tbody className="font-medium text-sm">
-						{divisions.map((div, idx) => {
+						{divisions.map((div) => {
 							const divData = reportData.filter((d) => d.Division === div);
 							let divOpeningValue = 0;
 							let divPurchaseValue = 0;
@@ -386,7 +322,7 @@ export async function StockReportView({
 							let divStockValue = 0;
 
 							return (
-								<React.Fragment key={idx}>
+								<React.Fragment key={div}>
 									{/* Company/Division Header Row */}
 									<tr>
 										<td
@@ -397,7 +333,7 @@ export async function StockReportView({
 										</td>
 									</tr>
 									{/* Items */}
-									{divData.map((row, rowIdx) => {
+									{divData.map((row) => {
 										divOpeningValue += row["Opening Value"];
 										divPurchaseValue += row["Purchase Value"];
 										divSalesValue += row["Sales Value"];
@@ -407,11 +343,15 @@ export async function StockReportView({
 											<tr
 												className={`border-gray-100 border-b ${
 													row["Is Dead Stock"]
-														? "bg-red-50 text-red-900 font-bold hover:bg-red-100"
+														? "bg-red-50 font-bold text-red-900 hover:bg-red-100"
 														: "text-[#0B2545] hover:bg-gray-50"
 												}`}
-												title={row["Is Dead Stock"] ? "Dead Stock: Purchased >90 days ago with 0 sales." : ""}
-												key={rowIdx}
+												key={`${div}-${row.ItemId}`}
+												title={
+													row["Is Dead Stock"]
+														? "Dead Stock: Purchased >90 days ago with 0 sales."
+														: ""
+												}
 											>
 												<td className="whitespace-nowrap py-1.5 pl-2">
 													{row["Item Name"]}
@@ -496,7 +436,7 @@ export async function StockReportView({
 								<tr>
 									<td className="py-4" colSpan={13}></td>
 								</tr>
-								{divisions.map((div, divIdx) => {
+								{divisions.map((div) => {
 									const divData = reportData.filter((d) => d.Division === div);
 									let summaryOpening = 0;
 									let summaryPurchase = 0;
@@ -511,7 +451,7 @@ export async function StockReportView({
 									return (
 										<tr
 											className="border-gray-300 border-y-2 bg-[#f0f4f8] font-bold text-[#0B2545] text-sm"
-											key={`summary-${divIdx}`}
+											key={`summary-${div}`}
 										>
 											<td className="py-2 pl-2" colSpan={3}>
 												Total value of {div.toUpperCase()} :

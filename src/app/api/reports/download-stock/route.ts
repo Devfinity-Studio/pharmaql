@@ -8,8 +8,8 @@ import {
 	mrManufacturers,
 	products,
 	sales,
-	user,
 } from "@/server/db/schema";
+import { getMRInfo } from "@/server/actions/mrInfo";
 
 export async function GET(request: Request) {
 	const session = await auth.api.getSession({
@@ -38,12 +38,7 @@ export async function GET(request: Request) {
 		return new NextResponse("Forbidden", { status: 403 });
 	}
 
-	const mrInfoArr = await db
-		.select()
-		.from(user)
-		.where(eq(user.id, mrId))
-		.limit(1);
-	const mrInfo = mrInfoArr[0];
+	const mrInfo = await getMRInfo(mrId);
 	if (!mrInfo || (!mrInfo.canViewStock && !isAdmin)) {
 		return new NextResponse("Forbidden", { status: 403 });
 	}

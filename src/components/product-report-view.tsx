@@ -7,8 +7,12 @@ import {
 	mrManufacturers,
 	products,
 	sales,
-	user,
 } from "@/server/db/schema";
+import { getMRInfo } from "@/server/actions/mrInfo";
+import {
+	getItemCustomerSale,
+	type ItemCustomerSaleResult,
+} from "@/server/actions/customerItemSale";
 
 export async function ProductReportView({
 	mrId,
@@ -23,12 +27,7 @@ export async function ProductReportView({
 	};
 }) {
 	// Fetch data
-	const mrInfoArr = await db
-		.select()
-		.from(user)
-		.where(eq(user.id, mrId))
-		.limit(1);
-	const mrInfo = mrInfoArr[0];
+	const mrInfo = await getMRInfo(mrId);
 	if (!mrInfo || !mrInfo.canViewProductWise)
 		return <div>No access to products data.</div>;
 
@@ -37,103 +36,180 @@ export async function ProductReportView({
 		.select()
 		.from(mrManufacturers)
 		.where(eq(mrManufacturers.mrId, mrId));
-	const manufacturerNames = assigned.map((a) => a.manufacturer);
+	let manufacturerNames = assigned.map((a) => a.manufacturer);
+	if (manufacturerNames.length === 0 && mrInfo.company) {
+		manufacturerNames = [mrInfo.company];
+	}
 	const companiesToQuery = company === "All" ? manufacturerNames : [company];
 
-	if (companiesToQuery.length === 0) return <div>No data assigned</div>;
+	if (companiesToQuery.length === 0 && !mrInfo.companyCode) return <div>No data assigned</div>;
 
-	const accessibleProducts = await db
-		.select()
-		.from(products)
-		.where(inArray(products.manufacturer, companiesToQuery));
-	const productIds = accessibleProducts.map((p) => p.id);
+	// Query product-wise sales using the legacy procedure `rptItemCustomerSale`
+	const compCodeToQuery =
+		company === "All"
+			? mrInfo.companyCode || (companiesToQuery.length > 0 ? companiesToQuery : "")
+			: mrInfo.companyCode && (mrInfo.company === company || mrInfo.division === company)
+				? mrInfo.companyCode
+				: company;
 
-	if (productIds.length === 0) return <div>No products found</div>;
+	const procSalesResult: ItemCustomerSaleResult =
+		mrInfo.canViewSales && searchParams?.from && searchParams?.to
+			? await getItemCustomerSale({
+					fromDate: searchParams.from,
+					toDate: searchParams.to,
+					compCode: compCodeToQuery,
+					locNo: mrInfo.locNo,
+				})
+			: {
+					success: false,
+					error: !mrInfo.canViewSales
+						? "MR does not have sales view permissions"
+						: "Missing 'from' or 'to' date parameters in URL",
+					data: null,
+					debugSql: undefined,
+				};
 
-	// Inventory (to get Current Stock for reference if they want it)
-	const inventoryMap = new Map<string, number>();
-	if (mrInfo.canViewStock) {
-		let inventoryCondition = and(
-			inArray(mrInventory.productId, productIds),
-			eq(mrInventory.mrId, mrId),
+	let reportData: Array<{
+		Manufacturer: string;
+		"Product Name": string;
+		"Free Scheme": string;
+		"Current Stock": number;
+		"Total Sales Qty": number;
+		"Total Sales Amt": number;
+	}> = [];
+
+	if (procSalesResult.success && procSalesResult.data && procSalesResult.data.length > 0) {
+		// Aggregate procedure results by product
+		const productAgg = new Map<
+			string,
+			{
+				name: string;
+				code: string;
+				packing: string;
+				qty: number;
+				freeQty: number;
+				amount: number;
+				manufacturer: string;
+			}
+		>();
+
+		for (const row of procSalesResult.data) {
+			const key = row.ItemCode || String(row.ItemID) || row.ItemName;
+			const current = productAgg.get(key) || {
+				name: row.ItemName || "Unknown Item",
+				code: row.ItemCode || "",
+				packing: row.Packing || "N/A",
+				qty: 0,
+				freeQty: 0,
+				amount: 0,
+				manufacturer: mrInfo.company || (company !== "All" ? company : "All"),
+			};
+			current.qty += Number(row.Qty || 0);
+			current.freeQty += Number(row.FQty || 0);
+			current.amount += Number(row.IAmt || 0);
+			productAgg.set(key, current);
+		}
+
+		reportData = Array.from(productAgg.values()).map((p) => ({
+			Manufacturer: p.manufacturer,
+			"Product Name": p.name,
+			"Free Scheme": p.packing || "N/A",
+			"Current Stock": 0,
+			"Total Sales Qty": p.qty,
+			"Total Sales Amt": p.amount,
+		}));
+	} else {
+		// Fallback to local DB products & sales tables
+		const accessibleProducts = await db
+			.select()
+			.from(products)
+			.where(inArray(products.manufacturer, companiesToQuery));
+		const productIds = accessibleProducts.map((p) => p.id);
+
+		// Inventory
+		const inventoryMap = new Map<string, number>();
+		if (mrInfo.canViewStock && productIds.length > 0) {
+			let inventoryCondition = and(
+				inArray(mrInventory.productId, productIds),
+				eq(mrInventory.mrId, mrId),
+			);
+			if (searchParams?.to) {
+				const toDate = new Date(searchParams.to);
+				if (!isNaN(toDate.getTime())) {
+					toDate.setUTCHours(23, 59, 59, 999);
+					inventoryCondition = and(
+						inventoryCondition,
+						lte(mrInventory.date, toDate),
+					);
+				}
+			}
+
+			const inventory = await db
+				.select()
+				.from(mrInventory)
+				.where(inventoryCondition);
+
+			inventory.sort((a, b) => {
+				const da = a.date ? new Date(a.date).getTime() : 0;
+				const dbVal = b.date ? new Date(b.date).getTime() : 0;
+				return da - dbVal;
+			});
+
+			inventory.forEach((inv) => {
+				inventoryMap.set(inv.productId, inv.stock || 0);
+			});
+		}
+
+		// Sales
+		let salesCondition = and(
+			inArray(sales.productId, productIds),
+			eq(sales.mrId, mrId),
 		);
+		if (searchParams?.from) {
+			const fromDate = new Date(searchParams.from);
+			if (!isNaN(fromDate.getTime())) {
+				salesCondition = and(salesCondition, gte(sales.date, fromDate));
+			}
+		}
 		if (searchParams?.to) {
 			const toDate = new Date(searchParams.to);
 			if (!isNaN(toDate.getTime())) {
 				toDate.setUTCHours(23, 59, 59, 999);
-				inventoryCondition = and(
-					inventoryCondition,
-					lte(mrInventory.date, toDate),
-				);
+				salesCondition = and(salesCondition, lte(sales.date, toDate));
 			}
 		}
 
-		const inventory = await db
-			.select()
-			.from(mrInventory)
-			.where(inventoryCondition);
+		const accessibleSales = mrInfo.canViewSales && productIds.length > 0
+			? await db
+					.select({
+						productId: sales.productId,
+						quantity: sales.quantity,
+						amount: sales.amount,
+					})
+					.from(sales)
+					.where(salesCondition)
+			: [];
 
-		// Sort by date ascending so latest record overwrites
-		inventory.sort((a, b) => {
-			const da = a.date ? new Date(a.date).getTime() : 0;
-			const dbVal = b.date ? new Date(b.date).getTime() : 0;
-			return da - dbVal;
+		const salesMap = new Map<string, { qty: number; amount: number }>();
+		accessibleSales.forEach((s) => {
+			const curr = salesMap.get(s.productId) || { qty: 0, amount: 0 };
+			curr.qty += s.quantity || 0;
+			curr.amount += s.amount ? parseFloat(s.amount.toString()) : 0;
+			salesMap.set(s.productId, curr);
 		});
 
-		inventory.forEach((inv) => {
-			inventoryMap.set(inv.productId, inv.stock || 0);
+		reportData = accessibleProducts.map((p) => {
+			const s = salesMap.get(p.id) || { qty: 0, amount: 0 };
+			return {
+				Manufacturer: p.manufacturer,
+				"Product Name": p.name,
+				"Free Scheme": p.freeScheme || "N/A",
+				"Current Stock": inventoryMap.get(p.id) || 0,
+				"Total Sales Qty": s.qty,
+				"Total Sales Amt": s.amount,
+			};
 		});
 	}
-
-	// Fetch Sales
-	let salesCondition = and(
-		inArray(sales.productId, productIds),
-		eq(sales.mrId, mrId),
-	);
-	if (searchParams?.from) {
-		const fromDate = new Date(searchParams.from);
-		if (!isNaN(fromDate.getTime())) {
-			salesCondition = and(salesCondition, gte(sales.date, fromDate));
-		}
-	}
-	if (searchParams?.to) {
-		const toDate = new Date(searchParams.to);
-		if (!isNaN(toDate.getTime())) {
-			toDate.setUTCHours(23, 59, 59, 999);
-			salesCondition = and(salesCondition, lte(sales.date, toDate));
-		}
-	}
-
-	const accessibleSales = mrInfo.canViewSales
-		? await db
-				.select({
-					productId: sales.productId,
-					quantity: sales.quantity,
-					amount: sales.amount,
-				})
-				.from(sales)
-				.where(salesCondition)
-		: [];
-
-	const salesMap = new Map<string, { qty: number; amount: number }>();
-	accessibleSales.forEach((s) => {
-		const curr = salesMap.get(s.productId) || { qty: 0, amount: 0 };
-		curr.qty += s.quantity || 0;
-		curr.amount += s.amount ? parseFloat(s.amount.toString()) : 0;
-		salesMap.set(s.productId, curr);
-	});
-
-	let reportData = accessibleProducts.map((p) => {
-		const s = salesMap.get(p.id) || { qty: 0, amount: 0 };
-		return {
-			Manufacturer: p.manufacturer,
-			"Product Name": p.name,
-			"Free Scheme": p.freeScheme || "N/A",
-			"Current Stock": inventoryMap.get(p.id) || 0,
-			"Total Sales Qty": s.qty,
-			"Total Sales Amt": s.amount,
-		};
-	});
 
 	if (searchParams?.q) {
 		const q = searchParams.q.toLowerCase();
@@ -153,6 +229,33 @@ export async function ProductReportView({
 
 	return (
 		<div className="mt-4 space-y-8 overflow-hidden rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
+			{/* TEMPORARY DEBUG BANNER */}
+			<div className="rounded-xl border-2 border-amber-400 bg-amber-50 p-4 font-mono text-xs text-amber-950 shadow-sm">
+				<div className="flex flex-wrap items-center justify-between gap-2 border-b border-amber-200 pb-2 mb-2 font-bold text-amber-900 text-sm">
+					<span>[TEMP DEBUG] Stored Procedure SQL Query & Execution</span>
+					<span className="rounded bg-amber-200 px-2.5 py-0.5 text-xs font-semibold">
+						{procSalesResult.success
+							? `Success: ${procSalesResult.data?.length ?? 0} rows returned`
+							: procSalesResult.error
+								? `Error: ${procSalesResult.error}`
+								: "Not Executed (Date filters missing)"}
+					</span>
+				</div>
+				<div className="space-y-1">
+					<p className="font-bold text-amber-900">Final SQL Query being run:</p>
+					<pre className="overflow-x-auto rounded border border-amber-200 bg-amber-100 p-2 text-xs font-mono select-all whitespace-pre-wrap break-all text-amber-950">
+						{procSalesResult.debugSql ||
+							`-- Procedure was not called because dates were missing in searchParams.\n-- Current searchParams: from=${searchParams?.from || "none"}, to=${searchParams?.to || "none"}`}
+					</pre>
+					<div className="mt-2 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-2 text-[11px] text-amber-800 pt-1 border-t border-amber-200">
+						<div><span className="font-semibold">Company Code Query:</span> {JSON.stringify(compCodeToQuery)}</div>
+						<div><span className="font-semibold">MR Company:</span> {mrInfo.company || "N/A"}</div>
+						<div><span className="font-semibold">MR Code:</span> {mrInfo.companyCode || "N/A"}</div>
+						<div><span className="font-semibold">LocNo:</span> {mrInfo.locNo || "11"}</div>
+					</div>
+				</div>
+			</div>
+
 			{/* Header */}
 			<div className="mb-2 flex flex-col items-start justify-between gap-4 border-[#0B2545] border-b-2 pb-2 md:flex-row">
 				<div className="flex items-center gap-4">

@@ -2,7 +2,8 @@ import Image from "next/image";
 import { and, eq, gte, lte, or } from "drizzle-orm";
 import React from "react";
 import { db } from "@/server/db";
-import { mrManufacturers, outstanding, user } from "@/server/db/schema";
+import { mrManufacturers, outstanding } from "@/server/db/schema";
+import { getMRInfo } from "@/server/actions/mrInfo";
 
 export async function OutstandingReportView({
 	mrId,
@@ -17,19 +18,31 @@ export async function OutstandingReportView({
 	};
 }) {
 	// Fetch data
-	const mrInfoArr = await db
-		.select()
-		.from(user)
-		.where(eq(user.id, mrId))
-		.limit(1);
-	const mrInfo = mrInfoArr[0];
+	const mrInfo = await getMRInfo(mrId);
 	if (!mrInfo) return <div>MR not found.</div>;
 
 	const company = searchParams?.division || "All";
-	const assigned = await db
+	const dbAssignments = await db
 		.select()
 		.from(mrManufacturers)
 		.where(eq(mrManufacturers.mrId, mrId));
+
+	const assigned =
+		dbAssignments.length > 0
+			? dbAssignments
+			: mrInfo.company
+				? [
+						{
+							id: `legacy-${mrId}`,
+							mrId,
+							manufacturer: mrInfo.company,
+							firmNo: null,
+							division: mrInfo.division || null,
+							company: mrInfo.company,
+							createdAt: new Date(),
+						},
+					]
+				: [];
 
 	const selectedAssignments =
 		company === "All"

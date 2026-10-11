@@ -2,7 +2,8 @@ import Image from "next/image";
 import { and, eq, gte, inArray, lte } from "drizzle-orm";
 import React from "react";
 import { db } from "@/server/db";
-import { mrManufacturers, products, sales, user } from "@/server/db/schema";
+import { mrManufacturers, products, sales } from "@/server/db/schema";
+import { getMRInfo } from "@/server/actions/mrInfo";
 
 export async function SalesReportView({
 	mrId,
@@ -17,12 +18,7 @@ export async function SalesReportView({
 	};
 }) {
 	// Fetch data
-	const mrInfoArr = await db
-		.select()
-		.from(user)
-		.where(eq(user.id, mrId))
-		.limit(1);
-	const mrInfo = mrInfoArr[0];
+	const mrInfo = await getMRInfo(mrId);
 	if (!mrInfo || !mrInfo.canViewSales)
 		return <div>No access to sales data.</div>;
 
@@ -31,7 +27,10 @@ export async function SalesReportView({
 		.select()
 		.from(mrManufacturers)
 		.where(eq(mrManufacturers.mrId, mrId));
-	const manufacturerNames = assigned.map((a) => a.manufacturer);
+	let manufacturerNames = assigned.map((a) => a.manufacturer);
+	if (manufacturerNames.length === 0 && mrInfo.company) {
+		manufacturerNames = [mrInfo.company];
+	}
 	const companiesToQuery = company === "All" ? manufacturerNames : [company];
 
 	if (companiesToQuery.length === 0) return <div>No data assigned</div>;
