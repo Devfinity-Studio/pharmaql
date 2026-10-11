@@ -2,6 +2,7 @@ import Link from "next/link";
 import { DateRangePicker } from "@/components/date-range-picker";
 import { FilterSelect } from "@/components/filter-select";
 import { FreeSchemeReportView } from "@/components/free-scheme-report-view";
+import { MROverdueWarningModal } from "@/components/mr-overdue-warning-modal";
 import { NewSalesReportView } from "@/components/new-sales-report-view";
 import { OutstandingDownloadButtons } from "@/components/outstanding-download-buttons";
 import { OverdueReportView } from "@/components/overdue-report-view";
@@ -272,10 +273,39 @@ export async function MrDashboardContent({
 			qty,
 		}));
 
+	// Evaluate Live Overdue & Impending Block Status
+	const { evaluateMROverdueStatus } = await import("@/server/actions/overdueEngine");
+	const mrOverdueStatus = await evaluateMROverdueStatus(mrId);
+
 	const baseUrl = isAdminView ? `/admin/mrs/${mrId}` : `/dashboard`;
 
 	return (
 		<div className="mt-2 space-y-6">
+			{/* Impending Block Warning Modal for 80-90 days */}
+			{!isAdminView && mrOverdueStatus.status === "WARNING" && (
+				<MROverdueWarningModal
+					mrName={mrInfo.name}
+					divisionName={mrInfo.division || mrInfo.company}
+					invoices={mrOverdueStatus.warningInvoices}
+				/>
+			)}
+
+			{/* Impending Block Warning Banner */}
+			{!isAdminView && mrOverdueStatus.status === "WARNING" && (
+				<div className="rounded-xl border-2 border-amber-400 bg-amber-50 p-4 shadow-sm">
+					<div className="flex items-center gap-3">
+						<span className="text-2xl">⚠️</span>
+						<div className="flex-1">
+							<h4 className="font-extrabold text-amber-900 text-sm">
+								Attention: Impending Automatic Block Notice
+							</h4>
+							<p className="mt-0.5 text-xs text-amber-800">
+								{mrOverdueStatus.message}
+							</p>
+						</div>
+					</div>
+				</div>
+			)}
 			<div className="flex flex-col justify-between gap-4 md:flex-row md:items-center">
 				<div>
 					<h1 className="font-extrabold text-3xl text-[#0B2545] tracking-tight md:text-4xl">

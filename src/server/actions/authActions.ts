@@ -55,6 +55,17 @@ export async function requestMrOtp(emailOrPhone: string) {
 			return { success: false, error: "Your account is marked as inactive. Please contact support." };
 		}
 
+		// Check Live Overdue & Cascading Blocking status
+		const { evaluateMROverdueStatus } = await import("./overdueEngine");
+		const overdueStatus = await evaluateMROverdueStatus(mr.ID);
+		if (overdueStatus.isBlocked) {
+			return {
+				success: false,
+				error: overdueStatus.message || "Your account is currently blocked due to overdue payments. Please contact admin.",
+				statusDetails: overdueStatus,
+			};
+		}
+
 		const targetEmail = mr.EmailId ? mr.EmailId.trim() : null;
 		if (!targetEmail) {
 			return {
@@ -124,6 +135,17 @@ export async function verifyMrOtp(email: string, otp: string) {
 
 		if (record.otp !== cleanOtp) {
 			return { success: false, error: "Invalid OTP code. Please enter the correct 6-digit code." };
+		}
+
+		// Check overdue block one more time before issuing session
+		const { evaluateMROverdueStatus } = await import("./overdueEngine");
+		const overdueStatus = await evaluateMROverdueStatus(record.mrUser.id);
+		if (overdueStatus.isBlocked) {
+			otpStore.delete(cleanEmail);
+			return {
+				success: false,
+				error: overdueStatus.message || "Your account has been blocked due to overdue payments.",
+			};
 		}
 
 		// OTP Valid! Clean up used OTP

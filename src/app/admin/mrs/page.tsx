@@ -11,6 +11,8 @@ import { auth } from "@/server/auth";
 import { AddMRButton } from "./add-mr-button";
 import { MRSearchForm } from "./MRSearchForm";
 import { getAllMRUsers, getAllMarketingCompaniesWithDivisions } from "@/server/actions/mrInfo";
+import { OverdueMRsSection } from "./overdue-mrs-section";
+import { evaluateMROverdueStatus } from "@/server/actions/overdueEngine";
 
 export default async function AdminMRsPage({
   searchParams,
@@ -127,6 +129,11 @@ export default async function AdminMRsPage({
     return (a.manufacturer || "").localeCompare(b.manufacturer || "");
   });
 
+  // Evaluate overdue statuses for all MRs in parallel
+  const overdueEvaluations = await Promise.all(
+    legacyMRs.map((lmr) => evaluateMROverdueStatus(lmr.id)),
+  );
+
   return (
     <div className="mt-4 space-y-8">
       <div>
@@ -138,6 +145,9 @@ export default async function AdminMRsPage({
           their data.
         </p>
       </div>
+
+      {/* Live Overdue & Cascading Blocking Control Center */}
+      <OverdueMRsSection evaluations={overdueEvaluations} />
 
       {/* Search Bar */}
       <div className="flex flex-col gap-4 rounded-2xl border border-gray-100 bg-white p-4 shadow-sm xl:flex-row xl:items-center">

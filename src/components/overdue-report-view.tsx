@@ -5,6 +5,7 @@ import {
 	type OverduePeriodicalOutstandingRow,
 } from "@/server/actions/overdueReports";
 import { getMRInfo } from "@/server/actions/mrInfo";
+import { getCustomerBlockingMap } from "@/server/actions/customerBlocking";
 
 function formatDisplayDate(dateStr?: string | Date): string {
 	if (!dateStr) return "";
@@ -73,6 +74,9 @@ export async function OverdueReportView({
 		compCode: compCodeToQuery,
 		locNo: mrInfo.locNo,
 	});
+
+	// Fetch live customer blocking map from ERP
+	const customerBlockingMap = await getCustomerBlockingMap();
 
 	let rowsToProcess = procResult.success && procResult.data ? procResult.data : [];
 
@@ -263,15 +267,21 @@ export async function OverdueReportView({
 												(d) => d["Doctor / Party"] === party,
 											);
 											let partyTotal = 0;
+											const custBlockedInfo = customerBlockingMap.get(party.toUpperCase());
 
 											return (
 												<React.Fragment key={pIdx}>
 													{/* Party Data Rows */}
 													{partyData.map((row, rowIdx) => {
 														partyTotal += row["Amount Due"];
+														const isOlderThan90 = row["Purchase Days"] > 90;
 														return (
 															<tr
-																className="border-gray-100 border-b text-[#0B2545] hover:bg-gray-50"
+																className={`border-b border-gray-100 transition-colors ${
+																	isOlderThan90
+																		? "bg-red-50/70 hover:bg-red-100/60 text-red-950"
+																		: "text-[#0B2545] hover:bg-gray-50"
+																}`}
 																key={rowIdx}
 															>
 																<td className="whitespace-nowrap py-1.5 pl-2 font-semibold">
@@ -281,18 +291,30 @@ export async function OverdueReportView({
 																<td className="py-1.5">{row["Due Date"]}</td>
 																<td
 																	className={`py-1.5 text-right font-bold ${
-																		row["Purchase Days"] > 90
-																			? "text-red-600 font-extrabold"
+																		isOlderThan90
+																			? "text-red-700 font-extrabold"
 																			: "text-amber-600"
 																	}`}
 																>
 																	{row["Purchase Days"]}
 																</td>
-																<td className="py-1.5 font-bold">
-																	{row["Doctor / Party"]}
+																<td className="py-1.5 font-bold flex items-center gap-2">
+																	<span>{row["Doctor / Party"]}</span>
+																	{custBlockedInfo?.isBlocked && (
+																		<span
+																			className="inline-block rounded bg-red-100 px-1.5 py-0.5 text-[10px] font-black text-red-800 uppercase tracking-wider"
+																			title={custBlockedInfo.blockReason || "Party Blocked in ERP"}
+																		>
+																			{custBlockedInfo.blackList ? "BLACKLISTED" : "BLOCKED"}
+																		</span>
+																	)}
 																</td>
 																<td className="py-1.5">{row.City}</td>
-																<td className="py-1.5 pr-2 text-right font-bold text-rose-600">
+																<td
+																	className={`py-1.5 pr-2 text-right font-bold ${
+																		isOlderThan90 ? "text-red-700 font-black" : "text-rose-600"
+																	}`}
+																>
 																	{row["Amount Due"].toFixed(2)}
 																</td>
 															</tr>
