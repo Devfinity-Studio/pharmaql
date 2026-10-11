@@ -69,7 +69,7 @@ export async function PartyReportView({
 	const company = searchParams?.division || "All";
 	const compCodeToQuery =
 		company === "All"
-			? mrInfo.companyCode || ""
+			? mrInfo.companyCode || mrInfo.company || ""
 			: mrInfo.companyCode && (mrInfo.company === company || mrInfo.division === company)
 				? mrInfo.companyCode
 				: company;

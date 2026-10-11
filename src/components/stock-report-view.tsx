@@ -133,20 +133,27 @@ export async function StockReportView({
 	const matchingRows = response.data.filter((row: StockMovementRow) => {
 		return selectedAssignments.some((a) => {
 			const mfgName = a.manufacturer?.trim().toUpperCase();
+			const mfgFirstWord = mfgName ? mfgName.split(/\s+/)[0] : "";
 			const divName = a.division?.trim().toUpperCase();
+			const divFirstWord = divName ? divName.split(/\s+/)[0] : "";
 			const rowMake = (row.Make || "").toString().trim().toUpperCase();
 			const rowDiv = (row.Division || "").toString().trim().toUpperCase();
 
 			const matchesMfg =
 				!mfgName ||
+				rowMake === mfgName ||
 				rowMake.includes(mfgName) ||
+				mfgName.includes(rowMake) ||
+				Boolean(mfgFirstWord && rowMake.includes(mfgFirstWord)) ||
 				(a.company && rowMake === a.company.trim().toUpperCase());
 
 			const matchesDiv =
 				!divName ||
 				divName === mfgName ||
 				rowDiv === divName ||
-				rowDiv.includes(divName);
+				rowDiv.includes(divName) ||
+				divName.includes(rowDiv) ||
+				Boolean(divFirstWord && rowDiv.includes(divFirstWord));
 
 			return matchesMfg && matchesDiv;
 		});
