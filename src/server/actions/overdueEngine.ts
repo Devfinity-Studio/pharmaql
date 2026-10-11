@@ -1,7 +1,6 @@
 "use server";
 
-import { legacyDb } from "@/lib/legacy-db";
-import { getMRInfo } from "./mrInfo";
+import { getAllMRUsers, getMRInfo } from "./mrInfo";
 import { getMROverrides } from "./mrs";
 import {
 	getMRwisePeriodicalOutstanding,
@@ -216,20 +215,13 @@ export async function evaluateMROverdueStatus(
 	const divisionName = mrInfo.division || mrInfo.company;
 	if (divisionName) {
 		try {
-			// Find all MR IDs in the same division
-			const [peerRows] = await legacyDb.query(
-				`
-				SELECT mr.ID, mr.MRName
-				FROM \`pdyasvmaster\`.\`l_mktcompany_mr\` mr
-				LEFT JOIN \`pdyasvmaster\`.\`l_mktcompany\` l ON mr.DivisionID = l.ID
-				LEFT JOIN \`pdyasvmaster\`.\`m_mktcompany\` m ON l.CompCode = m.Code
-				WHERE (l.Division = ? OR m.Description = ?) AND mr.ID != ?
-				GROUP BY mr.ID, mr.MRName
-				`,
-				[divisionName, divisionName, mrInfo.ID],
+			// Find all MRs in the same division via API server
+			const allMrs = await getAllMRUsers();
+			const peers = allMrs.filter(
+				(m) =>
+					(m.division === divisionName || m.company === divisionName) &&
+					String(m.ID) !== String(mrInfo.ID),
 			);
-
-			const peers = (peerRows as any[]) || [];
 
 			for (const peer of peers) {
 				const peerId = String(peer.ID);

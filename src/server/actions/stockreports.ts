@@ -1,7 +1,6 @@
 "use server";
 
-import { formatCompanyCodeParam } from "@/lib/companyCodeUtils";
-import { legacyDb } from "@/lib/legacy-db";
+import { apiPost } from "@/lib/api-client";
 
 export interface StockMovementRow {
 	ItemId: number;
@@ -26,18 +25,6 @@ export interface StockMovementRow {
 	BatchNo?: string;
 }
 
-function formatDateToOdbc(dateStr?: string): string {
-	if (!dateStr) return "{d '2026-04-01'}";
-	const trimmed = dateStr.trim();
-	if (trimmed.startsWith("{d") && trimmed.endsWith("}")) return trimmed;
-	const d = new Date(trimmed);
-	if (isNaN(d.getTime())) return "{d '2026-04-01'}";
-	const year = d.getFullYear();
-	const month = String(d.getMonth() + 1).padStart(2, "0");
-	const day = String(d.getDate()).padStart(2, "0");
-	return `{d '${year}-${month}-${day}'}`;
-}
-
 export type StockMovementResult =
 	| { success: true; data: StockMovementRow[]; debugSql?: string }
 	| { success: false; error: string; data?: null; debugSql?: string };
@@ -48,49 +35,23 @@ export async function getStockMovement(
 	toDate?: string,
 	locNo?: string,
 ): Promise<StockMovementResult> {
-	let conn;
-	let debugSql = "";
-	try {
-		conn = await legacyDb.getConnection();
-		await conn.query("SET sql_mode = ''");
+	const res = await apiPost<StockMovementRow[]>("/api/reports/stock-movement", {
+		companyCode,
+		fromDate,
+		toDate,
+		locNo,
+	});
 
-		const finYearStart = "2026-04-01";
-		const effectiveFrom = fromDate || finYearStart;
-		const effectiveTo = toDate || new Date().toISOString().slice(0, 10);
-		const odbcFinYearStart = formatDateToOdbc(finYearStart);
-		const odbcFromDate = formatDateToOdbc(effectiveFrom);
-		const odbcToDate = formatDateToOdbc(effectiveTo);
-		const locationParam = locNo ? `('${locNo}')` : "('11')";
-
-		const compCodeParam = formatCompanyCodeParam(companyCode);
-
-		const formattedParams = [
-			11,
-			`'${locationParam.replace(/'/g, "''")}'`,
-			202627,
-			odbcFinYearStart,
-			odbcFromDate,
-			odbcToDate,
-			`'${compCodeParam.replace(/'/g, "''")}'`,
-			"''",
-			"''",
-			"'PRate'",
-		].join(", ");
-
-		debugSql = `CALL \`pdyasvtrans\`.\`rptStockMovementStatement\`(${formattedParams})`;
-
-		const [rows] = await conn.query(debugSql);
-		const reportData = ((rows as any)?.[0] || []) as StockMovementRow[];
-
-		return { success: true, data: reportData, debugSql };
-	} catch (error: any) {
-		console.error("Stock Movement Procedure Failed:", error);
+	if (!res.success || !res.data) {
 		return {
 			success: false,
-			error: error.message || "Failed to generate stock report",
-			debugSql,
+			error: res.error || "Failed to generate stock report",
+			data: null,
 		};
-	} finally {
-		if (conn) conn.release();
 	}
+
+	return {
+		success: true,
+		data: res.data,
+	};
 }

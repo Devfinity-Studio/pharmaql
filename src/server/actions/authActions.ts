@@ -1,8 +1,8 @@
 "use server";
 
 import { cookies } from "next/headers";
+import { apiPost } from "@/lib/api-client";
 import { type SessionUser, signSessionToken } from "@/lib/jwt";
-import { legacyDb } from "@/lib/legacy-db";
 import { sendOtpEmail } from "@/lib/mailer";
 import { AUTH_COOKIE_NAME } from "@/server/auth";
 
@@ -15,7 +15,7 @@ const otpStore = new Map<
 
 /**
  * 1. Request OTP for Medical Representative (MR)
- * Looks up MR in pdyasvmaster.l_mktcompany_mr by Email or Mobile
+ * Looks up MR via API Server by Email or Mobile
  */
 export async function requestMrOtp(emailOrPhone: string) {
 	try {
@@ -27,29 +27,20 @@ export async function requestMrOtp(emailOrPhone: string) {
 			};
 		}
 
-		// Look up MR in legacy master table
-		const [rows] = await legacyDb.query(
-			`
-			SELECT 
-				mr.ID AS ID,
-				mr.MRName AS MRName,
-				mr.EmailId AS EmailId,
-				mr.MobileNo AS MobileNo,
-				mr.IsInActive AS IsInActive,
-				l.Division AS DivisionName,
-				m.Code AS CompanyCode,
-				m.Description AS CompanyName
-			FROM \`pdyasvmaster\`.\`l_mktcompany_mr\` mr
-			LEFT JOIN \`pdyasvmaster\`.\`l_mktcompany\` l ON mr.DivisionID = l.ID
-			LEFT JOIN \`pdyasvmaster\`.\`m_mktcompany\` m ON l.CompCode = m.Code
-			WHERE mr.EmailId = ? OR mr.MobileNo = ? OR mr.MRName = ?
-			LIMIT 1
-			`,
-			[cleanInput, cleanInput, cleanInput],
-		);
+		// Look up MR in API server
+		const res = await apiPost<{
+			id: string;
+			name: string;
+			email: string;
+			mobile: string;
+			division: string | null;
+			company: string | null;
+			companyCode: string | null;
+			isBlocked: boolean;
+			locNo: string;
+		} | null>("/api/auth/mr-lookup", { emailOrPhone: cleanInput });
 
-		const mrList = rows as any[];
-		if (!mrList || mrList.length === 0) {
+		if (!res.success || !res.data) {
 			return {
 				success: false,
 				error:
@@ -57,8 +48,8 @@ export async function requestMrOtp(emailOrPhone: string) {
 			};
 		}
 
-		const mr = mrList[0];
-		if (Number(mr.IsInActive || 0) === 1) {
+		const mr = res.data;
+		if (mr.isBlocked) {
 			return {
 				success: false,
 				error: "Your account is marked as inactive. Please contact support.",
@@ -67,7 +58,7 @@ export async function requestMrOtp(emailOrPhone: string) {
 
 		// Check Live Overdue & Cascading Blocking status
 		const { evaluateMROverdueStatus } = await import("./overdueEngine");
-		const overdueStatus = await evaluateMROverdueStatus(mr.ID);
+		const overdueStatus = await evaluateMROverdueStatus(mr.id);
 		if (overdueStatus.isBlocked) {
 			return {
 				success: false,
@@ -78,7 +69,7 @@ export async function requestMrOtp(emailOrPhone: string) {
 			};
 		}
 
-		const targetEmail = mr.EmailId ? mr.EmailId.trim() : null;
+		const targetEmail = mr.email ? mr.email.trim() : null;
 		if (!targetEmail) {
 			return {
 				success: false,
@@ -92,17 +83,14 @@ export async function requestMrOtp(emailOrPhone: string) {
 		const expiresAt = Date.now() + 10 * 60 * 1000; // 10 minutes
 
 		const mrSessionUser: SessionUser = {
-			id: String(mr.ID),
-			name: mr.MRName || "MR User",
+			id: mr.id,
+			name: mr.name || "MR User",
 			email: targetEmail,
 			role: "MR",
-			locNo: "11",
-			division: mr.DivisionName ? String(mr.DivisionName).trim() : undefined,
-			company:
-				mr.CompanyName || mr.CompanyCode
-					? String(mr.CompanyName || mr.CompanyCode).trim()
-					: undefined,
-			companyCode: mr.CompanyCode ? String(mr.CompanyCode).trim() : undefined,
+			locNo: mr.locNo || "11",
+			division: mr.division || undefined,
+			company: mr.company || undefined,
+			companyCode: mr.companyCode || undefined,
 			isBlocked: false,
 			canViewStock: true,
 			canViewSales: true,
@@ -118,7 +106,7 @@ export async function requestMrOtp(emailOrPhone: string) {
 		});
 
 		// Send email using Gmail SMTP
-		await sendOtpEmail(targetEmail, otp, mr.MRName);
+		await sendOtpEmail(targetEmail, otp, mr.name);
 
 		return {
 			success: true,

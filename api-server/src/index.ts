@@ -1,0 +1,46 @@
+import express from "express";
+import cors from "cors";
+import dotenv from "dotenv";
+import { authMiddleware } from "./middleware/auth.js";
+import { reportsRouter } from "./routes/reports.js";
+import { masterRouter } from "./routes/master.js";
+import { authRouter } from "./routes/auth.js";
+import { kpiRouter } from "./routes/kpi.js";
+import { dbPool } from "./db.js";
+
+dotenv.config();
+
+const app = express();
+const port = parseInt(process.env.PORT || "9273", 10);
+
+app.use(cors());
+app.use(express.json({ limit: "10mb" }));
+
+// Public health check endpoint
+app.get("/health", async (_req, res) => {
+  try {
+    const [rows] = await dbPool.query("SELECT 1 as alive");
+    res.json({ status: "healthy", db: "connected", port });
+  } catch (err: any) {
+    res.status(500).json({ status: "unhealthy", dbError: err.message, port });
+  }
+});
+
+// Enforce Bearer token auth globally across all API routes
+app.use(authMiddleware);
+
+// Mount API modules
+app.use("/api/reports", reportsRouter);
+app.use("/api/master", masterRouter);
+app.use("/api/auth", authRouter);
+app.use("/api/kpi", kpiRouter);
+
+// Global Error Handler
+app.use((err: any, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
+  console.error("[API Server] Unhandled Error:", err);
+  res.status(500).json({ success: false, error: err?.message || "Internal server error" });
+});
+
+app.listen(port, () => {
+  console.log(`[PharmaQL API Server] Running securely on port ${port}`);
+});

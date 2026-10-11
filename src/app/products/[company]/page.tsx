@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { legacyDb } from "@/lib/legacy-db";
+import { getAllMarketingCompaniesWithDivisions } from "@/server/actions/mrInfo";
 import { getItemCatalog } from "@/server/actions/itemCatalog";
 import { ProductListClient } from "./product-list-client";
 
@@ -12,17 +12,11 @@ export default async function CompanyProductsPage({
 	const awaitedParams = await params;
 	const companyName = decodeURIComponent(awaitedParams.company);
 
-	// Fetch all companies from legacy master
-	const [rows] = await legacyDb.query(`
-		SELECT DISTINCT Description, Code 
-		FROM \`pdyasvmaster\`.\`m_mktcompany\`
-		WHERE IsInActive = 0
-		ORDER BY Description ASC
-	`);
-	const compList = (rows as any[]) || [];
-	const allCompanies = compList
-		.map((c) => c.Description || c.Code)
-		.filter(Boolean);
+	// Fetch all companies from API server
+	const compList = await getAllMarketingCompaniesWithDivisions();
+	const allCompanies = Array.from(
+		new Set(compList.map((c) => c.companyName || c.companyCode).filter(Boolean)),
+	);
 
 	// Fetch products for this company/division
 	const rawProducts = await getItemCatalog({
