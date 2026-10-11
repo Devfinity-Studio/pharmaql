@@ -66,8 +66,12 @@ async function bulkInsert(tableName, columns, rows, onConflictClause = "") {
 }
 
 async function hashPassword(password) {
-	// Simple SHA256 fallback if better-auth hash is async or scrypt
-	return crypto.createHash("sha256").update(password).digest("hex");
+	try {
+		const { hashPassword: baHash } = await import("better-auth/crypto");
+		return await baHash(password || "123");
+	} catch (e) {
+		return crypto.createHash("sha256").update(password || "123").digest("hex");
+	}
 }
 
 async function run() {
@@ -166,6 +170,19 @@ async function run() {
 			if (trimmed.endsWith(";")) currentTable = "";
 		}
 	}
+
+	// Explicit known MR mappings not found in Technomax m_mr dump
+	mrSpecs.set("11-ANAVIA", {
+		firmNo: "11",
+		locNo: "11",
+		code: "ANAVIA",
+		division: "ANAVIA",
+		company: "ANAVIA LIFESCIENCES PVT LTD",
+		name: "ANAVIA (ALPL) Representative",
+		loginId: "alplbaroda2021@gmail.com",
+		loginPassword: "123",
+		rank: "1",
+	});
 
 	console.log(`Found ${productsMap.size} unique products.`);
 	console.log(`Found ${mrSpecs.size} defined MRs.`);
