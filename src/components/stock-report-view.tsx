@@ -1,4 +1,3 @@
-import { eq } from "drizzle-orm";
 import Image from "next/image";
 import React from "react";
 import { getMRInfo } from "@/server/actions/mrInfo";
@@ -6,8 +5,6 @@ import {
 	getStockMovement,
 	type StockMovementRow,
 } from "@/server/actions/stockreports";
-import { db } from "@/server/db";
-import { mrManufacturers } from "@/server/db/schema";
 
 interface StockReportItem {
 	ItemId: number;
@@ -53,27 +50,19 @@ export async function StockReportView({
 	const effectiveLocNo = mrInfo.locNo || "11";
 	const company = searchParams?.division || "All";
 
-	const dbAssignments = await db
-		.select()
-		.from(mrManufacturers)
-		.where(eq(mrManufacturers.mrId, mrId));
-
-	const assignments =
-		dbAssignments.length > 0
-			? dbAssignments
-			: mrInfo.company
-				? [
-						{
-							id: `legacy-${mrId}`,
-							mrId,
-							manufacturer: mrInfo.company,
-							firmNo: null,
-							division: mrInfo.division || null,
-							company: mrInfo.company,
-							createdAt: new Date(),
-						},
-					]
-				: [];
+	const assignments = mrInfo.company
+		? [
+				{
+					id: `legacy-${mrId}`,
+					mrId,
+					manufacturer: mrInfo.company,
+					firmNo: null,
+					division: mrInfo.division || null,
+					company: mrInfo.company,
+					createdAt: new Date(),
+				},
+			]
+		: [];
 
 	if (assignments.length === 0) return <div>No data assigned</div>;
 

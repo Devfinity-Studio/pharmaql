@@ -5,9 +5,6 @@ import {
 	type OverduePeriodicalOutstandingRow,
 } from "@/server/actions/overdueReports";
 import { getMRInfo } from "@/server/actions/mrInfo";
-import { db } from "@/server/db";
-import { mrManufacturers } from "@/server/db/schema";
-import { eq } from "drizzle-orm";
 
 function formatDisplayDate(dateStr?: string | Date): string {
 	if (!dateStr) return "";
@@ -38,27 +35,19 @@ export async function OverdueReportView({
 	if (!mrInfo) return <div>MR not found.</div>;
 
 	const company = searchParams?.division || "All";
-	const dbAssignments = await db
-		.select()
-		.from(mrManufacturers)
-		.where(eq(mrManufacturers.mrId, mrId));
-
-	const assigned =
-		dbAssignments.length > 0
-			? dbAssignments
-			: mrInfo.company
-				? [
-						{
-							id: `legacy-${mrId}`,
-							mrId,
-							manufacturer: mrInfo.company,
-							firmNo: null,
-							division: mrInfo.division || null,
-							company: mrInfo.company,
-							createdAt: new Date(),
-						},
-					]
-				: [];
+	const assigned = mrInfo.company
+		? [
+				{
+					id: `legacy-${mrId}`,
+					mrId,
+					manufacturer: mrInfo.company,
+					firmNo: null,
+					division: mrInfo.division || null,
+					company: mrInfo.company,
+					createdAt: new Date(),
+				},
+			]
+		: [];
 
 	const selectedAssignments =
 		company === "All"

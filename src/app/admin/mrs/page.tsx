@@ -1,4 +1,3 @@
-import { eq, ilike, or, sql, isNotNull } from "drizzle-orm";
 import { headers } from "next/headers";
 import Link from "next/link";
 import { redirect } from "next/navigation";
@@ -9,8 +8,6 @@ import {
   updateMRPermissions,
 } from "@/server/actions/mrs";
 import { auth } from "@/server/auth";
-import { db } from "@/server/db";
-import { mrManufacturers, products, user, session as sessionTable } from "@/server/db/schema";
 import { AddMRButton } from "./add-mr-button";
 import { MRSearchForm } from "./MRSearchForm";
 import { getAllMRUsers, getAllMarketingCompaniesWithDivisions } from "@/server/actions/mrInfo";
@@ -32,8 +29,7 @@ export default async function AdminMRsPage({
   const searchQuery = (awaitedParams.search || "").toLowerCase();
   const sortQuery = awaitedParams.sort || "name_asc";
 
-  // Fetch all MRs and Assignments
-  const dbMRs = await db.select().from(user).where(eq(user.role, "MR"));
+  // Fetch all MRs directly from legacy master
   const legacyMRs = await getAllMRUsers();
 
   type MRDisplayItem = {
@@ -52,45 +48,24 @@ export default async function AdminMRsPage({
     canViewProductWise: boolean;
   };
 
-  let allMRs: MRDisplayItem[] =
-    legacyMRs.length > 0
-      ? legacyMRs.map((lmr) => {
-          const matchedDbMR = dbMRs.find(
-            (dmr) =>
-              dmr.email?.toLowerCase() === lmr.email?.toLowerCase() ||
-              dmr.id === lmr.id,
-          );
-          return {
-            id: lmr.id,
-            legacyId: lmr.id,
-            name: lmr.name || matchedDbMR?.name || "MR User",
-            email: lmr.email || matchedDbMR?.email || "",
-            company: lmr.company,
-            division: lmr.division,
-            isBlocked: lmr.isBlocked,
-            role: "MR",
-            canViewStock: lmr.canViewStock,
-            canViewSales: lmr.canViewSales,
-            canViewFreeScheme: lmr.canViewFreeScheme,
-            canViewPartyWise: lmr.canViewPartyWise,
-            canViewProductWise: lmr.canViewProductWise,
-          };
-        })
-      : dbMRs.map((dmr) => ({
-          id: dmr.id,
-          name: dmr.name,
-          email: dmr.email,
-          isBlocked: dmr.isBlocked,
-          role: dmr.role,
-          canViewStock: dmr.canViewStock,
-          canViewSales: dmr.canViewSales,
-          canViewFreeScheme: dmr.canViewFreeScheme,
-          canViewPartyWise: dmr.canViewPartyWise,
-          canViewProductWise: dmr.canViewProductWise,
-        }));
+  let allMRs: MRDisplayItem[] = legacyMRs.map((lmr) => ({
+    id: lmr.id,
+    legacyId: lmr.id,
+    name: lmr.name || "MR User",
+    email: lmr.email || "",
+    company: lmr.company,
+    division: lmr.division,
+    isBlocked: lmr.isBlocked,
+    role: "MR",
+    canViewStock: lmr.canViewStock,
+    canViewSales: lmr.canViewSales,
+    canViewFreeScheme: lmr.canViewFreeScheme,
+    canViewPartyWise: lmr.canViewPartyWise,
+    canViewProductWise: lmr.canViewProductWise,
+  }));
 
-  const allAssignments = await db.select().from(mrManufacturers);
-  const allSessions = await db.select().from(sessionTable);
+  const allAssignments: any[] = [];
+  const allSessions: any[] = [];
 
   // Filter MRs by Search Query
   if (searchQuery) {
@@ -140,19 +115,10 @@ export default async function AdminMRsPage({
 
   // Get all unique manufacturers and divisions linked via m_mktcompany
   const mktCompanies = await getAllMarketingCompaniesWithDivisions();
-  const allManufacturers =
-    mktCompanies.length > 0
-      ? mktCompanies.map((c) => ({
-          manufacturer: c.companyName || c.companyCode,
-          division: c.divisionName ? c.divisionName.trim() : null,
-        }))
-      : await db
-          .selectDistinct({
-            manufacturer: products.manufacturer,
-            division: products.division,
-          })
-          .from(products)
-          .where(isNotNull(products.manufacturer));
+  const allManufacturers = mktCompanies.map((c) => ({
+    manufacturer: c.companyName || c.companyCode,
+    division: c.divisionName ? c.divisionName.trim() : null,
+  }));
 
   allManufacturers.sort((a, b) => {
     if (a.manufacturer === b.manufacturer) {

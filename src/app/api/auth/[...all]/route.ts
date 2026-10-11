@@ -1,4 +1,9 @@
-import { toNextJsHandler } from "better-auth/next-js";
-import { auth } from "@/server/auth";
+import { NextResponse } from "next/server";
 
-export const { GET, POST } = toNextJsHandler(auth);
+export async function GET() {
+	return NextResponse.json({ message: "Stateless Auth Active" });
+}
+
+export async function POST() {
+	return NextResponse.json({ message: "Stateless Auth Active" });
+}

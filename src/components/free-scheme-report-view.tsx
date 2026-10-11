@@ -1,13 +1,5 @@
 import Image from "next/image";
 import React from "react";
-import { and, eq, gte, inArray, lte, sql } from "drizzle-orm";
-import { db } from "@/server/db";
-import {
-  mrInventory,
-  mrManufacturers,
-  products,
-  sales,
-} from "@/server/db/schema";
 import { getMRInfo } from "@/server/actions/mrInfo";
 import { getClaimData } from "@/server/actions/claimData";
 
@@ -28,68 +20,9 @@ export async function FreeSchemeReportView({
   if (!mrInfo) return <div>MR not found</div>;
 
   const company = searchParams?.division || "All";
-  const assigned = await db
-    .select()
-    .from(mrManufacturers)
-    .where(eq(mrManufacturers.mrId, mrId));
-  let manufacturerNames = assigned.map((a) => a.manufacturer);
-  if (manufacturerNames.length === 0 && mrInfo.company) {
-    manufacturerNames = [mrInfo.company];
-  }
-  const companiesToQuery = company === "All" ? manufacturerNames : [company];
-
-  if (companiesToQuery.length === 0) return <div>No data assigned</div>;
-
-  const accessibleProducts = await db
-    .select()
-    .from(products)
-    .where(inArray(products.manufacturer, companiesToQuery));
-  const productIds = accessibleProducts.map((p) => p.id);
-
-  if (productIds.length === 0) return <div>No products found</div>;
-
-  // Stock
-  const stockMap = new Map<string, { mrp: number; ptr: number }>();
-  if (mrInfo.canViewStock) {
-    let inventoryCondition = and(
-      inArray(mrInventory.productId, productIds),
-      eq(mrInventory.mrId, mrId),
-    );
-    if (searchParams?.to) {
-      const toDate = new Date(searchParams.to);
-      if (!isNaN(toDate.getTime())) {
-        toDate.setUTCHours(23, 59, 59, 999);
-        inventoryCondition = and(
-          inventoryCondition,
-          lte(mrInventory.date, toDate),
-        );
-      }
-    }
-
-    const inventory = await db
-      .select()
-      .from(mrInventory)
-      .where(inventoryCondition);
-
-    // Sort by date ascending so latest record overwrites
-    inventory.sort((a, b) => {
-      const da = a.date ? new Date(a.date).getTime() : 0;
-      const dbVal = b.date ? new Date(b.date).getTime() : 0;
-      return da - dbVal;
-    });
-
-    inventory.forEach((inv) =>
-      stockMap.set(inv.productId, {
-        mrp: Number(inv.mrp) || 0,
-        ptr: Number(inv.ptr) || 0,
-      }),
-    );
-  }
-
-  // Query claim data using stored procedure `rptClaimData`
   const compCodeToQuery =
     company === "All"
-      ? mrInfo.companyCode || (companiesToQuery.length > 0 ? companiesToQuery : "")
+      ? mrInfo.companyCode || mrInfo.company || ""
       : mrInfo.companyCode && (mrInfo.company === company || mrInfo.division === company)
         ? mrInfo.companyCode
         : company;
@@ -141,86 +74,6 @@ export async function FreeSchemeReportView({
         "Item Scheme": row.Scheme || "-",
         "Applied Scheme": row.Scheme || "-",
       });
-    });
-  } else {
-    // Fallback to local tables if procedure returns no data
-    let dateCondition = ``;
-    if (searchParams?.from) {
-      dateCondition += ` AND h.inv_dt >= '${searchParams.from}'`;
-    }
-    if (searchParams?.to) {
-      dateCondition += ` AND h.inv_dt <= '${searchParams.to}'`;
-    }
-
-    const legacyDataResult = await db.execute(
-      sql.raw(`
-        SELECT 
-          h.inv_no as inv_no,
-          h.inv_dt as inv_dt,
-          CONCAT(h.cust_id, ' ', COALESCE(c.name, 'Unknown Party'), ' , ', COALESCE(c.city, '')) as customer,
-          l.item_id as item_id,
-          l.batch_no as batch_no,
-          l.mrp as mrp,
-          l.exp_dt as exp_dt,
-          l.qty as qty,
-          l.f_qty as f_qty,
-          l.rate as rate,
-          l.taxable_amt as taxable_amt,
-          l.vat_amt as gst_amt,
-          l.line_amt as amount
-        FROM "pg-drizzle_legacy_h_sale" h
-        JOIN "pg-drizzle_legacy_l_sale" l ON l.rid = h.id
-        LEFT JOIN "pg-drizzle_legacy_customers" c ON c.id = h.cust_id
-        WHERE l.item_id IN (${productIds.map((id) => `'${id}'`).join(",")})
-        ${dateCondition}
-      `),
-    );
-
-    const legacyRows = legacyDataResult as any[];
-
-    legacyRows.forEach((row: any) => {
-      const p = accessibleProducts.find(
-        (prod) => prod.id === String(row.item_id),
-      );
-      if (p) {
-        const pStock = stockMap.get(p.id) || { mrp: 0, ptr: 0 };
-        const qty = Number(row.qty) || 0;
-        const fQty = Number(row.f_qty) || 0;
-
-        if (fQty <= 0) return;
-
-        const netRate = Number(row.rate) || 0;
-        const invRate = pStock.ptr;
-        const claimQty = fQty;
-        const claimValue = invRate * claimQty;
-
-        reportData.push({
-          Manufacturer: p.division || p.manufacturer,
-          SchemeType: "Qty",
-          Party: row.customer || "Unknown Party",
-          Code: p.code || "-",
-          "Product Name": p.name,
-          Packing: p.freeScheme || "-",
-          "Batch No.": row.batch_no || "-",
-          "Inv. No.": row.inv_no || "-",
-          "Inv. Dt.": row.inv_dt
-            ? new Date(row.inv_dt).toLocaleDateString("en-GB").replace(/\//g, "-")
-            : "-",
-          MRP: Number(row.mrp || pStock.mrp),
-          PRate: invRate,
-          PTR: invRate,
-          "Net Rate": netRate,
-          "Inv. Rate": netRate,
-          "Sale Qty": qty,
-          "Free Qty": fQty,
-          "Actual FQty": fQty,
-          "Claim Qty": claimQty,
-          "Rate Diff.": invRate - netRate,
-          "Claim Value": claimValue,
-          "Item Scheme": p.freeScheme || "-",
-          "Applied Scheme": "-",
-        });
-      }
     });
   }
 
