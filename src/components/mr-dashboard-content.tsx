@@ -7,6 +7,7 @@ import { NewSalesReportView } from "@/components/new-sales-report-view";
 import { OutstandingDownloadButtons } from "@/components/outstanding-download-buttons";
 import { OutstandingReportView } from "@/components/outstanding-report-view";
 import { OverdueReportView } from "@/components/overdue-report-view";
+import { PartyReportView } from "@/components/party-report-view";
 import { ProductReportView } from "@/components/product-report-view";
 import { ReportDownloadButtons } from "@/components/report-download-buttons";
 import { StockReportView } from "@/components/stock-report-view";
@@ -766,7 +767,7 @@ export async function MrDashboardContent({
 			{searchParams?.tab === "party" && canViewPartyWise && (
 				<div>
 					<div className="mb-4 flex items-center justify-between"></div>
-					<OutstandingReportView mrId={mrId} searchParams={searchParams} />
+					<PartyReportView mrId={mrId} searchParams={searchParams} />
 				</div>
 			)}
 
