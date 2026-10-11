@@ -1,11 +1,9 @@
-import { and, eq, gte, inArray, lte, or } from "drizzle-orm";
 import Link from "next/link";
 import { DateRangePicker } from "@/components/date-range-picker";
 import { FilterSelect } from "@/components/filter-select";
 import { FreeSchemeReportView } from "@/components/free-scheme-report-view";
 import { NewSalesReportView } from "@/components/new-sales-report-view";
 import { OutstandingDownloadButtons } from "@/components/outstanding-download-buttons";
-import { OutstandingReportView } from "@/components/outstanding-report-view";
 import { OverdueReportView } from "@/components/overdue-report-view";
 import { PartyReportView } from "@/components/party-report-view";
 import { ProductReportView } from "@/components/product-report-view";
@@ -17,15 +15,6 @@ import {
 	getMRwisePeriodicalOutstanding,
 	type OverduePeriodicalOutstandingRow,
 } from "@/server/actions/overdueReports";
-import { db } from "@/server/db";
-import {
-	invoices,
-	mrInventory,
-	mrManufacturers,
-	outstanding,
-	products,
-	sales,
-} from "@/server/db/schema";
 
 export async function MrDashboardContent({
 	mrId,
@@ -56,27 +45,19 @@ export async function MrDashboardContent({
 		);
 	}
 
-	// 2. Get MR's assigned divisions
-	const assigned = await db
-		.select()
-		.from(mrManufacturers)
-		.where(eq(mrManufacturers.mrId, mrId));
-
+	// 2. Get MR's assigned divisions natively from ERP profile
 	const legacyDivision = mrInfo.division || mrInfo.company;
-	const effectiveAssignments =
-		assigned.length > 0
-			? assigned
-			: legacyDivision
-				? [
-						{
-							id: `legacy-${mrId}`,
-							mrId,
-							manufacturer: mrInfo.company || legacyDivision,
-							division: mrInfo.division || null,
-							assignedAt: new Date(),
-						},
-					]
-				: [];
+	const effectiveAssignments = legacyDivision
+		? [
+				{
+					id: `legacy-${mrId}`,
+					mrId,
+					manufacturer: mrInfo.company || legacyDivision,
+					division: mrInfo.division || null,
+					assignedAt: new Date(),
+				},
+			]
+		: [];
 
 	const assignedDivisions = Array.from(
 		new Set(effectiveAssignments.map((a) => a.division || a.manufacturer)),
@@ -106,25 +87,6 @@ export async function MrDashboardContent({
 					(a) => (a.division || a.manufacturer) === selectedDivision,
 				);
 
-	// 4. Get Products belonging to these queried divisions
-	const productConditionList = selectedAssignments.map((d) => {
-		const conditions = [eq(products.manufacturer, d.manufacturer)];
-		if (d.division) {
-			conditions.push(eq(products.division, d.division));
-		}
-		return and(...conditions);
-	});
-
-	const accessibleProducts =
-		productConditionList.length > 0
-			? await db
-					.select()
-					.from(products)
-					.where(or(...productConditionList))
-			: [];
-
-	const productIds = accessibleProducts.map((p) => p.id);
-
 	// Determine permissions
 	const canViewSales = isAdminView || mrInfo.canViewSales;
 	const canViewStock = isAdminView || mrInfo.canViewStock;
@@ -145,108 +107,16 @@ export async function MrDashboardContent({
 	let recentInvoices: any[] = [];
 	let outstandingByDoctor: { doctor: string; city: string; amount: number }[] =
 		[];
-	let accessibleSales: any[] = [];
-	let accessibleInvoices: any[] = [];
-	let accessibleOutstanding: any[] = [];
+	const accessibleSales: any[] = [];
+	const accessibleInvoices: any[] = [];
+	const accessibleOutstanding: any[] = [];
 
-	if (canViewStock && productIds.length > 0) {
-		const inventory = await db
-			.select()
-			.from(mrInventory)
-			.where(
-				and(
-					inArray(mrInventory.productId, productIds),
-					eq(mrInventory.mrId, mrId),
-				),
-			);
-		inventory.forEach((inv) => {
-			stockMap.set(inv.productId, inv.stock);
-		});
-	}
-
-	// Fetch Sales if permitted
-	if (canViewSales) {
-		let salesCondition =
-			productIds.length > 0
-				? and(inArray(sales.productId, productIds), eq(sales.mrId, mrId))
-				: undefined;
-
-		let invoiceCondition = and(
-			inArray(
-				invoices.manufacturerCode,
-				selectedAssignments.map((d) => d.manufacturer),
-			),
-			eq(invoices.mrId, mrId),
-		);
-
-		const outstandingConditionList = selectedAssignments.map((d) => {
-			const conditions = [eq(outstanding.manufacturerCode, d.manufacturer)];
-			if (d.division) {
-				conditions.push(eq(outstanding.division, d.division));
-			}
-			return and(...conditions);
-		});
-
-		let outstandingCondition = and(
-			eq(outstanding.mrId, mrId),
-			or(...outstandingConditionList),
-		);
-
-		if (searchParams?.from) {
-			const fromDate = new Date(searchParams.from);
-			if (!isNaN(fromDate.getTime())) {
-				salesCondition = and(salesCondition, gte(sales.date, fromDate));
-				invoiceCondition = and(invoiceCondition, gte(invoices.date, fromDate));
-				outstandingCondition = and(
-					outstandingCondition,
-					gte(outstanding.invDt, fromDate),
-				);
-			}
-		}
-
-		if (searchParams?.to) {
-			const toDate = new Date(searchParams.to);
-			if (!isNaN(toDate.getTime())) {
-				toDate.setUTCHours(23, 59, 59, 999);
-				salesCondition = and(salesCondition, lte(sales.date, toDate));
-				invoiceCondition = and(invoiceCondition, lte(invoices.date, toDate));
-				outstandingCondition = and(
-					outstandingCondition,
-					lte(outstanding.invDt, toDate),
-				);
-			}
-		}
-
-		accessibleSales = salesCondition
-			? await db
-					.select({
-						productId: sales.productId,
-						productName: products.name,
-						quantity: sales.quantity,
-						date: sales.date,
-					})
-					.from(sales)
-					.innerJoin(products, eq(sales.productId, products.id))
-					.where(salesCondition)
-			: [];
-
-		accessibleInvoices = invoiceCondition
-			? await db.select().from(invoices).where(invoiceCondition)
-			: [];
-
-		accessibleOutstanding = outstandingCondition
-			? await db.select().from(outstanding).where(outstandingCondition)
-			: [];
-
-		console.log(
-			`[Dashboard] MR: ${mrId}, Division: ${selectedDivision}, ProductIds: ${productIds.length}, SalesCount: ${accessibleSales.length}, Invoices: ${accessibleInvoices.length}, Outstanding: ${accessibleOutstanding.length}`,
-		);
-
-		// Calculate metrics
-		const productMap = new Map<string, { name: string; total: number }>();
-		const monthMap = new Map<string, number>();
-		const quarterMap = new Map<string, number>();
-		const yearMap = new Map<string, number>();
+	// Calculate metrics directly from live stored procedures
+	const productMap = new Map<string, { name: string; total: number }>();
+	const monthMap = new Map<string, number>();
+	const quarterMap = new Map<string, number>();
+	const yearMap = new Map<string, number>();
+	const docOutMap = new Map<string, { doctor: string; city: string; amount: number }>();
 
 		accessibleSales.forEach((sale) => {
 			totalSales += sale.quantity;
@@ -286,10 +156,6 @@ export async function MrDashboardContent({
 		recentInvoices = sortedInvoices.slice(0, 8);
 
 		// Process Outstanding
-		const docOutMap = new Map<
-			string,
-			{ doctor: string; city: string; amount: number }
-		>();
 		accessibleOutstanding.forEach((out) => {
 			if (out.invAmt) {
 				const amt = parseFloat(out.invAmt);
@@ -405,7 +271,6 @@ export async function MrDashboardContent({
 			time,
 			qty,
 		}));
-	}
 
 	const baseUrl = isAdminView ? `/admin/mrs/${mrId}` : `/dashboard`;
 
@@ -641,14 +506,12 @@ export async function MrDashboardContent({
 							<div className="space-y-1.5">
 								<p className="font-bold text-amber-900 text-[11px]">Database Queries & Filter Conditions:</p>
 								<pre className="overflow-x-auto rounded border border-amber-200 bg-amber-100 p-2.5 text-[11px] font-mono select-all whitespace-pre-wrap break-all text-amber-950">
-{`-- Overview metrics query local tables: sales, invoices, outstanding
--- Accessible Products Count: ${productIds.length}
+{`-- Overview metrics calculated live via MySQL ERP stored procedures
 -- Date Filters: from=${searchParams?.from || "NOT PROVIDED"}, to=${searchParams?.to || "NOT PROVIDED"}
 -- Division Selected: ${selectedDivision}
 -- Assigned Divisions: ${JSON.stringify(assignedDivisions)}
--- Sales Query: SELECT * FROM sales WHERE mrId = '${mrId}' AND productId IN (${productIds.length > 0 ? productIds.slice(0, 5).join(", ") + (productIds.length > 5 ? "..." : "") : "NONE"})${searchParams?.from ? ` AND date >= '${searchParams.from}'` : ""}${searchParams?.to ? ` AND date <= '${searchParams.to}'` : ""} => ${accessibleSales.length} rows
--- Invoices Query: SELECT * FROM invoices WHERE mrId = '${mrId}' AND manufacturerCode IN (${JSON.stringify(selectedAssignments.map((d) => d.manufacturer))})${searchParams?.from ? ` AND date >= '${searchParams.from}'` : ""}${searchParams?.to ? ` AND date <= '${searchParams.to}'` : ""} => ${accessibleInvoices.length} rows
--- Outstanding Query: SELECT * FROM outstanding WHERE mrId = '${mrId}' AND manufacturerCode IN (${JSON.stringify(selectedAssignments.map((d) => d.manufacturer))})${searchParams?.from ? ` AND invDt >= '${searchParams.from}'` : ""}${searchParams?.to ? ` AND invDt <= '${searchParams.to}'` : ""} => ${accessibleOutstanding.length} rows`}
+-- Sales: rptItemCustomerSale => ${totalSales} units | ₹${totalInvoicesAmt.toFixed(2)}
+-- Outstanding: rptMRwisePeriodicalOutstanding => ₹${totalOutstandingAmt.toFixed(2)}`}
 								</pre>
 								<div className="mt-2 grid grid-cols-2 md:grid-cols-4 gap-2 text-[11px] text-amber-800 pt-1.5 border-t border-amber-200">
 									<div><span className="font-semibold">MR ID:</span> {mrId}</div>

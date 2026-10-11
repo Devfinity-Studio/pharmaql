@@ -1,20 +1,17 @@
 "use client";
 
-import { AlertCircle } from "lucide-react";
+import { AlertCircle, Mail, KeyRound, ArrowRight, ShieldCheck } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
 	InputOTP,
 	InputOTPGroup,
 	InputOTPSlot,
 } from "@/components/ui/input-otp";
-import { emailOtp, signIn, signOut } from "@/lib/auth-client";
-import { checkActiveSessions, clearOtherSessions } from "@/server/actions/mrs";
-import { useEffect } from "react";
+import { requestMrOtp, verifyMrOtp, loginAdminOrDev } from "@/server/actions/authActions";
 
 export function LoginForm() {
 	useEffect(() => {
-		// Clear notice session storage so they see it on every new login
 		const keysToRemove = [];
 		for (let i = 0; i < sessionStorage.length; i++) {
 			const key = sessionStorage.key(i);
@@ -22,115 +19,62 @@ export function LoginForm() {
 				keysToRemove.push(key);
 			}
 		}
-		keysToRemove.forEach(k => sessionStorage.removeItem(k));
+		keysToRemove.forEach((k) => sessionStorage.removeItem(k));
 	}, []);
-	const [step, setStep] = useState<
-		"email" | "active-session-warning" | "password" | "otp"
-	>("email");
+
+	const [mode, setMode] = useState<"mr" | "admin">("mr");
+	const [step, setStep] = useState<"request" | "otp">("request");
 	const [email, setEmail] = useState("");
 	const [password, setPassword] = useState("");
 	const [otp, setOtp] = useState("");
 	const [error, setError] = useState("");
+	const [successMsg, setSuccessMsg] = useState("");
 	const [loading, setLoading] = useState(false);
 	const router = useRouter();
 
-	async function handleEmailSubmit(e: React.FormEvent) {
+	async function handleMrOtpRequest(e: React.FormEvent) {
 		e.preventDefault();
 		setLoading(true);
 		setError("");
+		setSuccessMsg("");
 
-		const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-		if (!emailRegex.test(email)) {
-			setError("Please enter a valid email address.");
-			setLoading(false);
-			return;
-		}
-
-		if (email.toLowerCase() === "admin@admin.com") {
-			setStep("password");
+		const res = await requestMrOtp(email);
+		if (!res.success) {
+			setError(res.error || "Failed to send OTP.");
 			setLoading(false);
 		} else {
-			// Check for active sessions for MRs
-			const sessionCheck = await checkActiveSessions(email);
-			if (sessionCheck.hasActiveSessions) {
-				setStep("active-session-warning");
-				setLoading(false);
-				return;
-			}
-
-			// Proceed to OTP
-			await sendOTP(email);
-		}
-	}
-
-	async function sendOTP(emailAddress: string) {
-		setLoading(true);
-		setError("");
-		const res = await emailOtp.sendVerificationOtp({
-			email: emailAddress,
-			type: "sign-in",
-		});
-
-		if (res.error) {
-			setError(res.error.message || "Failed to send OTP.");
-			setLoading(false);
-		} else {
+			setSuccessMsg(res.message || `OTP sent to ${res.email}`);
 			setStep("otp");
 			setLoading(false);
 		}
 	}
 
-	async function handleWarningContinue() {
-		await sendOTP(email);
-	}
-
-	async function handlePasswordSubmit(e: React.FormEvent) {
+	async function handleMrOtpVerify(e: React.FormEvent) {
 		e.preventDefault();
 		setLoading(true);
 		setError("");
 
-		const res = await signIn.email({
-			email,
-			password,
-		});
-
-		await handleSignInResponse(res);
-	}
-
-	async function handleOtpSubmit(e: React.FormEvent) {
-		e.preventDefault();
-		setLoading(true);
-		setError("");
-
-		const res = await signIn.emailOtp({
-			email,
-			otp,
-		});
-
-		await handleSignInResponse(res);
-	}
-
-	async function handleSignInResponse(res: any) {
-		if (res.error) {
-			setError(
-				res.error.message || "Failed to sign in. Check your credentials.",
-			);
-			setLoading(false);
-		} else if ((res.data?.user as any)?.isBlocked) {
-			await signOut();
-			setError(
-				"you have been blocked please contact the admin to get unblocked",
-			);
+		const res = await verifyMrOtp(email, otp);
+		if (!res.success) {
+			setError(res.error || "Invalid OTP code.");
 			setLoading(false);
 		} else {
-			const role = (res.data?.user as any)?.role;
+			router.push("/dashboard");
+			router.refresh();
+		}
+	}
 
-			if (role === "MR") {
-				// Clear any older active sessions now that the new OTP verified session is established
-				await clearOtherSessions();
-			}
+	async function handleAdminLogin(e: React.FormEvent) {
+		e.preventDefault();
+		setLoading(true);
+		setError("");
 
-			if (role === "ADMIN") {
+		const res = await loginAdminOrDev(email, password);
+		if (!res.success) {
+			setError(res.error || "Login failed.");
+			setLoading(false);
+		} else {
+			if (res.user?.role === "ADMIN" || res.user?.role === "DEVELOPER") {
 				router.push("/admin/dashboard");
 			} else {
 				router.push("/dashboard");
@@ -140,119 +84,89 @@ export function LoginForm() {
 	}
 
 	return (
-		<div className="border border-gray-200 bg-white px-4 py-8 shadow sm:rounded-lg sm:px-10">
-			{step === "email" && (
-				<form className="space-y-6" onSubmit={handleEmailSubmit}>
+		<div className="border border-gray-200 bg-white px-4 py-8 shadow-sm sm:rounded-2xl sm:px-10">
+			{/* Mode Toggle Tabs */}
+			<div className="mb-6 grid grid-cols-2 gap-2 rounded-xl bg-gray-100 p-1">
+				<button
+					type="button"
+					onClick={() => {
+						setMode("mr");
+						setStep("request");
+						setError("");
+						setSuccessMsg("");
+					}}
+					className={`flex items-center justify-center gap-2 rounded-lg py-2.5 text-xs font-bold transition-all ${
+						mode === "mr"
+							? "bg-[#0071BC] text-white shadow-sm"
+							: "text-gray-600 hover:text-gray-900"
+					}`}
+				>
+					<Mail className="h-4 w-4" />
+					MR Email OTP
+				</button>
+				<button
+					type="button"
+					onClick={() => {
+						setMode("admin");
+						setError("");
+						setSuccessMsg("");
+					}}
+					className={`flex items-center justify-center gap-2 rounded-lg py-2.5 text-xs font-bold transition-all ${
+						mode === "admin"
+							? "bg-[#0B2545] text-white shadow-sm"
+							: "text-gray-600 hover:text-gray-900"
+					}`}
+				>
+					<ShieldCheck className="h-4 w-4" />
+					Admin / Developer
+				</button>
+			</div>
+
+			{/* MR FLOW */}
+			{mode === "mr" && step === "request" && (
+				<form className="space-y-6" onSubmit={handleMrOtpRequest}>
 					<div>
-						<label className="block font-medium text-gray-700 text-sm">
-							Email address
+						<label className="block font-semibold text-gray-700 text-sm">
+							Registered Email Address
 						</label>
-						<div className="mt-1">
+						<p className="mt-0.5 text-xs text-gray-500">
+							We will send a 6-digit verification code to your email.
+						</p>
+						<div className="mt-2">
 							<input
-								className="block w-full appearance-none rounded-md border border-gray-300 px-3 py-2 placeholder-gray-400 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-blue-500 sm:text-sm"
-								onChange={(e) => setEmail(e.target.value)}
-								required
 								type="email"
+								required
 								value={email}
+								onChange={(e) => setEmail(e.target.value)}
+								className="block w-full rounded-lg border border-gray-300 px-3.5 py-2.5 text-gray-900 shadow-sm focus:border-[#0071BC] focus:ring-[#0071BC] sm:text-sm"
+								placeholder="mr.name@asmeepharma.com"
 							/>
 						</div>
 					</div>
-					{error && <div className="text-red-600 text-sm">{error}</div>}
+
 					<button
-						className="flex w-full justify-center rounded-md border border-transparent bg-blue-600 px-4 py-2 font-medium text-sm text-white shadow-sm hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50"
-						disabled={loading}
 						type="submit"
+						disabled={loading}
+						className="flex w-full items-center justify-center gap-2 rounded-lg bg-[#0071BC] px-4 py-2.5 text-sm font-bold text-white shadow-sm hover:bg-[#005a96] disabled:opacity-50"
 					>
-						{loading ? "Please wait..." : "Continue"}
+						{loading ? "Sending OTP..." : "Send Verification OTP"}
+						<ArrowRight className="h-4 w-4" />
 					</button>
 				</form>
 			)}
 
-			{step === "active-session-warning" && (
-				<div className="space-y-6">
-					<div className="flex flex-col items-center text-center">
-						<div className="mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-yellow-100">
-							<AlertCircle className="h-6 w-6 text-yellow-600" />
+			{mode === "mr" && step === "otp" && (
+				<form className="space-y-6" onSubmit={handleMrOtpVerify}>
+					{successMsg && (
+						<div className="rounded-lg bg-emerald-50 p-3 text-xs font-medium text-emerald-800 border border-emerald-200">
+							{successMsg}
 						</div>
-						<h3 className="font-medium text-gray-900 text-lg">
-							Active Session Detected
-						</h3>
-						<p className="mt-2 text-gray-500 text-sm">
-							You are currently logged in on another device. Do you want to log
-							out of other devices and continue logging in here?
-						</p>
-					</div>
-					{error && (
-						<div className="text-center text-red-600 text-sm">{error}</div>
 					)}
-					<div className="flex w-full flex-col gap-3">
-						<button
-							className="flex w-full justify-center rounded-md border border-transparent bg-yellow-600 px-4 py-2 font-medium text-sm text-white shadow-sm hover:bg-yellow-700 focus:outline-none focus:ring-2 focus:ring-yellow-500 focus:ring-offset-2 disabled:opacity-50"
-							disabled={loading}
-							onClick={handleWarningContinue}
-						>
-							{loading ? "Sending OTP..." : "Yes, log out others and send OTP"}
-						</button>
-						<button
-							className="flex w-full justify-center rounded-md border border-gray-300 bg-white px-4 py-2 font-medium text-gray-700 text-sm shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50"
-							disabled={loading}
-							onClick={() => setStep("email")}
-						>
-							Cancel
-						</button>
-					</div>
-				</div>
-			)}
-
-			{step === "password" && (
-				<form className="space-y-6" onSubmit={handlePasswordSubmit}>
-					<div>
-						<label className="block font-medium text-gray-700 text-sm">
-							Password for Admin
+					<div className="flex flex-col items-center">
+						<label className="block font-semibold text-gray-700 text-sm mb-3">
+							Enter 6-Digit OTP Code
 						</label>
-						<div className="mt-1">
-							<input
-								className="block w-full appearance-none rounded-md border border-gray-300 px-3 py-2 placeholder-gray-400 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-blue-500 sm:text-sm"
-								onChange={(e) => setPassword(e.target.value)}
-								required
-								type="password"
-								value={password}
-							/>
-						</div>
-					</div>
-					{error && <div className="text-red-600 text-sm">{error}</div>}
-					<div className="flex gap-4">
-						<button
-							className="text-gray-600 text-sm hover:text-gray-900"
-							onClick={() => setStep("email")}
-							type="button"
-						>
-							Back
-						</button>
-						<button
-							className="flex w-full justify-center rounded-md border border-transparent bg-blue-600 px-4 py-2 font-medium text-sm text-white shadow-sm hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50"
-							disabled={loading}
-							type="submit"
-						>
-							{loading ? "Signing in..." : "Sign in"}
-						</button>
-					</div>
-				</form>
-			)}
-
-			{step === "otp" && (
-				<form
-					className="flex flex-col items-center space-y-6"
-					onSubmit={handleOtpSubmit}
-				>
-					<div className="text-center">
-						<h3 className="font-medium text-gray-900 text-lg">Enter OTP</h3>
-						<p className="mt-1 mb-4 text-gray-500 text-sm">
-							We sent a verification code to {email}
-						</p>
-					</div>
-					<div className="flex w-full justify-center">
-						<InputOTP maxLength={6} onChange={setOtp} value={otp}>
+						<InputOTP maxLength={6} value={otp} onChange={(value) => setOtp(value)}>
 							<InputOTPGroup>
 								<InputOTPSlot index={0} />
 								<InputOTPSlot index={1} />
@@ -263,24 +177,78 @@ export function LoginForm() {
 							</InputOTPGroup>
 						</InputOTP>
 					</div>
-					{error && <div className="text-red-600 text-sm">{error}</div>}
-					<div className="mt-4 flex w-full gap-4">
+
+					<button
+						type="submit"
+						disabled={loading || otp.length < 6}
+						className="flex w-full items-center justify-center gap-2 rounded-lg bg-[#0071BC] px-4 py-2.5 text-sm font-bold text-white shadow-sm hover:bg-[#005a96] disabled:opacity-50"
+					>
+						{loading ? "Verifying..." : "Verify & Sign In"}
+					</button>
+
+					<div className="text-center">
 						<button
-							className="text-gray-600 text-sm hover:text-gray-900"
-							onClick={() => setStep("email")}
 							type="button"
+							onClick={() => setStep("request")}
+							className="text-xs font-semibold text-[#0071BC] hover:underline"
 						>
-							Back
-						</button>
-						<button
-							className="flex w-full justify-center rounded-md border border-transparent bg-blue-600 px-4 py-2 font-medium text-sm text-white shadow-sm hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50"
-							disabled={loading || otp.length < 6}
-							type="submit"
-						>
-							{loading ? "Verifying..." : "Verify & Sign in"}
+							← Change Email or Resend OTP
 						</button>
 					</div>
 				</form>
+			)}
+
+			{/* ADMIN / DEV FLOW */}
+			{mode === "admin" && (
+				<form className="space-y-5" onSubmit={handleAdminLogin}>
+					<div>
+						<label className="block font-semibold text-gray-700 text-sm">
+							Admin / Developer Email
+						</label>
+						<div className="mt-1.5">
+							<input
+								type="email"
+								required
+								value={email}
+								onChange={(e) => setEmail(e.target.value)}
+								className="block w-full rounded-lg border border-gray-300 px-3.5 py-2.5 text-gray-900 shadow-sm focus:border-[#0B2545] focus:ring-[#0B2545] sm:text-sm"
+								placeholder="admin@asmeepharma.com"
+							/>
+						</div>
+					</div>
+
+					<div>
+						<label className="block font-semibold text-gray-700 text-sm">
+							Password
+						</label>
+						<div className="mt-1.5">
+							<input
+								type="password"
+								required
+								value={password}
+								onChange={(e) => setPassword(e.target.value)}
+								className="block w-full rounded-lg border border-gray-300 px-3.5 py-2.5 text-gray-900 shadow-sm focus:border-[#0B2545] focus:ring-[#0B2545] sm:text-sm"
+								placeholder="••••••••••••"
+							/>
+						</div>
+					</div>
+
+					<button
+						type="submit"
+						disabled={loading}
+						className="flex w-full items-center justify-center gap-2 rounded-lg bg-[#0B2545] px-4 py-2.5 text-sm font-bold text-white shadow-sm hover:bg-[#081a30] disabled:opacity-50"
+					>
+						<KeyRound className="h-4 w-4" />
+						{loading ? "Signing in..." : "Authenticate"}
+					</button>
+				</form>
+			)}
+
+			{error && (
+				<div className="mt-5 flex items-start gap-2.5 rounded-lg border border-red-200 bg-red-50 p-3 text-red-700 text-xs font-medium">
+					<AlertCircle className="h-4 w-4 shrink-0 mt-0.5" />
+					<div>{error}</div>
+				</div>
 			)}
 		</div>
 	);

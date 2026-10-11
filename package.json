@@ -35,6 +35,7 @@
 		"clsx": "^2.1.1",
 		"drizzle-orm": "^0.41.0",
 		"input-otp": "^1.4.2",
+		"jose": "^6.2.12",
 		"jspdf": "^4.2.1",
 		"jspdf-autotable": "^5.0.8",
 		"kysely": "0.27.2",

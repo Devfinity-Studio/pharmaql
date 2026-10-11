@@ -1,9 +1,21 @@
 import Image from "next/image";
-import { and, eq, gte, inArray, lte, or, sql } from "drizzle-orm";
 import React from "react";
-import { db } from "@/server/db";
-import { mrManufacturers, products } from "@/server/db/schema";
 import { getMRInfo } from "@/server/actions/mrInfo";
+import { getItemCustomerSale } from "@/server/actions/customerItemSale";
+
+function formatDisplayDate(val?: string | Date | null): string {
+	if (!val) return "";
+	if (typeof val === "string") {
+		const match = val.match(/^(\d{4})-(\d{2})-(\d{2})/);
+		if (match) return `${match[3]}/${match[2]}/${match[1]}`;
+	}
+	const d = new Date(val);
+	if (isNaN(d.getTime())) return String(val);
+	const day = String(d.getDate()).padStart(2, "0");
+	const month = String(d.getMonth() + 1).padStart(2, "0");
+	const year = d.getFullYear();
+	return `${day}/${month}/${year}`;
+}
 
 export async function NewSalesReportView({
 	mrId,
@@ -17,248 +29,136 @@ export async function NewSalesReportView({
 		q?: string;
 	};
 }) {
-	// Fetch MR and assignments
+	// Fetch MR and permissions from legacy schema
 	const mrInfo = await getMRInfo(mrId);
 	if (!mrInfo || !mrInfo.canViewSales)
 		return <div>No access to sales data.</div>;
 
 	const company = searchParams?.division || "All";
-	const dbAssignments = await db
-		.select()
-		.from(mrManufacturers)
-		.where(eq(mrManufacturers.mrId, mrId));
+	const compCodeToQuery =
+		company === "All"
+			? mrInfo.companyCode || ""
+			: mrInfo.companyCode && (mrInfo.company === company || mrInfo.division === company)
+				? mrInfo.companyCode
+				: company;
 
-	const selectedAssignments =
-		dbAssignments.length > 0
-			? dbAssignments
-			: mrInfo.company
-				? [
-						{
-							id: `legacy-${mrId}`,
-							mrId,
-							manufacturer: mrInfo.company,
-							firmNo: null,
-							division: mrInfo.division || null,
-							company: mrInfo.company,
-							createdAt: new Date(),
-						},
-					]
-				: [];
+	const defaultFrom = searchParams?.from || "2026-04-01";
+	const defaultTo = searchParams?.to || "2026-09-30";
 
-	let validAssignments = selectedAssignments;
-	if (company !== "All") {
-		validAssignments = selectedAssignments.filter(
-			(a) => a.division === company || a.manufacturer === company,
-		);
-	}
-
-	if (validAssignments.length === 0) return <div>No data assigned</div>;
-
-	const productConditionList = validAssignments.map((d) => {
-		const conditions = [eq(products.manufacturer, d.manufacturer)];
-		if (d.division) {
-			conditions.push(eq(products.division, d.division));
-		}
-		return and(...conditions);
+	const salesResult = await getItemCustomerSale({
+		fromDate: defaultFrom,
+		toDate: defaultTo,
+		locNo: mrInfo.locNo || "11",
+		compCode: compCodeToQuery,
 	});
 
-	const accessibleProducts = await db
-		.select()
-		.from(products)
-		.where(or(...productConditionList));
+	const rawRows = salesResult.success && salesResult.data ? salesResult.data : [];
 
-	const productIds = accessibleProducts.map((p) => p.id);
-
-	if (productIds.length === 0) return <div>No products found</div>;
-
-	// Query raw SQL for legacy tables
-	let dateCondition = ``;
-	if (searchParams?.from) {
-		dateCondition += ` AND h.inv_dt >= '${searchParams.from}'`;
-	}
-	if (searchParams?.to) {
-		dateCondition += ` AND h.inv_dt <= '${searchParams.to}'`;
-	}
-
-	const locNoFilter = mrInfo.locNo ? `AND h.loc_no = '${mrInfo.locNo}'` : ``;
-
-	const legacyDataResult = await db.execute(
-		sql.raw(`
-		SELECT 
-			h.inv_no as "InvNo",
-			h.inv_dt as "InvDt",
-			CONCAT(h.cust_id, ' ', COALESCE(c.name, 'Unknown Party'), ' , ', COALESCE(c.city, '')) as "Customer",
-			l.item_id as "ItemID",
-			l.batch_no as "BatchNo",
-			l.mrp as "MRP",
-			l.exp_dt as "ExpDt",
-			l.qty as "Qty",
-			l.f_qty as "FQty",
-			l.rate as "Rate",
-			l.taxable_amt as "TaxableAmt",
-			l.vat_amt as "GSTAmt",
-			l.line_amt as "Amount"
-		FROM "pg-drizzle_legacy_h_sale" h
-		JOIN "pg-drizzle_legacy_l_sale" l ON l.rid = h.id
-		LEFT JOIN "pg-drizzle_legacy_customers" c ON c.id = h.cust_id
-		WHERE l.item_id IN (${productIds.map((id) => `'${id}'`).join(",")})
-		${locNoFilter}
-		${dateCondition}
-		LIMIT 3000
-	`),
-	);
-
-	const legacyRows = legacyDataResult as any[];
-
-	const reportData: any[] = [];
-	legacyRows.forEach((row: any) => {
-		const p = accessibleProducts.find((prod) => prod.id === String(row.ItemID));
-		if (p) {
-			reportData.push({
-				Division: p.division || p.manufacturer,
-				Customer: row.Customer || "Unknown Party",
-				InvNo: row.InvNo,
-				InvDate: row.InvDt ? new Date(row.InvDt).toLocaleDateString() : "-",
-				Code: p.code || "-",
-				ItemName: p.name,
-				Packing: p.freeScheme || "-",
-				BatchNo: row.BatchNo,
-				MRP: Number(row.MRP).toFixed(2),
-				ExpDt: row.ExpDt,
-				Qty: Number(row.Qty),
-				FQty: Number(row.FQty),
-				Rate: Number(row.Rate).toFixed(2),
-				TaxableAmt: Number(row.TaxableAmt),
-				GSTAmt: Number(row.GSTAmt),
-				Amount: Number(row.TaxableAmt) + Number(row.GSTAmt),
-			});
-		}
-	});
+	let reportData = rawRows.map((row) => ({
+		Division: mrInfo.division || mrInfo.company || "General",
+		Customer: row.Customer || "Unknown Party",
+		InvNo: row.InvNo,
+		InvDate: formatDisplayDate(row.InvDt),
+		Code: row.ItemCode || "-",
+		ItemName: row.ItemName,
+		Packing: row.Packing || "-",
+		BatchNo: row.BatchNo,
+		MRP: Number(row.PTR || 0).toFixed(2),
+		ExpDt: row.ExpDt ? String(row.ExpDt).split("T")[0] : "-",
+		Qty: Number(row.Qty || 0),
+		FQty: Number(row.FQty || 0),
+		Rate: Number(row.Srate || row.PTR || 0).toFixed(2),
+		TaxableAmt: Number(row.IAmt || 0),
+		GSTAmt: 0,
+		Amount: Number(row.IAmt || 0),
+	}));
 
 	if (searchParams?.q) {
 		const q = searchParams.q.toLowerCase();
-		for (let i = reportData.length - 1; i >= 0; i--) {
-			const d = reportData[i];
-			if (
-				!d.ItemName.toLowerCase().includes(q) &&
-				!d.Customer.toLowerCase().includes(q) &&
-				!d.Division.toLowerCase().includes(q)
-			) {
-				reportData.splice(i, 1);
-			}
-		}
+		reportData = reportData.filter(
+			(d) =>
+				d.ItemName.toLowerCase().includes(q) ||
+				d.Customer.toLowerCase().includes(q) ||
+				d.InvNo.toLowerCase().includes(q) ||
+				d.Code.toLowerCase().includes(q),
+		);
 	}
 
-	// Grouping by Division -> Customer
 	const divisions = [...new Set(reportData.map((d) => d.Division))].sort();
 
-	let grandTotalAmount = 0;
-	let grandTotalTaxable = 0;
-	let grandTotalGST = 0;
-	let grandTotalQty = 0;
+	let grandQty = 0;
+	let grandFQty = 0;
+	let grandTaxable = 0;
+	let grandGST = 0;
+	let grandAmt = 0;
 
 	reportData.forEach((row) => {
-		grandTotalQty += row.Qty;
-		grandTotalTaxable += row.TaxableAmt;
-		grandTotalGST += row.GSTAmt;
-		grandTotalAmount += row.Amount;
+		grandQty += row.Qty;
+		grandFQty += row.FQty;
+		grandTaxable += row.TaxableAmt;
+		grandGST += row.GSTAmt;
+		grandAmt += row.Amount;
 	});
 
 	return (
-		<div className="mt-4 space-y-8 overflow-hidden rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
-			{/* Header */}
-			<div className="mb-2 flex flex-col items-start justify-between gap-4 border-[#0B2545] border-b-2 pb-2 md:flex-row">
-				<div className="flex items-center gap-4">
+		<div className="mt-4 space-y-4 rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
+			{/* HEADER */}
+			<div className="border-[#0B2545] border-b-2 pb-2">
+				<div className="flex items-start gap-4">
+					<Image
+						alt="Asmee Pharma Logo"
+						className="object-contain"
+						height={45}
+						priority
+						src="/logo.png"
+						width={140}
+					/>
 					<div>
-						<h2 className="font-extrabold text-2xl text-[#0B2545] tracking-tight">
-							<Image src="/logo.png" alt="Asmee Pharma Logo" width={180} height={50} className="object-contain" priority />
+						<h2 className="font-extrabold text-base text-gray-900 uppercase tracking-tight">
+							ASMEE PHARMA PRIVATE LIMITED
 						</h2>
-						<p className="mt-1 font-medium text-[#0B2545] text-sm leading-relaxed">
-							BASEMENE-GF, 11/2 ASHOK HOUSE, B/S SANSTHA VASAHAT GATE, PRATAP
-							ROAD,
+						<p className="mt-0.5 text-[11px] text-gray-700 leading-tight">
+							BASEMENE-GF, 11/2 ASHOK HOUSE, B/S SANSTHA VASAHAT GATE, PRATAP ROAD,
 							<br />
 							RAOPURA, VADODARA - 390001, GUJARAT - 24
-							<br />
-							Contact: 9409789800, 9409789700 Mobile: 9409789700 Email:
-							asmeepharma2022@gmail.com
 						</p>
 					</div>
 				</div>
-			</div>
 
-			<div className="mb-4 flex items-end justify-between font-bold text-[#0B2545] text-sm">
-				<div>
-					<p>Year : 2026-27</p>
-					<p className="mt-2 text-base">
-						Company / Customer / Itemwise Sales for period of{" "}
-						{searchParams?.from || "Start"} to {searchParams?.to || "End"}
-					</p>
-				</div>
-				<div className="text-right">
-					<p>Page 1 of 1</p>
+				<div className="mt-3 flex items-center justify-between border-gray-300 border-t pt-1.5 font-bold text-gray-900 text-xs">
+					<div>Year : 2026-27</div>
+					<div className="font-extrabold text-[#0B2545] text-xs">
+						Sales Statement for Period of {formatDisplayDate(defaultFrom)} to {formatDisplayDate(defaultTo)}
+					</div>
+					<div>Total Items: {reportData.length}</div>
 				</div>
 			</div>
-
-			{legacyRows.length >= 3000 && (
-				<div className="mb-4 rounded-lg border border-amber-200 bg-amber-50 p-4 text-amber-800">
-					<strong>Warning:</strong> Displaying maximum of 3,000 records. Please
-					select a shorter date range to view all data.
-				</div>
-			)}
 
 			<div className="w-full overflow-x-auto border-[#0B2545] border-t-2 pt-1">
 				<table className="w-full min-w-[1200px] border-collapse text-left font-sans">
 					<thead>
 						<tr className="border-[#0B2545] border-y-2">
-							<th className="py-2 pl-2 font-bold text-[#0B2545] text-xs">
-								Sr.
-							</th>
-							<th className="py-2 font-bold text-[#0B2545] text-xs">
-								Inv. No.
-							</th>
-							<th className="py-2 font-bold text-[#0B2545] text-xs">
-								Inv. Date
-							</th>
+							<th className="py-2 pl-2 font-bold text-[#0B2545] text-xs">Sr.</th>
+							<th className="py-2 font-bold text-[#0B2545] text-xs">Inv. No.</th>
+							<th className="py-2 font-bold text-[#0B2545] text-xs">Inv. Date</th>
 							<th className="py-2 font-bold text-[#0B2545] text-xs">Code</th>
-							<th className="py-2 font-bold text-[#0B2545] text-xs">
-								Item Name
-							</th>
+							<th className="py-2 font-bold text-[#0B2545] text-xs">Item Name</th>
 							<th className="py-2 font-bold text-[#0B2545] text-xs">Packing</th>
-							<th className="py-2 font-bold text-[#0B2545] text-xs">
-								Batch No.
-							</th>
-							<th className="py-2 text-right font-bold text-[#0B2545] text-xs">
-								MRP
-							</th>
-							<th className="py-2 text-center font-bold text-[#0B2545] text-xs">
-								Exp. Dt.
-							</th>
-							<th className="py-2 text-right font-bold text-[#0B2545] text-xs">
-								Qty.
-							</th>
-							<th className="py-2 text-right font-bold text-[#0B2545] text-xs">
-								FQty.
-							</th>
-							<th className="py-2 text-right font-bold text-[#0B2545] text-xs">
-								Rate
-							</th>
-							<th className="py-2 text-right font-bold text-[#0B2545] text-xs">
-								Taxable Amount
-							</th>
-							<th className="py-2 text-right font-bold text-[#0B2545] text-xs">
-								GST Amount
-							</th>
-							<th className="py-2 pr-2 text-right font-bold text-[#0B2545] text-xs">
-								Amount
-							</th>
+							<th className="py-2 font-bold text-[#0B2545] text-xs">Batch No.</th>
+							<th className="py-2 text-right font-bold text-[#0B2545] text-xs">MRP</th>
+							<th className="py-2 text-center font-bold text-[#0B2545] text-xs">Exp. Dt.</th>
+							<th className="py-2 text-right font-bold text-[#0B2545] text-xs">Qty.</th>
+							<th className="py-2 text-right font-bold text-[#0B2545] text-xs">FQty.</th>
+							<th className="py-2 text-right font-bold text-[#0B2545] text-xs">Rate</th>
+							<th className="py-2 text-right font-bold text-[#0B2545] text-xs">Taxable Amount</th>
+							<th className="py-2 text-right font-bold text-[#0B2545] text-xs">GST Amount</th>
+							<th className="py-2 pr-2 text-right font-bold text-[#0B2545] text-xs">Amount</th>
 						</tr>
 					</thead>
 					<tbody className="font-medium text-xs">
 						{divisions.map((div, divIdx) => {
 							const divData = reportData.filter((d) => d.Division === div);
-							const customers = [
-								...new Set(divData.map((d) => d.Customer)),
-							].sort();
+							const customers = [...new Set(divData.map((d) => d.Customer))].sort();
 
 							let divQty = 0;
 							let divTaxable = 0;
@@ -273,7 +173,6 @@ export async function NewSalesReportView({
 
 							return (
 								<React.Fragment key={divIdx}>
-									{/* Division Header Row */}
 									<tr>
 										<td
 											className="border-gray-200 border-b bg-[#fdf5e6] px-2 py-1.5 font-bold text-[#6b4c2a]"
@@ -292,16 +191,15 @@ export async function NewSalesReportView({
 
 										return (
 											<React.Fragment key={custIdx}>
-												{/* Customer Header Row */}
 												<tr>
 													<td
 														className="border-[#cce5ff] border-y-2 bg-[#d4edda] px-3 py-2 font-extrabold text-[#155724] text-sm uppercase tracking-wide"
 														colSpan={15}
 													>
-														{cust}
+														Customer : {cust}
 													</td>
 												</tr>
-												{/* Items */}
+
 												{custData.map((row, rowIdx) => {
 													custQty += row.Qty;
 													custTaxable += row.TaxableAmt;
@@ -310,140 +208,72 @@ export async function NewSalesReportView({
 
 													return (
 														<tr
-															className="border-gray-100 border-b text-[#0B2545] hover:bg-gray-50"
+															className="border-gray-200 border-b hover:bg-gray-50"
 															key={rowIdx}
 														>
-															<td className="whitespace-nowrap py-1.5 pl-2">
-																{rowIdx + 1}
-															</td>
-															<td className="py-1.5">{row.InvNo}</td>
+															<td className="py-1.5 pl-2">{rowIdx + 1}</td>
+															<td className="py-1.5 font-bold">{row.InvNo}</td>
 															<td className="py-1.5">{row.InvDate}</td>
 															<td className="py-1.5">{row.Code}</td>
-															<td className="py-1.5">{row.ItemName}</td>
+															<td className="py-1.5 font-bold text-gray-900">{row.ItemName}</td>
 															<td className="py-1.5">{row.Packing}</td>
 															<td className="py-1.5">{row.BatchNo}</td>
 															<td className="py-1.5 text-right">{row.MRP}</td>
-															<td className="py-1.5 text-center">
-																{row.ExpDt}
-															</td>
-															<td className="py-1.5 text-right font-bold text-[#0B2545]">
-																{row.Qty}
-															</td>
+															<td className="py-1.5 text-center">{row.ExpDt}</td>
+															<td className="py-1.5 text-right font-bold">{row.Qty}</td>
 															<td className="py-1.5 text-right">{row.FQty}</td>
 															<td className="py-1.5 text-right">{row.Rate}</td>
-															<td className="py-1.5 text-right">
-																{row.TaxableAmt.toFixed(2)}
-															</td>
-															<td className="py-1.5 text-right">
-																{row.GSTAmt.toFixed(2)}
-															</td>
-															<td className="py-1.5 pr-2 text-right font-bold text-[#0B2545]">
-																{row.Amount.toFixed(2)}
-															</td>
+															<td className="py-1.5 text-right">{row.TaxableAmt.toFixed(2)}</td>
+															<td className="py-1.5 text-right">{row.GSTAmt.toFixed(2)}</td>
+															<td className="py-1.5 pr-2 text-right font-bold">{row.Amount.toFixed(2)}</td>
 														</tr>
 													);
 												})}
+
 												{/* Customer Subtotal */}
-												<tr className="border-gray-300 border-y bg-white font-bold text-[#0B2545]">
-													<td
-														className="py-1.5 pl-2 text-right text-gray-500"
-														colSpan={9}
-													>
-														Party Total
+												<tr className="border-gray-300 border-t bg-[#f0fff4] font-bold text-[#155724]">
+													<td className="py-1.5 pl-2" colSpan={9}>
+														Party Total :
 													</td>
-													<td className="border-[#0B2545] border-t py-1.5 text-right">
-														{custQty}
-													</td>
-													<td className="py-1.5 text-right" colSpan={2}></td>
-													<td className="border-[#0B2545] border-t py-1.5 text-right">
-														{custTaxable.toFixed(2)}
-													</td>
-													<td className="border-[#0B2545] border-t py-1.5 text-right">
-														{custGST.toFixed(2)}
-													</td>
-													<td className="border-[#0B2545] border-t py-1.5 pr-2 text-right text-[#0056b3]">
-														{custAmt.toFixed(2)}
-													</td>
+													<td className="py-1.5 text-right">{custQty}</td>
+													<td className="py-1.5 text-right"></td>
+													<td className="py-1.5 text-right"></td>
+													<td className="py-1.5 text-right">{custTaxable.toFixed(2)}</td>
+													<td className="py-1.5 text-right">{custGST.toFixed(2)}</td>
+													<td className="py-1.5 pr-2 text-right">{custAmt.toFixed(2)}</td>
 												</tr>
 											</React.Fragment>
 										);
 									})}
 
 									{/* Division Subtotal */}
-									<tr className="border-[#6b4c2a] border-y-2 bg-[#fdf5e6] font-bold text-[#6b4c2a] text-sm">
-										<td className="py-2 pl-2 text-right" colSpan={9}>
-											{div.toUpperCase()} TOTAL
+									<tr className="border-[#0B2545] border-y bg-[#fff9db] font-bold text-[#0B2545]">
+										<td className="py-2 pl-2" colSpan={9}>
+											Division Total ({div.toUpperCase()}) :
 										</td>
 										<td className="py-2 text-right">{divQty}</td>
-										<td className="py-2 text-right" colSpan={2}></td>
+										<td className="py-2 text-right"></td>
+										<td className="py-2 text-right"></td>
 										<td className="py-2 text-right">{divTaxable.toFixed(2)}</td>
 										<td className="py-2 text-right">{divGST.toFixed(2)}</td>
-										<td className="py-2 pr-2 text-right">
-											{divAmt.toFixed(2)}
-										</td>
+										<td className="py-2 pr-2 text-right">{divAmt.toFixed(2)}</td>
 									</tr>
 								</React.Fragment>
 							);
 						})}
 
-						{/* Division Summaries Before Grand Total */}
-						{divisions.length > 1 && reportData.length > 0 && (
-							<>
-								<tr>
-									<td className="py-4" colSpan={15}></td>
-								</tr>
-								{divisions.map((div, divIdx) => {
-									const divData = reportData.filter((d) => d.Division === div);
-									let divQty = 0;
-									let divTaxable = 0;
-									let divGST = 0;
-									let divAmt = 0;
-									divData.forEach((row) => {
-										divQty += row.Qty;
-										divTaxable += row.TaxableAmt;
-										divGST += row.GSTAmt;
-										divAmt += row.Amount;
-									});
-									return (
-										<tr
-											className="border-gray-300 border-y-2 bg-[#f0f4f8] font-bold text-[#0B2545] text-sm"
-											key={`summary-${divIdx}`}
-										>
-											<td className="py-2 pl-2 text-right" colSpan={9}>
-												{div.toUpperCase()} SUMMARY
-											</td>
-											<td className="py-2 text-right">{divQty}</td>
-											<td className="py-2 text-right" colSpan={2}></td>
-											<td className="py-2 text-right">
-												{divTaxable.toFixed(2)}
-											</td>
-											<td className="py-2 text-right">{divGST.toFixed(2)}</td>
-											<td className="py-2 pr-2 text-right text-[#0056b3]">
-												{divAmt.toFixed(2)}
-											</td>
-										</tr>
-									);
-								})}
-							</>
-						)}
-
-						{/* Grand Total Row */}
-						{reportData.length > 0 && (
-							<tr className="border-[#0B2545] border-y-4 bg-[#e6f0fa] font-black text-[#0B2545] text-sm">
-								<td className="py-3 pl-2 text-right uppercase" colSpan={9}>
-									Grand Total
-								</td>
-								<td className="py-3 text-right">{grandTotalQty}</td>
-								<td className="py-3 text-right" colSpan={2}></td>
-								<td className="py-3 text-right">
-									{grandTotalTaxable.toFixed(2)}
-								</td>
-								<td className="py-3 text-right">{grandTotalGST.toFixed(2)}</td>
-								<td className="py-3 pr-2 text-right">
-									{grandTotalAmount.toFixed(2)}
-								</td>
-							</tr>
-						)}
+						{/* Grand Total */}
+						<tr className="border-[#0B2545] border-b-2 bg-[#e6f0fa] font-extrabold text-[#0B2545]">
+							<td className="py-2 pl-2" colSpan={9}>
+								Grand Total :
+							</td>
+							<td className="py-2 text-right">{grandQty}</td>
+							<td className="py-2 text-right">{grandFQty}</td>
+							<td className="py-2 text-right"></td>
+							<td className="py-2 text-right">{grandTaxable.toFixed(2)}</td>
+							<td className="py-2 text-right">{grandGST.toFixed(2)}</td>
+							<td className="py-2 pr-2 text-right">{grandAmt.toFixed(2)}</td>
+						</tr>
 					</tbody>
 				</table>
 			</div>

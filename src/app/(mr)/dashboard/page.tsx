@@ -2,10 +2,7 @@ import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { MrDashboardContent } from "@/components/mr-dashboard-content";
 import { auth } from "@/server/auth";
-
-import { db } from "@/server/db";
-import { notices } from "@/server/db/schema";
-import { eq } from "drizzle-orm";
+import { getActiveNotice } from "@/server/actions/notices";
 import { NoticeModal } from "@/components/notice-modal";
 import { Suspense } from "react";
 import { TableSkeleton } from "@/components/ui/table-skeleton";
@@ -23,6 +20,7 @@ export default async function MRDashboardPage({
 		product?: string;
 		party?: string;
 		q?: string;
+		debug?: string;
 	}>;
 }) {
 	const session = await auth.api.getSession({
@@ -41,15 +39,33 @@ export default async function MRDashboardPage({
 		}
 	}
 
-	const activeNotices = await db
-		.select()
-		.from(notices)
-		.where(eq(notices.isActive, true));
+	const activeNotice = await getActiveNotice();
+	const activeNotices = activeNotice
+		? [
+				{
+					id: activeNotice.id,
+					title: activeNotice.title,
+					content: activeNotice.content,
+					variant: activeNotice.variant,
+					isActive: activeNotice.isActive,
+					expiresAt: activeNotice.expiresAt ? new Date(activeNotice.expiresAt) : null,
+					createdAt: new Date(activeNotice.createdAt),
+					updatedAt: new Date(activeNotice.updatedAt),
+				},
+			]
+		: [];
 
 	return (
 		<>
-			<NoticeModal notices={activeNotices} />
-			<Suspense key={JSON.stringify(cleanParams)} fallback={<div className="p-4"><TableSkeleton rows={10} columns={5} /></div>}>
+			<NoticeModal notices={activeNotices as any} />
+			<Suspense
+				key={JSON.stringify(cleanParams)}
+				fallback={
+					<div className="p-4">
+						<TableSkeleton rows={10} columns={5} />
+					</div>
+				}
+			>
 				<MrDashboardContent
 					isAdminView={false}
 					mrId={session.user.id}

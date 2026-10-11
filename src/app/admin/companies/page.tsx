@@ -1,10 +1,8 @@
-import { isNotNull } from "drizzle-orm";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { auth } from "@/server/auth";
-import { db } from "@/server/db";
-import { companies, products } from "@/server/db/schema";
 import { getAllMarketingCompaniesWithDivisions } from "@/server/actions/mrInfo";
+import { getCompanyOverrides } from "@/server/actions/companies";
 import ClientCompanyList from "./ClientCompanyList";
 
 export default async function AdminCompaniesPage() {
@@ -12,35 +10,20 @@ export default async function AdminCompaniesPage() {
 		headers: await headers(),
 	});
 
-	if (!session || session.user.role !== "ADMIN") {
+	if (!session || (session.user.role !== "ADMIN" && session.user.role !== "DEVELOPER")) {
 		redirect("/login");
 	}
 
-	// Fetch all distinct manufacturers from products and m_mktcompany
-	const allProducts = await db
-		.selectDistinct({
-			manufacturer: products.manufacturer,
-		})
-		.from(products)
-		.where(isNotNull(products.manufacturer));
-
+	const overrides = await getCompanyOverrides();
 	const mktCompanies = await getAllMarketingCompaniesWithDivisions();
-	const mktCompanyNames = Array.from(new Set(mktCompanies.map((c) => c.companyName || c.companyCode)));
-	const productCompanyNames = allProducts.map((p) => p.manufacturer);
-	const allCompanyNames = Array.from(new Set([...mktCompanyNames, ...productCompanyNames])).filter(Boolean);
-
-	// Fetch existing company settings
-	const allCompanies = await db.select().from(companies);
-	const companyStatusMap = new Map(
-		allCompanies.map((c) => [c.name, c.isActive]),
-	);
+	const allCompanyNames = Array.from(
+		new Set(mktCompanies.map((c) => c.companyName || c.companyCode)),
+	).filter((name): name is string => Boolean(name));
 
 	const companyInfoList = allCompanyNames
 		.map((name) => ({
 			name,
-			isActive: companyStatusMap.has(name)
-				? companyStatusMap.get(name)!
-				: true, // active by default
+			isActive: overrides[name] ?? true, // active by default unless explicitly disabled
 		}))
 		.sort((a, b) => a.name.localeCompare(b.name));
 
@@ -51,7 +34,7 @@ export default async function AdminCompaniesPage() {
 					Company Display Management
 				</h1>
 				<p className="mt-2 font-medium text-gray-500">
-					Toggle which companies are visible on the products page.
+					All active marketing companies and divisions loaded directly from legacy ERP master.
 				</p>
 			</div>
 
