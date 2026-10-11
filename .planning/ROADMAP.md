@@ -53,9 +53,18 @@
 - [x] Update API report download endpoints to resolve MR access from legacy MySQL.
 - [x] Verify build and validate end-to-end user navigation.
 
-## Phase 10: Legacy Stored Procedure Transition & Cleanup [ACTIVE]
+## Phase 10: Legacy Stored Procedure Transition & Cleanup [COMPLETED]
 
-- [ ] Gate raw SQL debug query banners behind URL toggle (`?debug=1`).
-- [ ] Align Overview Dashboard metric cards with live procedure aggregations.
-- [ ] Verify export endpoints and print formats against live procedure datasets.
-- [ ] Run full TypeScript validation and commit cleanly to `localdb`.
+- [x] Gate raw SQL debug query banners behind URL toggle (`?debug=1`).
+- [x] Align Overview Dashboard metric cards with live procedure aggregations.
+- [x] Verify export endpoints and print formats against live procedure datasets.
+- [x] Run full TypeScript validation and commit cleanly to `localdb`.
+
+## Phase 11: Neon DB Elimination & Pure Legacy MySQL Transition [ACTIVE]
+
+- [ ] Implement Stateless JWT / Signed Cookie Auth (Zero DB tables for sessions).
+- [ ] Implement MR OTP / Mobile login flow + Env-based Admin/Developer credential authentication.
+- [ ] Migrate Product catalog queries to direct MySQL projection on `pdyasvmaster.m_item`.
+- [ ] Migrate MR assignments and divisions to read directly from `pdyasvmaster.l_mktcompany_mr`.
+- [ ] Migrate broadcast notices to `data/notices.json`.
+- [ ] Completely remove Neon database dependencies and delete unused Postgres schemas.
