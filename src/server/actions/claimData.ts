@@ -30,8 +30,8 @@ export interface ClaimDataRow {
 }
 
 export type ClaimDataResult =
-	| { success: true; data: ClaimDataRow[] }
-	| { success: false; error: string; data?: null };
+	| { success: true; data: ClaimDataRow[]; debugSql?: string }
+	| { success: false; error: string; data?: null; debugSql?: string };
 
 function formatDate(val: string): string {
 	const match = val.match(/\d{4}-\d{2}-\d{2}/);
@@ -118,12 +118,18 @@ export async function getClaimData(params: {
 
 		// Exact query syntax requested:
 		// CALL `rptClaimData`('c9510231-4a58-4cb0-b40e-8fd18ff5f4ef')
-		const [callRes] = await conn.query(`CALL \`pdyasvtrans\`.\`rptClaimData\`('${uniqueCode}')`);
+		const debugSql = `CALL \`pdyasvtrans\`.\`rptClaimData\`('${uniqueCode}')`;
+
+		console.log("\n=======================================================");
+		console.log("[DEBUG QUERY] Final SQL Query being executed (Claim Qty):\n", debugSql);
+		console.log("=======================================================\n");
+
+		const [callRes] = await conn.query(debugSql);
 		const rows = (Array.isArray(callRes) ? callRes[0] : callRes) as ClaimDataRow[];
-		return { success: true, data: rows || [] };
+		return { success: true, data: rows || [], debugSql };
 	} catch (error: any) {
 		console.error("Failed to execute rptClaimData:", error);
-		return { success: false, error: error.message || "Failed to load claim data", data: null };
+		return { success: false, error: error.message || "Failed to load claim data", data: null, debugSql: `CALL \`pdyasvtrans\`.\`rptClaimData\`('${params.uniqueCode || "c9510231-4a58-4cb0-b40e-8fd18ff5f4ef"}')` };
 	} finally {
 		if (conn) conn.release();
 	}
