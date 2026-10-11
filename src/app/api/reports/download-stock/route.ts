@@ -44,9 +44,11 @@ export async function GET(request: Request) {
 		.where(eq(user.id, mrId))
 		.limit(1);
 	const mrInfo = mrInfoArr[0];
-	if (!mrInfo || (!mrInfo.canViewStock && !isAdmin) || !mrInfo.locNo) {
+	if (!mrInfo || (!mrInfo.canViewStock && !isAdmin)) {
 		return new NextResponse("Forbidden", { status: 403 });
 	}
+
+	const effectiveLocNo = mrInfo.locNo || "11";
 
 	const assigned = await db
 		.select()
@@ -133,7 +135,7 @@ export async function GET(request: Request) {
 				MAX(h.prate) as prate, MAX(h.ptr) as ptr, MAX(h.mrp) as mrp
 				FROM "pg-drizzle_legacy_view_stocks" v
 				LEFT JOIN "pg-drizzle_legacy_h_batch" h ON h.id = v.batch_id AND h.item_id = v.item_id
-				WHERE v.item_id = ${prod.id} AND v.loc_no = ${mrInfo.locNo.toString()} AND v.t_date < ${(limitFromDate || new Date(0)).toISOString()}
+				WHERE v.item_id = ${prod.id} AND v.loc_no = ${effectiveLocNo} AND v.t_date < ${(limitFromDate || new Date(0)).toISOString()}
 				AND (v.t_no IS NULL OR v.t_no NOT LIKE 'BR%') AND (v.entry_type IS NULL OR v.entry_type <> 'GRNO') AND COALESCE(v.qty, 0) <> 0
 				GROUP BY v.batch_id
 				
@@ -144,7 +146,7 @@ export async function GET(request: Request) {
 				MAX(h.prate) as prate, MAX(h.ptr) as ptr, MAX(h.mrp) as mrp
 				FROM "pg-drizzle_legacy_view_stocks" v
 				LEFT JOIN "pg-drizzle_legacy_h_batch" h ON h.id = v.batch_id AND h.item_id = v.item_id
-				WHERE v.item_id = ${prod.id} AND v.loc_no = ${mrInfo.locNo.toString()} AND v.t_date >= ${(limitFromDate || new Date(0)).toISOString()} AND v.t_date <= ${limitToDate.toISOString()}
+				WHERE v.item_id = ${prod.id} AND v.loc_no = ${effectiveLocNo} AND v.t_date >= ${(limitFromDate || new Date(0)).toISOString()} AND v.t_date <= ${limitToDate.toISOString()}
 				AND (v.t_no IS NULL OR v.t_no NOT LIKE 'BR%') AND (v.entry_type IS NULL OR v.entry_type <> 'GRNO') AND COALESCE(v.qty, 0) <> 0
 				GROUP BY v.batch_id
 			) as a

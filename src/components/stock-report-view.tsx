@@ -28,8 +28,10 @@ export async function StockReportView({
 		.where(eq(user.id, mrId))
 		.limit(1);
 	const mrInfo = mrInfoArr[0];
-	if (!mrInfo || !mrInfo.canViewStock || !mrInfo.locNo)
-		return <div>No access to stock data or location not assigned.</div>;
+	if (!mrInfo || !mrInfo.canViewStock)
+		return <div>No access to stock data.</div>;
+
+	const effectiveLocNo = mrInfo.locNo || "11";
 
 	const company = searchParams?.division || "All";
 
@@ -141,7 +143,7 @@ export async function StockReportView({
 				MAX(h.prate) as prate, MAX(h.ptr) as ptr, MAX(h.mrp) as mrp
 				FROM "pg-drizzle_legacy_view_stocks" v
 				LEFT JOIN "pg-drizzle_legacy_h_batch" h ON h.id = v.batch_id AND h.item_id = v.item_id
-				WHERE v.item_id = ${p.id} AND v.loc_no = ${mrInfo.locNo.toString()} AND v.t_date < ${(limitFromDate || new Date(0)).toISOString()}
+				WHERE v.item_id = ${p.id} AND v.loc_no = ${effectiveLocNo} AND v.t_date < ${(limitFromDate || new Date(0)).toISOString()}
 				AND (v.t_no IS NULL OR v.t_no NOT LIKE 'BR%') AND (v.entry_type IS NULL OR v.entry_type <> 'GRNO') AND COALESCE(v.qty, 0) <> 0
 				GROUP BY v.batch_id
 				
@@ -152,7 +154,7 @@ export async function StockReportView({
 				MAX(h.prate) as prate, MAX(h.ptr) as ptr, MAX(h.mrp) as mrp
 				FROM "pg-drizzle_legacy_view_stocks" v
 				LEFT JOIN "pg-drizzle_legacy_h_batch" h ON h.id = v.batch_id AND h.item_id = v.item_id
-				WHERE v.item_id = ${p.id} AND v.loc_no = ${mrInfo.locNo.toString()} AND v.t_date >= ${(limitFromDate || new Date(0)).toISOString()} AND v.t_date <= ${limitToDate.toISOString()}
+				WHERE v.item_id = ${p.id} AND v.loc_no = ${effectiveLocNo} AND v.t_date >= ${(limitFromDate || new Date(0)).toISOString()} AND v.t_date <= ${limitToDate.toISOString()}
 				AND (v.t_no IS NULL OR v.t_no NOT LIKE 'BR%') AND (v.entry_type IS NULL OR v.entry_type <> 'GRNO') AND COALESCE(v.qty, 0) <> 0
 				GROUP BY v.batch_id
 			) as a
@@ -217,7 +219,7 @@ export async function StockReportView({
 					MAX(CASE WHEN entry_type = 'PURC' THEN t_date END) as max_purc_date,
 					MAX(t_date) as max_any_date
 				FROM "pg-drizzle_legacy_view_stocks"
-				WHERE item_id = ${p.id} AND loc_no = ${mrInfo.locNo.toString()} 
+				WHERE item_id = ${p.id} AND loc_no = ${effectiveLocNo} 
 				AND t_date <= ${limitToDate.toISOString()}
 			`);
 			const maxPurcDateStr = (maxPurcRes[0] as any)?.max_purc_date;
