@@ -534,43 +534,6 @@ export async function MrDashboardContent({
 				>
 					Overdue
 				</Link>
-				<Link
-					className={`border-b-4 px-6 py-4 font-bold text-base transition-colors ${
-						searchParams?.tab === "overdue"
-							? "border-[#0071BC] text-[#0071BC]"
-							: "border-transparent text-gray-500 hover:text-[#0B2545]"
-					}`}
-					href={`${baseUrl}?${new URLSearchParams({
-						...searchParams,
-						tab: "overdue",
-					}).toString()}`}
-				>
-					Overdue
-				</Link><Link
-					className={`border-b-4 px-6 py-4 font-bold text-base transition-colors ${
-						searchParams?.tab === "overdue"
-							? "border-[#0071BC] text-[#0071BC]"
-							: "border-transparent text-gray-500 hover:text-[#0B2545]"
-					}`}
-					href={`${baseUrl}?${new URLSearchParams({
-						...searchParams,
-						tab: "overdue",
-					}).toString()}`}
-				>
-					Overdue
-				</Link><Link
-					className={`border-b-4 px-6 py-4 font-bold text-base transition-colors ${
-						searchParams?.tab === "newSalesView"
-							? "border-[#0071BC] text-[#0071BC]"
-							: "border-transparent text-gray-500 hover:text-[#0B2545]"
-					}`}
-					href={`${baseUrl}?${new URLSearchParams({
-						...searchParams,
-						tab: "newSalesView",
-					}).toString()}`}
-				>
-					NewSales
-				</Link>
 			</div>
 
 			{/* OVERVIEW TAB */}

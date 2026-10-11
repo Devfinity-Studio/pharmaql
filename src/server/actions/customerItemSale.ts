@@ -158,6 +158,10 @@ export async function getItemCustomerSale(params: {
 			.join(", ");
 		debugSql = `CALL \`pdyasvtrans\`.\`rptItemCustomerSale\`(${odbcFromDate}, ${odbcToDate}, ${formattedRest})`;
 
+		console.log("\n=======================================================");
+		console.log("[DEBUG QUERY] Final SQL Query being executed:\n", debugSql);
+		console.log("=======================================================\n");
+
 		const [callRes] = await conn.query(debugSql);
 		const rows = (Array.isArray(callRes) ? callRes[0] : callRes) as ItemCustomerSaleRow[];
 		return { success: true, data: rows || [], debugSql };
