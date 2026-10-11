@@ -80,5 +80,14 @@
 - [x] Implement division cascading blocking when peer MR has overdue >90 days.
 - [x] Implement password-protected Admin unblock modal with exemption logging.
 
+## Phase 13: Cleanup, Performance & Loading Speed Optimization
+
+- [ ] Delete dead Postgres schema files (`src/server/db/schema.ts`, `src/server/db/index.ts`) and prune obsolete cloud DB dependencies.
+- [ ] Optimize legacy MySQL connection pooling and query concurrency in `src/lib/legacy-db.ts`.
+- [ ] Implement smart in-memory/server caching (TTL-based) for repetitive master data lookups (`m_mktcompany`, `m_customer`, `m_item`).
+- [ ] Add React Suspense boundaries, skeleton loaders, and tab transitions across MR and Admin dashboards.
+- [ ] Parallelize procedure calls and reduce payload sizes for report tables and export downloads.
+
+
 
 
