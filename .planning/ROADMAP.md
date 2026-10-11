@@ -53,5 +53,9 @@
 - [x] Update API report download endpoints to resolve MR access from legacy MySQL.
 - [x] Verify build and validate end-to-end user navigation.
 
+## Phase 10: Legacy Stored Procedure Transition & Cleanup [ACTIVE]
 
-
+- [ ] Gate raw SQL debug query banners behind URL toggle (`?debug=1`).
+- [ ] Align Overview Dashboard metric cards with live procedure aggregations.
+- [ ] Verify export endpoints and print formats against live procedure datasets.
+- [ ] Run full TypeScript validation and commit cleanly to `localdb`.
