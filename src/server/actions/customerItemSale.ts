@@ -133,12 +133,6 @@ export async function getItemCustomerSale(params: {
 		const reportTypeParam = params.reportType || "SalesEntry";
 		const cityParam = params.city || "";
 
-		const callSql = `
-			CALL \`pdyasvtrans\`.\`rptItemCustomerSale\`(
-				${odbcFromDate}, ${odbcToDate}, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
-			)
-		`;
-
 		const callParams = [
 			compNo,
 			locNoParam,
@@ -168,7 +162,7 @@ export async function getItemCustomerSale(params: {
 		console.log("[TEMP DEBUG] Final SQL Query being executed:\n", debugSql);
 		console.log("=======================================================\n");
 
-		const [callRes] = await conn.query(callSql, callParams);
+		const [callRes] = await conn.query(debugSql);
 		const rows = (Array.isArray(callRes) ? callRes[0] : callRes) as ItemCustomerSaleRow[];
 		return { success: true, data: rows || [], debugSql };
 	} catch (error: any) {
