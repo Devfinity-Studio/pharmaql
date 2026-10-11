@@ -42,6 +42,7 @@ export async function assignManufacturer(
 				mrId,
 				manufacturer,
 				division: division || null,
+				firmNo: "11",
 			});
 		}
 
@@ -155,6 +156,7 @@ export async function createMR(
 			name,
 			email: email.toLowerCase(),
 			role: "MR",
+			locNo: "11",
 			...permissions,
 		});
 
@@ -165,6 +167,7 @@ export async function createMR(
 					mrId: newMrId,
 					manufacturer: m.manufacturer,
 					division: m.division,
+					firmNo: "11",
 				})),
 			);
 		}
