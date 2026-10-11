@@ -1,8 +1,21 @@
 import Image from "next/image";
-import { and, eq, gte, lte, or } from "drizzle-orm";
 import React from "react";
-import { db } from "@/server/db";
-import { mrManufacturers, outstanding, user } from "@/server/db/schema";
+import { getCustomerBlockingMap } from "@/server/actions/customerBlocking";
+import { getMRInfo } from "@/server/actions/mrInfo";
+import {
+	getMRwisePeriodicalOutstanding,
+	type OverduePeriodicalOutstandingRow,
+} from "@/server/actions/overdueReports";
+
+function formatDisplayDate(dateStr?: string | Date): string {
+	if (!dateStr) return "";
+	const d = new Date(dateStr);
+	if (isNaN(d.getTime())) return String(dateStr);
+	const day = String(d.getDate()).padStart(2, "0");
+	const month = String(d.getMonth() + 1).padStart(2, "0");
+	const year = d.getFullYear();
+	return `${day}/${month}/${year}`;
+}
 
 export async function OverdueReportView({
 	mrId,
@@ -14,94 +27,120 @@ export async function OverdueReportView({
 		from?: string;
 		to?: string;
 		party?: string;
+		q?: string;
+		debug?: string;
 	};
 }) {
-	// Fetch data
-	const mrInfoArr = await db
-		.select()
-		.from(user)
-		.where(eq(user.id, mrId))
-		.limit(1);
-	const mrInfo = mrInfoArr[0];
+	// 1. Fetch MR Info
+	const mrInfo = await getMRInfo(mrId);
 	if (!mrInfo) return <div>MR not found.</div>;
 
 	const company = searchParams?.division || "All";
-	const assigned = await db
-		.select()
-		.from(mrManufacturers)
-		.where(eq(mrManufacturers.mrId, mrId));
+	const assigned = mrInfo.company
+		? [
+				{
+					id: `legacy-${mrId}`,
+					mrId,
+					manufacturer: mrInfo.company,
+					firmNo: null,
+					division: mrInfo.division || null,
+					company: mrInfo.company,
+					createdAt: new Date(),
+				},
+			]
+		: [];
 
 	const selectedAssignments =
 		company === "All"
 			? assigned
 			: assigned.filter((a) => (a.division || a.manufacturer) === company);
 
-	if (selectedAssignments.length === 0) return <div>No data assigned</div>;
+	const targetCompanies = Array.from(
+		new Set(selectedAssignments.map((a) => a.manufacturer).filter(Boolean)),
+	) as string[];
 
-	// Build Outstanding Condition
-	const outstandingConditionList = selectedAssignments.map((d) => {
-		const conditions = [eq(outstanding.manufacturerCode, d.manufacturer)];
-		if (d.division) {
-			conditions.push(eq(outstanding.division, d.division));
-		}
-		return and(...conditions);
+	const compCodeToQuery =
+		company === "All"
+			? mrInfo.companyCode ||
+				(targetCompanies.length > 0 ? targetCompanies : "")
+			: mrInfo.companyCode &&
+					(mrInfo.company === company || mrInfo.division === company)
+				? mrInfo.companyCode
+				: company;
+
+	// 2. Call stored procedure `rptMRwisePeriodicalOutstanding`
+	const procResult = await getMRwisePeriodicalOutstanding({
+		mrId,
+		fromDate: searchParams?.from,
+		toDate: searchParams?.to,
+		compCode: compCodeToQuery,
+		locNo: mrInfo.locNo,
 	});
 
-	let outstandingCondition = and(
-		eq(outstanding.mrId, mrId),
-		or(...outstandingConditionList),
-	);
+	// Fetch live customer blocking map from ERP
+	const customerBlockingMap = await getCustomerBlockingMap();
 
-	if (searchParams?.from) {
-		const fromDate = new Date(searchParams.from);
-		if (!isNaN(fromDate.getTime())) {
-			outstandingCondition = and(
-				outstandingCondition,
-				gte(outstanding.invDt, fromDate),
-			);
-		}
+	let rowsToProcess =
+		procResult.success && procResult.data ? procResult.data : [];
+
+	if (searchParams?.party) {
+		const partyFilter = searchParams.party.toLowerCase();
+		rowsToProcess = rowsToProcess.filter(
+			(r) => r.Customer && r.Customer.toLowerCase().includes(partyFilter),
+		);
 	}
 
-	if (searchParams?.to) {
-		const toDate = new Date(searchParams.to);
-		if (!isNaN(toDate.getTime())) {
-			toDate.setUTCHours(23, 59, 59, 999);
-			outstandingCondition = and(
-				outstandingCondition,
-				lte(outstanding.invDt, toDate),
-			);
-		}
+	if (searchParams?.q) {
+		const q = searchParams.q.toLowerCase();
+		rowsToProcess = rowsToProcess.filter(
+			(r) =>
+				(r.Customer && r.Customer.toLowerCase().includes(q)) ||
+				(r.DocNo && r.DocNo.toLowerCase().includes(q)) ||
+				(r.City && r.City.toLowerCase().includes(q)) ||
+				(r.CompCode && r.CompCode.toLowerCase().includes(q)) ||
+				(r.Division && r.Division.toLowerCase().includes(q)),
+		);
 	}
 
-	const accessibleOutstanding = outstandingCondition
-		? await db.select().from(outstanding).where(outstandingCondition)
-		: [];
-
-	const partyFilter = searchParams?.party;
-	const filteredOutstanding = partyFilter
-		? accessibleOutstanding.filter((o) => o.doctor === partyFilter)
-		: accessibleOutstanding;
+	// Filter strictly for entries where Amount - AdjAmt > 0
+	const overdueFilteredRows = rowsToProcess.filter((row) => {
+		const originalAmt = Number(row.Amount || 0);
+		const adjAmt = Number(row.AdjAmt || 0);
+		return originalAmt - adjAmt > 0;
+	});
 
 	const now = new Date();
 
-	const reportData = filteredOutstanding.map((out) => {
+	const reportData = overdueFilteredRows.map((row) => {
+		const invDateStr = formatDisplayDate(row.DocDate) || "N/A";
+		const dueDateStr = row.DueDate || "N/A";
+
 		let purchaseDays = 0;
-		let invDateStr = "N/A";
-		if (out.invDt) {
-			const invDate = new Date(out.invDt);
-			invDateStr = invDate.toLocaleDateString();
-			const diffTime = Math.abs(now.getTime() - invDate.getTime());
-			purchaseDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+		if (row.DocDate) {
+			const invDate = new Date(row.DocDate);
+			if (!isNaN(invDate.getTime())) {
+				const diffTime = Math.abs(now.getTime() - invDate.getTime());
+				purchaseDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+			}
+		} else if (row.OverDays != null) {
+			purchaseDays = Math.abs(row.OverDays);
 		}
 
+		const originalAmt = Number(row.Amount || 0);
+		const adjAmt = Number(row.AdjAmt || 0);
+		const amountDue = originalAmt - adjAmt;
+
 		return {
-			Manufacturer: out.division || out.manufacturerCode || "Unknown",
-			"Doctor / Party": out.doctor || "Unknown",
-			City: out.city || "Unknown",
-			"Invoice No": out.invNo || "N/A",
+			Manufacturer: row.Division || row.CompCode || "Unknown",
+			"Doctor / Party": row.Customer || "Unknown",
+			City: row.City || "Unknown",
+			"Invoice No": row.DocNo || "N/A",
 			"Invoice Date": invDateStr,
+			"Due Date": dueDateStr,
 			"Purchase Days": purchaseDays,
-			"Amount Due": out.invAmt ? parseFloat(out.invAmt) : 0,
+			"Amount Due": amountDue,
+			OriginalAmount: originalAmt,
+			AdjAmount: adjAmt,
 		};
 	});
 
@@ -111,14 +150,67 @@ export async function OverdueReportView({
 	].sort();
 	let grandTotalAmount = 0;
 
+	const fromDisplay = formatDisplayDate(searchParams?.from) || "01/09/2026";
+	const toDisplay = formatDisplayDate(searchParams?.to) || "30/09/2026";
+
 	return (
 		<div className="mt-4 space-y-8 overflow-hidden rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
+			{/* DEBUG QUERY BANNER */}
+			{(searchParams?.debug === "1" || searchParams?.debug === "true") && (
+				<div className="rounded-xl border-2 border-amber-400 bg-amber-50 p-4 font-mono text-amber-950 text-xs shadow-sm print:hidden">
+					<div className="mb-2 flex flex-wrap items-center justify-between gap-2 border-amber-200 border-b pb-2 font-bold text-amber-900 text-xs">
+						<span>
+							[DEBUG QUERY] Stored Procedure Execution Status (Overdue /
+							Periodical Outstanding)
+						</span>
+						<span className="rounded bg-amber-200 px-2 py-0.5 font-semibold text-[11px]">
+							{procResult.success
+								? `${procResult.data?.length ?? 0} total rows (${reportData.length} pending overdue)`
+								: procResult.error || "Query Failed"}
+						</span>
+					</div>
+					<div className="space-y-1.5">
+						<p className="font-bold text-[11px] text-amber-900">
+							Final SQL Query being run:
+						</p>
+						<pre className="select-all overflow-x-auto whitespace-pre-wrap break-all rounded border border-amber-200 bg-amber-100 p-2.5 font-mono text-[11px] text-amber-950">
+							{procResult.debugSql || "-- No SQL available"}
+						</pre>
+						<div className="mt-2 grid grid-cols-2 gap-2 border-amber-200 border-t pt-1.5 text-[11px] text-amber-800 md:grid-cols-4">
+							<div>
+								<span className="font-semibold">Company Code Query:</span>{" "}
+								{JSON.stringify(compCodeToQuery)}
+							</div>
+							<div>
+								<span className="font-semibold">MR Company:</span>{" "}
+								{mrInfo.company || "N/A"}
+							</div>
+							<div>
+								<span className="font-semibold">MR ID Param:</span>{" "}
+								{`(${mrId})`}
+							</div>
+							<div>
+								<span className="font-semibold">LocNo:</span>{" "}
+								{mrInfo.locNo || "11"}
+							</div>
+						</div>
+					</div>
+				</div>
+			)}
+
 			{/* Header */}
 			<div className="mb-2 flex flex-col items-start justify-between gap-4 border-[#0B2545] border-b-2 pb-2 md:flex-row">
 				<div className="flex items-center gap-4">
 					<div>
 						<h2 className="font-extrabold text-2xl text-[#0B2545] tracking-tight">
-							<Image src="/logo.png" alt="Asmee Pharma Logo" width={180} height={50} className="object-contain" priority />
+							<Image
+								alt="Asmee Pharma Logo"
+								className="object-contain"
+								height={50}
+								priority
+								src="/logo.png"
+								width={180}
+							/>
 						</h2>
 						<p className="mt-1 font-medium text-[#0B2545] text-sm leading-relaxed">
 							BASEMENE-GF, 11/2 ASHOK HOUSE, B/S SANSTHA VASAHAT GATE, PRATAP
@@ -137,25 +229,25 @@ export async function OverdueReportView({
 				<div>
 					<p>Year : 2026-27</p>
 					<p className="mt-2 text-base">
-						Overdue (Purchase Days & Outstanding) Statement
-						{searchParams?.from || searchParams?.to
-							? ` for ${searchParams?.from || "Start"} to ${
-									searchParams?.to || "End"
-								}`
-							: ""}
+						Overdue (Purchase Days & Outstanding) Statement for {fromDisplay} to{" "}
+						{toDisplay}
 					</p>
 				</div>
+				<div>Total Records: {reportData.length}</div>
 			</div>
 
 			<div className="w-full overflow-x-auto border-[#0B2545] border-t-2 pt-1">
 				<table className="w-full min-w-[900px] border-collapse text-left font-sans">
 					<thead>
-						<tr className="border-[#0B2545] border-y-2">
+						<tr className="border-[#0B2545] border-y-2 bg-gray-50/70">
 							<th className="py-2 pl-2 font-bold text-[#0B2545] text-sm">
 								Invoice No.
 							</th>
 							<th className="py-2 font-bold text-[#0B2545] text-sm">
 								Invoice Date
+							</th>
+							<th className="py-2 font-bold text-[#0B2545] text-sm">
+								Due Date
 							</th>
 							<th className="py-2 text-right font-bold text-[#0B2545] text-sm">
 								Purchase Days
@@ -170,102 +262,159 @@ export async function OverdueReportView({
 						</tr>
 					</thead>
 					<tbody className="font-medium text-sm">
-						{manufacturers.map((mfg, idx) => {
-							const mfgData = reportData.filter((d) => d.Manufacturer === mfg);
-							let mfgAmount = 0;
+						{manufacturers.length === 0 ? (
+							<tr>
+								<td
+									className="py-8 text-center font-medium text-gray-500"
+									colSpan={7}
+								>
+									No overdue records found for the selected period.
+								</td>
+							</tr>
+						) : (
+							manufacturers.map((mfg, idx) => {
+								const mfgData = reportData.filter(
+									(d) => d.Manufacturer === mfg,
+								);
+								let mfgAmount = 0;
 
-							// Further group by Doctor/Party
-							const parties = [
-								...new Set(mfgData.map((d) => d["Doctor / Party"])),
-							].sort();
+								// Further group by Doctor/Party
+								const parties = [
+									...new Set(mfgData.map((d) => d["Doctor / Party"])),
+								].sort();
 
-							return (
-								<React.Fragment key={idx}>
-									{/* Company Header Row */}
-									<tr>
-										<td
-											className="border-gray-200 border-b bg-gray-50/50 px-2 py-2 font-bold text-[#000080]"
-											colSpan={6}
-										>
-											Company : {mfg.toUpperCase()}
-										</td>
-									</tr>
+								return (
+									<React.Fragment key={idx}>
+										{/* Company Header Row */}
+										<tr>
+											<td
+												className="border-gray-200 border-b bg-gray-50/50 px-2 py-2 font-bold text-[#000080]"
+												colSpan={7}
+											>
+												Company : {mfg.toUpperCase()}
+											</td>
+										</tr>
 
-									{parties.map((party, pIdx) => {
-										const partyData = mfgData.filter(
-											(d) => d["Doctor / Party"] === party,
-										);
-										let partyTotal = 0;
+										{parties.map((party, pIdx) => {
+											const partyData = mfgData.filter(
+												(d) => d["Doctor / Party"] === party,
+											);
+											let partyTotal = 0;
+											const custBlockedInfo = customerBlockingMap.get(
+												party.toUpperCase(),
+											);
 
-										return (
-											<React.Fragment key={pIdx}>
-												{/* Party Data Rows */}
-												{partyData.map((row, rowIdx) => {
-													partyTotal += row["Amount Due"];
-													return (
-														<tr
-															className="border-gray-100 border-b text-[#0B2545] hover:bg-gray-50"
-															key={rowIdx}
+											return (
+												<React.Fragment key={pIdx}>
+													{/* Party Data Rows */}
+													{partyData.map((row, rowIdx) => {
+														partyTotal += row["Amount Due"];
+														const isOlderThan90 = row["Purchase Days"] > 90;
+														return (
+															<tr
+																className={`border-gray-100 border-b transition-colors ${
+																	isOlderThan90
+																		? "bg-red-50/70 text-red-950 hover:bg-red-100/60"
+																		: "text-[#0B2545] hover:bg-gray-50"
+																}`}
+																key={rowIdx}
+															>
+																<td className="whitespace-nowrap py-1.5 pl-2 font-semibold">
+																	{row["Invoice No"]}
+																</td>
+																<td className="py-1.5">
+																	{row["Invoice Date"]}
+																</td>
+																<td className="py-1.5">{row["Due Date"]}</td>
+																<td
+																	className={`py-1.5 text-right font-bold ${
+																		isOlderThan90
+																			? "font-extrabold text-red-700"
+																			: "text-amber-600"
+																	}`}
+																>
+																	{row["Purchase Days"]}
+																</td>
+																<td className="flex items-center gap-2 py-1.5 font-bold">
+																	<span>{row["Doctor / Party"]}</span>
+																	{custBlockedInfo?.isBlocked && (
+																		<span
+																			className="inline-block rounded bg-red-100 px-1.5 py-0.5 font-black text-[10px] text-red-800 uppercase tracking-wider"
+																			title={
+																				custBlockedInfo.blockReason ||
+																				"Party Blocked in ERP"
+																			}
+																		>
+																			{custBlockedInfo.blackList
+																				? "BLACKLISTED"
+																				: "BLOCKED"}
+																		</span>
+																	)}
+																</td>
+																<td className="py-1.5">{row.City}</td>
+																<td
+																	className={`py-1.5 pr-2 text-right font-bold ${
+																		isOlderThan90
+																			? "font-black text-red-700"
+																			: "text-rose-600"
+																	}`}
+																>
+																	{row["Amount Due"].toFixed(2)}
+																</td>
+															</tr>
+														);
+													})}
+													{/* Party Total */}
+													<tr className="border-gray-200 border-y bg-gray-50 font-bold text-[#0B2545]">
+														<td
+															className="py-1.5 pl-2 text-right text-gray-500"
+															colSpan={6}
 														>
-															<td className="whitespace-nowrap py-1.5 pl-2">
-																{row["Invoice No"]}
-															</td>
-															<td className="py-1.5">{row["Invoice Date"]}</td>
-															<td className="py-1.5 text-right font-bold text-amber-600">
-																{row["Purchase Days"]}
-															</td>
-															<td className="py-1.5 font-bold">
-																{row["Doctor / Party"]}
-															</td>
-															<td className="py-1.5">{row.City}</td>
-															<td className="py-1.5 pr-2 text-right font-bold text-rose-600">
-																{row["Amount Due"].toFixed(2)}
-															</td>
-														</tr>
-													);
-												})}
-												{/* Party Total */}
-												<tr className="border-gray-200 border-y bg-gray-50 font-bold text-[#0B2545]">
-													<td className="py-1.5 pl-2 text-right text-gray-500" colSpan={5}>
-														Total for {party}
-													</td>
-													<td className="py-1.5 pr-2 text-right text-rose-700">
-														{partyTotal.toFixed(2)}
-													</td>
-												</tr>
-												{(() => {
-													mfgAmount += partyTotal;
-													return null;
-												})()}
-											</React.Fragment>
-										);
-									})}
+															Total for {party}
+														</td>
+														<td className="py-1.5 pr-2 text-right text-rose-700">
+															{partyTotal.toFixed(2)}
+														</td>
+													</tr>
+													{(() => {
+														mfgAmount += partyTotal;
+														return null;
+													})()}
+												</React.Fragment>
+											);
+										})}
 
-									{/* Full Company Total */}
-									<tr className="border-gray-400 border-b-2 bg-gray-100 font-bold text-[#0B2545]">
-										<td className="py-2 pl-2 text-right" colSpan={5}>
-											Total for {mfg.toUpperCase()} :
-										</td>
-										<td className="py-2 pr-2 text-right text-rose-700">
-											{mfgAmount.toFixed(2)}
-										</td>
-									</tr>
-									{(() => {
-										grandTotalAmount += mfgAmount;
-										return null;
-									})()}
-								</React.Fragment>
-							);
-						})}
+										{/* Full Company Total */}
+										<tr className="border-gray-400 border-b-2 bg-gray-100 font-bold text-[#0B2545]">
+											<td className="py-2 pl-2 text-right" colSpan={6}>
+												Total for {mfg.toUpperCase()} :
+											</td>
+											<td className="py-2 pr-2 text-right text-rose-700">
+												{mfgAmount.toFixed(2)}
+											</td>
+										</tr>
+										{(() => {
+											grandTotalAmount += mfgAmount;
+											return null;
+										})()}
+									</React.Fragment>
+								);
+							})
+						)}
 						{/* Grand Total */}
-						<tr className="border-[#0B2545] border-b-4 bg-gray-200 font-extrabold text-[#0B2545] text-base">
-							<td className="py-3 pl-2 text-right uppercase tracking-wider" colSpan={5}>
-								Grand Total :
-							</td>
-							<td className="py-3 pr-2 text-right text-rose-700">
-								{grandTotalAmount.toFixed(2)}
-							</td>
-						</tr>
+						{manufacturers.length > 0 && (
+							<tr className="border-[#0B2545] border-b-4 bg-gray-200 font-extrabold text-[#0B2545] text-base">
+								<td
+									className="py-3 pl-2 text-right uppercase tracking-wider"
+									colSpan={6}
+								>
+									Grand Total :
+								</td>
+								<td className="py-3 pr-2 text-right text-rose-700">
+									{grandTotalAmount.toFixed(2)}
+								</td>
+							</tr>
+						)}
 					</tbody>
 				</table>
 			</div>

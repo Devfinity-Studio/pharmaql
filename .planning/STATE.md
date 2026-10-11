@@ -1,7 +1,7 @@
 # State
 
 **Current Milestone:** Initial Project Setup
-**Active Phase:** Phase 8 - Full Data Ingestion & Masterdata Integration (April-October 2026)
-**Status:** Completed Phase 8. All multi-month datasets and masterdata ingested with 100% record coverage.
+**Active Phase:** Phase 14 - Standalone Express.js API Layer Decoupling (MySQL Isolation)
+**Status:** Decoupling completed. MySQL driver removed from Next.js. Express API running securely on port 9273. Next.js build passes cleanly.
 
 

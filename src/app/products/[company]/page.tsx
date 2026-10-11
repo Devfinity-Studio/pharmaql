@@ -1,8 +1,7 @@
-import { eq } from "drizzle-orm";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { db } from "@/server/db";
-import { products } from "@/server/db/schema";
+import { getAllMarketingCompaniesWithDivisions } from "@/server/actions/mrInfo";
+import { getItemCatalog } from "@/server/actions/itemCatalog";
 import { ProductListClient } from "./product-list-client";
 
 export default async function CompanyProductsPage({
@@ -13,26 +12,31 @@ export default async function CompanyProductsPage({
 	const awaitedParams = await params;
 	const companyName = decodeURIComponent(awaitedParams.company);
 
-	// Fetch all companies for the dropdown
-	const companiesData = await db
-		.select({ name: products.manufacturer })
-		.from(products)
-		.groupBy(products.manufacturer);
+	// Fetch all companies from API server
+	const compList = await getAllMarketingCompaniesWithDivisions();
+	const allCompanies = Array.from(
+		new Set(compList.map((c) => c.companyName || c.companyCode).filter(Boolean)),
+	);
 
-	const allCompanies = companiesData
-		.map((c) => c.name)
-		.filter((n) => n && n !== "Unknown")
-		.sort();
+	// Fetch products for this company/division
+	const rawProducts = await getItemCatalog({
+		division: companyName,
+		limit: 500,
+	});
 
-	if (!allCompanies.includes(companyName)) {
-		notFound();
-	}
-
-	// Fetch products for this company
-	const companyProducts = await db
-		.select()
-		.from(products)
-		.where(eq(products.manufacturer, companyName));
+	// Normalize to ProductListClient expected shape
+	const companyProducts = rawProducts.map((p) => ({
+		id: String(p.ID),
+		name: p.ItemName || p.ItemCode,
+		code: p.ItemCode,
+		division: p.Division || companyName,
+		manufacturer: p.MktBy || companyName,
+		freeScheme: p.MinNetQty ? `${p.MinNetQty}+${p.MultipleOfQty || 0}` : null,
+		firmNo: String(p.CompNo || ""),
+		ingredients: null,
+		createdAt: p.CreatedDate || new Date(),
+		updatedAt: p.EditedDate || new Date(),
+	}));
 
 	return (
 		<main className="flex flex-col">
@@ -52,7 +56,7 @@ export default async function CompanyProductsPage({
 				<ProductListClient
 					allCompanies={allCompanies}
 					initialCompany={companyName}
-					products={companyProducts}
+					products={companyProducts as any}
 				/>
 			</div>
 		</main>

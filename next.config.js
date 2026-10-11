@@ -5,8 +5,6 @@
 import "./src/env.js";
 
 /** @type {import("next").NextConfig} */
-const config = {
-	serverExternalPackages: ["better-auth"],
-};
+const config = {};
 
 export default config;

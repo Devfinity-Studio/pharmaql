@@ -1,25 +1,21 @@
-import { and, eq, gte, inArray, lte, or } from "drizzle-orm";
 import Link from "next/link";
 import { DateRangePicker } from "@/components/date-range-picker";
 import { FilterSelect } from "@/components/filter-select";
 import { FreeSchemeReportView } from "@/components/free-scheme-report-view";
+import { MROverdueWarningModal } from "@/components/mr-overdue-warning-modal";
 import { NewSalesReportView } from "@/components/new-sales-report-view";
 import { OutstandingDownloadButtons } from "@/components/outstanding-download-buttons";
-import { OutstandingReportView } from "@/components/outstanding-report-view";
 import { OverdueReportView } from "@/components/overdue-report-view";
+import { PartyReportView } from "@/components/party-report-view";
 import { ProductReportView } from "@/components/product-report-view";
 import { ReportDownloadButtons } from "@/components/report-download-buttons";
 import { StockReportView } from "@/components/stock-report-view";
-import { db } from "@/server/db";
+import { getItemCustomerSale } from "@/server/actions/customerItemSale";
+import { getMRInfo } from "@/server/actions/mrInfo";
 import {
-	invoices,
-	mrInventory,
-	mrManufacturers,
-	outstanding,
-	products,
-	sales,
-	user,
-} from "@/server/db/schema";
+	getMRwisePeriodicalOutstanding,
+	type OverduePeriodicalOutstandingRow,
+} from "@/server/actions/overdueReports";
 
 export async function MrDashboardContent({
 	mrId,
@@ -35,16 +31,12 @@ export async function MrDashboardContent({
 		product?: string;
 		party?: string;
 		q?: string;
+		debug?: string;
 	};
 	isAdminView?: boolean;
 }) {
-	// 1. Get MR Info
-	const mrInfoArr = await db
-		.select()
-		.from(user)
-		.where(eq(user.id, mrId))
-		.limit(1);
-	const mrInfo = mrInfoArr[0];
+	// 1. Get MR Info from legacy schema
+	const mrInfo = await getMRInfo(mrId);
 
 	if (!mrInfo) {
 		return (
@@ -54,14 +46,22 @@ export async function MrDashboardContent({
 		);
 	}
 
-	// 2. Get MR's assigned divisions
-	const assigned = await db
-		.select()
-		.from(mrManufacturers)
-		.where(eq(mrManufacturers.mrId, mrId));
+	// 2. Get MR's assigned divisions natively from ERP profile
+	const legacyDivision = mrInfo.division || mrInfo.company;
+	const effectiveAssignments = legacyDivision
+		? [
+				{
+					id: `legacy-${mrId}`,
+					mrId,
+					manufacturer: mrInfo.company || legacyDivision,
+					division: mrInfo.division || null,
+					assignedAt: new Date(),
+				},
+			]
+		: [];
 
 	const assignedDivisions = Array.from(
-		new Set(assigned.map((a) => a.division || a.manufacturer)),
+		new Set(effectiveAssignments.map((a) => a.division || a.manufacturer)),
 	);
 
 	if (assignedDivisions.length === 0) {
@@ -83,29 +83,10 @@ export async function MrDashboardContent({
 	const selectedDivision = searchParams?.division || "All";
 	const selectedAssignments =
 		selectedDivision === "All"
-			? assigned
-			: assigned.filter(
+			? effectiveAssignments
+			: effectiveAssignments.filter(
 					(a) => (a.division || a.manufacturer) === selectedDivision,
 				);
-
-	// 4. Get Products belonging to these queried divisions
-	const productConditionList = selectedAssignments.map((d) => {
-		const conditions = [eq(products.manufacturer, d.manufacturer)];
-		if (d.division) {
-			conditions.push(eq(products.division, d.division));
-		}
-		return and(...conditions);
-	});
-
-	const accessibleProducts =
-		productConditionList.length > 0
-			? await db
-					.select()
-					.from(products)
-					.where(or(...productConditionList))
-			: [];
-
-	const productIds = accessibleProducts.map((p) => p.id);
 
 	// Determine permissions
 	const canViewSales = isAdminView || mrInfo.canViewSales;
@@ -127,188 +108,223 @@ export async function MrDashboardContent({
 	let recentInvoices: any[] = [];
 	let outstandingByDoctor: { doctor: string; city: string; amount: number }[] =
 		[];
+	const accessibleSales: any[] = [];
+	const accessibleInvoices: any[] = [];
+	const accessibleOutstanding: any[] = [];
 
-	if (canViewStock && productIds.length > 0) {
-		const inventory = await db
-			.select()
-			.from(mrInventory)
-			.where(
-				and(
-					inArray(mrInventory.productId, productIds),
-					eq(mrInventory.mrId, mrId),
-				),
-			);
-		inventory.forEach((inv) => {
-			stockMap.set(inv.productId, inv.stock);
+	// Calculate metrics directly from live stored procedures
+	const productMap = new Map<string, { name: string; total: number }>();
+	const monthMap = new Map<string, number>();
+	const quarterMap = new Map<string, number>();
+	const yearMap = new Map<string, number>();
+	const docOutMap = new Map<
+		string,
+		{ doctor: string; city: string; amount: number }
+	>();
+
+	accessibleSales.forEach((sale) => {
+		totalSales += sale.quantity;
+
+		const pData = productMap.get(sale.productId) || {
+			name: sale.productName,
+			total: 0,
+		};
+		pData.total += sale.quantity;
+		productMap.set(sale.productId, pData);
+
+		const date = sale.date ? new Date(sale.date) : new Date();
+		const year = date.getFullYear().toString();
+		const month = date.toLocaleString("default", {
+			month: "short",
+			year: "numeric",
 		});
-	}
+		const quarter = `Q${Math.floor(date.getMonth() / 3) + 1} ${year}`;
 
-	// Fetch Sales if permitted
-	if (canViewSales) {
-		let salesCondition =
-			productIds.length > 0
-				? and(inArray(sales.productId, productIds), eq(sales.mrId, mrId))
-				: undefined;
+		monthMap.set(month, (monthMap.get(month) || 0) + sale.quantity);
+		quarterMap.set(quarter, (quarterMap.get(quarter) || 0) + sale.quantity);
+		yearMap.set(year, (yearMap.get(year) || 0) + sale.quantity);
+	});
 
-		let invoiceCondition = and(
-			inArray(
-				invoices.manufacturerCode,
-				selectedAssignments.map((d) => d.manufacturer),
-			),
-			eq(invoices.mrId, mrId),
-		);
+	// Process Invoices
+	const sortedInvoices = accessibleInvoices.sort((a, b) => {
+		const da = a.date ? a.date.getTime() : 0;
+		const db = b.date ? b.date.getTime() : 0;
+		return db - da;
+	});
 
-		const outstandingConditionList = selectedAssignments.map((d) => {
-			const conditions = [eq(outstanding.manufacturerCode, d.manufacturer)];
-			if (d.division) {
-				conditions.push(eq(outstanding.division, d.division));
-			}
-			return and(...conditions);
-		});
-
-		let outstandingCondition = and(
-			eq(outstanding.mrId, mrId),
-			or(...outstandingConditionList),
-		);
-
-		if (searchParams?.from) {
-			const fromDate = new Date(searchParams.from);
-			if (!isNaN(fromDate.getTime())) {
-				salesCondition = and(salesCondition, gte(sales.date, fromDate));
-				invoiceCondition = and(invoiceCondition, gte(invoices.date, fromDate));
-				outstandingCondition = and(
-					outstandingCondition,
-					gte(outstanding.invDt, fromDate),
-				);
-			}
+	sortedInvoices.forEach((inv) => {
+		if (inv.invAmt) {
+			totalInvoicesAmt += parseFloat(inv.invAmt);
 		}
+	});
+	recentInvoices = sortedInvoices.slice(0, 8);
 
-		if (searchParams?.to) {
-			const toDate = new Date(searchParams.to);
-			if (!isNaN(toDate.getTime())) {
-				toDate.setUTCHours(23, 59, 59, 999);
-				salesCondition = and(salesCondition, lte(sales.date, toDate));
-				invoiceCondition = and(invoiceCondition, lte(invoices.date, toDate));
-				outstandingCondition = and(
-					outstandingCondition,
-					lte(outstanding.invDt, toDate),
-				);
-			}
-		}
+	// Process Outstanding
+	accessibleOutstanding.forEach((out) => {
+		if (out.invAmt) {
+			const amt = parseFloat(out.invAmt);
+			totalOutstandingAmt += amt;
 
-		const accessibleSales = salesCondition
-			? await db
-					.select({
-						productId: sales.productId,
-						productName: products.name,
-						quantity: sales.quantity,
-						date: sales.date,
-					})
-					.from(sales)
-					.innerJoin(products, eq(sales.productId, products.id))
-					.where(salesCondition)
-			: [];
-
-		const accessibleInvoices = invoiceCondition
-			? await db.select().from(invoices).where(invoiceCondition)
-			: [];
-
-		const accessibleOutstanding = outstandingCondition
-			? await db.select().from(outstanding).where(outstandingCondition)
-			: [];
-
-		console.log(
-			`[Dashboard] MR: ${mrId}, Division: ${selectedDivision}, ProductIds: ${productIds.length}, SalesCount: ${accessibleSales.length}, Invoices: ${accessibleInvoices.length}, Outstanding: ${accessibleOutstanding.length}`,
-		);
-
-		// Calculate metrics
-		const productMap = new Map<string, { name: string; total: number }>();
-		const monthMap = new Map<string, number>();
-		const quarterMap = new Map<string, number>();
-		const yearMap = new Map<string, number>();
-
-		accessibleSales.forEach((sale) => {
-			totalSales += sale.quantity;
-
-			const pData = productMap.get(sale.productId) || {
-				name: sale.productName,
-				total: 0,
+			const key = `${out.doctor}-${out.city}`;
+			const existing = docOutMap.get(key) || {
+				doctor: out.doctor || "Unknown",
+				city: out.city || "Unknown",
+				amount: 0,
 			};
-			pData.total += sale.quantity;
-			productMap.set(sale.productId, pData);
+			existing.amount += amt;
+			docOutMap.set(key, existing);
+		}
+	});
+	// If local tables are unpopulated, aggregate metrics live from stored procedures
+	if (accessibleSales.length === 0 || accessibleOutstanding.length === 0) {
+		const compCodeForProc = mrInfo.companyCode || mrInfo.company || "";
+		const defaultFrom = searchParams?.from || "2026-04-01";
+		const defaultTo = searchParams?.to || "2026-09-30";
 
-			const date = sale.date ? new Date(sale.date) : new Date();
-			const year = date.getFullYear().toString();
-			const month = date.toLocaleString("default", {
-				month: "short",
-				year: "numeric",
-			});
-			const quarter = `Q${Math.floor(date.getMonth() / 3) + 1} ${year}`;
+		if (compCodeForProc) {
+			try {
+				const [liveSales, liveOut] = await Promise.all([
+					getItemCustomerSale({
+						fromDate: defaultFrom,
+						toDate: defaultTo,
+						compCode: compCodeForProc,
+						locNo: mrInfo.locNo || "11",
+					}).catch((err) => {
+						console.error(
+							"[Dashboard] Error fetching live sales procedure:",
+							err,
+						);
+						return { success: false, data: [] };
+					}),
+					getMRwisePeriodicalOutstanding({
+						mrId,
+						compCode: compCodeForProc,
+						fromDate: defaultFrom,
+						toDate: defaultTo,
+						locNo: mrInfo.locNo || "11",
+					}).catch((err) => {
+						console.error(
+							"[Dashboard] Error fetching live outstanding procedure:",
+							err,
+						);
+						return { success: false, data: [] };
+					}),
+				]);
 
-			monthMap.set(month, (monthMap.get(month) || 0) + sale.quantity);
-			quarterMap.set(quarter, (quarterMap.get(quarter) || 0) + sale.quantity);
-			yearMap.set(year, (yearMap.get(year) || 0) + sale.quantity);
-		});
+				if (liveSales.success && liveSales.data) {
+					let procSalesQty = 0;
+					let procSalesAmt = 0;
+					liveSales.data.forEach((row) => {
+						const q = Number(row.Qty || 0);
+						const a = Number(row.IAmt || 0);
+						procSalesQty += q;
+						procSalesAmt += a;
 
-		// Process Invoices
-		const sortedInvoices = accessibleInvoices.sort((a, b) => {
-			const da = a.date ? a.date.getTime() : 0;
-			const db = b.date ? b.date.getTime() : 0;
-			return db - da;
-		});
+						const pData = productMap.get(
+							String(row.ItemID || row.ItemCode),
+						) || {
+							name: row.ItemName || row.ItemCode || "Item",
+							total: 0,
+						};
+						pData.total += q;
+						productMap.set(String(row.ItemID || row.ItemCode), pData);
 
-		sortedInvoices.forEach((inv) => {
-			if (inv.invAmt) {
-				totalInvoicesAmt += parseFloat(inv.invAmt);
+						const d = row.InvDt ? new Date(row.InvDt) : new Date();
+						const m = isNaN(d.getTime())
+							? "Sep 2026"
+							: d.toLocaleString("default", {
+									month: "short",
+									year: "numeric",
+								});
+						monthMap.set(m, (monthMap.get(m) || 0) + q);
+					});
+					if (totalSales === 0) totalSales = procSalesQty;
+					if (totalInvoicesAmt === 0) totalInvoicesAmt = procSalesAmt;
+				}
+
+				if (liveOut.success && liveOut.data) {
+					let procOutAmt = 0;
+					liveOut.data.forEach((row: OverduePeriodicalOutstandingRow) => {
+						const amt = Number(row.Amount || 0);
+						const adj = Number(row.AdjAmt || 0);
+						const net = amt - adj;
+						if (net > 0) {
+							procOutAmt += net;
+							const doc = row.Customer || "Unknown Customer";
+							const city = row.City || "Unknown City";
+							const key = `${doc}-${city}`;
+							const existing = docOutMap.get(key) || {
+								doctor: doc,
+								city: city,
+								amount: 0,
+							};
+							existing.amount += net;
+							docOutMap.set(key, existing);
+						}
+					});
+					if (totalOutstandingAmt === 0) totalOutstandingAmt = procOutAmt;
+				}
+			} catch (err) {
+				console.error("[Dashboard] Error in parallel metric aggregation:", err);
 			}
-		});
-		recentInvoices = sortedInvoices.slice(0, 8);
-
-		// Process Outstanding
-		const docOutMap = new Map<
-			string,
-			{ doctor: string; city: string; amount: number }
-		>();
-		accessibleOutstanding.forEach((out) => {
-			if (out.invAmt) {
-				const amt = parseFloat(out.invAmt);
-				totalOutstandingAmt += amt;
-
-				const key = `${out.doctor}-${out.city}`;
-				const existing = docOutMap.get(key) || {
-					doctor: out.doctor || "Unknown",
-					city: out.city || "Unknown",
-					amount: 0,
-				};
-				existing.amount += amt;
-				docOutMap.set(key, existing);
-			}
-		});
-		outstandingByDoctor = Array.from(docOutMap.values()).sort(
-			(a, b) => b.amount - a.amount,
-		);
-
-		productReports = Array.from(productMap.values()).sort(
-			(a, b) => b.total - a.total,
-		);
-		monthlyReports = Array.from(monthMap.entries()).map(([time, qty]) => ({
-			time,
-			qty,
-		}));
-		quarterlyReports = Array.from(quarterMap.entries()).map(([time, qty]) => ({
-			time,
-			qty,
-		}));
-		yearlyReports = Array.from(yearMap.entries()).map(([time, qty]) => ({
-			time,
-			qty,
-		}));
+		}
 	}
+
+	outstandingByDoctor = Array.from(docOutMap.values()).sort(
+		(a, b) => b.amount - a.amount,
+	);
+
+	productReports = Array.from(productMap.values()).sort(
+		(a, b) => b.total - a.total,
+	);
+	monthlyReports = Array.from(monthMap.entries()).map(([time, qty]) => ({
+		time,
+		qty,
+	}));
+	quarterlyReports = Array.from(quarterMap.entries()).map(([time, qty]) => ({
+		time,
+		qty,
+	}));
+	yearlyReports = Array.from(yearMap.entries()).map(([time, qty]) => ({
+		time,
+		qty,
+	}));
+
+	// Evaluate Live Overdue & Impending Block Status
+	const { evaluateMROverdueStatus } = await import(
+		"@/server/actions/overdueEngine"
+	);
+	const mrOverdueStatus = await evaluateMROverdueStatus(mrId);
 
 	const baseUrl = isAdminView ? `/admin/mrs/${mrId}` : `/dashboard`;
 
 	return (
 		<div className="mt-2 space-y-6">
+			{/* Impending Block Warning Modal for 80-90 days */}
+			{!isAdminView && mrOverdueStatus.status === "WARNING" && (
+				<MROverdueWarningModal
+					divisionName={mrInfo.division || mrInfo.company}
+					invoices={mrOverdueStatus.warningInvoices}
+					mrName={mrInfo.name}
+				/>
+			)}
+
+			{/* Impending Block Warning Banner */}
+			{!isAdminView && mrOverdueStatus.status === "WARNING" && (
+				<div className="rounded-xl border-2 border-amber-400 bg-amber-50 p-4 shadow-sm">
+					<div className="flex items-center gap-3">
+						<span className="text-2xl">⚠️</span>
+						<div className="flex-1">
+							<h4 className="font-extrabold text-amber-900 text-sm">
+								Attention: Impending Automatic Block Notice
+							</h4>
+							<p className="mt-0.5 text-amber-800 text-xs">
+								{mrOverdueStatus.message}
+							</p>
+						</div>
+					</div>
+				</div>
+			)}
 			<div className="flex flex-col justify-between gap-4 md:flex-row md:items-center">
 				<div>
 					<h1 className="font-extrabold text-3xl text-[#0B2545] tracking-tight md:text-4xl">
@@ -527,6 +543,50 @@ export async function MrDashboardContent({
 			{/* OVERVIEW TAB */}
 			{canViewSales && (searchParams?.tab || "overview") === "overview" && (
 				<div className="space-y-6">
+					{/* DEBUG QUERY BANNER FOR OVERVIEW */}
+					{(searchParams?.debug === "1" || searchParams?.debug === "true") && (
+						<div className="rounded-xl border-2 border-amber-400 bg-amber-50 p-4 font-mono text-amber-950 text-xs shadow-sm print:hidden">
+							<div className="mb-2 flex flex-wrap items-center justify-between gap-2 border-amber-200 border-b pb-2 font-bold text-amber-900 text-xs">
+								<span>[DEBUG QUERY] Overview Tab Data Status</span>
+								<span className="rounded bg-amber-200 px-2 py-0.5 font-semibold text-[11px]">
+									Sales: {accessibleSales.length} | Invoices:{" "}
+									{accessibleInvoices.length} | Outstanding:{" "}
+									{accessibleOutstanding.length}
+								</span>
+							</div>
+							<div className="space-y-1.5">
+								<p className="font-bold text-[11px] text-amber-900">
+									Database Queries & Filter Conditions:
+								</p>
+								<pre className="select-all overflow-x-auto whitespace-pre-wrap break-all rounded border border-amber-200 bg-amber-100 p-2.5 font-mono text-[11px] text-amber-950">
+									{`-- Overview metrics calculated live via MySQL ERP stored procedures
+-- Date Filters: from=${searchParams?.from || "NOT PROVIDED"}, to=${searchParams?.to || "NOT PROVIDED"}
+-- Division Selected: ${selectedDivision}
+-- Assigned Divisions: ${JSON.stringify(assignedDivisions)}
+-- Sales: rptItemCustomerSale => ${totalSales} units | ₹${totalInvoicesAmt.toFixed(2)}
+-- Outstanding: rptMRwisePeriodicalOutstanding => ₹${totalOutstandingAmt.toFixed(2)}`}
+								</pre>
+								<div className="mt-2 grid grid-cols-2 gap-2 border-amber-200 border-t pt-1.5 text-[11px] text-amber-800 md:grid-cols-4">
+									<div>
+										<span className="font-semibold">MR ID:</span> {mrId}
+									</div>
+									<div>
+										<span className="font-semibold">MR Name:</span>{" "}
+										{mrInfo.name || "N/A"}
+									</div>
+									<div>
+										<span className="font-semibold">MR Company:</span>{" "}
+										{mrInfo.company || "N/A"}
+									</div>
+									<div>
+										<span className="font-semibold">LocNo:</span>{" "}
+										{mrInfo.locNo || "11"}
+									</div>
+								</div>
+							</div>
+						</div>
+					)}
+
 					{/* Refined Metric Cards Family */}
 					<div className="grid grid-cols-1 gap-6 md:grid-cols-3">
 						<div className="rounded-xl bg-[#0071BC] p-6 text-white shadow-sm">
@@ -713,12 +773,10 @@ export async function MrDashboardContent({
 				</div>
 			)}
 
-
-
 			{searchParams?.tab === "party" && canViewPartyWise && (
 				<div>
 					<div className="mb-4 flex items-center justify-between"></div>
-					<OutstandingReportView mrId={mrId} searchParams={searchParams} />
+					<PartyReportView mrId={mrId} searchParams={searchParams} />
 				</div>
 			)}
 

@@ -1,14 +1,54 @@
 import Image from "next/image";
-import { and, eq, gte, inArray, lte } from "drizzle-orm";
 import React from "react";
-import { db } from "@/server/db";
 import {
-	mrInventory,
-	mrManufacturers,
-	products,
-	sales,
-	user,
-} from "@/server/db/schema";
+	getItemCustomerSale,
+	type ItemCustomerSaleResult,
+	type ItemCustomerSaleRow,
+} from "@/server/actions/customerItemSale";
+import { getProductCatalog } from "@/server/actions/itemCatalog";
+import { getMRInfo } from "@/server/actions/mrInfo";
+
+function formatDisplayDate(val?: string | Date | null): string {
+	if (!val) return "";
+	if (typeof val === "string") {
+		const match = val.match(/^(\d{4})-(\d{2})-(\d{2})/);
+		if (match) return `${match[3]}/${match[2]}/${match[1]}`;
+	}
+	const d = new Date(val);
+	if (isNaN(d.getTime())) return String(val);
+	const day = String(d.getDate()).padStart(2, "0");
+	const month = String(d.getMonth() + 1).padStart(2, "0");
+	const year = d.getFullYear();
+	return `${day}/${month}/${year}`;
+}
+
+function formatExpDate(val?: string | Date | null): string {
+	if (!val) return "";
+	if (typeof val === "string") {
+		const match = val.match(/\d{4}-\d{2}(-\d{2})?/);
+		if (match) return match[0];
+	}
+	const d = new Date(val);
+	if (isNaN(d.getTime())) return String(val);
+	const year = d.getFullYear();
+	const month = String(d.getMonth() + 1).padStart(2, "0");
+	const day = String(d.getDate()).padStart(2, "0");
+	return `${year}-${month}-${day}`;
+}
+
+interface ProductItemReportGroup {
+	code: string;
+	name: string;
+	packing: string;
+	salesBySeries: Map<string, ItemCustomerSaleRow[]>;
+	returnsBySeries: Map<string, ItemCustomerSaleRow[]>;
+	salesTotalQty: number;
+	salesTotalFree: number;
+	salesTotalAmount: number;
+	returnTotalQty: number;
+	returnTotalFree: number;
+	returnTotalAmount: number;
+}
 
 export async function ProductReportView({
 	mrId,
@@ -20,296 +60,358 @@ export async function ProductReportView({
 		from?: string;
 		to?: string;
 		q?: string;
+		debug?: string;
 	};
 }) {
-	// Fetch data
-	const mrInfoArr = await db
-		.select()
-		.from(user)
-		.where(eq(user.id, mrId))
-		.limit(1);
-	const mrInfo = mrInfoArr[0];
+	// Fetch MR Info and permissions
+	const mrInfo = await getMRInfo(mrId);
 	if (!mrInfo || !mrInfo.canViewProductWise)
 		return <div>No access to products data.</div>;
 
 	const company = searchParams?.division || "All";
-	const assigned = await db
-		.select()
-		.from(mrManufacturers)
-		.where(eq(mrManufacturers.mrId, mrId));
-	const manufacturerNames = assigned.map((a) => a.manufacturer);
-	const companiesToQuery = company === "All" ? manufacturerNames : [company];
+	const compCodeToQuery =
+		company === "All"
+			? mrInfo.companyCode || mrInfo.company || ""
+			: mrInfo.companyCode &&
+					(mrInfo.company === company || mrInfo.division === company)
+				? mrInfo.companyCode
+				: company;
 
-	if (companiesToQuery.length === 0) return <div>No data assigned</div>;
+	const fromParam = searchParams?.from || "2026-04-01";
+	const toParam = searchParams?.to || "2026-09-30";
 
-	const accessibleProducts = await db
-		.select()
-		.from(products)
-		.where(inArray(products.manufacturer, companiesToQuery));
-	const productIds = accessibleProducts.map((p) => p.id);
+	const procSalesResult: ItemCustomerSaleResult = mrInfo.canViewSales
+		? await getItemCustomerSale({
+				fromDate: fromParam,
+				toDate: toParam,
+				compCode: compCodeToQuery,
+				locNo: mrInfo.locNo || "11",
+			})
+		: {
+				success: false,
+				error: "MR does not have sales view permissions",
+				data: null,
+				debugSql: undefined,
+			};
 
-	if (productIds.length === 0) return <div>No products found</div>;
+	const fromDisplay = formatDisplayDate(fromParam);
+	const toDisplay = formatDisplayDate(toParam);
 
-	// Inventory (to get Current Stock for reference if they want it)
-	const inventoryMap = new Map<string, number>();
-	if (mrInfo.canViewStock) {
-		let inventoryCondition = and(
-			inArray(mrInventory.productId, productIds),
-			eq(mrInventory.mrId, mrId),
-		);
-		if (searchParams?.to) {
-			const toDate = new Date(searchParams.to);
-			if (!isNaN(toDate.getTime())) {
-				toDate.setUTCHours(23, 59, 59, 999);
-				inventoryCondition = and(
-					inventoryCondition,
-					lte(mrInventory.date, toDate),
-				);
+	// If procedure returned data, organize it into the exact PDF format
+	if (
+		procSalesResult.success &&
+		procSalesResult.data &&
+		procSalesResult.data.length > 0
+	) {
+		let rowsToProcess = procSalesResult.data;
+
+		if (searchParams?.q) {
+			const q = searchParams.q.toLowerCase();
+			rowsToProcess = rowsToProcess.filter(
+				(r) =>
+					(r.ItemName && r.ItemName.toLowerCase().includes(q)) ||
+					(r.ItemCode && r.ItemCode.toLowerCase().includes(q)) ||
+					(r.Customer && r.Customer.toLowerCase().includes(q)) ||
+					(r.City && r.City.toLowerCase().includes(q)) ||
+					(r.InvNo && r.InvNo.toLowerCase().includes(q)),
+			);
+		}
+
+		// Group rows by Product
+		const productGroupsMap = new Map<string, ProductItemReportGroup>();
+
+		for (const row of rowsToProcess) {
+			const key = `${row.ItemCode || ""}_${row.ItemName || ""}`;
+			let group = productGroupsMap.get(key);
+			if (!group) {
+				group = {
+					code: row.ItemCode || "",
+					name: row.ItemName || "Unknown Item",
+					packing: row.Packing || "",
+					salesBySeries: new Map(),
+					returnsBySeries: new Map(),
+					salesTotalQty: 0,
+					salesTotalFree: 0,
+					salesTotalAmount: 0,
+					returnTotalQty: 0,
+					returnTotalFree: 0,
+					returnTotalAmount: 0,
+				};
+				productGroupsMap.set(key, group);
+			}
+
+			const isSalesReturn =
+				row.DocType === "SR" ||
+				row.DocType === "CN" ||
+				String(row.ReturnType || "").toUpperCase() === "Y" ||
+				Number(row.Qty) < 0;
+
+			const seriesName = row.Series || row.DocType || "INV";
+			const targetMap = isSalesReturn
+				? group.returnsBySeries
+				: group.salesBySeries;
+
+			const seriesList = targetMap.get(seriesName) || [];
+			seriesList.push(row);
+			targetMap.set(seriesName, seriesList);
+
+			const q = Math.abs(Number(row.Qty) || 0);
+			const f = Math.abs(Number(row.FQty) || 0);
+			const a = Math.abs(Number(row.IAmt) || 0);
+
+			if (isSalesReturn) {
+				group.returnTotalQty += q;
+				group.returnTotalFree += f;
+				group.returnTotalAmount += a;
+			} else {
+				group.salesTotalQty += q;
+				group.salesTotalFree += f;
+				group.salesTotalAmount += a;
 			}
 		}
 
-		const inventory = await db
-			.select()
-			.from(mrInventory)
-			.where(inventoryCondition);
+		const productGroups = Array.from(productGroupsMap.values());
 
-		// Sort by date ascending so latest record overwrites
-		inventory.sort((a, b) => {
-			const da = a.date ? new Date(a.date).getTime() : 0;
-			const dbVal = b.date ? new Date(b.date).getTime() : 0;
-			return da - dbVal;
+		let grandSalesQty = 0;
+		let grandSalesFree = 0;
+		let grandSalesAmount = 0;
+		let grandReturnQty = 0;
+		let grandReturnFree = 0;
+		let grandReturnAmount = 0;
+
+		productGroups.forEach((p) => {
+			grandSalesQty += p.salesTotalQty;
+			grandSalesFree += p.salesTotalFree;
+			grandSalesAmount += p.salesTotalAmount;
+			grandReturnQty += p.returnTotalQty;
+			grandReturnFree += p.returnTotalFree;
+			grandReturnAmount += p.returnTotalAmount;
 		});
 
-		inventory.forEach((inv) => {
-			inventoryMap.set(inv.productId, inv.stock || 0);
-		});
-	}
+		return (
+			<div className="mt-4 space-y-4 rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
+				{/* DEBUG QUERY BANNER */}
+				{(searchParams?.debug === "1" || searchParams?.debug === "true") && (
+					<div className="rounded-xl border-2 border-amber-400 bg-amber-50 p-4 font-mono text-amber-950 text-xs shadow-sm print:hidden">
+						<div className="mb-2 flex flex-wrap items-center justify-between gap-2 border-amber-200 border-b pb-2 font-bold text-amber-900 text-xs">
+							<span>[DEBUG QUERY] Stored Procedure Execution Status</span>
+							<span className="rounded bg-amber-200 px-2 py-0.5 font-semibold text-[11px]">
+								{procSalesResult.data.length} rows returned
+							</span>
+						</div>
+						<div className="space-y-1.5">
+							<p className="font-bold text-[11px] text-amber-900">
+								Final SQL Query being run:
+							</p>
+							<pre className="select-all overflow-x-auto whitespace-pre-wrap break-all rounded border border-amber-200 bg-amber-100 p-2.5 font-mono text-[11px] text-amber-950">
+								{procSalesResult.debugSql}
+							</pre>
+						</div>
+					</div>
+				)}
 
-	// Fetch Sales
-	let salesCondition = and(
-		inArray(sales.productId, productIds),
-		eq(sales.mrId, mrId),
-	);
-	if (searchParams?.from) {
-		const fromDate = new Date(searchParams.from);
-		if (!isNaN(fromDate.getTime())) {
-			salesCondition = and(salesCondition, gte(sales.date, fromDate));
-		}
-	}
-	if (searchParams?.to) {
-		const toDate = new Date(searchParams.to);
-		if (!isNaN(toDate.getTime())) {
-			toDate.setUTCHours(23, 59, 59, 999);
-			salesCondition = and(salesCondition, lte(sales.date, toDate));
-		}
-	}
+				{/* HEADER */}
+				<div className="border-gray-900 border-b-2 pb-2">
+					<div className="flex items-start gap-4">
+						<Image
+							alt="Asmee Pharma Logo"
+							className="object-contain"
+							height={45}
+							priority
+							src="/logo.png"
+							width={140}
+						/>
+						<div>
+							<h2 className="font-extrabold text-base text-gray-900 uppercase tracking-tight">
+								ASMEE PHARMA PRIVATE LIMITED
+							</h2>
+							<p className="mt-0.5 text-[11px] text-gray-700 leading-tight">
+								BASEMENE-GF, 11/2 ASHOK HOUSE, B/S SANSTHA VASAHAT GATE, PRATAP
+								ROAD,
+								<br />
+								RAOPURA, VADODARA - 390001, GUJARAT - 24
+							</p>
+						</div>
+					</div>
 
-	const accessibleSales = mrInfo.canViewSales
-		? await db
-				.select({
-					productId: sales.productId,
-					quantity: sales.quantity,
-					amount: sales.amount,
-				})
-				.from(sales)
-				.where(salesCondition)
-		: [];
+					<div className="mt-3 flex items-center justify-between border-gray-300 border-t pt-1.5 font-bold text-gray-900 text-xs">
+						<div>Year : 2026-27</div>
+						<div className="text-center font-extrabold text-[#0B2545] text-xs">
+							Itemwise/Customerwise Sales for Period of {fromDisplay} to{" "}
+							{toDisplay}
+						</div>
+						<div>Total Items: {productGroups.length}</div>
+					</div>
+				</div>
 
-	const salesMap = new Map<string, { qty: number; amount: number }>();
-	accessibleSales.forEach((s) => {
-		const curr = salesMap.get(s.productId) || { qty: 0, amount: 0 };
-		curr.qty += s.quantity || 0;
-		curr.amount += s.amount ? parseFloat(s.amount.toString()) : 0;
-		salesMap.set(s.productId, curr);
-	});
-
-	let reportData = accessibleProducts.map((p) => {
-		const s = salesMap.get(p.id) || { qty: 0, amount: 0 };
-		return {
-			Manufacturer: p.manufacturer,
-			"Product Name": p.name,
-			"Free Scheme": p.freeScheme || "N/A",
-			"Current Stock": inventoryMap.get(p.id) || 0,
-			"Total Sales Qty": s.qty,
-			"Total Sales Amt": s.amount,
-		};
-	});
-
-	if (searchParams?.q) {
-		const q = searchParams.q.toLowerCase();
-		reportData = reportData.filter(
-			(d) =>
-				d["Product Name"].toLowerCase().includes(q) ||
-				d["Manufacturer"].toLowerCase().includes(q),
+				{/* REPORT TABLE */}
+				<div className="w-full overflow-x-auto border-gray-900 border-t-2 pt-1">
+					<table className="w-full min-w-[1100px] border-collapse text-left font-sans text-xs">
+						<thead>
+							<tr className="border-gray-900 border-y-2 bg-gray-50 text-[11px] text-gray-800 uppercase tracking-wider">
+								<th className="py-2 pl-2 font-bold">Party / City</th>
+								<th className="py-2 font-bold">Address</th>
+								<th className="py-2 font-bold">Doc No</th>
+								<th className="py-2 font-bold">Date</th>
+								<th className="py-2 font-bold">Batch</th>
+								<th className="py-2 font-bold">Exp Dt</th>
+								<th className="py-2 text-right font-bold">PTR</th>
+								<th className="py-2 text-right font-bold">Rate</th>
+								<th className="py-2 text-right font-bold">Qty</th>
+								<th className="py-2 text-right font-bold">Free</th>
+								<th className="py-2 text-right font-bold">Taxable</th>
+								<th className="py-2 text-right font-bold">GST</th>
+								<th className="py-2 text-right font-bold">Amount</th>
+							</tr>
+						</thead>
+						<tbody className="divide-y divide-gray-200">
+							{productGroups.map((group, pIdx) => (
+								<React.Fragment key={pIdx}>
+									<tr className="bg-blue-50/70 font-bold text-blue-900">
+										<td className="py-2 pl-2" colSpan={13}>
+											{group.name} [{group.code}] - Packing: {group.packing}
+										</td>
+									</tr>
+									{Array.from(group.salesBySeries.entries()).map(
+										([series, items]) =>
+											items.map((row, rIdx) => (
+												<tr
+													className="hover:bg-gray-50"
+													key={`${pIdx}-${series}-${rIdx}`}
+												>
+													<td className="py-1 pl-2 font-medium">
+														{row.Customer}
+													</td>
+													<td className="py-1 text-gray-500">
+														{row.Address || row.City || "-"}
+													</td>
+													<td className="py-1">{row.InvNo}</td>
+													<td className="py-1">
+														{formatDisplayDate(row.InvDt)}
+													</td>
+													<td className="py-1">{row.BatchNo}</td>
+													<td className="py-1">{formatExpDate(row.ExpDt)}</td>
+													<td className="py-1 text-right">
+														{Number(row.PTR || 0).toFixed(2)}
+													</td>
+													<td className="py-1 text-right">
+														{Number(row.Srate || 0).toFixed(2)}
+													</td>
+													<td className="py-1 text-right font-semibold text-blue-700">
+														{row.Qty}
+													</td>
+													<td className="py-1 text-right">{row.FQty || ""}</td>
+													<td className="py-1 text-right">
+														{Number(row.IAmt || 0).toFixed(2)}
+													</td>
+													<td className="py-1 text-right">-</td>
+													<td className="py-1 text-right font-bold text-gray-900">
+														{Number(row.IAmt || 0).toFixed(2)}
+													</td>
+												</tr>
+											)),
+									)}
+								</React.Fragment>
+							))}
+							<tr className="border-gray-900 border-t-2 border-b-2 bg-gray-100 font-extrabold">
+								<td className="py-2.5 pl-2" colSpan={8}>
+									Grand Total Sales:
+								</td>
+								<td className="py-2.5 text-right text-blue-800">
+									{grandSalesQty}
+								</td>
+								<td className="py-2.5 text-right">{grandSalesFree || ""}</td>
+								<td colSpan={2}></td>
+								<td className="py-2.5 text-right text-blue-800">
+									{grandSalesAmount.toFixed(2)}
+								</td>
+							</tr>
+						</tbody>
+					</table>
+				</div>
+			</div>
 		);
 	}
 
-	// Grouping by Manufacturer
-	const manufacturers = [
-		...new Set(reportData.map((d) => d.Manufacturer)),
-	].sort();
-	let grandTotalSales = 0;
-	let grandTotalAmount = 0;
+	// Native Product Catalog from MySQL master
+	const catalogResult = await getProductCatalog({
+		mktBy: compCodeToQuery || undefined,
+	});
+
+	let catalogItems =
+		catalogResult.success && catalogResult.data ? catalogResult.data : [];
+	if (searchParams?.q) {
+		const q = searchParams.q.toLowerCase();
+		catalogItems = catalogItems.filter(
+			(d) =>
+				(d.ItemName && d.ItemName.toLowerCase().includes(q)) ||
+				(d.ItemCode && d.ItemCode.toLowerCase().includes(q)) ||
+				(d.Division && d.Division.toLowerCase().includes(q)),
+		);
+	}
 
 	return (
-		<div className="mt-4 space-y-8 overflow-hidden rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
-			{/* Header */}
-			<div className="mb-2 flex flex-col items-start justify-between gap-4 border-[#0B2545] border-b-2 pb-2 md:flex-row">
-				<div className="flex items-center gap-4">
+		<div className="mt-4 space-y-4 rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
+			<div className="border-gray-900 border-b-2 pb-2">
+				<div className="flex items-start gap-4">
+					<Image
+						alt="Asmee Pharma Logo"
+						className="object-contain"
+						height={45}
+						priority
+						src="/logo.png"
+						width={140}
+					/>
 					<div>
-						<h2 className="font-extrabold text-2xl text-[#0B2545] tracking-tight">
-							<Image src="/logo.png" alt="Asmee Pharma Logo" width={180} height={50} className="object-contain" priority />
+						<h2 className="font-extrabold text-base text-gray-900 uppercase tracking-tight">
+							ASMEE PHARMA PRIVATE LIMITED
 						</h2>
-						<p className="mt-1 font-medium text-[#0B2545] text-sm leading-relaxed">
-							BASEMENE-GF, 11/2 ASHOK HOUSE, B/S SANSTHA VASAHAT GATE, PRATAP
-							ROAD,
-							<br />
-							RAOPURA, VADODARA - 390001, GUJARAT - 24
-							<br />
-							Contact: 9409789800, 9409789700 Mobile: 9409789700 Email:
-							asmeepharma2022@gmail.com
+						<p className="mt-0.5 text-[11px] text-gray-700 leading-tight">
+							Product Catalog (Legacy Master) - Total Products:{" "}
+							{catalogItems.length}
 						</p>
 					</div>
 				</div>
 			</div>
 
-			<div className="mb-4 flex items-end justify-between font-bold text-[#0B2545] text-sm">
-				<div>
-					<p>Year : 2026-27</p>
-					<p className="mt-2 text-base">
-						Product Wise Statement for the Period of{" "}
-						{searchParams?.from || "Start"} to {searchParams?.to || "End"}
-					</p>
-				</div>
-			</div>
-
-			<div className="w-full overflow-x-auto border-[#0B2545] border-t-2 pt-1">
-				<table className="w-full min-w-[900px] border-collapse text-left font-sans">
+			<div className="w-full overflow-x-auto border-gray-300 border-t pt-2">
+				<table className="w-full min-w-[800px] border-collapse text-left font-sans text-xs">
 					<thead>
-						<tr className="border-[#0B2545] border-y-2">
-							<th className="py-2 pl-2 font-bold text-[#0B2545] text-sm">
-								Product Name
-							</th>
-							{mrInfo.canViewFreeScheme && (
-								<th className="py-2 font-bold text-[#0B2545] text-sm">
-									Free Scheme
-								</th>
-							)}
-							{mrInfo.canViewStock && (
-								<th className="py-2 text-right font-bold text-[#0B2545] text-sm">
-									Current Stock
-								</th>
-							)}
-							{mrInfo.canViewSales && (
-								<th className="py-2 text-right font-bold text-[#0B2545] text-sm">
-									Total Sales Qty
-								</th>
-							)}
-							{mrInfo.canViewSales && (
-								<th className="py-2 pr-2 text-right font-bold text-[#0B2545] text-sm">
-									Total Sales Amt
-								</th>
-							)}
+						<tr className="border-gray-900 border-y-2 bg-gray-50">
+							<th className="py-2 pl-2 font-bold text-gray-900">Item Code</th>
+							<th className="py-2 font-bold text-gray-900">Product Name</th>
+							<th className="py-2 font-bold text-gray-900">Packing</th>
+							<th className="py-2 font-bold text-gray-900">Division</th>
+							<th className="py-2 font-bold text-gray-900">Mkt By</th>
 						</tr>
 					</thead>
-					<tbody className="font-medium text-sm">
-						{manufacturers.map((mfg, idx) => {
-							const mfgData = reportData.filter((d) => d.Manufacturer === mfg);
-							let mfgSales = 0;
-							let mfgAmount = 0;
-
-							return (
-								<React.Fragment key={idx}>
-									{/* Company Header Row */}
-									<tr>
-										<td
-											className="border-gray-200 border-b bg-gray-50/50 px-2 py-2 font-bold text-[#000080]"
-											colSpan={5}
-										>
-											Company : {mfg.toUpperCase()}
-										</td>
-									</tr>
-									{/* Items */}
-									{mfgData.map((row, rowIdx) => {
-										mfgSales += row["Total Sales Qty"];
-										mfgAmount += row["Total Sales Amt"];
-
-										return (
-											<tr
-												className="border-gray-100 border-b text-[#0B2545] hover:bg-gray-50"
-												key={rowIdx}
-											>
-												<td className="whitespace-nowrap py-1.5 pl-2">
-													{row["Product Name"]}
-												</td>
-												{mrInfo.canViewFreeScheme && (
-													<td className="py-1.5 font-bold text-blue-600">
-														{row["Free Scheme"]}
-													</td>
-												)}
-												{mrInfo.canViewStock && (
-													<td className="py-1.5 text-right font-bold text-amber-600">
-														{row["Current Stock"]}
-													</td>
-												)}
-												{mrInfo.canViewSales && (
-													<td className="py-1.5 text-right font-bold text-[#0071BC]">
-														{row["Total Sales Qty"]}
-													</td>
-												)}
-												{mrInfo.canViewSales && (
-													<td className="py-1.5 pr-2 text-right font-bold text-rose-600">
-														{row["Total Sales Amt"].toFixed(2)}
-													</td>
-												)}
-											</tr>
-										);
-									})}
-									{/* Full Company Total */}
-									<tr className="border-gray-400 border-b-2 bg-gray-50 font-bold text-[#0B2545]">
-										<td
-											className="py-2 pl-2"
-											colSpan={mrInfo.canViewFreeScheme ? 2 : 1}
-										>
-											Total for {mfg.toUpperCase()} :
-										</td>
-										{mrInfo.canViewStock && <td className="py-2"></td>}
-										{mrInfo.canViewSales && (
-											<td className="py-2 text-right text-[#0071BC]">
-												{mfgSales}
-											</td>
-										)}
-										{mrInfo.canViewSales && (
-											<td className="py-2 pr-2 text-right text-rose-700">
-												{mfgAmount.toFixed(2)}
-											</td>
-										)}
-									</tr>
-									{(() => {
-										grandTotalSales += mfgSales;
-										grandTotalAmount += mfgAmount;
-										return null;
-									})()}
-								</React.Fragment>
-							);
-						})}
-						{/* Grand Total */}
-						{mrInfo.canViewSales && (
-							<tr className="border-[#0B2545] border-b-4 bg-gray-100 font-extrabold text-[#0B2545] text-base">
+					<tbody>
+						{catalogItems.length === 0 ? (
+							<tr>
 								<td
-									className="py-3 pl-2"
-									colSpan={mrInfo.canViewFreeScheme ? 2 : 1}
+									className="py-6 text-center font-medium text-gray-500"
+									colSpan={5}
 								>
-									Grand Total :
-								</td>
-								{mrInfo.canViewStock && <td className="py-3"></td>}
-								<td className="py-3 text-right text-[#0071BC]">
-									{grandTotalSales}
-								</td>
-								<td className="py-3 pr-2 text-right text-rose-700">
-									{grandTotalAmount.toFixed(2)}
+									No products found.
 								</td>
 							</tr>
+						) : (
+							catalogItems.map((item, idx: number) => (
+								<tr
+									className="border-gray-100 border-b hover:bg-gray-50"
+									key={idx}
+								>
+									<td className="py-1.5 pl-2 font-mono text-gray-600">
+										{item.ItemCode}
+									</td>
+									<td className="py-1.5 font-bold text-gray-900">
+										{item.ItemName}
+									</td>
+									<td className="py-1.5 text-gray-600">{item.Packing}</td>
+									<td className="py-1.5 text-gray-600">{item.Division}</td>
+									<td className="py-1.5 text-gray-600">{item.MktBy}</td>
+								</tr>
+							))
 						)}
 					</tbody>
 				</table>

@@ -1,48 +1,106 @@
 "use server";
 
-import { db } from "@/server/db";
-import { notices } from "@/server/db/schema";
-import { auth } from "@/server/auth";
-import { headers } from "next/headers";
-import { eq, ne } from "drizzle-orm";
+import fs from "fs/promises";
 import { revalidatePath } from "next/cache";
+import { headers } from "next/headers";
+import path from "path";
+import { auth } from "@/server/auth";
+
+export interface NoticeItem {
+	id: string;
+	title: string;
+	content: string;
+	variant: string;
+	isActive: boolean;
+	expiresAt: string | null;
+	createdAt: string;
+	updatedAt: string;
+}
+
+const NOTICES_FILE = path.join(process.cwd(), "data", "notices.json");
+
+async function ensureNoticesFile(): Promise<NoticeItem[]> {
+	try {
+		const dir = path.dirname(NOTICES_FILE);
+		await fs.mkdir(dir, { recursive: true });
+		const data = await fs.readFile(NOTICES_FILE, "utf-8");
+		return JSON.parse(data);
+	} catch {
+		await fs.writeFile(NOTICES_FILE, "[]", "utf-8");
+		return [];
+	}
+}
+
+async function writeNoticesFile(notices: NoticeItem[]) {
+	const dir = path.dirname(NOTICES_FILE);
+	await fs.mkdir(dir, { recursive: true });
+	await fs.writeFile(NOTICES_FILE, JSON.stringify(notices, null, 2), "utf-8");
+}
+
+export async function getNotices(): Promise<NoticeItem[]> {
+	return await ensureNoticesFile();
+}
+
+export async function getActiveNotice(): Promise<NoticeItem | null> {
+	const list = await ensureNoticesFile();
+	const now = new Date();
+	const active = list.find((n) => {
+		if (!n.isActive) return false;
+		if (n.expiresAt) {
+			const exp = new Date(n.expiresAt);
+			if (exp < now) return false;
+		}
+		return true;
+	});
+	return active || null;
+}
 
 export async function saveNotice(
 	id: string | null,
 	title: string,
 	content: string,
-	variant: string
+	variant: string,
 ) {
 	const session = await auth.api.getSession({
 		headers: await headers(),
 	});
 
-	if (!session || session.user.role !== "ADMIN") {
+	if (
+		!session ||
+		(session.user.role !== "ADMIN" && session.user.role !== "DEVELOPER")
+	) {
 		throw new Error("Unauthorized");
 	}
 
+	const list = await ensureNoticesFile();
+	const nowStr = new Date().toISOString();
+
 	if (id) {
-		await db
-			.update(notices)
-			.set({
+		const idx = list.findIndex((n) => n.id === id);
+		const existing = idx !== -1 ? list[idx] : undefined;
+		if (existing) {
+			list[idx] = {
+				...existing,
 				title,
 				content,
 				variant,
-				updatedAt: new Date(),
-			})
-			.where(eq(notices.id, id));
+				updatedAt: nowStr,
+			};
+		}
 	} else {
-		await db.insert(notices).values({
+		list.unshift({
 			id: crypto.randomUUID(),
 			title,
 			content,
-			isActive: false, // Default to false, they activate it later
 			variant,
-			createdAt: new Date(),
-			updatedAt: new Date(),
+			isActive: false,
+			expiresAt: null,
+			createdAt: nowStr,
+			updatedAt: nowStr,
 		});
 	}
 
+	await writeNoticesFile(list);
 	revalidatePath("/admin/notices");
 	revalidatePath("/dashboard");
 	return { success: true };
@@ -53,16 +111,28 @@ export async function activateNotice(id: string, expiresAt: Date | null) {
 		headers: await headers(),
 	});
 
-	if (!session || session.user.role !== "ADMIN") {
+	if (
+		!session ||
+		(session.user.role !== "ADMIN" && session.user.role !== "DEVELOPER")
+	) {
 		throw new Error("Unauthorized");
 	}
 
-	// Deactivate all others
-	await db.update(notices).set({ isActive: false }).where(ne(notices.id, id));
+	const list = await ensureNoticesFile();
+	const nowStr = new Date().toISOString();
+	const expStr = expiresAt ? expiresAt.toISOString() : null;
 
-	// Activate this one
-	await db.update(notices).set({ isActive: true, expiresAt, updatedAt: new Date() }).where(eq(notices.id, id));
+	list.forEach((n) => {
+		if (n.id === id) {
+			n.isActive = true;
+			n.expiresAt = expStr;
+			n.updatedAt = nowStr;
+		} else {
+			n.isActive = false;
+		}
+	});
 
+	await writeNoticesFile(list);
 	revalidatePath("/admin/notices");
 	revalidatePath("/dashboard");
 	return { success: true };
@@ -73,12 +143,24 @@ export async function deactivateNotice(id: string) {
 		headers: await headers(),
 	});
 
-	if (!session || session.user.role !== "ADMIN") {
+	if (
+		!session ||
+		(session.user.role !== "ADMIN" && session.user.role !== "DEVELOPER")
+	) {
 		throw new Error("Unauthorized");
 	}
 
-	await db.update(notices).set({ isActive: false, updatedAt: new Date() }).where(eq(notices.id, id));
+	const list = await ensureNoticesFile();
+	const nowStr = new Date().toISOString();
 
+	list.forEach((n) => {
+		if (n.id === id) {
+			n.isActive = false;
+			n.updatedAt = nowStr;
+		}
+	});
+
+	await writeNoticesFile(list);
 	revalidatePath("/admin/notices");
 	revalidatePath("/dashboard");
 	return { success: true };
@@ -89,12 +171,17 @@ export async function deleteNotice(id: string) {
 		headers: await headers(),
 	});
 
-	if (!session || session.user.role !== "ADMIN") {
+	if (
+		!session ||
+		(session.user.role !== "ADMIN" && session.user.role !== "DEVELOPER")
+	) {
 		throw new Error("Unauthorized");
 	}
 
-	await db.delete(notices).where(eq(notices.id, id));
+	const list = await ensureNoticesFile();
+	const filtered = list.filter((n) => n.id !== id);
 
+	await writeNoticesFile(filtered);
 	revalidatePath("/admin/notices");
 	revalidatePath("/dashboard");
 	return { success: true };
