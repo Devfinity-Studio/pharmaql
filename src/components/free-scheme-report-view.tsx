@@ -7,8 +7,8 @@ import {
   mrManufacturers,
   products,
   sales,
-  user,
 } from "@/server/db/schema";
+import { getMRInfo } from "@/server/actions/mrInfo";
 
 export async function FreeSchemeReportView({
   mrId,
@@ -22,12 +22,7 @@ export async function FreeSchemeReportView({
   };
 }) {
   // 1. Fetch data similar to the PDF API
-  const mrInfoArr = await db
-    .select()
-    .from(user)
-    .where(eq(user.id, mrId))
-    .limit(1);
-  const mrInfo = mrInfoArr[0];
+  const mrInfo = await getMRInfo(mrId);
   if (!mrInfo) return <div>MR not found</div>;
 
   const company = searchParams?.division || "All";
@@ -35,7 +30,10 @@ export async function FreeSchemeReportView({
     .select()
     .from(mrManufacturers)
     .where(eq(mrManufacturers.mrId, mrId));
-  const manufacturerNames = assigned.map((a) => a.manufacturer);
+  let manufacturerNames = assigned.map((a) => a.manufacturer);
+  if (manufacturerNames.length === 0 && mrInfo.company) {
+    manufacturerNames = [mrInfo.company];
+  }
   const companiesToQuery = company === "All" ? manufacturerNames : [company];
 
   if (companiesToQuery.length === 0) return <div>No data assigned</div>;

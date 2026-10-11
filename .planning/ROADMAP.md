@@ -45,4 +45,13 @@
 - [x] Ensure 100% transaction coverage (zero dropped rows, full MR mapping & auto-fallback reps).
 - [x] Validate database counts, calculations, and performance across all report views.
 
+## Phase 9: Legacy MySQL MR User Integration [COMPLETED]
+
+- [x] Create centralized server action `src/server/actions/mrInfo.ts` querying `pdyasvmaster.m_user` with lean column projection.
+- [x] Migrate MR lookup across all report views (Stock, Sales, Product, Overdue, Outstanding, Free Schemes).
+- [x] Migrate MR dashboard and admin MR inspection pages to use `mrInfo.ts`.
+- [x] Update API report download endpoints to resolve MR access from legacy MySQL.
+- [x] Verify build and validate end-to-end user navigation.
+
+
 

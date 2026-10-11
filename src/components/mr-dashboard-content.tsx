@@ -10,6 +10,7 @@ import { OverdueReportView } from "@/components/overdue-report-view";
 import { ProductReportView } from "@/components/product-report-view";
 import { ReportDownloadButtons } from "@/components/report-download-buttons";
 import { StockReportView } from "@/components/stock-report-view";
+import { getMRInfo } from "@/server/actions/mrInfo";
 import { db } from "@/server/db";
 import {
 	invoices,
@@ -18,7 +19,6 @@ import {
 	outstanding,
 	products,
 	sales,
-	user,
 } from "@/server/db/schema";
 
 export async function MrDashboardContent({
@@ -38,13 +38,8 @@ export async function MrDashboardContent({
 	};
 	isAdminView?: boolean;
 }) {
-	// 1. Get MR Info
-	const mrInfoArr = await db
-		.select()
-		.from(user)
-		.where(eq(user.id, mrId))
-		.limit(1);
-	const mrInfo = mrInfoArr[0];
+	// 1. Get MR Info from legacy schema
+	const mrInfo = await getMRInfo(mrId);
 
 	if (!mrInfo) {
 		return (
@@ -60,8 +55,24 @@ export async function MrDashboardContent({
 		.from(mrManufacturers)
 		.where(eq(mrManufacturers.mrId, mrId));
 
+	const legacyDivision = mrInfo.division || mrInfo.company;
+	const effectiveAssignments =
+		assigned.length > 0
+			? assigned
+			: legacyDivision
+				? [
+						{
+							id: `legacy-${mrId}`,
+							mrId,
+							manufacturer: mrInfo.company || legacyDivision,
+							division: mrInfo.division || null,
+							assignedAt: new Date(),
+						},
+					]
+				: [];
+
 	const assignedDivisions = Array.from(
-		new Set(assigned.map((a) => a.division || a.manufacturer)),
+		new Set(effectiveAssignments.map((a) => a.division || a.manufacturer)),
 	);
 
 	if (assignedDivisions.length === 0) {
@@ -83,8 +94,8 @@ export async function MrDashboardContent({
 	const selectedDivision = searchParams?.division || "All";
 	const selectedAssignments =
 		selectedDivision === "All"
-			? assigned
-			: assigned.filter(
+			? effectiveAssignments
+			: effectiveAssignments.filter(
 					(a) => (a.division || a.manufacturer) === selectedDivision,
 				);
 
@@ -521,6 +532,43 @@ export async function MrDashboardContent({
 					}).toString()}`}
 				>
 					Overdue
+				</Link>
+				<Link
+					className={`border-b-4 px-6 py-4 font-bold text-base transition-colors ${
+						searchParams?.tab === "overdue"
+							? "border-[#0071BC] text-[#0071BC]"
+							: "border-transparent text-gray-500 hover:text-[#0B2545]"
+					}`}
+					href={`${baseUrl}?${new URLSearchParams({
+						...searchParams,
+						tab: "overdue",
+					}).toString()}`}
+				>
+					Overdue
+				</Link><Link
+					className={`border-b-4 px-6 py-4 font-bold text-base transition-colors ${
+						searchParams?.tab === "overdue"
+							? "border-[#0071BC] text-[#0071BC]"
+							: "border-transparent text-gray-500 hover:text-[#0B2545]"
+					}`}
+					href={`${baseUrl}?${new URLSearchParams({
+						...searchParams,
+						tab: "overdue",
+					}).toString()}`}
+				>
+					Overdue
+				</Link><Link
+					className={`border-b-4 px-6 py-4 font-bold text-base transition-colors ${
+						searchParams?.tab === "newSalesView"
+							? "border-[#0071BC] text-[#0071BC]"
+							: "border-transparent text-gray-500 hover:text-[#0B2545]"
+					}`}
+					href={`${baseUrl}?${new URLSearchParams({
+						...searchParams,
+						tab: "newSalesView",
+					}).toString()}`}
+				>
+					NewSales
 				</Link>
 			</div>
 
