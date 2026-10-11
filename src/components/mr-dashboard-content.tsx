@@ -11,7 +11,12 @@ import { PartyReportView } from "@/components/party-report-view";
 import { ProductReportView } from "@/components/product-report-view";
 import { ReportDownloadButtons } from "@/components/report-download-buttons";
 import { StockReportView } from "@/components/stock-report-view";
+import { getItemCustomerSale } from "@/server/actions/customerItemSale";
 import { getMRInfo } from "@/server/actions/mrInfo";
+import {
+	getMRwisePeriodicalOutstanding,
+	type OverduePeriodicalOutstandingRow,
+} from "@/server/actions/overdueReports";
 import { db } from "@/server/db";
 import {
 	invoices,
@@ -36,6 +41,7 @@ export async function MrDashboardContent({
 		product?: string;
 		party?: string;
 		q?: string;
+		debug?: string;
 	};
 	isAdminView?: boolean;
 }) {
@@ -299,6 +305,87 @@ export async function MrDashboardContent({
 				docOutMap.set(key, existing);
 			}
 		});
+		// If local tables are unpopulated, aggregate metrics live from stored procedures
+		if (accessibleSales.length === 0 || accessibleOutstanding.length === 0) {
+			const compCodeForProc = mrInfo.companyCode || mrInfo.company || "";
+			const defaultFrom = searchParams?.from || "2026-04-01";
+			const defaultTo = searchParams?.to || "2026-09-30";
+
+			// 1. Live Sales Aggregation
+			if (accessibleSales.length === 0 && compCodeForProc) {
+				try {
+					const liveSales = await getItemCustomerSale({
+						fromDate: defaultFrom,
+						toDate: defaultTo,
+						compCode: compCodeForProc,
+						locNo: mrInfo.locNo || "11",
+					});
+					if (liveSales.success && liveSales.data) {
+						let procSalesQty = 0;
+						let procSalesAmt = 0;
+						liveSales.data.forEach((row) => {
+							const q = Number(row.Qty || 0);
+							const a = Number(row.IAmt || 0);
+							procSalesQty += q;
+							procSalesAmt += a;
+
+							const pData = productMap.get(String(row.ItemID || row.ItemCode)) || {
+								name: row.ItemName || row.ItemCode || "Item",
+								total: 0,
+							};
+							pData.total += q;
+							productMap.set(String(row.ItemID || row.ItemCode), pData);
+
+							const d = row.InvDt ? new Date(row.InvDt) : new Date();
+							const m = isNaN(d.getTime()) ? "Sep 2026" : d.toLocaleString("default", { month: "short", year: "numeric" });
+							monthMap.set(m, (monthMap.get(m) || 0) + q);
+						});
+						if (totalSales === 0) totalSales = procSalesQty;
+						if (totalInvoicesAmt === 0) totalInvoicesAmt = procSalesAmt;
+					}
+				} catch (err) {
+					console.error("[Dashboard] Error fetching live sales procedure:", err);
+				}
+			}
+
+			// 2. Live Outstanding Aggregation
+			if (accessibleOutstanding.length === 0 && compCodeForProc) {
+				try {
+					const liveOut = await getMRwisePeriodicalOutstanding({
+						mrId,
+						compCode: compCodeForProc,
+						fromDate: defaultFrom,
+						toDate: defaultTo,
+						locNo: mrInfo.locNo || "11",
+					});
+					if (liveOut.success && liveOut.data) {
+						let procOutAmt = 0;
+						liveOut.data.forEach((row: OverduePeriodicalOutstandingRow) => {
+							const amt = Number(row.Amount || 0);
+							const adj = Number(row.AdjAmt || 0);
+							const net = amt - adj;
+							if (net > 0) {
+								procOutAmt += net;
+								const doc = row.Customer || "Unknown Customer";
+								const city = row.City || "Unknown City";
+								const key = `${doc}-${city}`;
+								const existing = docOutMap.get(key) || {
+									doctor: doc,
+									city: city,
+									amount: 0,
+								};
+								existing.amount += net;
+								docOutMap.set(key, existing);
+							}
+						});
+						if (totalOutstandingAmt === 0) totalOutstandingAmt = procOutAmt;
+					}
+				} catch (err) {
+					console.error("[Dashboard] Error fetching live outstanding procedure:", err);
+				}
+			}
+		}
+
 		outstandingByDoctor = Array.from(docOutMap.values()).sort(
 			(a, b) => b.amount - a.amount,
 		);
@@ -543,16 +630,17 @@ export async function MrDashboardContent({
 			{canViewSales && (searchParams?.tab || "overview") === "overview" && (
 				<div className="space-y-6">
 					{/* DEBUG QUERY BANNER FOR OVERVIEW */}
-					<div className="rounded-xl border-2 border-amber-400 bg-amber-50 p-4 font-mono text-xs text-amber-950 shadow-sm print:hidden">
-						<div className="flex flex-wrap items-center justify-between gap-2 border-b border-amber-200 pb-2 mb-2 font-bold text-amber-900 text-xs">
-							<span>[DEBUG QUERY] Overview Tab Data Status</span>
-							<span className="rounded bg-amber-200 px-2 py-0.5 text-[11px] font-semibold">
-								Sales: {accessibleSales.length} | Invoices: {accessibleInvoices.length} | Outstanding: {accessibleOutstanding.length}
-							</span>
-						</div>
-						<div className="space-y-1.5">
-							<p className="font-bold text-amber-900 text-[11px]">Database Queries & Filter Conditions:</p>
-							<pre className="overflow-x-auto rounded border border-amber-200 bg-amber-100 p-2.5 text-[11px] font-mono select-all whitespace-pre-wrap break-all text-amber-950">
+					{(searchParams?.debug === "1" || searchParams?.debug === "true") && (
+						<div className="rounded-xl border-2 border-amber-400 bg-amber-50 p-4 font-mono text-xs text-amber-950 shadow-sm print:hidden">
+							<div className="flex flex-wrap items-center justify-between gap-2 border-b border-amber-200 pb-2 mb-2 font-bold text-amber-900 text-xs">
+								<span>[DEBUG QUERY] Overview Tab Data Status</span>
+								<span className="rounded bg-amber-200 px-2 py-0.5 text-[11px] font-semibold">
+									Sales: {accessibleSales.length} | Invoices: {accessibleInvoices.length} | Outstanding: {accessibleOutstanding.length}
+								</span>
+							</div>
+							<div className="space-y-1.5">
+								<p className="font-bold text-amber-900 text-[11px]">Database Queries & Filter Conditions:</p>
+								<pre className="overflow-x-auto rounded border border-amber-200 bg-amber-100 p-2.5 text-[11px] font-mono select-all whitespace-pre-wrap break-all text-amber-950">
 {`-- Overview metrics query local tables: sales, invoices, outstanding
 -- Accessible Products Count: ${productIds.length}
 -- Date Filters: from=${searchParams?.from || "NOT PROVIDED"}, to=${searchParams?.to || "NOT PROVIDED"}
@@ -561,15 +649,16 @@ export async function MrDashboardContent({
 -- Sales Query: SELECT * FROM sales WHERE mrId = '${mrId}' AND productId IN (${productIds.length > 0 ? productIds.slice(0, 5).join(", ") + (productIds.length > 5 ? "..." : "") : "NONE"})${searchParams?.from ? ` AND date >= '${searchParams.from}'` : ""}${searchParams?.to ? ` AND date <= '${searchParams.to}'` : ""} => ${accessibleSales.length} rows
 -- Invoices Query: SELECT * FROM invoices WHERE mrId = '${mrId}' AND manufacturerCode IN (${JSON.stringify(selectedAssignments.map((d) => d.manufacturer))})${searchParams?.from ? ` AND date >= '${searchParams.from}'` : ""}${searchParams?.to ? ` AND date <= '${searchParams.to}'` : ""} => ${accessibleInvoices.length} rows
 -- Outstanding Query: SELECT * FROM outstanding WHERE mrId = '${mrId}' AND manufacturerCode IN (${JSON.stringify(selectedAssignments.map((d) => d.manufacturer))})${searchParams?.from ? ` AND invDt >= '${searchParams.from}'` : ""}${searchParams?.to ? ` AND invDt <= '${searchParams.to}'` : ""} => ${accessibleOutstanding.length} rows`}
-							</pre>
-							<div className="mt-2 grid grid-cols-2 md:grid-cols-4 gap-2 text-[11px] text-amber-800 pt-1.5 border-t border-amber-200">
-								<div><span className="font-semibold">MR ID:</span> {mrId}</div>
-								<div><span className="font-semibold">MR Name:</span> {mrInfo.name || "N/A"}</div>
-								<div><span className="font-semibold">MR Company:</span> {mrInfo.company || "N/A"}</div>
-								<div><span className="font-semibold">LocNo:</span> {mrInfo.locNo || "11"}</div>
+								</pre>
+								<div className="mt-2 grid grid-cols-2 md:grid-cols-4 gap-2 text-[11px] text-amber-800 pt-1.5 border-t border-amber-200">
+									<div><span className="font-semibold">MR ID:</span> {mrId}</div>
+									<div><span className="font-semibold">MR Name:</span> {mrInfo.name || "N/A"}</div>
+									<div><span className="font-semibold">MR Company:</span> {mrInfo.company || "N/A"}</div>
+									<div><span className="font-semibold">LocNo:</span> {mrInfo.locNo || "11"}</div>
+								</div>
 							</div>
 						</div>
-					</div>
+					)}
 
 					{/* Refined Metric Cards Family */}
 					<div className="grid grid-cols-1 gap-6 md:grid-cols-3">
