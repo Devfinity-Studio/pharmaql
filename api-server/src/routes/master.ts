@@ -1,6 +1,6 @@
 import { Router, Request, Response } from "express";
-import { dbPool } from "../db.js";
-import { getOrSetCache } from "../cache.js";
+import { dbPool } from "../db";
+import { getOrSetCache } from "../cache";
 
 export const masterRouter = Router();
 

@@ -1,7 +1,7 @@
 import { Router, Request, Response } from "express";
-import { dbPool } from "../db.js";
-import { formatDateToOdbc } from "../utils/dateUtils.js";
-import { formatCompanyCodeParam } from "../utils/companyCodeUtils.js";
+import { dbPool } from "../db";
+import { formatDateToOdbc } from "../utils/dateUtils";
+import { formatCompanyCodeParam } from "../utils/companyCodeUtils";
 
 export const reportsRouter = Router();
 

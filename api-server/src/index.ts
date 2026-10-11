@@ -1,17 +1,17 @@
 import express from "express";
 import cors from "cors";
 import dotenv from "dotenv";
-import { authMiddleware } from "./middleware/auth.js";
-import { reportsRouter } from "./routes/reports.js";
-import { masterRouter } from "./routes/master.js";
-import { authRouter } from "./routes/auth.js";
-import { kpiRouter } from "./routes/kpi.js";
-import { dbPool } from "./db.js";
+import { authMiddleware } from "./middleware/auth";
+import { reportsRouter } from "./routes/reports";
+import { masterRouter } from "./routes/master";
+import { authRouter } from "./routes/auth";
+import { kpiRouter } from "./routes/kpi";
+import { dbPool } from "./db";
 
 dotenv.config();
 
 const app = express();
-const port = parseInt(process.env.PORT || "9273", 10);
+const port = parseInt(process.env.PORT || "9443", 10);
 
 app.use(cors());
 app.use(express.json({ limit: "10mb" }));

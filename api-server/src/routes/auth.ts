@@ -1,5 +1,5 @@
 import { Router, Request, Response } from "express";
-import { dbPool } from "../db.js";
+import { dbPool } from "../db";
 
 export const authRouter = Router();
 
