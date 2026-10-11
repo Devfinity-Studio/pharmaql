@@ -41,6 +41,15 @@ export async function getSession(options?: { headers?: Headers }): Promise<Sessi
 	const user = await verifySessionToken(token);
 	if (!user) return null;
 
+	// For MR users, verify they are not blocked by overdue or admin
+	if (user.role === "MR") {
+		const { evaluateMROverdueStatus } = await import("./actions/overdueEngine");
+		const status = await evaluateMROverdueStatus(user.id);
+		if (status.isBlocked) {
+			return null; // Session immediately invalid
+		}
+	}
+
 	return {
 		user,
 		session: {

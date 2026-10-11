@@ -69,12 +69,16 @@
 - [x] Migrate broadcast notices to `data/notices.json`.
 - [x] Completely remove Neon database dependencies from runtime routes, views, and server actions.
 
-## Phase 12: Outstanding & Blocking Management
+## Phase 12: Outstanding & Blocking Management [COMPLETED]
 
-- [ ] Implement live customer outstanding & periodical ageing analysis via `rptMRwisePeriodicalOutstanding`.
-- [ ] Add party-level and invoice-level overdue tracking with age threshold highlighting (>90 days in red).
-- [ ] Implement Admin MR blocking system (restricting OTP issuance, session validation, and access).
-- [ ] Implement Party/Customer blocking based on ERP `IsBlocked`/overdue thresholds.
-- [ ] Build Admin blocking management UI and integrate blocking enforcement across MR dashboard and reports.
+- [x] Implement live customer outstanding & periodical ageing analysis via `rptMRwisePeriodicalOutstanding`.
+- [x] Add party-level and invoice-level overdue tracking with age threshold highlighting (>90 days in red).
+- [x] Implement Admin MR blocking system (restricting OTP issuance, session validation, and access).
+- [x] Implement Party/Customer blocking based on ERP `IsBlocked`/overdue thresholds.
+- [x] Build Admin blocking management UI and integrate blocking enforcement across MR dashboard and reports.
+- [x] Implement 80–90 day warning popup notice with impending block dates.
+- [x] Implement division cascading blocking when peer MR has overdue >90 days.
+- [x] Implement password-protected Admin unblock modal with exemption logging.
+
 
 
