@@ -1,5 +1,6 @@
 "use server";
 
+import { formatCompanyCodeParam } from "@/lib/companyCodeUtils";
 import { legacyDb } from "@/lib/legacy-db";
 
 export interface StockMovementRow {
@@ -61,28 +62,7 @@ export async function getStockMovement(
 		const odbcToDate = formatDateToOdbc(effectiveTo);
 		const locationParam = locNo ? `('${locNo}')` : "('11')";
 
-		let compCodeParam = "";
-		if (Array.isArray(companyCode)) {
-			const valid = companyCode.map((c) => c?.trim()).filter(Boolean);
-			if (valid.length > 0) {
-				compCodeParam = valid.map((c) => `('${c}')`).join(",");
-			}
-		} else if (
-			typeof companyCode === "string" &&
-			companyCode.trim() &&
-			companyCode !== "All"
-		) {
-			const trimmed = companyCode.trim();
-			if (trimmed.startsWith("(") && trimmed.endsWith(")")) {
-				compCodeParam = trimmed;
-			} else {
-				const parts = trimmed
-					.split(",")
-					.map((p) => p.trim())
-					.filter(Boolean);
-				compCodeParam = parts.map((p) => `('${p}')`).join(",");
-			}
-		}
+		const compCodeParam = formatCompanyCodeParam(companyCode);
 
 		const formattedParams = [
 			11,

@@ -1,5 +1,6 @@
 "use server";
 
+import { formatCompanyCodeParam } from "@/lib/companyCodeUtils";
 import { legacyDb } from "@/lib/legacy-db";
 
 export interface ItemCustomerSaleRow {
@@ -82,28 +83,7 @@ export async function getItemCustomerSale(params: {
 		const locNoParam = params.locNo ? `('${params.locNo}')` : "('11')";
 		const finYear = params.finYear ?? 202627;
 
-		let compCodeParam = "";
-		if (Array.isArray(params.compCode)) {
-			const valid = params.compCode.map((c) => c?.trim()).filter(Boolean);
-			if (valid.length > 0) {
-				compCodeParam = valid.map((c) => `('${c}')`).join(",");
-			}
-		} else if (
-			typeof params.compCode === "string" &&
-			params.compCode.trim() &&
-			params.compCode !== "All"
-		) {
-			const trimmed = params.compCode.trim();
-			if (trimmed.startsWith("(") && trimmed.endsWith(")")) {
-				compCodeParam = trimmed;
-			} else {
-				const parts = trimmed
-					.split(",")
-					.map((p) => p.trim())
-					.filter(Boolean);
-				compCodeParam = parts.map((p) => `('${p}')`).join(",");
-			}
-		}
+		const compCodeParam = formatCompanyCodeParam(params.compCode);
 
 		// Exact parameter order for `rptItemCustomerSale`:
 		// 1: p_FromDt (DATE) - formatted as {d 'YYYY-MM-DD'}
