@@ -159,22 +159,6 @@ export async function PartyReportView({
 
 		return (
 			<div className="mt-4 space-y-4 rounded-xl border border-gray-300 bg-white p-6 shadow-sm print:m-0 print:border-none print:p-0 print:shadow-none font-sans text-gray-900">
-				{/* TEMPORARY DEBUG BANNER */}
-				<div className="rounded-xl border border-amber-300 bg-amber-50 p-3 font-mono text-xs text-amber-950 shadow-sm print:hidden">
-					<div className="flex flex-wrap items-center justify-between gap-2 border-b border-amber-200 pb-1.5 mb-1.5 font-bold text-amber-900 text-xs">
-						<span>[TEMP DEBUG] Party Wise Stored Procedure Execution Status</span>
-						<span className="rounded bg-amber-200 px-2 py-0.5 text-[11px] font-semibold">
-							{partySalesResult.data.length} rows returned
-						</span>
-					</div>
-					<div className="space-y-1">
-						<p className="font-bold text-amber-900 text-[11px]">Final SQL Query being run:</p>
-						<pre className="overflow-x-auto rounded border border-amber-200 bg-amber-100 p-2 text-[11px] font-mono select-all whitespace-pre-wrap break-all text-amber-950">
-							{partySalesResult.debugSql}
-						</pre>
-					</div>
-				</div>
-
 				{/* REPORT HEADER */}
 				<div className="border-b-2 border-gray-900 pb-2">
 					<div className="flex flex-col md:flex-row items-start justify-between gap-3">
@@ -347,25 +331,6 @@ export async function PartyReportView({
 
 	return (
 		<div className="mt-4 space-y-4 rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
-			{/* TEMPORARY DEBUG BANNER */}
-			<div className="rounded-xl border border-amber-300 bg-amber-50 p-3 font-mono text-xs text-amber-950 shadow-sm">
-				<div className="flex flex-wrap items-center justify-between gap-2 border-b border-amber-200 pb-1.5 mb-1.5 font-bold text-amber-900 text-xs">
-					<span>[TEMP DEBUG] Party Wise Stored Procedure Execution Status</span>
-					<span className="rounded bg-amber-200 px-2.5 py-0.5 text-xs font-semibold">
-						{partySalesResult.success
-							? `${partySalesResult.data?.length ?? 0} rows returned`
-							: partySalesResult.error || "Not Executed"}
-					</span>
-				</div>
-				<div className="space-y-1">
-					<p className="font-bold text-amber-900">Final SQL Query being run:</p>
-					<pre className="overflow-x-auto rounded border border-amber-200 bg-amber-100 p-2 text-xs font-mono select-all whitespace-pre-wrap break-all text-amber-950">
-						{partySalesResult.debugSql ||
-							`-- Procedure was not called because dates were missing in searchParams.\n-- Current searchParams: from=${searchParams?.from || "none"}, to=${searchParams?.to || "none"}`}
-					</pre>
-				</div>
-			</div>
-
 			<div className="border-b-2 border-gray-900 pb-2">
 				<div className="flex items-start gap-4">
 					<Image
