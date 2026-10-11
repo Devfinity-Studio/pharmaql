@@ -60,11 +60,12 @@
 - [x] Verify export endpoints and print formats against live procedure datasets.
 - [x] Run full TypeScript validation and commit cleanly to `localdb`.
 
-## Phase 11: Neon DB Elimination & Pure Legacy MySQL Transition [ACTIVE]
+## Phase 11: Neon DB Elimination & Pure Legacy MySQL Transition [COMPLETED]
 
-- [ ] Implement Stateless JWT / Signed Cookie Auth (Zero DB tables for sessions).
-- [ ] Implement MR OTP / Mobile login flow + Env-based Admin/Developer credential authentication.
-- [ ] Migrate Product catalog queries to direct MySQL projection on `pdyasvmaster.m_item`.
-- [ ] Migrate MR assignments and divisions to read directly from `pdyasvmaster.l_mktcompany_mr`.
-- [ ] Migrate broadcast notices to `data/notices.json`.
-- [ ] Completely remove Neon database dependencies and delete unused Postgres schemas.
+- [x] Implement Stateless JWT / Signed Cookie Auth (Zero DB tables for sessions).
+- [x] Implement MR Email OTP login flow + Env-based Admin/Developer credential authentication.
+- [x] Migrate Product catalog queries to direct MySQL projection on `pdyasvmaster.m_item`.
+- [x] Migrate MR assignments and divisions to read directly from `pdyasvmaster.l_mktcompany_mr`.
+- [x] Migrate broadcast notices to `data/notices.json`.
+- [x] Completely remove Neon database dependencies from runtime routes, views, and server actions.
+
