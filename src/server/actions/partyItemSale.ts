@@ -120,13 +120,6 @@ export async function getPartyCustomerItemSale(params: {
 
 		debugSql = `CALL \`pdyasvtrans\`.\`rptCompanyCustomerItemwiseSales\`(${formattedParams})`;
 
-		console.log("\n=======================================================");
-		console.log(
-			"[DEBUG QUERY] Final SQL Query being executed (Party Wise):\n",
-			debugSql,
-		);
-		console.log("=======================================================\n");
-
 		const [callRes] = await conn.query(debugSql);
 		const rows = (
 			Array.isArray(callRes) ? callRes[0] : callRes

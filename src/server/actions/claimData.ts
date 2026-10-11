@@ -102,13 +102,6 @@ export async function getClaimData(params: {
 		// CALL `rptClaimData`('c9510231-4a58-4cb0-b40e-8fd18ff5f4ef')
 		const debugSql = `CALL \`pdyasvtrans\`.\`rptClaimData\`('${uniqueCode}')`;
 
-		console.log("\n=======================================================");
-		console.log(
-			"[DEBUG QUERY] Final SQL Query being executed (Claim Qty):\n",
-			debugSql,
-		);
-		console.log("=======================================================\n");
-
 		const [callRes] = await conn.query(debugSql);
 		const rows = (
 			Array.isArray(callRes) ? callRes[0] : callRes

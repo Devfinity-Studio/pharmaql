@@ -150,10 +150,6 @@ export async function getMRwisePeriodicalOutstanding(params: {
 
 		debugSql = `CALL \`rptMRwisePeriodicalOutstanding\`(${formattedParams})`;
 
-		console.log("\n=======================================================");
-		console.log("[DEBUG QUERY] Final SQL Query being executed:\n", debugSql);
-		console.log("=======================================================\n");
-
 		const [res] = await conn.query(debugSql);
 		const rows = (
 			Array.isArray(res) ? res[0] : res

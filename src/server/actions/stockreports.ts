@@ -79,10 +79,6 @@ export async function getStockMovement(
 
 		debugSql = `CALL \`pdyasvtrans\`.\`rptStockMovementStatement\`(${formattedParams})`;
 
-		console.log("\n=======================================================");
-		console.log("[DEBUG QUERY] Final SQL Query being executed:\n", debugSql);
-		console.log("=======================================================\n");
-
 		const [rows] = await conn.query(debugSql);
 		const reportData = ((rows as any)?.[0] || []) as StockMovementRow[];
 
