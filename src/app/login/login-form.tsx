@@ -1,14 +1,24 @@
 "use client";
 
-import { AlertCircle, Mail, KeyRound, ArrowRight, ShieldCheck } from "lucide-react";
+import {
+	AlertCircle,
+	ArrowRight,
+	KeyRound,
+	Mail,
+	ShieldCheck,
+} from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useState, useEffect } from "react";
+import { useEffect, useState } from "react";
 import {
 	InputOTP,
 	InputOTPGroup,
 	InputOTPSlot,
 } from "@/components/ui/input-otp";
-import { requestMrOtp, verifyMrOtp, loginAdminOrDev } from "@/server/actions/authActions";
+import {
+	loginAdminOrDev,
+	requestMrOtp,
+	verifyMrOtp,
+} from "@/server/actions/authActions";
 
 export function LoginForm() {
 	useEffect(() => {
@@ -88,34 +98,34 @@ export function LoginForm() {
 			{/* Mode Toggle Tabs */}
 			<div className="mb-6 grid grid-cols-2 gap-2 rounded-xl bg-gray-100 p-1">
 				<button
-					type="button"
+					className={`flex items-center justify-center gap-2 rounded-lg py-2.5 font-bold text-xs transition-all ${
+						mode === "mr"
+							? "bg-[#0071BC] text-white shadow-sm"
+							: "text-gray-600 hover:text-gray-900"
+					}`}
 					onClick={() => {
 						setMode("mr");
 						setStep("request");
 						setError("");
 						setSuccessMsg("");
 					}}
-					className={`flex items-center justify-center gap-2 rounded-lg py-2.5 text-xs font-bold transition-all ${
-						mode === "mr"
-							? "bg-[#0071BC] text-white shadow-sm"
-							: "text-gray-600 hover:text-gray-900"
-					}`}
+					type="button"
 				>
 					<Mail className="h-4 w-4" />
 					MR Email OTP
 				</button>
 				<button
-					type="button"
+					className={`flex items-center justify-center gap-2 rounded-lg py-2.5 font-bold text-xs transition-all ${
+						mode === "admin"
+							? "bg-[#0B2545] text-white shadow-sm"
+							: "text-gray-600 hover:text-gray-900"
+					}`}
 					onClick={() => {
 						setMode("admin");
 						setError("");
 						setSuccessMsg("");
 					}}
-					className={`flex items-center justify-center gap-2 rounded-lg py-2.5 text-xs font-bold transition-all ${
-						mode === "admin"
-							? "bg-[#0B2545] text-white shadow-sm"
-							: "text-gray-600 hover:text-gray-900"
-					}`}
+					type="button"
 				>
 					<ShieldCheck className="h-4 w-4" />
 					Admin / Developer
@@ -129,25 +139,25 @@ export function LoginForm() {
 						<label className="block font-semibold text-gray-700 text-sm">
 							Registered Email Address
 						</label>
-						<p className="mt-0.5 text-xs text-gray-500">
+						<p className="mt-0.5 text-gray-500 text-xs">
 							We will send a 6-digit verification code to your email.
 						</p>
 						<div className="mt-2">
 							<input
-								type="email"
-								required
-								value={email}
-								onChange={(e) => setEmail(e.target.value)}
 								className="block w-full rounded-lg border border-gray-300 px-3.5 py-2.5 text-gray-900 shadow-sm focus:border-[#0071BC] focus:ring-[#0071BC] sm:text-sm"
+								onChange={(e) => setEmail(e.target.value)}
 								placeholder="mr.name@asmeepharma.com"
+								required
+								type="email"
+								value={email}
 							/>
 						</div>
 					</div>
 
 					<button
-						type="submit"
+						className="flex w-full items-center justify-center gap-2 rounded-lg bg-[#0071BC] px-4 py-2.5 font-bold text-sm text-white shadow-sm hover:bg-[#005a96] disabled:opacity-50"
 						disabled={loading}
-						className="flex w-full items-center justify-center gap-2 rounded-lg bg-[#0071BC] px-4 py-2.5 text-sm font-bold text-white shadow-sm hover:bg-[#005a96] disabled:opacity-50"
+						type="submit"
 					>
 						{loading ? "Sending OTP..." : "Send Verification OTP"}
 						<ArrowRight className="h-4 w-4" />
@@ -158,15 +168,19 @@ export function LoginForm() {
 			{mode === "mr" && step === "otp" && (
 				<form className="space-y-6" onSubmit={handleMrOtpVerify}>
 					{successMsg && (
-						<div className="rounded-lg bg-emerald-50 p-3 text-xs font-medium text-emerald-800 border border-emerald-200">
+						<div className="rounded-lg border border-emerald-200 bg-emerald-50 p-3 font-medium text-emerald-800 text-xs">
 							{successMsg}
 						</div>
 					)}
 					<div className="flex flex-col items-center">
-						<label className="block font-semibold text-gray-700 text-sm mb-3">
+						<label className="mb-3 block font-semibold text-gray-700 text-sm">
 							Enter 6-Digit OTP Code
 						</label>
-						<InputOTP maxLength={6} value={otp} onChange={(value) => setOtp(value)}>
+						<InputOTP
+							maxLength={6}
+							onChange={(value) => setOtp(value)}
+							value={otp}
+						>
 							<InputOTPGroup>
 								<InputOTPSlot index={0} />
 								<InputOTPSlot index={1} />
@@ -179,18 +193,18 @@ export function LoginForm() {
 					</div>
 
 					<button
-						type="submit"
+						className="flex w-full items-center justify-center gap-2 rounded-lg bg-[#0071BC] px-4 py-2.5 font-bold text-sm text-white shadow-sm hover:bg-[#005a96] disabled:opacity-50"
 						disabled={loading || otp.length < 6}
-						className="flex w-full items-center justify-center gap-2 rounded-lg bg-[#0071BC] px-4 py-2.5 text-sm font-bold text-white shadow-sm hover:bg-[#005a96] disabled:opacity-50"
+						type="submit"
 					>
 						{loading ? "Verifying..." : "Verify & Sign In"}
 					</button>
 
 					<div className="text-center">
 						<button
-							type="button"
+							className="font-semibold text-[#0071BC] text-xs hover:underline"
 							onClick={() => setStep("request")}
-							className="text-xs font-semibold text-[#0071BC] hover:underline"
+							type="button"
 						>
 							← Change Email or Resend OTP
 						</button>
@@ -207,12 +221,12 @@ export function LoginForm() {
 						</label>
 						<div className="mt-1.5">
 							<input
-								type="email"
-								required
-								value={email}
-								onChange={(e) => setEmail(e.target.value)}
 								className="block w-full rounded-lg border border-gray-300 px-3.5 py-2.5 text-gray-900 shadow-sm focus:border-[#0B2545] focus:ring-[#0B2545] sm:text-sm"
+								onChange={(e) => setEmail(e.target.value)}
 								placeholder="admin@asmeepharma.com"
+								required
+								type="email"
+								value={email}
 							/>
 						</div>
 					</div>
@@ -223,20 +237,20 @@ export function LoginForm() {
 						</label>
 						<div className="mt-1.5">
 							<input
-								type="password"
-								required
-								value={password}
-								onChange={(e) => setPassword(e.target.value)}
 								className="block w-full rounded-lg border border-gray-300 px-3.5 py-2.5 text-gray-900 shadow-sm focus:border-[#0B2545] focus:ring-[#0B2545] sm:text-sm"
+								onChange={(e) => setPassword(e.target.value)}
 								placeholder="••••••••••••"
+								required
+								type="password"
+								value={password}
 							/>
 						</div>
 					</div>
 
 					<button
-						type="submit"
+						className="flex w-full items-center justify-center gap-2 rounded-lg bg-[#0B2545] px-4 py-2.5 font-bold text-sm text-white shadow-sm hover:bg-[#081a30] disabled:opacity-50"
 						disabled={loading}
-						className="flex w-full items-center justify-center gap-2 rounded-lg bg-[#0B2545] px-4 py-2.5 text-sm font-bold text-white shadow-sm hover:bg-[#081a30] disabled:opacity-50"
+						type="submit"
 					>
 						<KeyRound className="h-4 w-4" />
 						{loading ? "Signing in..." : "Authenticate"}
@@ -245,8 +259,8 @@ export function LoginForm() {
 			)}
 
 			{error && (
-				<div className="mt-5 flex items-start gap-2.5 rounded-lg border border-red-200 bg-red-50 p-3 text-red-700 text-xs font-medium">
-					<AlertCircle className="h-4 w-4 shrink-0 mt-0.5" />
+				<div className="mt-5 flex items-start gap-2.5 rounded-lg border border-red-200 bg-red-50 p-3 font-medium text-red-700 text-xs">
+					<AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
 					<div>{error}</div>
 				</div>
 			)}

@@ -1,15 +1,18 @@
 import { headers } from "next/headers";
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { auth } from "@/server/auth";
 import { legacyDb } from "@/lib/legacy-db";
+import { auth } from "@/server/auth";
 
 export default async function AdminDashboardPage() {
 	const session = await auth.api.getSession({
 		headers: await headers(),
 	});
 
-	if (!session || (session.user.role !== "ADMIN" && session.user.role !== "DEVELOPER")) {
+	if (
+		!session ||
+		(session.user.role !== "ADMIN" && session.user.role !== "DEVELOPER")
+	) {
 		redirect("/login");
 	}
 
@@ -53,7 +56,8 @@ export default async function AdminDashboardPage() {
 						Global ERP Management
 					</h1>
 					<p className="mt-2 font-medium text-gray-500">
-						Live statistics from legacy MySQL ERP (`pdyasvmaster` & `pdyasvtrans`).
+						Live statistics from legacy MySQL ERP (`pdyasvmaster` &
+						`pdyasvtrans`).
 					</p>
 				</div>
 				<div className="flex flex-wrap gap-4">
@@ -128,7 +132,7 @@ export default async function AdminDashboardPage() {
 						</thead>
 						<tbody className="divide-y divide-gray-200 bg-white">
 							{manufacturerStats.map((stat, i) => (
-								<tr key={i} className="hover:bg-gray-50">
+								<tr className="hover:bg-gray-50" key={i}>
 									<td className="whitespace-nowrap px-6 py-4 font-bold text-gray-900 text-sm">
 										{stat.manufacturer}
 									</td>

@@ -1,11 +1,11 @@
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
-import { MrDashboardContent } from "@/components/mr-dashboard-content";
-import { auth } from "@/server/auth";
-import { getActiveNotice } from "@/server/actions/notices";
-import { NoticeModal } from "@/components/notice-modal";
 import { Suspense } from "react";
-import { TableSkeleton } from "@/components/ui/table-skeleton";
+import { DashboardSkeleton } from "@/components/dashboard-skeleton";
+import { MrDashboardContent } from "@/components/mr-dashboard-content";
+import { NoticeModal } from "@/components/notice-modal";
+import { getActiveNotice } from "@/server/actions/notices";
+import { auth } from "@/server/auth";
 
 export const dynamic = "force-dynamic";
 
@@ -48,7 +48,9 @@ export default async function MRDashboardPage({
 					content: activeNotice.content,
 					variant: activeNotice.variant,
 					isActive: activeNotice.isActive,
-					expiresAt: activeNotice.expiresAt ? new Date(activeNotice.expiresAt) : null,
+					expiresAt: activeNotice.expiresAt
+						? new Date(activeNotice.expiresAt)
+						: null,
 					createdAt: new Date(activeNotice.createdAt),
 					updatedAt: new Date(activeNotice.updatedAt),
 				},
@@ -59,12 +61,8 @@ export default async function MRDashboardPage({
 		<>
 			<NoticeModal notices={activeNotices as any} />
 			<Suspense
+				fallback={<DashboardSkeleton />}
 				key={JSON.stringify(cleanParams)}
-				fallback={
-					<div className="p-4">
-						<TableSkeleton rows={10} columns={5} />
-					</div>
-				}
 			>
 				<MrDashboardContent
 					isAdminView={false}

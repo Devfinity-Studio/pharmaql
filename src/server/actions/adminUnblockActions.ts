@@ -1,9 +1,9 @@
 "use server";
 
 import fs from "fs/promises";
-import path from "path";
 import { revalidatePath } from "next/cache";
 import { headers } from "next/headers";
+import path from "path";
 import { auth } from "@/server/auth";
 
 const OVERRIDES_FILE = path.join(process.cwd(), "data", "mr_overrides.json");
@@ -36,8 +36,14 @@ export async function secureAdminUnblockMR({
 		headers: await headers(),
 	});
 
-	if (!session || (session.user.role !== "ADMIN" && session.user.role !== "DEVELOPER")) {
-		return { success: false, error: "Unauthorized: Admin privileges required." };
+	if (
+		!session ||
+		(session.user.role !== "ADMIN" && session.user.role !== "DEVELOPER")
+	) {
+		return {
+			success: false,
+			error: "Unauthorized: Admin privileges required.",
+		};
 	}
 
 	// 2. Validate explicit Admin Password
@@ -56,7 +62,9 @@ export async function secureAdminUnblockMR({
 		}
 
 		const current = allOverrides[mrId] || {};
-		const unblockedUntil = new Date(Date.now() + exemptionDays * 24 * 60 * 60 * 1000).toISOString();
+		const unblockedUntil = new Date(
+			Date.now() + exemptionDays * 24 * 60 * 60 * 1000,
+		).toISOString();
 
 		const history: UnblockHistoryEntry[] = current.unblockHistory || [];
 		history.unshift({
@@ -76,7 +84,11 @@ export async function secureAdminUnblockMR({
 		};
 
 		await fs.mkdir(path.dirname(OVERRIDES_FILE), { recursive: true });
-		await fs.writeFile(OVERRIDES_FILE, JSON.stringify(allOverrides, null, 2), "utf-8");
+		await fs.writeFile(
+			OVERRIDES_FILE,
+			JSON.stringify(allOverrides, null, 2),
+			"utf-8",
+		);
 
 		revalidatePath("/admin/mrs");
 		revalidatePath(`/admin/mrs/${mrId}`);

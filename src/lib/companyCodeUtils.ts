@@ -46,7 +46,11 @@ export function formatCompanyCodeParam(compCode?: string | string[]): string {
 		return "";
 	}
 
-	if (typeof compCode === "string" && compCode.trim() && compCode.trim() !== "All") {
+	if (
+		typeof compCode === "string" &&
+		compCode.trim() &&
+		compCode.trim() !== "All"
+	) {
 		const trimmed = compCode.trim();
 		const parts = trimmed
 			.split(",")

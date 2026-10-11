@@ -1,12 +1,12 @@
 "use server";
 
 import { legacyDb } from "@/lib/legacy-db";
+import { getMRInfo } from "./mrInfo";
+import { getMROverrides } from "./mrs";
 import {
 	getMRwisePeriodicalOutstanding,
 	type OverduePeriodicalOutstandingRow,
 } from "./overdueReports";
-import { getMRInfo } from "./mrInfo";
-import { getMROverrides } from "./mrs";
 
 export interface ImpendingBlockInvoice {
 	invoiceNo: string;
@@ -45,7 +45,10 @@ export interface MROverdueEvaluation {
 	exemptionUntil?: string;
 }
 
-function calculateBlockDate(docDateStr: string | Date, currentOverDays: number): string {
+function calculateBlockDate(
+	docDateStr: string | Date,
+	currentOverDays: number,
+): string {
 	const base = new Date(docDateStr);
 	if (isNaN(base.getTime())) {
 		const target = new Date();
@@ -92,9 +95,11 @@ export async function evaluateMROverdueStatus(
 
 	// Check Admin Exemption / Grace Period
 	const now = new Date();
-	const exemptionUntilStr = mrOverride.unblockedUntil || mrOverride.exemptionUntil;
+	const exemptionUntilStr =
+		mrOverride.unblockedUntil || mrOverride.exemptionUntil;
 	const hasAdminExemption =
-		Boolean(exemptionUntilStr) && new Date(exemptionUntilStr).getTime() > now.getTime();
+		Boolean(exemptionUntilStr) &&
+		new Date(exemptionUntilStr).getTime() > now.getTime();
 
 	// Check manual admin block
 	if (mrOverride.isBlocked === true || mrInfo.isBlocked) {
@@ -125,7 +130,9 @@ export async function evaluateMROverdueStatus(
 		locNo: mrInfo.locNo || "11",
 	});
 
-	const rows = (outRes.success && outRes.data ? outRes.data : []) as OverduePeriodicalOutstandingRow[];
+	const rows = (
+		outRes.success && outRes.data ? outRes.data : []
+	) as OverduePeriodicalOutstandingRow[];
 
 	let totalPendingAmt = 0;
 	let oldestDays = 0;
@@ -142,7 +149,9 @@ export async function evaluateMROverdueStatus(
 			const days = Number(r.OverDays || 0);
 			if (days > oldestDays) oldestDays = days;
 
-			const docDateStr = r.DocDate ? new Date(r.DocDate).toISOString().split("T")[0]! : "";
+			const docDateStr = r.DocDate
+				? new Date(r.DocDate).toISOString().split("T")[0]!
+				: "";
 			const invItem: ImpendingBlockInvoice = {
 				invoiceNo: r.DocNo || r.AgainstNo || `INV-${r.ID}`,
 				customer: r.Customer || "Unknown Customer",
@@ -164,7 +173,9 @@ export async function evaluateMROverdueStatus(
 	// If direct block applies (>90 days)
 	if (blockingInvoices.length > 0) {
 		if (!hasAdminExemption) {
-			const worst = blockingInvoices.sort((a, b) => b.overDays - a.overDays)[0]!;
+			const worst = blockingInvoices.sort(
+				(a, b) => b.overDays - a.overDays,
+			)[0]!;
 			return {
 				mrId,
 				mrName: mrInfo.name,
@@ -239,14 +250,18 @@ export async function evaluateMROverdueStatus(
 					locNo: mrInfo.locNo || "11",
 				});
 
-				const peerItems = (peerOut.success && peerOut.data ? peerOut.data : []) as OverduePeriodicalOutstandingRow[];
+				const peerItems = (
+					peerOut.success && peerOut.data ? peerOut.data : []
+				) as OverduePeriodicalOutstandingRow[];
 				const peerBlocking = peerItems.filter((p) => {
 					const net = Number(p.Amount || 0) - Number(p.AdjAmt || 0);
 					return net > 0 && Number(p.OverDays || 0) > 90;
 				});
 
 				if (peerBlocking.length > 0) {
-					const worst = peerBlocking.sort((a, b) => Number(b.OverDays) - Number(a.OverDays))[0]!;
+					const worst = peerBlocking.sort(
+						(a, b) => Number(b.OverDays) - Number(a.OverDays),
+					)[0]!;
 					const netAmt = Number(worst.Amount || 0) - Number(worst.AdjAmt || 0);
 
 					if (!hasAdminExemption) {
@@ -262,7 +277,8 @@ export async function evaluateMROverdueStatus(
 							divisionName,
 							responsibleMrName: peer.MRName || `MR #${peerId}`,
 							responsibleMrId: peerId,
-							responsibleInvoiceNo: worst.DocNo || worst.AgainstNo || `INV-${worst.ID}`,
+							responsibleInvoiceNo:
+								worst.DocNo || worst.AgainstNo || `INV-${worst.ID}`,
 							responsibleAmount: netAmt,
 							message: `Division access for '${divisionName}' is temporarily suspended due to overdue payment (>90 days) by MR ${peer.MRName || peerId} on invoice ${worst.DocNo || worst.AgainstNo} (₹${netAmt.toFixed(2)}).`,
 							hasAdminExemption: false,
@@ -271,7 +287,10 @@ export async function evaluateMROverdueStatus(
 				}
 			}
 		} catch (err) {
-			console.error("[OverdueEngine] Error checking division cascading block:", err);
+			console.error(
+				"[OverdueEngine] Error checking division cascading block:",
+				err,
+			);
 		}
 	}
 

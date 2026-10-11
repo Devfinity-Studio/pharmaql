@@ -1,4 +1,4 @@
-import { SignJWT, jwtVerify } from "jose";
+import { jwtVerify, SignJWT } from "jose";
 
 const JWT_SECRET_STRING =
 	process.env.BETTER_AUTH_SECRET ||

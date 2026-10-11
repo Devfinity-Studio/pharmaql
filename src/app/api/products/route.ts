@@ -1,6 +1,6 @@
 import { type NextRequest, NextResponse } from "next/server";
-import { getItemCatalog } from "@/server/actions/itemCatalog";
 import { legacyDb } from "@/lib/legacy-db";
+import { getItemCatalog } from "@/server/actions/itemCatalog";
 
 export async function GET(request: NextRequest) {
 	try {
@@ -15,7 +15,9 @@ export async function GET(request: NextRequest) {
 				ORDER BY Description ASC
 			`);
 			const list = (rows as any[]) || [];
-			const companies = list.map((r) => r.Description || r.Code).filter(Boolean);
+			const companies = list
+				.map((r) => r.Description || r.Code)
+				.filter(Boolean);
 			return NextResponse.json({ companies });
 		}
 

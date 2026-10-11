@@ -1,7 +1,7 @@
-import { auth } from "@/server/auth";
-import { getNotices } from "@/server/actions/notices";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
+import { getNotices } from "@/server/actions/notices";
+import { auth } from "@/server/auth";
 import NoticeListClient from "./NoticeListClient";
 
 export const dynamic = "force-dynamic";
@@ -11,7 +11,10 @@ export default async function AdminNoticesPage() {
 		headers: await headers(),
 	});
 
-	if (!session || (session.user.role !== "ADMIN" && session.user.role !== "DEVELOPER")) {
+	if (
+		!session ||
+		(session.user.role !== "ADMIN" && session.user.role !== "DEVELOPER")
+	) {
 		redirect("/login");
 	}
 
@@ -34,7 +37,8 @@ export default async function AdminNoticesPage() {
 					Notice Board Management
 				</h1>
 				<p className="mt-2 text-gray-600">
-					Manage notices that appear on MR dashboards. You can set up multiple notices and toggle them on or off.
+					Manage notices that appear on MR dashboards. You can set up multiple
+					notices and toggle them on or off.
 				</p>
 			</div>
 

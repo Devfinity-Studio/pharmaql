@@ -64,7 +64,8 @@ export async function getClaimData(params: {
 		conn = await legacyDb.getConnection();
 		await conn.query("SET sql_mode = ''");
 
-		const uniqueCode = params.uniqueCode || "c9510231-4a58-4cb0-b40e-8fd18ff5f4ef";
+		const uniqueCode =
+			params.uniqueCode || "c9510231-4a58-4cb0-b40e-8fd18ff5f4ef";
 
 		// If date filters are provided, ensure claimdata is populated for this unique code
 		if (params.fromDate && params.toDate) {
@@ -76,7 +77,8 @@ export async function getClaimData(params: {
 
 			const compCodeParam = formatCompanyCodeParam(params.compCode);
 
-			const prepSql = "CALL `pdyasvtrans`.`rptSaleFreeQtyStatement`(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+			const prepSql =
+				"CALL `pdyasvtrans`.`rptSaleFreeQtyStatement`(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
 			const prepParams = [
 				"F",
 				effectiveFrom,
@@ -101,15 +103,25 @@ export async function getClaimData(params: {
 		const debugSql = `CALL \`pdyasvtrans\`.\`rptClaimData\`('${uniqueCode}')`;
 
 		console.log("\n=======================================================");
-		console.log("[DEBUG QUERY] Final SQL Query being executed (Claim Qty):\n", debugSql);
+		console.log(
+			"[DEBUG QUERY] Final SQL Query being executed (Claim Qty):\n",
+			debugSql,
+		);
 		console.log("=======================================================\n");
 
 		const [callRes] = await conn.query(debugSql);
-		const rows = (Array.isArray(callRes) ? callRes[0] : callRes) as ClaimDataRow[];
+		const rows = (
+			Array.isArray(callRes) ? callRes[0] : callRes
+		) as ClaimDataRow[];
 		return { success: true, data: rows || [], debugSql };
 	} catch (error: any) {
 		console.error("Failed to execute rptClaimData:", error);
-		return { success: false, error: error.message || "Failed to load claim data", data: null, debugSql: `CALL \`pdyasvtrans\`.\`rptClaimData\`('${params.uniqueCode || "c9510231-4a58-4cb0-b40e-8fd18ff5f4ef"}')` };
+		return {
+			success: false,
+			error: error.message || "Failed to load claim data",
+			data: null,
+			debugSql: `CALL \`pdyasvtrans\`.\`rptClaimData\`('${params.uniqueCode || "c9510231-4a58-4cb0-b40e-8fd18ff5f4ef"}')`,
+		};
 	} finally {
 		if (conn) conn.release();
 	}

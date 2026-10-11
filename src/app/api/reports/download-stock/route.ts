@@ -1,8 +1,11 @@
 import { headers } from "next/headers";
 import { NextResponse } from "next/server";
-import { auth } from "@/server/auth";
 import { getMRInfo } from "@/server/actions/mrInfo";
-import { getStockMovement, type StockMovementRow } from "@/server/actions/stockreports";
+import {
+	getStockMovement,
+	type StockMovementRow,
+} from "@/server/actions/stockreports";
+import { auth } from "@/server/auth";
 
 export async function GET(request: Request) {
 	const session = await auth.api.getSession({
@@ -25,7 +28,9 @@ export async function GET(request: Request) {
 
 	const requestingUserId = session.user.id;
 	const isSelf = requestingUserId === mrId;
-	const isAdmin = (session.user as any).role === "ADMIN" || (session.user as any).role === "DEVELOPER";
+	const isAdmin =
+		(session.user as any).role === "ADMIN" ||
+		(session.user as any).role === "DEVELOPER";
 
 	if (!isSelf && !isAdmin) {
 		return new NextResponse("Forbidden", { status: 403 });
@@ -37,7 +42,8 @@ export async function GET(request: Request) {
 	}
 
 	const effectiveLocNo = mrInfo.locNo || "11";
-	const compCode = company === "All" ? (mrInfo.companyCode || undefined) : company;
+	const compCode =
+		company === "All" ? mrInfo.companyCode || undefined : company;
 
 	const result = await getStockMovement(
 		compCode,
@@ -46,19 +52,20 @@ export async function GET(request: Request) {
 		effectiveLocNo,
 	);
 
-	const items: StockMovementRow[] = result.success && result.data ? result.data : [];
+	const items: StockMovementRow[] =
+		result.success && result.data ? result.data : [];
 
 	const reportData = items.map((item: StockMovementRow) => ({
 		"Item Code": item.ItemId,
 		"Product Name": item.ItemName,
-		"Packing": item.Packing,
-		"Division": item.Division,
-		"Manufacturer": item.Make,
+		Packing: item.Packing,
+		Division: item.Division,
+		Manufacturer: item.Make,
 		"Opening Qty": item.Opening,
 		"Purchase Qty": item.Purchase,
 		"Sales Qty": item.SalesQty,
 		"Balance Qty": item.Qty,
-		"PTR": item.PTR,
+		PTR: item.PTR,
 		"P Rate": item.Prate,
 	}));
 

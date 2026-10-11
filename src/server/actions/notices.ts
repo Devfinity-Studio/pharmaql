@@ -1,10 +1,10 @@
 "use server";
 
 import fs from "fs/promises";
+import { revalidatePath } from "next/cache";
+import { headers } from "next/headers";
 import path from "path";
 import { auth } from "@/server/auth";
-import { headers } from "next/headers";
-import { revalidatePath } from "next/cache";
 
 export interface NoticeItem {
 	id: string;
@@ -65,7 +65,10 @@ export async function saveNotice(
 		headers: await headers(),
 	});
 
-	if (!session || (session.user.role !== "ADMIN" && session.user.role !== "DEVELOPER")) {
+	if (
+		!session ||
+		(session.user.role !== "ADMIN" && session.user.role !== "DEVELOPER")
+	) {
 		throw new Error("Unauthorized");
 	}
 
@@ -108,7 +111,10 @@ export async function activateNotice(id: string, expiresAt: Date | null) {
 		headers: await headers(),
 	});
 
-	if (!session || (session.user.role !== "ADMIN" && session.user.role !== "DEVELOPER")) {
+	if (
+		!session ||
+		(session.user.role !== "ADMIN" && session.user.role !== "DEVELOPER")
+	) {
 		throw new Error("Unauthorized");
 	}
 
@@ -137,7 +143,10 @@ export async function deactivateNotice(id: string) {
 		headers: await headers(),
 	});
 
-	if (!session || (session.user.role !== "ADMIN" && session.user.role !== "DEVELOPER")) {
+	if (
+		!session ||
+		(session.user.role !== "ADMIN" && session.user.role !== "DEVELOPER")
+	) {
 		throw new Error("Unauthorized");
 	}
 
@@ -162,7 +171,10 @@ export async function deleteNotice(id: string) {
 		headers: await headers(),
 	});
 
-	if (!session || (session.user.role !== "ADMIN" && session.user.role !== "DEVELOPER")) {
+	if (
+		!session ||
+		(session.user.role !== "ADMIN" && session.user.role !== "DEVELOPER")
+	) {
 		throw new Error("Unauthorized");
 	}
 

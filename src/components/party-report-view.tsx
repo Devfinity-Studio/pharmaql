@@ -71,7 +71,8 @@ export async function PartyReportView({
 	const compCodeToQuery =
 		company === "All"
 			? mrInfo.companyCode || mrInfo.company || ""
-			: mrInfo.companyCode && (mrInfo.company === company || mrInfo.division === company)
+			: mrInfo.companyCode &&
+					(mrInfo.company === company || mrInfo.division === company)
 				? mrInfo.companyCode
 				: company;
 
@@ -95,7 +96,11 @@ export async function PartyReportView({
 	const fromDisplay = formatDisplayDate(searchParams?.from) || "01/09/2026";
 	const toDisplay = formatDisplayDate(searchParams?.to) || "29/09/2026";
 
-	if (partySalesResult.success && partySalesResult.data && partySalesResult.data.length > 0) {
+	if (
+		partySalesResult.success &&
+		partySalesResult.data &&
+		partySalesResult.data.length > 0
+	) {
 		let rowsToProcess = partySalesResult.data;
 
 		if (searchParams?.party) {
@@ -159,65 +164,84 @@ export async function PartyReportView({
 		}
 
 		return (
-			<div className="mt-4 space-y-4 rounded-xl border border-gray-300 bg-white p-6 shadow-sm print:m-0 print:border-none print:p-0 print:shadow-none font-sans text-gray-900">
+			<div className="mt-4 space-y-4 rounded-xl border border-gray-300 bg-white p-6 font-sans text-gray-900 shadow-sm print:m-0 print:border-none print:p-0 print:shadow-none">
 				{/* DEBUG QUERY BANNER */}
 				{(searchParams?.debug === "1" || searchParams?.debug === "true") && (
-					<div className="rounded-xl border-2 border-amber-400 bg-amber-50 p-4 font-mono text-xs text-amber-950 shadow-sm print:hidden">
-						<div className="flex flex-wrap items-center justify-between gap-2 border-b border-amber-200 pb-2 mb-2 font-bold text-amber-900 text-xs">
-							<span>[DEBUG QUERY] Stored Procedure Execution Status (Party Wise)</span>
-							<span className="rounded bg-amber-200 px-2 py-0.5 text-[11px] font-semibold">
+					<div className="rounded-xl border-2 border-amber-400 bg-amber-50 p-4 font-mono text-amber-950 text-xs shadow-sm print:hidden">
+						<div className="mb-2 flex flex-wrap items-center justify-between gap-2 border-amber-200 border-b pb-2 font-bold text-amber-900 text-xs">
+							<span>
+								[DEBUG QUERY] Stored Procedure Execution Status (Party Wise)
+							</span>
+							<span className="rounded bg-amber-200 px-2 py-0.5 font-semibold text-[11px]">
 								{partySalesResult.data?.length ?? 0} rows returned
 							</span>
 						</div>
 						<div className="space-y-1.5">
-							<p className="font-bold text-amber-900 text-[11px]">Final SQL Query being run:</p>
-							<pre className="overflow-x-auto rounded border border-amber-200 bg-amber-100 p-2.5 text-[11px] font-mono select-all whitespace-pre-wrap break-all text-amber-950">
+							<p className="font-bold text-[11px] text-amber-900">
+								Final SQL Query being run:
+							</p>
+							<pre className="select-all overflow-x-auto whitespace-pre-wrap break-all rounded border border-amber-200 bg-amber-100 p-2.5 font-mono text-[11px] text-amber-950">
 								{partySalesResult.debugSql ||
 									`-- Procedure was not called because 'from' and/or 'to' date parameters are missing in searchParams.\n-- Current searchParams: from=${searchParams?.from || "NOT PROVIDED"}, to=${searchParams?.to || "NOT PROVIDED"}, division=${searchParams?.division || "All"}`}
 							</pre>
-							<div className="mt-2 grid grid-cols-2 md:grid-cols-4 gap-2 text-[11px] text-amber-800 pt-1.5 border-t border-amber-200">
-								<div><span className="font-semibold">Company Code Query:</span> {JSON.stringify(compCodeToQuery)}</div>
-								<div><span className="font-semibold">MR Company:</span> {mrInfo.company || "N/A"}</div>
-								<div><span className="font-semibold">MR Code:</span> {mrInfo.companyCode || "N/A"}</div>
-								<div><span className="font-semibold">LocNo:</span> {mrInfo.locNo || "11"}</div>
+							<div className="mt-2 grid grid-cols-2 gap-2 border-amber-200 border-t pt-1.5 text-[11px] text-amber-800 md:grid-cols-4">
+								<div>
+									<span className="font-semibold">Company Code Query:</span>{" "}
+									{JSON.stringify(compCodeToQuery)}
+								</div>
+								<div>
+									<span className="font-semibold">MR Company:</span>{" "}
+									{mrInfo.company || "N/A"}
+								</div>
+								<div>
+									<span className="font-semibold">MR Code:</span>{" "}
+									{mrInfo.companyCode || "N/A"}
+								</div>
+								<div>
+									<span className="font-semibold">LocNo:</span>{" "}
+									{mrInfo.locNo || "11"}
+								</div>
 							</div>
 						</div>
 					</div>
 				)}
 
 				{/* REPORT HEADER */}
-				<div className="border-b-2 border-gray-900 pb-2">
-					<div className="flex flex-col md:flex-row items-start justify-between gap-3">
+				<div className="border-gray-900 border-b-2 pb-2">
+					<div className="flex flex-col items-start justify-between gap-3 md:flex-row">
 						<div className="flex items-start gap-4">
 							<Image
-								src="/logo.png"
 								alt="Asmee Pharma Logo"
-								width={140}
-								height={45}
 								className="object-contain pt-0.5"
+								height={45}
 								priority
+								src="/logo.png"
+								width={140}
 							/>
 							<div>
-								<h1 className="font-extrabold text-base tracking-tight text-gray-900 uppercase">
+								<h1 className="font-extrabold text-base text-gray-900 uppercase tracking-tight">
 									ASMEE PHARMA PRIVATE LIMITED
 								</h1>
-								<p className="mt-0.5 text-[11px] leading-tight text-gray-700">
-									BASEMENE-GF, 11/2 ASHOK HOUSE, B/S SANSTHA VASAHAT GATE,, PRATAP ROAD,
+								<p className="mt-0.5 text-[11px] text-gray-700 leading-tight">
+									BASEMENE-GF, 11/2 ASHOK HOUSE, B/S SANSTHA VASAHAT GATE,,
+									PRATAP ROAD,
 									<br />
 									RAOPURA, VADODARA - 390001, GUJARAT - 24
 									<br />
-									Contact: 9409789800, 9409789700 Mobile: 9409789700 Email: asmeepharma2022@gmail.com
+									Contact: 9409789800, 9409789700 Mobile: 9409789700 Email:
+									asmeepharma2022@gmail.com
 								</p>
 							</div>
 						</div>
 					</div>
 
-					<div className="mt-3 flex items-center justify-between border-t border-gray-300 pt-1.5 text-xs font-bold text-gray-900">
+					<div className="mt-3 flex items-center justify-between border-gray-300 border-t pt-1.5 font-bold text-gray-900 text-xs">
 						<div>Year : 2026-27</div>
-						<div className="text-center font-extrabold text-xs text-[#0B2545]">
-							Partywise/Itemwise Sales for Period of {fromDisplay} to {toDisplay}
+						<div className="text-center font-extrabold text-[#0B2545] text-xs">
+							Partywise/Itemwise Sales for Period of {fromDisplay} to{" "}
+							{toDisplay}
 						</div>
-						<div className="text-right text-[11px] font-medium text-gray-600">
+						<div className="text-right font-medium text-[11px] text-gray-600">
 							Total Parties: {customerGroups.length}
 						</div>
 					</div>
@@ -227,31 +251,31 @@ export async function PartyReportView({
 				<div className="w-full overflow-x-auto">
 					<table className="w-full min-w-[1100px] border-collapse text-left font-sans text-[11px] leading-tight">
 						<thead>
-							<tr className="border-y-2 border-gray-900 bg-gray-50 text-[11px] font-bold text-gray-900">
-								<th className="py-1 px-1 text-center w-[35px]">SNo.</th>
-								<th className="py-1 px-1.5 w-[70px]">InvNo</th>
-								<th className="py-1 px-1.5 w-[75px]">InvDt</th>
-								<th className="py-1 px-1.5 w-[80px]">ItemCode</th>
-								<th className="py-1 px-2 w-[220px]">Item Name</th>
-								<th className="py-1 px-1.5 w-[65px]">Packing</th>
-								<th className="py-1 px-1.5 w-[75px]">BatchNo</th>
-								<th className="py-1 px-1.5 w-[75px]">Exp.</th>
-								<th className="py-1 px-1.5 text-right w-[45px]">Qty.</th>
-								<th className="py-1 px-1 text-right w-[40px]">Free</th>
-								<th className="py-1 px-1.5 text-right w-[55px]">Rate</th>
-								<th className="py-1 px-2 text-right w-[75px]">Amount</th>
-								<th className="py-1 px-2 w-[85px]">Series</th>
-								<th className="py-1 px-1.5 w-[70px]">Remarks</th>
+							<tr className="border-gray-900 border-y-2 bg-gray-50 font-bold text-[11px] text-gray-900">
+								<th className="w-[35px] px-1 py-1 text-center">SNo.</th>
+								<th className="w-[70px] px-1.5 py-1">InvNo</th>
+								<th className="w-[75px] px-1.5 py-1">InvDt</th>
+								<th className="w-[80px] px-1.5 py-1">ItemCode</th>
+								<th className="w-[220px] px-2 py-1">Item Name</th>
+								<th className="w-[65px] px-1.5 py-1">Packing</th>
+								<th className="w-[75px] px-1.5 py-1">BatchNo</th>
+								<th className="w-[75px] px-1.5 py-1">Exp.</th>
+								<th className="w-[45px] px-1.5 py-1 text-right">Qty.</th>
+								<th className="w-[40px] px-1 py-1 text-right">Free</th>
+								<th className="w-[55px] px-1.5 py-1 text-right">Rate</th>
+								<th className="w-[75px] px-2 py-1 text-right">Amount</th>
+								<th className="w-[85px] px-2 py-1">Series</th>
+								<th className="w-[70px] px-1.5 py-1">Remarks</th>
 							</tr>
 						</thead>
 						<tbody>
 							{customerGroups.map((group, cIdx) => (
 								<React.Fragment key={`cust-${cIdx}-${group.custId}`}>
 									{/* Customer Party Header Banner */}
-									<tr className="border-y border-[#b8d7f5] bg-[#eef6fc]">
+									<tr className="border-[#b8d7f5] border-y bg-[#eef6fc]">
 										<td
+											className="px-2 py-1 font-bold text-[#002b66] text-xs"
 											colSpan={14}
-											className="py-1 px-2 font-bold text-[#002b66] text-xs"
 										>
 											{group.customer}{" "}
 											{group.custCode ? `[ ${group.custCode} ]` : ""}{" "}
@@ -263,67 +287,67 @@ export async function PartyReportView({
 									{/* Item Rows for this Party */}
 									{group.rows.map((row, rIdx) => (
 										<tr
+											className="border-gray-100 border-b text-[11px] text-gray-800 hover:bg-gray-50/80"
 											key={`party-row-${rIdx}-${row.InvNo}`}
-											className="border-b border-gray-100 hover:bg-gray-50/80 text-[11px] text-gray-800"
 										>
-											<td className="py-0.5 px-1 text-center text-gray-600">
+											<td className="px-1 py-0.5 text-center text-gray-600">
 												{rIdx + 1}
 											</td>
-											<td className="py-0.5 px-1.5 font-medium whitespace-nowrap">
+											<td className="whitespace-nowrap px-1.5 py-0.5 font-medium">
 												{row.InvNo}
 											</td>
-											<td className="py-0.5 px-1.5 whitespace-nowrap">
+											<td className="whitespace-nowrap px-1.5 py-0.5">
 												{formatDisplayDate(row.InvDt)}
 											</td>
-											<td className="py-0.5 px-1.5 font-mono text-[10px] text-gray-700">
+											<td className="px-1.5 py-0.5 font-mono text-[10px] text-gray-700">
 												{row.ItemCode}
 											</td>
-											<td className="py-0.5 px-2 font-medium leading-tight">
+											<td className="px-2 py-0.5 font-medium leading-tight">
 												{row.ItemName}
 											</td>
-											<td className="py-0.5 px-1.5 text-gray-600">
+											<td className="px-1.5 py-0.5 text-gray-600">
 												{row.Packing}
 											</td>
-											<td className="py-0.5 px-1.5 whitespace-nowrap">
+											<td className="whitespace-nowrap px-1.5 py-0.5">
 												{row.BatchNo}
 											</td>
-											<td className="py-0.5 px-1.5 whitespace-nowrap">
+											<td className="whitespace-nowrap px-1.5 py-0.5">
 												{formatExpDate(row.ExpDt)}
 											</td>
-											<td className="py-0.5 px-1.5 text-right font-semibold">
+											<td className="px-1.5 py-0.5 text-right font-semibold">
 												{row.Qty}
 											</td>
-											<td className="py-0.5 px-1 text-right text-gray-600">
+											<td className="px-1 py-0.5 text-right text-gray-600">
 												{row.FQty ? row.FQty : ""}
 											</td>
-											<td className="py-0.5 px-1.5 text-right">
+											<td className="px-1.5 py-0.5 text-right">
 												{Number(row.Srate || 0).toFixed(2)}
 											</td>
-											<td className="py-0.5 px-2 text-right font-medium">
+											<td className="px-2 py-0.5 text-right font-medium">
 												{Number(row.Amt || 0).toFixed(2)}
 											</td>
-											<td className="py-0.5 px-2 text-gray-700 whitespace-nowrap">
+											<td className="whitespace-nowrap px-2 py-0.5 text-gray-700">
 												{row.Series || ""}
 											</td>
-											<td className="py-0.5 px-1.5 text-gray-600 truncate max-w-[70px]">
+											<td className="max-w-[70px] truncate px-1.5 py-0.5 text-gray-600">
 												{row.Remarks || ""}
 											</td>
 										</tr>
 									))}
 
 									{/* Subtotal for this Party */}
-									<tr className="border-y border-gray-400 bg-gray-50/50 text-[11px] font-bold text-gray-900">
-										<td colSpan={8} className="py-1 px-2 text-left">
+									<tr className="border-gray-400 border-y bg-gray-50/50 font-bold text-[11px] text-gray-900">
+										<td className="px-2 py-1 text-left" colSpan={8}>
 											Total for {group.customer}
 										</td>
-										<td className="py-1 px-1.5 text-right text-blue-800">
+										<td className="px-1.5 py-1 text-right text-blue-800">
 											{group.totalQty}
 										</td>
-										<td className="py-1 px-1 text-right">
+										<td className="px-1 py-1 text-right">
 											{group.totalFree || ""}
 										</td>
 										<td></td>
-										<td className="py-1 px-2 text-right text-blue-800">
+										<td className="px-2 py-1 text-right text-blue-800">
 											{group.totalAmount.toFixed(2)}
 										</td>
 										<td colSpan={2}></td>
@@ -332,18 +356,16 @@ export async function PartyReportView({
 							))}
 
 							{/* REPORT GRAND TOTALS */}
-							<tr className="border-t-2 border-b-2 border-gray-900 bg-gray-100 font-extrabold text-xs text-gray-900">
-								<td colSpan={8} className="py-2.5 px-2 text-left">
+							<tr className="border-gray-900 border-t-2 border-b-2 bg-gray-100 font-extrabold text-gray-900 text-xs">
+								<td className="px-2 py-2.5 text-left" colSpan={8}>
 									Grand Total Sales :
 								</td>
-								<td className="py-2.5 px-1.5 text-right text-blue-800">
+								<td className="px-1.5 py-2.5 text-right text-blue-800">
 									{grandQty}
 								</td>
-								<td className="py-2.5 px-1 text-right">
-									{grandFree || ""}
-								</td>
+								<td className="px-1 py-2.5 text-right">{grandFree || ""}</td>
 								<td></td>
-								<td className="py-2.5 px-2 text-right text-blue-800">
+								<td className="px-2 py-2.5 text-right text-blue-800">
 									{grandAmount.toFixed(2)}
 								</td>
 								<td colSpan={2}></td>
@@ -359,65 +381,83 @@ export async function PartyReportView({
 		<div className="mt-4 space-y-4 rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
 			{/* DEBUG QUERY BANNER */}
 			{(searchParams?.debug === "1" || searchParams?.debug === "true") && (
-				<div className="rounded-xl border-2 border-amber-400 bg-amber-50 p-4 font-mono text-xs text-amber-950 shadow-sm print:hidden">
-					<div className="flex flex-wrap items-center justify-between gap-2 border-b border-amber-200 pb-2 mb-2 font-bold text-amber-900 text-xs">
-						<span>[DEBUG QUERY] Stored Procedure Execution Status (Party Wise)</span>
-						<span className="rounded bg-amber-200 px-2 py-0.5 text-[11px] font-semibold">
+				<div className="rounded-xl border-2 border-amber-400 bg-amber-50 p-4 font-mono text-amber-950 text-xs shadow-sm print:hidden">
+					<div className="mb-2 flex flex-wrap items-center justify-between gap-2 border-amber-200 border-b pb-2 font-bold text-amber-900 text-xs">
+						<span>
+							[DEBUG QUERY] Stored Procedure Execution Status (Party Wise)
+						</span>
+						<span className="rounded bg-amber-200 px-2 py-0.5 font-semibold text-[11px]">
 							{partySalesResult.success
 								? `${partySalesResult.data?.length ?? 0} rows returned`
 								: partySalesResult.error || "Query Not Run"}
 						</span>
 					</div>
 					<div className="space-y-1.5">
-						<p className="font-bold text-amber-900 text-[11px]">Final SQL Query being run:</p>
-						<pre className="overflow-x-auto rounded border border-amber-200 bg-amber-100 p-2.5 text-[11px] font-mono select-all whitespace-pre-wrap break-all text-amber-950">
+						<p className="font-bold text-[11px] text-amber-900">
+							Final SQL Query being run:
+						</p>
+						<pre className="select-all overflow-x-auto whitespace-pre-wrap break-all rounded border border-amber-200 bg-amber-100 p-2.5 font-mono text-[11px] text-amber-950">
 							{partySalesResult.debugSql ||
 								`-- Procedure was not called because 'from' and/or 'to' date parameters are missing in searchParams.\n-- Current searchParams: from=${searchParams?.from || "NOT PROVIDED"}, to=${searchParams?.to || "NOT PROVIDED"}, division=${searchParams?.division || "All"}`}
 						</pre>
-						<div className="mt-2 grid grid-cols-2 md:grid-cols-4 gap-2 text-[11px] text-amber-800 pt-1.5 border-t border-amber-200">
-							<div><span className="font-semibold">Company Code Query:</span> {JSON.stringify(compCodeToQuery)}</div>
-							<div><span className="font-semibold">MR Company:</span> {mrInfo.company || "N/A"}</div>
-							<div><span className="font-semibold">MR Code:</span> {mrInfo.companyCode || "N/A"}</div>
-							<div><span className="font-semibold">LocNo:</span> {mrInfo.locNo || "11"}</div>
+						<div className="mt-2 grid grid-cols-2 gap-2 border-amber-200 border-t pt-1.5 text-[11px] text-amber-800 md:grid-cols-4">
+							<div>
+								<span className="font-semibold">Company Code Query:</span>{" "}
+								{JSON.stringify(compCodeToQuery)}
+							</div>
+							<div>
+								<span className="font-semibold">MR Company:</span>{" "}
+								{mrInfo.company || "N/A"}
+							</div>
+							<div>
+								<span className="font-semibold">MR Code:</span>{" "}
+								{mrInfo.companyCode || "N/A"}
+							</div>
+							<div>
+								<span className="font-semibold">LocNo:</span>{" "}
+								{mrInfo.locNo || "11"}
+							</div>
 						</div>
 					</div>
 				</div>
 			)}
 
-			<div className="border-b-2 border-gray-900 pb-2">
+			<div className="border-gray-900 border-b-2 pb-2">
 				<div className="flex items-start gap-4">
 					<Image
-						src="/logo.png"
 						alt="Asmee Pharma Logo"
-						width={140}
-						height={45}
 						className="object-contain"
+						height={45}
 						priority
+						src="/logo.png"
+						width={140}
 					/>
 					<div>
-						<h2 className="font-extrabold text-base tracking-tight text-gray-900 uppercase">
+						<h2 className="font-extrabold text-base text-gray-900 uppercase tracking-tight">
 							ASMEE PHARMA PRIVATE LIMITED
 						</h2>
-						<p className="mt-0.5 text-[11px] leading-tight text-gray-700">
-							BASEMENE-GF, 11/2 ASHOK HOUSE, B/S SANSTHA VASAHAT GATE,, PRATAP ROAD,
+						<p className="mt-0.5 text-[11px] text-gray-700 leading-tight">
+							BASEMENE-GF, 11/2 ASHOK HOUSE, B/S SANSTHA VASAHAT GATE,, PRATAP
+							ROAD,
 							<br />
 							RAOPURA, VADODARA - 390001, GUJARAT - 24
 							<br />
-							Contact: 9409789800, 9409789700 Mobile: 9409789700 Email: asmeepharma2022@gmail.com
+							Contact: 9409789800, 9409789700 Mobile: 9409789700 Email:
+							asmeepharma2022@gmail.com
 						</p>
 					</div>
 				</div>
 
-				<div className="mt-3 flex items-center justify-between border-t border-gray-300 pt-1.5 text-xs font-bold text-gray-900">
+				<div className="mt-3 flex items-center justify-between border-gray-300 border-t pt-1.5 font-bold text-gray-900 text-xs">
 					<div>Year : 2026-27</div>
-					<div className="text-center font-extrabold text-xs text-[#0B2545]">
+					<div className="text-center font-extrabold text-[#0B2545] text-xs">
 						Partywise/Itemwise Sales for Period of {fromDisplay} to {toDisplay}
 					</div>
 					<div>No records found</div>
 				</div>
 			</div>
 
-			<div className="py-12 text-center text-gray-500 font-medium text-sm">
+			<div className="py-12 text-center font-medium text-gray-500 text-sm">
 				No party sales records found for the selected period and division.
 			</div>
 		</div>

@@ -1,11 +1,11 @@
 "use server";
 
 import fs from "fs/promises";
-import path from "path";
 import { revalidatePath } from "next/cache";
 import { headers } from "next/headers";
-import { auth } from "@/server/auth";
+import path from "path";
 import { getMRInfo } from "@/server/actions/mrInfo";
+import { auth } from "@/server/auth";
 
 const OVERRIDES_FILE = path.join(process.cwd(), "data", "mr_overrides.json");
 
@@ -48,7 +48,10 @@ export async function assignManufacturer(
 		headers: await headers(),
 	});
 
-	if (!session || (session.user.role !== "ADMIN" && session.user.role !== "DEVELOPER")) {
+	if (
+		!session ||
+		(session.user.role !== "ADMIN" && session.user.role !== "DEVELOPER")
+	) {
 		return { success: false, error: "Unauthorized" };
 	}
 
@@ -57,7 +60,12 @@ export async function assignManufacturer(
 		const current = allOverrides[mrId] || {};
 		const assigned = current.assignedManufacturers || [];
 
-		if (!assigned.some((m) => m.manufacturer === manufacturer && m.division === (division || null))) {
+		if (
+			!assigned.some(
+				(m) =>
+					m.manufacturer === manufacturer && m.division === (division || null),
+			)
+		) {
 			assigned.push({
 				id: crypto.randomUUID(),
 				manufacturer,
@@ -79,7 +87,10 @@ export async function unassignManufacturer(id: string) {
 		headers: await headers(),
 	});
 
-	if (!session || (session.user.role !== "ADMIN" && session.user.role !== "DEVELOPER")) {
+	if (
+		!session ||
+		(session.user.role !== "ADMIN" && session.user.role !== "DEVELOPER")
+	) {
 		return { success: false, error: "Unauthorized" };
 	}
 
@@ -88,7 +99,9 @@ export async function unassignManufacturer(id: string) {
 		for (const mrId of Object.keys(allOverrides)) {
 			const current = allOverrides[mrId];
 			if (current?.assignedManufacturers) {
-				current.assignedManufacturers = current.assignedManufacturers.filter((m) => m.id !== id);
+				current.assignedManufacturers = current.assignedManufacturers.filter(
+					(m) => m.id !== id,
+				);
 			}
 		}
 		await saveMROverrides(allOverrides);
@@ -104,7 +117,10 @@ export async function toggleMRBlockStatus(mrId: string, isBlocked: boolean) {
 		headers: await headers(),
 	});
 
-	if (!session || (session.user.role !== "ADMIN" && session.user.role !== "DEVELOPER")) {
+	if (
+		!session ||
+		(session.user.role !== "ADMIN" && session.user.role !== "DEVELOPER")
+	) {
 		return { success: false, error: "Unauthorized" };
 	}
 
@@ -136,7 +152,10 @@ export async function updateMRPermissions(
 		headers: await headers(),
 	});
 
-	if (!session || (session.user.role !== "ADMIN" && session.user.role !== "DEVELOPER")) {
+	if (
+		!session ||
+		(session.user.role !== "ADMIN" && session.user.role !== "DEVELOPER")
+	) {
 		return { success: false, error: "Unauthorized" };
 	}
 
@@ -170,7 +189,10 @@ export async function createMR(
 		headers: await headers(),
 	});
 
-	if (!session || (session.user.role !== "ADMIN" && session.user.role !== "DEVELOPER")) {
+	if (
+		!session ||
+		(session.user.role !== "ADMIN" && session.user.role !== "DEVELOPER")
+	) {
 		throw new Error("Unauthorized");
 	}
 

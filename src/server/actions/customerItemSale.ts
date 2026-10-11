@@ -109,7 +109,9 @@ export async function getItemCustomerSale(params: {
 		const includeZero = params.includeZero || "Y";
 		const returnTypeParam = params.returnType || "";
 		const seriesIdsParam = params.seriesIds || "";
-		const locationParam = params.location ? `('${params.location}')` : locNoParam;
+		const locationParam = params.location
+			? `('${params.location}')`
+			: locNoParam;
 		const reportTypeParam = params.reportType || "SalesEntry";
 		const cityParam = params.city || "";
 
@@ -143,11 +145,17 @@ export async function getItemCustomerSale(params: {
 		console.log("=======================================================\n");
 
 		const [callRes] = await conn.query(debugSql);
-		const rows = (Array.isArray(callRes) ? callRes[0] : callRes) as ItemCustomerSaleRow[];
+		const rows = (
+			Array.isArray(callRes) ? callRes[0] : callRes
+		) as ItemCustomerSaleRow[];
 		return { success: true, data: rows || [], debugSql };
 	} catch (error: any) {
 		console.error("Failed to execute rptItemCustomerSale:", error);
-		return { success: false, error: error.message || "Failed to load sales", debugSql };
+		return {
+			success: false,
+			error: error.message || "Failed to load sales",
+			debugSql,
+		};
 	} finally {
 		if (conn) conn.release();
 	}

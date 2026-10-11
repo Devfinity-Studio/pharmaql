@@ -117,164 +117,183 @@ export async function MrDashboardContent({
 	const monthMap = new Map<string, number>();
 	const quarterMap = new Map<string, number>();
 	const yearMap = new Map<string, number>();
-	const docOutMap = new Map<string, { doctor: string; city: string; amount: number }>();
+	const docOutMap = new Map<
+		string,
+		{ doctor: string; city: string; amount: number }
+	>();
 
-		accessibleSales.forEach((sale) => {
-			totalSales += sale.quantity;
+	accessibleSales.forEach((sale) => {
+		totalSales += sale.quantity;
 
-			const pData = productMap.get(sale.productId) || {
-				name: sale.productName,
-				total: 0,
+		const pData = productMap.get(sale.productId) || {
+			name: sale.productName,
+			total: 0,
+		};
+		pData.total += sale.quantity;
+		productMap.set(sale.productId, pData);
+
+		const date = sale.date ? new Date(sale.date) : new Date();
+		const year = date.getFullYear().toString();
+		const month = date.toLocaleString("default", {
+			month: "short",
+			year: "numeric",
+		});
+		const quarter = `Q${Math.floor(date.getMonth() / 3) + 1} ${year}`;
+
+		monthMap.set(month, (monthMap.get(month) || 0) + sale.quantity);
+		quarterMap.set(quarter, (quarterMap.get(quarter) || 0) + sale.quantity);
+		yearMap.set(year, (yearMap.get(year) || 0) + sale.quantity);
+	});
+
+	// Process Invoices
+	const sortedInvoices = accessibleInvoices.sort((a, b) => {
+		const da = a.date ? a.date.getTime() : 0;
+		const db = b.date ? b.date.getTime() : 0;
+		return db - da;
+	});
+
+	sortedInvoices.forEach((inv) => {
+		if (inv.invAmt) {
+			totalInvoicesAmt += parseFloat(inv.invAmt);
+		}
+	});
+	recentInvoices = sortedInvoices.slice(0, 8);
+
+	// Process Outstanding
+	accessibleOutstanding.forEach((out) => {
+		if (out.invAmt) {
+			const amt = parseFloat(out.invAmt);
+			totalOutstandingAmt += amt;
+
+			const key = `${out.doctor}-${out.city}`;
+			const existing = docOutMap.get(key) || {
+				doctor: out.doctor || "Unknown",
+				city: out.city || "Unknown",
+				amount: 0,
 			};
-			pData.total += sale.quantity;
-			productMap.set(sale.productId, pData);
+			existing.amount += amt;
+			docOutMap.set(key, existing);
+		}
+	});
+	// If local tables are unpopulated, aggregate metrics live from stored procedures
+	if (accessibleSales.length === 0 || accessibleOutstanding.length === 0) {
+		const compCodeForProc = mrInfo.companyCode || mrInfo.company || "";
+		const defaultFrom = searchParams?.from || "2026-04-01";
+		const defaultTo = searchParams?.to || "2026-09-30";
 
-			const date = sale.date ? new Date(sale.date) : new Date();
-			const year = date.getFullYear().toString();
-			const month = date.toLocaleString("default", {
-				month: "short",
-				year: "numeric",
-			});
-			const quarter = `Q${Math.floor(date.getMonth() / 3) + 1} ${year}`;
-
-			monthMap.set(month, (monthMap.get(month) || 0) + sale.quantity);
-			quarterMap.set(quarter, (quarterMap.get(quarter) || 0) + sale.quantity);
-			yearMap.set(year, (yearMap.get(year) || 0) + sale.quantity);
-		});
-
-		// Process Invoices
-		const sortedInvoices = accessibleInvoices.sort((a, b) => {
-			const da = a.date ? a.date.getTime() : 0;
-			const db = b.date ? b.date.getTime() : 0;
-			return db - da;
-		});
-
-		sortedInvoices.forEach((inv) => {
-			if (inv.invAmt) {
-				totalInvoicesAmt += parseFloat(inv.invAmt);
-			}
-		});
-		recentInvoices = sortedInvoices.slice(0, 8);
-
-		// Process Outstanding
-		accessibleOutstanding.forEach((out) => {
-			if (out.invAmt) {
-				const amt = parseFloat(out.invAmt);
-				totalOutstandingAmt += amt;
-
-				const key = `${out.doctor}-${out.city}`;
-				const existing = docOutMap.get(key) || {
-					doctor: out.doctor || "Unknown",
-					city: out.city || "Unknown",
-					amount: 0,
-				};
-				existing.amount += amt;
-				docOutMap.set(key, existing);
-			}
-		});
-		// If local tables are unpopulated, aggregate metrics live from stored procedures
-		if (accessibleSales.length === 0 || accessibleOutstanding.length === 0) {
-			const compCodeForProc = mrInfo.companyCode || mrInfo.company || "";
-			const defaultFrom = searchParams?.from || "2026-04-01";
-			const defaultTo = searchParams?.to || "2026-09-30";
-
-			// 1. Live Sales Aggregation
-			if (accessibleSales.length === 0 && compCodeForProc) {
-				try {
-					const liveSales = await getItemCustomerSale({
+		if (compCodeForProc) {
+			try {
+				const [liveSales, liveOut] = await Promise.all([
+					getItemCustomerSale({
 						fromDate: defaultFrom,
 						toDate: defaultTo,
 						compCode: compCodeForProc,
 						locNo: mrInfo.locNo || "11",
-					});
-					if (liveSales.success && liveSales.data) {
-						let procSalesQty = 0;
-						let procSalesAmt = 0;
-						liveSales.data.forEach((row) => {
-							const q = Number(row.Qty || 0);
-							const a = Number(row.IAmt || 0);
-							procSalesQty += q;
-							procSalesAmt += a;
-
-							const pData = productMap.get(String(row.ItemID || row.ItemCode)) || {
-								name: row.ItemName || row.ItemCode || "Item",
-								total: 0,
-							};
-							pData.total += q;
-							productMap.set(String(row.ItemID || row.ItemCode), pData);
-
-							const d = row.InvDt ? new Date(row.InvDt) : new Date();
-							const m = isNaN(d.getTime()) ? "Sep 2026" : d.toLocaleString("default", { month: "short", year: "numeric" });
-							monthMap.set(m, (monthMap.get(m) || 0) + q);
-						});
-						if (totalSales === 0) totalSales = procSalesQty;
-						if (totalInvoicesAmt === 0) totalInvoicesAmt = procSalesAmt;
-					}
-				} catch (err) {
-					console.error("[Dashboard] Error fetching live sales procedure:", err);
-				}
-			}
-
-			// 2. Live Outstanding Aggregation
-			if (accessibleOutstanding.length === 0 && compCodeForProc) {
-				try {
-					const liveOut = await getMRwisePeriodicalOutstanding({
+					}).catch((err) => {
+						console.error(
+							"[Dashboard] Error fetching live sales procedure:",
+							err,
+						);
+						return { success: false, data: [] };
+					}),
+					getMRwisePeriodicalOutstanding({
 						mrId,
 						compCode: compCodeForProc,
 						fromDate: defaultFrom,
 						toDate: defaultTo,
 						locNo: mrInfo.locNo || "11",
+					}).catch((err) => {
+						console.error(
+							"[Dashboard] Error fetching live outstanding procedure:",
+							err,
+						);
+						return { success: false, data: [] };
+					}),
+				]);
+
+				if (liveSales.success && liveSales.data) {
+					let procSalesQty = 0;
+					let procSalesAmt = 0;
+					liveSales.data.forEach((row) => {
+						const q = Number(row.Qty || 0);
+						const a = Number(row.IAmt || 0);
+						procSalesQty += q;
+						procSalesAmt += a;
+
+						const pData = productMap.get(
+							String(row.ItemID || row.ItemCode),
+						) || {
+							name: row.ItemName || row.ItemCode || "Item",
+							total: 0,
+						};
+						pData.total += q;
+						productMap.set(String(row.ItemID || row.ItemCode), pData);
+
+						const d = row.InvDt ? new Date(row.InvDt) : new Date();
+						const m = isNaN(d.getTime())
+							? "Sep 2026"
+							: d.toLocaleString("default", {
+									month: "short",
+									year: "numeric",
+								});
+						monthMap.set(m, (monthMap.get(m) || 0) + q);
 					});
-					if (liveOut.success && liveOut.data) {
-						let procOutAmt = 0;
-						liveOut.data.forEach((row: OverduePeriodicalOutstandingRow) => {
-							const amt = Number(row.Amount || 0);
-							const adj = Number(row.AdjAmt || 0);
-							const net = amt - adj;
-							if (net > 0) {
-								procOutAmt += net;
-								const doc = row.Customer || "Unknown Customer";
-								const city = row.City || "Unknown City";
-								const key = `${doc}-${city}`;
-								const existing = docOutMap.get(key) || {
-									doctor: doc,
-									city: city,
-									amount: 0,
-								};
-								existing.amount += net;
-								docOutMap.set(key, existing);
-							}
-						});
-						if (totalOutstandingAmt === 0) totalOutstandingAmt = procOutAmt;
-					}
-				} catch (err) {
-					console.error("[Dashboard] Error fetching live outstanding procedure:", err);
+					if (totalSales === 0) totalSales = procSalesQty;
+					if (totalInvoicesAmt === 0) totalInvoicesAmt = procSalesAmt;
 				}
+
+				if (liveOut.success && liveOut.data) {
+					let procOutAmt = 0;
+					liveOut.data.forEach((row: OverduePeriodicalOutstandingRow) => {
+						const amt = Number(row.Amount || 0);
+						const adj = Number(row.AdjAmt || 0);
+						const net = amt - adj;
+						if (net > 0) {
+							procOutAmt += net;
+							const doc = row.Customer || "Unknown Customer";
+							const city = row.City || "Unknown City";
+							const key = `${doc}-${city}`;
+							const existing = docOutMap.get(key) || {
+								doctor: doc,
+								city: city,
+								amount: 0,
+							};
+							existing.amount += net;
+							docOutMap.set(key, existing);
+						}
+					});
+					if (totalOutstandingAmt === 0) totalOutstandingAmt = procOutAmt;
+				}
+			} catch (err) {
+				console.error("[Dashboard] Error in parallel metric aggregation:", err);
 			}
 		}
+	}
 
-		outstandingByDoctor = Array.from(docOutMap.values()).sort(
-			(a, b) => b.amount - a.amount,
-		);
+	outstandingByDoctor = Array.from(docOutMap.values()).sort(
+		(a, b) => b.amount - a.amount,
+	);
 
-		productReports = Array.from(productMap.values()).sort(
-			(a, b) => b.total - a.total,
-		);
-		monthlyReports = Array.from(monthMap.entries()).map(([time, qty]) => ({
-			time,
-			qty,
-		}));
-		quarterlyReports = Array.from(quarterMap.entries()).map(([time, qty]) => ({
-			time,
-			qty,
-		}));
-		yearlyReports = Array.from(yearMap.entries()).map(([time, qty]) => ({
-			time,
-			qty,
-		}));
+	productReports = Array.from(productMap.values()).sort(
+		(a, b) => b.total - a.total,
+	);
+	monthlyReports = Array.from(monthMap.entries()).map(([time, qty]) => ({
+		time,
+		qty,
+	}));
+	quarterlyReports = Array.from(quarterMap.entries()).map(([time, qty]) => ({
+		time,
+		qty,
+	}));
+	yearlyReports = Array.from(yearMap.entries()).map(([time, qty]) => ({
+		time,
+		qty,
+	}));
 
 	// Evaluate Live Overdue & Impending Block Status
-	const { evaluateMROverdueStatus } = await import("@/server/actions/overdueEngine");
+	const { evaluateMROverdueStatus } = await import(
+		"@/server/actions/overdueEngine"
+	);
 	const mrOverdueStatus = await evaluateMROverdueStatus(mrId);
 
 	const baseUrl = isAdminView ? `/admin/mrs/${mrId}` : `/dashboard`;
@@ -284,9 +303,9 @@ export async function MrDashboardContent({
 			{/* Impending Block Warning Modal for 80-90 days */}
 			{!isAdminView && mrOverdueStatus.status === "WARNING" && (
 				<MROverdueWarningModal
-					mrName={mrInfo.name}
 					divisionName={mrInfo.division || mrInfo.company}
 					invoices={mrOverdueStatus.warningInvoices}
+					mrName={mrInfo.name}
 				/>
 			)}
 
@@ -299,7 +318,7 @@ export async function MrDashboardContent({
 							<h4 className="font-extrabold text-amber-900 text-sm">
 								Attention: Impending Automatic Block Notice
 							</h4>
-							<p className="mt-0.5 text-xs text-amber-800">
+							<p className="mt-0.5 text-amber-800 text-xs">
 								{mrOverdueStatus.message}
 							</p>
 						</div>
@@ -526,28 +545,43 @@ export async function MrDashboardContent({
 				<div className="space-y-6">
 					{/* DEBUG QUERY BANNER FOR OVERVIEW */}
 					{(searchParams?.debug === "1" || searchParams?.debug === "true") && (
-						<div className="rounded-xl border-2 border-amber-400 bg-amber-50 p-4 font-mono text-xs text-amber-950 shadow-sm print:hidden">
-							<div className="flex flex-wrap items-center justify-between gap-2 border-b border-amber-200 pb-2 mb-2 font-bold text-amber-900 text-xs">
+						<div className="rounded-xl border-2 border-amber-400 bg-amber-50 p-4 font-mono text-amber-950 text-xs shadow-sm print:hidden">
+							<div className="mb-2 flex flex-wrap items-center justify-between gap-2 border-amber-200 border-b pb-2 font-bold text-amber-900 text-xs">
 								<span>[DEBUG QUERY] Overview Tab Data Status</span>
-								<span className="rounded bg-amber-200 px-2 py-0.5 text-[11px] font-semibold">
-									Sales: {accessibleSales.length} | Invoices: {accessibleInvoices.length} | Outstanding: {accessibleOutstanding.length}
+								<span className="rounded bg-amber-200 px-2 py-0.5 font-semibold text-[11px]">
+									Sales: {accessibleSales.length} | Invoices:{" "}
+									{accessibleInvoices.length} | Outstanding:{" "}
+									{accessibleOutstanding.length}
 								</span>
 							</div>
 							<div className="space-y-1.5">
-								<p className="font-bold text-amber-900 text-[11px]">Database Queries & Filter Conditions:</p>
-								<pre className="overflow-x-auto rounded border border-amber-200 bg-amber-100 p-2.5 text-[11px] font-mono select-all whitespace-pre-wrap break-all text-amber-950">
-{`-- Overview metrics calculated live via MySQL ERP stored procedures
+								<p className="font-bold text-[11px] text-amber-900">
+									Database Queries & Filter Conditions:
+								</p>
+								<pre className="select-all overflow-x-auto whitespace-pre-wrap break-all rounded border border-amber-200 bg-amber-100 p-2.5 font-mono text-[11px] text-amber-950">
+									{`-- Overview metrics calculated live via MySQL ERP stored procedures
 -- Date Filters: from=${searchParams?.from || "NOT PROVIDED"}, to=${searchParams?.to || "NOT PROVIDED"}
 -- Division Selected: ${selectedDivision}
 -- Assigned Divisions: ${JSON.stringify(assignedDivisions)}
 -- Sales: rptItemCustomerSale => ${totalSales} units | ₹${totalInvoicesAmt.toFixed(2)}
 -- Outstanding: rptMRwisePeriodicalOutstanding => ₹${totalOutstandingAmt.toFixed(2)}`}
 								</pre>
-								<div className="mt-2 grid grid-cols-2 md:grid-cols-4 gap-2 text-[11px] text-amber-800 pt-1.5 border-t border-amber-200">
-									<div><span className="font-semibold">MR ID:</span> {mrId}</div>
-									<div><span className="font-semibold">MR Name:</span> {mrInfo.name || "N/A"}</div>
-									<div><span className="font-semibold">MR Company:</span> {mrInfo.company || "N/A"}</div>
-									<div><span className="font-semibold">LocNo:</span> {mrInfo.locNo || "11"}</div>
+								<div className="mt-2 grid grid-cols-2 gap-2 border-amber-200 border-t pt-1.5 text-[11px] text-amber-800 md:grid-cols-4">
+									<div>
+										<span className="font-semibold">MR ID:</span> {mrId}
+									</div>
+									<div>
+										<span className="font-semibold">MR Name:</span>{" "}
+										{mrInfo.name || "N/A"}
+									</div>
+									<div>
+										<span className="font-semibold">MR Company:</span>{" "}
+										{mrInfo.company || "N/A"}
+									</div>
+									<div>
+										<span className="font-semibold">LocNo:</span>{" "}
+										{mrInfo.locNo || "11"}
+									</div>
 								</div>
 							</div>
 						</div>
@@ -738,8 +772,6 @@ export async function MrDashboardContent({
 					<ProductReportView mrId={mrId} searchParams={searchParams} />
 				</div>
 			)}
-
-
 
 			{searchParams?.tab === "party" && canViewPartyWise && (
 				<div>

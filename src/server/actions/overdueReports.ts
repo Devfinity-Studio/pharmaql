@@ -40,7 +40,10 @@ export interface OverduePeriodicalOutstandingRow {
 	Division: string;
 }
 
-function formatDateToOdbc(dateStr?: string, defaultDate: string = "2026-04-01"): string {
+function formatDateToOdbc(
+	dateStr?: string,
+	defaultDate: string = "2026-04-01",
+): string {
 	if (!dateStr) return `{d '${defaultDate}'}`;
 	const trimmed = dateStr.trim();
 	if (trimmed.startsWith("{d") && trimmed.endsWith("}")) return trimmed;
@@ -53,7 +56,11 @@ function formatDateToOdbc(dateStr?: string, defaultDate: string = "2026-04-01"):
 }
 
 export type OverduePeriodicalOutstandingResult =
-	| { success: true; data: OverduePeriodicalOutstandingRow[]; debugSql?: string }
+	| {
+			success: true;
+			data: OverduePeriodicalOutstandingRow[];
+			debugSql?: string;
+	  }
 	| { success: false; error: string; data?: null; debugSql?: string };
 
 /**
@@ -87,9 +94,18 @@ export async function getMRwisePeriodicalOutstanding(params: {
 		const compNo = params.compNo ?? 11;
 		const locNo = Number(params.locNo) || 11;
 		const finYear = params.finYear ?? 202627;
-		const odbcFinYearStart = formatDateToOdbc(params.finYearStart || "2026-04-01", "2026-04-01");
-		const odbcFromDate = formatDateToOdbc(params.fromDate || "2026-09-01", "2026-09-01");
-		const odbcToDate = formatDateToOdbc(params.toDate || "2026-09-30", "2026-09-30");
+		const odbcFinYearStart = formatDateToOdbc(
+			params.finYearStart || "2026-04-01",
+			"2026-04-01",
+		);
+		const odbcFromDate = formatDateToOdbc(
+			params.fromDate || "2026-09-01",
+			"2026-09-01",
+		);
+		const odbcToDate = formatDateToOdbc(
+			params.toDate || "2026-09-30",
+			"2026-09-30",
+		);
 
 		const cityParam = params.city || "";
 		const areaParam = params.area || "";
@@ -101,7 +117,11 @@ export async function getMRwisePeriodicalOutstanding(params: {
 		const divIdsParam = params.divIds || "";
 
 		let mrIdParam = "";
-		if (params.mrId !== undefined && params.mrId !== null && String(params.mrId).trim()) {
+		if (
+			params.mrId !== undefined &&
+			params.mrId !== null &&
+			String(params.mrId).trim()
+		) {
 			const rawMr = String(params.mrId).trim();
 			if (rawMr.startsWith("(") && rawMr.endsWith(")")) {
 				mrIdParam = rawMr;
@@ -135,7 +155,9 @@ export async function getMRwisePeriodicalOutstanding(params: {
 		console.log("=======================================================\n");
 
 		const [res] = await conn.query(debugSql);
-		const rows = (Array.isArray(res) ? res[0] : res) as OverduePeriodicalOutstandingRow[];
+		const rows = (
+			Array.isArray(res) ? res[0] : res
+		) as OverduePeriodicalOutstandingRow[];
 
 		return { success: true, data: rows || [], debugSql };
 	} catch (error: any) {

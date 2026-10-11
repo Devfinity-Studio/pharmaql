@@ -121,15 +121,24 @@ export async function getPartyCustomerItemSale(params: {
 		debugSql = `CALL \`pdyasvtrans\`.\`rptCompanyCustomerItemwiseSales\`(${formattedParams})`;
 
 		console.log("\n=======================================================");
-		console.log("[DEBUG QUERY] Final SQL Query being executed (Party Wise):\n", debugSql);
+		console.log(
+			"[DEBUG QUERY] Final SQL Query being executed (Party Wise):\n",
+			debugSql,
+		);
 		console.log("=======================================================\n");
 
 		const [callRes] = await conn.query(debugSql);
-		const rows = (Array.isArray(callRes) ? callRes[0] : callRes) as PartyCustomerItemSaleRow[];
+		const rows = (
+			Array.isArray(callRes) ? callRes[0] : callRes
+		) as PartyCustomerItemSaleRow[];
 		return { success: true, data: rows || [], debugSql };
 	} catch (error: any) {
 		console.error("Failed to execute rptCompanyCustomerItemwiseSales:", error);
-		return { success: false, error: error.message || "Failed to load party sales", debugSql };
+		return {
+			success: false,
+			error: error.message || "Failed to load party sales",
+			debugSql,
+		};
 	} finally {
 		if (conn) conn.release();
 	}

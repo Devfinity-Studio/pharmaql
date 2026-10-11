@@ -1,8 +1,8 @@
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
-import { auth } from "@/server/auth";
-import { getAllMarketingCompaniesWithDivisions } from "@/server/actions/mrInfo";
 import { getCompanyOverrides } from "@/server/actions/companies";
+import { getAllMarketingCompaniesWithDivisions } from "@/server/actions/mrInfo";
+import { auth } from "@/server/auth";
 import ClientCompanyList from "./ClientCompanyList";
 
 export default async function AdminCompaniesPage() {
@@ -10,7 +10,10 @@ export default async function AdminCompaniesPage() {
 		headers: await headers(),
 	});
 
-	if (!session || (session.user.role !== "ADMIN" && session.user.role !== "DEVELOPER")) {
+	if (
+		!session ||
+		(session.user.role !== "ADMIN" && session.user.role !== "DEVELOPER")
+	) {
 		redirect("/login");
 	}
 
@@ -34,7 +37,8 @@ export default async function AdminCompaniesPage() {
 					Company Display Management
 				</h1>
 				<p className="mt-2 font-medium text-gray-500">
-					All active marketing companies and divisions loaded directly from legacy ERP master.
+					All active marketing companies and divisions loaded directly from
+					legacy ERP master.
 				</p>
 			</div>
 

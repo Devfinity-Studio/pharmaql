@@ -1,12 +1,12 @@
 import Image from "next/image";
 import React from "react";
-import { getMRInfo } from "@/server/actions/mrInfo";
 import {
 	getItemCustomerSale,
 	type ItemCustomerSaleResult,
 	type ItemCustomerSaleRow,
 } from "@/server/actions/customerItemSale";
 import { getProductCatalog } from "@/server/actions/itemCatalog";
+import { getMRInfo } from "@/server/actions/mrInfo";
 
 function formatDisplayDate(val?: string | Date | null): string {
 	if (!val) return "";
@@ -72,7 +72,8 @@ export async function ProductReportView({
 	const compCodeToQuery =
 		company === "All"
 			? mrInfo.companyCode || mrInfo.company || ""
-			: mrInfo.companyCode && (mrInfo.company === company || mrInfo.division === company)
+			: mrInfo.companyCode &&
+					(mrInfo.company === company || mrInfo.division === company)
 				? mrInfo.companyCode
 				: company;
 
@@ -97,7 +98,11 @@ export async function ProductReportView({
 	const toDisplay = formatDisplayDate(toParam);
 
 	// If procedure returned data, organize it into the exact PDF format
-	if (procSalesResult.success && procSalesResult.data && procSalesResult.data.length > 0) {
+	if (
+		procSalesResult.success &&
+		procSalesResult.data &&
+		procSalesResult.data.length > 0
+	) {
 		let rowsToProcess = procSalesResult.data;
 
 		if (searchParams?.q) {
@@ -142,7 +147,9 @@ export async function ProductReportView({
 				Number(row.Qty) < 0;
 
 			const seriesName = row.Series || row.DocType || "INV";
-			const targetMap = isSalesReturn ? group.returnsBySeries : group.salesBySeries;
+			const targetMap = isSalesReturn
+				? group.returnsBySeries
+				: group.salesBySeries;
 
 			const seriesList = targetMap.get(seriesName) || [];
 			seriesList.push(row);
@@ -185,16 +192,18 @@ export async function ProductReportView({
 			<div className="mt-4 space-y-4 rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
 				{/* DEBUG QUERY BANNER */}
 				{(searchParams?.debug === "1" || searchParams?.debug === "true") && (
-					<div className="rounded-xl border-2 border-amber-400 bg-amber-50 p-4 font-mono text-xs text-amber-950 shadow-sm print:hidden">
-						<div className="flex flex-wrap items-center justify-between gap-2 border-b border-amber-200 pb-2 mb-2 font-bold text-amber-900 text-xs">
+					<div className="rounded-xl border-2 border-amber-400 bg-amber-50 p-4 font-mono text-amber-950 text-xs shadow-sm print:hidden">
+						<div className="mb-2 flex flex-wrap items-center justify-between gap-2 border-amber-200 border-b pb-2 font-bold text-amber-900 text-xs">
 							<span>[DEBUG QUERY] Stored Procedure Execution Status</span>
-							<span className="rounded bg-amber-200 px-2 py-0.5 text-[11px] font-semibold">
+							<span className="rounded bg-amber-200 px-2 py-0.5 font-semibold text-[11px]">
 								{procSalesResult.data.length} rows returned
 							</span>
 						</div>
 						<div className="space-y-1.5">
-							<p className="font-bold text-amber-900 text-[11px]">Final SQL Query being run:</p>
-							<pre className="overflow-x-auto rounded border border-amber-200 bg-amber-100 p-2.5 text-[11px] font-mono select-all whitespace-pre-wrap break-all text-amber-950">
+							<p className="font-bold text-[11px] text-amber-900">
+								Final SQL Query being run:
+							</p>
+							<pre className="select-all overflow-x-auto whitespace-pre-wrap break-all rounded border border-amber-200 bg-amber-100 p-2.5 font-mono text-[11px] text-amber-950">
 								{procSalesResult.debugSql}
 							</pre>
 						</div>
@@ -202,42 +211,44 @@ export async function ProductReportView({
 				)}
 
 				{/* HEADER */}
-				<div className="border-b-2 border-gray-900 pb-2">
+				<div className="border-gray-900 border-b-2 pb-2">
 					<div className="flex items-start gap-4">
 						<Image
-							src="/logo.png"
 							alt="Asmee Pharma Logo"
-							width={140}
-							height={45}
 							className="object-contain"
+							height={45}
 							priority
+							src="/logo.png"
+							width={140}
 						/>
 						<div>
-							<h2 className="font-extrabold text-base tracking-tight text-gray-900 uppercase">
+							<h2 className="font-extrabold text-base text-gray-900 uppercase tracking-tight">
 								ASMEE PHARMA PRIVATE LIMITED
 							</h2>
-							<p className="mt-0.5 text-[11px] leading-tight text-gray-700">
-								BASEMENE-GF, 11/2 ASHOK HOUSE, B/S SANSTHA VASAHAT GATE, PRATAP ROAD,
+							<p className="mt-0.5 text-[11px] text-gray-700 leading-tight">
+								BASEMENE-GF, 11/2 ASHOK HOUSE, B/S SANSTHA VASAHAT GATE, PRATAP
+								ROAD,
 								<br />
 								RAOPURA, VADODARA - 390001, GUJARAT - 24
 							</p>
 						</div>
 					</div>
 
-					<div className="mt-3 flex items-center justify-between border-t border-gray-300 pt-1.5 text-xs font-bold text-gray-900">
+					<div className="mt-3 flex items-center justify-between border-gray-300 border-t pt-1.5 font-bold text-gray-900 text-xs">
 						<div>Year : 2026-27</div>
-						<div className="text-center font-extrabold text-xs text-[#0B2545]">
-							Itemwise/Customerwise Sales for Period of {fromDisplay} to {toDisplay}
+						<div className="text-center font-extrabold text-[#0B2545] text-xs">
+							Itemwise/Customerwise Sales for Period of {fromDisplay} to{" "}
+							{toDisplay}
 						</div>
 						<div>Total Items: {productGroups.length}</div>
 					</div>
 				</div>
 
 				{/* REPORT TABLE */}
-				<div className="w-full overflow-x-auto border-t-2 border-gray-900 pt-1">
+				<div className="w-full overflow-x-auto border-gray-900 border-t-2 pt-1">
 					<table className="w-full min-w-[1100px] border-collapse text-left font-sans text-xs">
 						<thead>
-							<tr className="border-y-2 border-gray-900 bg-gray-50 text-[11px] uppercase tracking-wider text-gray-800">
+							<tr className="border-gray-900 border-y-2 bg-gray-50 text-[11px] text-gray-800 uppercase tracking-wider">
 								<th className="py-2 pl-2 font-bold">Party / City</th>
 								<th className="py-2 font-bold">Address</th>
 								<th className="py-2 font-bold">Doc No</th>
@@ -257,37 +268,63 @@ export async function ProductReportView({
 							{productGroups.map((group, pIdx) => (
 								<React.Fragment key={pIdx}>
 									<tr className="bg-blue-50/70 font-bold text-blue-900">
-										<td colSpan={13} className="py-2 pl-2">
+										<td className="py-2 pl-2" colSpan={13}>
 											{group.name} [{group.code}] - Packing: {group.packing}
 										</td>
 									</tr>
-									{Array.from(group.salesBySeries.entries()).map(([series, items]) =>
-										items.map((row, rIdx) => (
-											<tr key={`${pIdx}-${series}-${rIdx}`} className="hover:bg-gray-50">
-												<td className="py-1 pl-2 font-medium">{row.Customer}</td>
-												<td className="py-1 text-gray-500">{row.Address || row.City || "-"}</td>
-												<td className="py-1">{row.InvNo}</td>
-												<td className="py-1">{formatDisplayDate(row.InvDt)}</td>
-												<td className="py-1">{row.BatchNo}</td>
-												<td className="py-1">{formatExpDate(row.ExpDt)}</td>
-												<td className="py-1 text-right">{Number(row.PTR || 0).toFixed(2)}</td>
-												<td className="py-1 text-right">{Number(row.Srate || 0).toFixed(2)}</td>
-												<td className="py-1 text-right font-semibold text-blue-700">{row.Qty}</td>
-												<td className="py-1 text-right">{row.FQty || ""}</td>
-												<td className="py-1 text-right">{Number(row.IAmt || 0).toFixed(2)}</td>
-												<td className="py-1 text-right">-</td>
-												<td className="py-1 text-right font-bold text-gray-900">{Number(row.IAmt || 0).toFixed(2)}</td>
-											</tr>
-										))
+									{Array.from(group.salesBySeries.entries()).map(
+										([series, items]) =>
+											items.map((row, rIdx) => (
+												<tr
+													className="hover:bg-gray-50"
+													key={`${pIdx}-${series}-${rIdx}`}
+												>
+													<td className="py-1 pl-2 font-medium">
+														{row.Customer}
+													</td>
+													<td className="py-1 text-gray-500">
+														{row.Address || row.City || "-"}
+													</td>
+													<td className="py-1">{row.InvNo}</td>
+													<td className="py-1">
+														{formatDisplayDate(row.InvDt)}
+													</td>
+													<td className="py-1">{row.BatchNo}</td>
+													<td className="py-1">{formatExpDate(row.ExpDt)}</td>
+													<td className="py-1 text-right">
+														{Number(row.PTR || 0).toFixed(2)}
+													</td>
+													<td className="py-1 text-right">
+														{Number(row.Srate || 0).toFixed(2)}
+													</td>
+													<td className="py-1 text-right font-semibold text-blue-700">
+														{row.Qty}
+													</td>
+													<td className="py-1 text-right">{row.FQty || ""}</td>
+													<td className="py-1 text-right">
+														{Number(row.IAmt || 0).toFixed(2)}
+													</td>
+													<td className="py-1 text-right">-</td>
+													<td className="py-1 text-right font-bold text-gray-900">
+														{Number(row.IAmt || 0).toFixed(2)}
+													</td>
+												</tr>
+											)),
 									)}
 								</React.Fragment>
 							))}
-							<tr className="border-t-2 border-b-2 border-gray-900 bg-gray-100 font-extrabold">
-								<td colSpan={8} className="py-2.5 pl-2">Grand Total Sales:</td>
-								<td className="py-2.5 text-right text-blue-800">{grandSalesQty}</td>
+							<tr className="border-gray-900 border-t-2 border-b-2 bg-gray-100 font-extrabold">
+								<td className="py-2.5 pl-2" colSpan={8}>
+									Grand Total Sales:
+								</td>
+								<td className="py-2.5 text-right text-blue-800">
+									{grandSalesQty}
+								</td>
 								<td className="py-2.5 text-right">{grandSalesFree || ""}</td>
 								<td colSpan={2}></td>
-								<td className="py-2.5 text-right text-blue-800">{grandSalesAmount.toFixed(2)}</td>
+								<td className="py-2.5 text-right text-blue-800">
+									{grandSalesAmount.toFixed(2)}
+								</td>
 							</tr>
 						</tbody>
 					</table>
@@ -301,7 +338,8 @@ export async function ProductReportView({
 		mktBy: compCodeToQuery || undefined,
 	});
 
-	let catalogItems = (catalogResult.success && catalogResult.data ? catalogResult.data : []);
+	let catalogItems =
+		catalogResult.success && catalogResult.data ? catalogResult.data : [];
 	if (searchParams?.q) {
 		const q = searchParams.q.toLowerCase();
 		catalogItems = catalogItems.filter(
@@ -314,31 +352,32 @@ export async function ProductReportView({
 
 	return (
 		<div className="mt-4 space-y-4 rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
-			<div className="border-b-2 border-gray-900 pb-2">
+			<div className="border-gray-900 border-b-2 pb-2">
 				<div className="flex items-start gap-4">
 					<Image
-						src="/logo.png"
 						alt="Asmee Pharma Logo"
-						width={140}
-						height={45}
 						className="object-contain"
+						height={45}
 						priority
+						src="/logo.png"
+						width={140}
 					/>
 					<div>
-						<h2 className="font-extrabold text-base tracking-tight text-gray-900 uppercase">
+						<h2 className="font-extrabold text-base text-gray-900 uppercase tracking-tight">
 							ASMEE PHARMA PRIVATE LIMITED
 						</h2>
-						<p className="mt-0.5 text-[11px] leading-tight text-gray-700">
-							Product Catalog (Legacy Master) - Total Products: {catalogItems.length}
+						<p className="mt-0.5 text-[11px] text-gray-700 leading-tight">
+							Product Catalog (Legacy Master) - Total Products:{" "}
+							{catalogItems.length}
 						</p>
 					</div>
 				</div>
 			</div>
 
-			<div className="w-full overflow-x-auto border-t border-gray-300 pt-2">
+			<div className="w-full overflow-x-auto border-gray-300 border-t pt-2">
 				<table className="w-full min-w-[800px] border-collapse text-left font-sans text-xs">
 					<thead>
-						<tr className="border-y-2 border-gray-900 bg-gray-50">
+						<tr className="border-gray-900 border-y-2 bg-gray-50">
 							<th className="py-2 pl-2 font-bold text-gray-900">Item Code</th>
 							<th className="py-2 font-bold text-gray-900">Product Name</th>
 							<th className="py-2 font-bold text-gray-900">Packing</th>
@@ -349,15 +388,25 @@ export async function ProductReportView({
 					<tbody>
 						{catalogItems.length === 0 ? (
 							<tr>
-								<td colSpan={5} className="py-6 text-center text-gray-500 font-medium">
+								<td
+									className="py-6 text-center font-medium text-gray-500"
+									colSpan={5}
+								>
 									No products found.
 								</td>
 							</tr>
 						) : (
 							catalogItems.map((item, idx: number) => (
-								<tr key={idx} className="border-b border-gray-100 hover:bg-gray-50">
-									<td className="py-1.5 pl-2 font-mono text-gray-600">{item.ItemCode}</td>
-									<td className="py-1.5 font-bold text-gray-900">{item.ItemName}</td>
+								<tr
+									className="border-gray-100 border-b hover:bg-gray-50"
+									key={idx}
+								>
+									<td className="py-1.5 pl-2 font-mono text-gray-600">
+										{item.ItemCode}
+									</td>
+									<td className="py-1.5 font-bold text-gray-900">
+										{item.ItemName}
+									</td>
 									<td className="py-1.5 text-gray-600">{item.Packing}</td>
 									<td className="py-1.5 text-gray-600">{item.Division}</td>
 									<td className="py-1.5 text-gray-600">{item.MktBy}</td>

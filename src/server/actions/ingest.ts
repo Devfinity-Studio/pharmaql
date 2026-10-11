@@ -9,12 +9,16 @@ export async function ingestCSV(_formData: FormData) {
 		headers: await headers(),
 	});
 
-	if (!session || (session.user.role !== "ADMIN" && session.user.role !== "DEVELOPER")) {
+	if (
+		!session ||
+		(session.user.role !== "ADMIN" && session.user.role !== "DEVELOPER")
+	) {
 		return { success: false, error: "Unauthorized. Admin access required." };
 	}
 
 	return {
 		success: true,
-		message: "Live synchronization active: PharmaQL queries local MySQL ERP directly.",
+		message:
+			"Live synchronization active: PharmaQL queries local MySQL ERP directly.",
 	};
 }
