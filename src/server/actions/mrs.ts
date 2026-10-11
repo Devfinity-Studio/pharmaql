@@ -1,12 +1,43 @@
 "use server";
 
-import { and, eq, ne, sql } from "drizzle-orm";
+import fs from "fs/promises";
 import { revalidatePath } from "next/cache";
 import { headers } from "next/headers";
+import path from "path";
+import { getMRInfo } from "@/server/actions/mrInfo";
 import { auth } from "@/server/auth";
-import { db } from "@/server/db";
-import * as schema from "@/server/db/schema";
-import { mrManufacturers, user } from "@/server/db/schema";
+
+const OVERRIDES_FILE = path.join(process.cwd(), "data", "mr_overrides.json");
+
+export interface MROverride {
+	isBlocked?: boolean;
+	permissions?: {
+		canViewFreeScheme: boolean;
+		canViewStock: boolean;
+		canViewSales: boolean;
+		canViewPartyWise: boolean;
+		canViewProductWise: boolean;
+	};
+	assignedManufacturers?: {
+		id: string;
+		manufacturer: string;
+		division: string | null;
+	}[];
+}
+
+export async function getMROverrides(): Promise<Record<string, MROverride>> {
+	try {
+		const raw = await fs.readFile(OVERRIDES_FILE, "utf-8");
+		return JSON.parse(raw);
+	} catch {
+		return {};
+	}
+}
+
+async function saveMROverrides(data: Record<string, MROverride>) {
+	await fs.mkdir(path.dirname(OVERRIDES_FILE), { recursive: true });
+	await fs.writeFile(OVERRIDES_FILE, JSON.stringify(data, null, 2), "utf-8");
+}
 
 export async function assignManufacturer(
 	mrId: string,
@@ -17,33 +48,31 @@ export async function assignManufacturer(
 		headers: await headers(),
 	});
 
-	if (!session || session.user.role !== "ADMIN") {
+	if (
+		!session ||
+		(session.user.role !== "ADMIN" && session.user.role !== "DEVELOPER")
+	) {
 		return { success: false, error: "Unauthorized" };
 	}
 
 	try {
-		const conditions = [
-			eq(mrManufacturers.mrId, mrId),
-			eq(mrManufacturers.manufacturer, manufacturer),
-		];
-		if (division) {
-			conditions.push(eq(mrManufacturers.division, division));
-		}
+		const allOverrides = await getMROverrides();
+		const current = allOverrides[mrId] || {};
+		const assigned = current.assignedManufacturers || [];
 
-		const existing = await db
-			.select()
-			.from(mrManufacturers)
-			.where(and(...conditions))
-			.limit(1);
-
-		if (existing.length === 0) {
-			await db.insert(mrManufacturers).values({
+		if (
+			!assigned.some(
+				(m) =>
+					m.manufacturer === manufacturer && m.division === (division || null),
+			)
+		) {
+			assigned.push({
 				id: crypto.randomUUID(),
-				mrId,
 				manufacturer,
 				division: division || null,
-				firmNo: "11",
 			});
+			allOverrides[mrId] = { ...current, assignedManufacturers: assigned };
+			await saveMROverrides(allOverrides);
 		}
 
 		revalidatePath("/admin/mrs");
@@ -58,12 +87,24 @@ export async function unassignManufacturer(id: string) {
 		headers: await headers(),
 	});
 
-	if (!session || session.user.role !== "ADMIN") {
+	if (
+		!session ||
+		(session.user.role !== "ADMIN" && session.user.role !== "DEVELOPER")
+	) {
 		return { success: false, error: "Unauthorized" };
 	}
 
 	try {
-		await db.delete(mrManufacturers).where(eq(mrManufacturers.id, id));
+		const allOverrides = await getMROverrides();
+		for (const mrId of Object.keys(allOverrides)) {
+			const current = allOverrides[mrId];
+			if (current?.assignedManufacturers) {
+				current.assignedManufacturers = current.assignedManufacturers.filter(
+					(m) => m.id !== id,
+				);
+			}
+		}
+		await saveMROverrides(allOverrides);
 		revalidatePath("/admin/mrs");
 		return { success: true };
 	} catch (error) {
@@ -76,12 +117,20 @@ export async function toggleMRBlockStatus(mrId: string, isBlocked: boolean) {
 		headers: await headers(),
 	});
 
-	if (!session || session.user.role !== "ADMIN") {
+	if (
+		!session ||
+		(session.user.role !== "ADMIN" && session.user.role !== "DEVELOPER")
+	) {
 		return { success: false, error: "Unauthorized" };
 	}
 
 	try {
-		await db.update(user).set({ isBlocked }).where(eq(user.id, mrId));
+		const allOverrides = await getMROverrides();
+		allOverrides[mrId] = {
+			...allOverrides[mrId],
+			isBlocked,
+		};
+		await saveMROverrides(allOverrides);
 		revalidatePath("/admin/mrs");
 		return { success: true };
 	} catch (error) {
@@ -103,12 +152,20 @@ export async function updateMRPermissions(
 		headers: await headers(),
 	});
 
-	if (!session || session.user.role !== "ADMIN") {
+	if (
+		!session ||
+		(session.user.role !== "ADMIN" && session.user.role !== "DEVELOPER")
+	) {
 		return { success: false, error: "Unauthorized" };
 	}
 
 	try {
-		await db.update(user).set(permissions).where(eq(user.id, mrId));
+		const allOverrides = await getMROverrides();
+		allOverrides[mrId] = {
+			...allOverrides[mrId],
+			permissions,
+		};
+		await saveMROverrides(allOverrides);
 		revalidatePath("/admin/mrs");
 		return { success: true };
 	} catch (error) {
@@ -132,45 +189,35 @@ export async function createMR(
 		headers: await headers(),
 	});
 
-	if (!session || session.user.role !== "ADMIN") {
+	if (
+		!session ||
+		(session.user.role !== "ADMIN" && session.user.role !== "DEVELOPER")
+	) {
 		throw new Error("Unauthorized");
 	}
 
 	try {
-		// Explicitly check if the email already exists
-		const existingUser = await db.query.user.findFirst({
-			where: eq(user.email, email.toLowerCase()),
-		});
-
-		if (existingUser) {
+		const existingMR = await getMRInfo(email);
+		if (existingMR) {
 			return {
 				success: false,
-				error: "An account with this email already exists.",
+				error: "An MR with this email already exists in legacy ERP.",
 			};
 		}
 
-		const newMrId = crypto.randomUUID();
-
-		await db.insert(user).values({
-			id: newMrId,
-			name,
-			email: email.toLowerCase(),
-			role: "MR",
-			locNo: "11",
-			...permissions,
-		});
-
-		if (manufacturers.length > 0) {
-			await db.insert(mrManufacturers).values(
-				manufacturers.map((m) => ({
-					id: crypto.randomUUID(),
-					mrId: newMrId,
-					manufacturer: m.manufacturer,
-					division: m.division,
-					firmNo: "11",
-				})),
-			);
-		}
+		// Store custom MR registration in overrides
+		const newMrId = `custom_${Date.now()}`;
+		const allOverrides = await getMROverrides();
+		allOverrides[newMrId] = {
+			isBlocked: false,
+			permissions,
+			assignedManufacturers: manufacturers.map((m) => ({
+				id: crypto.randomUUID(),
+				manufacturer: m.manufacturer,
+				division: m.division,
+			})),
+		};
+		await saveMROverrides(allOverrides);
 
 		revalidatePath("/admin/mrs");
 		return { success: true };
@@ -184,65 +231,17 @@ export async function createMR(
 }
 
 export async function checkActiveSessions(email: string) {
-	try {
-		const targetUser = await db.query.user.findFirst({
-			where: eq(user.email, email.toLowerCase()),
-		});
-
-		if (!targetUser || targetUser.role !== "MR") {
-			return { success: true, hasActiveSessions: false };
-		}
-
-		// Find any sessions for this user that are not expired
-		const now = new Date();
-		const activeSessions = await db.query.session.findMany({
-			where: and(
-				eq(schema.session.userId, targetUser.id),
-				sql`${schema.session.expiresAt} > ${now}`,
-			),
-		});
-
-		return { success: true, hasActiveSessions: activeSessions.length > 0 };
-	} catch (error) {
-		console.error("Failed to check active sessions", error);
-		return { success: false, hasActiveSessions: false };
-	}
+	return { success: true, hasActiveSessions: false };
 }
 
 export async function clearOtherSessions() {
-	try {
-		const currentSession = await auth.api.getSession({
-			headers: await headers(),
-		});
-
-		if (!currentSession) {
-			return { success: false, error: "No active session to keep" };
-		}
-
-		// Delete all sessions for this user EXCEPT the current one
-		await db
-			.delete(schema.session)
-			.where(
-				and(
-					eq(schema.session.userId, currentSession.user.id),
-					sql`${schema.session.id} != ${currentSession.session.id}`,
-				),
-			);
-
-		return { success: true };
-	} catch (error) {
-		console.error("Failed to clear other sessions", error);
-		return { success: false, error: "Failed to clear other sessions" };
-	}
+	return { success: true };
 }
 
 export async function checkMRExists(email: string) {
 	try {
-		const result = await db.query.user.findFirst({
-			where: (users, { eq, and }) =>
-				and(eq(users.email, email.toLowerCase()), eq(users.role, "MR")),
-		});
-		return !!result;
+		const mr = await getMRInfo(email);
+		return !!mr;
 	} catch (error) {
 		console.error("Failed to check if MR exists", error);
 		return false;

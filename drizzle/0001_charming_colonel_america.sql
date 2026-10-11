@@ -1,1 +1,0 @@
-ALTER TABLE "pg-drizzle_product" ADD COLUMN "ingredients" text;

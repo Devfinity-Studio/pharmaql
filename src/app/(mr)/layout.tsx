@@ -90,7 +90,10 @@ export default async function MRLayout({ children }: { children: ReactNode }) {
 					</div>
 					<LogoutButton className="w-full rounded-lg border-2 border-red-200 bg-white px-4 py-2.5 text-center font-bold text-red-600 transition-colors hover:bg-red-50" />
 					<div className="mt-2 text-center text-[10px] text-gray-400">
-						<p>© {new Date().getFullYear()} Asmee Pharma Pvt. Ltd. All rights reserved.</p>
+						<p>
+							© {new Date().getFullYear()} Asmee Pharma Pvt. Ltd. All rights
+							reserved.
+						</p>
 						<p className="mt-1 flex items-center justify-center gap-1">
 							Made with{" "}
 							<span className="cursor-pointer text-red-500 transition-transform duration-200 hover:scale-125">

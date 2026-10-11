@@ -12,7 +12,9 @@ export function OutstandingDownloadButtons({ mrId }: { mrId: string }) {
 	const party = searchParams.get("party") || "";
 
 	const [isOpen, setIsOpen] = useState(false);
-	const [format, setFormat] = useState<"csv" | "excel" | "pdf" | "print">("csv");
+	const [format, setFormat] = useState<"csv" | "excel" | "pdf" | "print">(
+		"csv",
+	);
 	const [from, setFrom] = useState(defaultFrom);
 	const [to, setTo] = useState(defaultTo);
 	const [isDownloading, setIsDownloading] = useState(false);
@@ -41,7 +43,7 @@ export function OutstandingDownloadButtons({ mrId }: { mrId: string }) {
 				);
 				if (!res.ok) throw new Error("Failed to fetch data");
 				const serverDateStr = res.headers.get("date") || undefined;
-        const data = await res.json();
+				const data = await res.json();
 
 				// Filter by party if specified
 				const filteredData = party
@@ -79,7 +81,7 @@ export function OutstandingDownloadButtons({ mrId }: { mrId: string }) {
 					mrName,
 					from,
 					to,
-					serverDateStr
+					serverDateStr,
 				);
 			} catch (e) {
 				console.error(e);

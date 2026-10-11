@@ -1,12 +1,10 @@
-import { eq } from "drizzle-orm";
 import { headers } from "next/headers";
 import { notFound, redirect } from "next/navigation";
-import { MrDashboardContent } from "@/components/mr-dashboard-content";
-import { auth } from "@/server/auth";
-import { db } from "@/server/db";
-import { user } from "@/server/db/schema";
 import { Suspense } from "react";
-import { TableSkeleton } from "@/components/ui/table-skeleton";
+import { DashboardSkeleton } from "@/components/dashboard-skeleton";
+import { MrDashboardContent } from "@/components/mr-dashboard-content";
+import { getMRInfo } from "@/server/actions/mrInfo";
+import { auth } from "@/server/auth";
 
 export default async function AdminMRViewPage({
 	params,
@@ -33,12 +31,6 @@ export default async function AdminMRViewPage({
 
 	const { id } = await params;
 	const decodedId = decodeURIComponent(id);
-	console.log(
-		"[DEBUG] Admin MR View page: id = ",
-		id,
-		"decodedId = ",
-		decodedId,
-	);
 	const awaitedParams = await searchParams;
 	const cleanParams: Record<string, string> = {};
 	for (const [key, value] of Object.entries(awaitedParams)) {
@@ -47,18 +39,16 @@ export default async function AdminMRViewPage({
 		}
 	}
 
-	const mrArr = await db
-		.select()
-		.from(user)
-		.where(eq(user.id, decodedId))
-		.limit(1);
-	console.log("[DEBUG] Query result for decodedId = ", decodedId, ":", mrArr);
-	if (mrArr.length === 0) {
+	const mrInfo = await getMRInfo(decodedId);
+	if (!mrInfo) {
 		notFound();
 	}
 
 	return (
-		<Suspense key={JSON.stringify(cleanParams)} fallback={<div className="p-4"><TableSkeleton rows={10} columns={5} /></div>}>
+		<Suspense
+			fallback={<DashboardSkeleton />}
+			key={JSON.stringify(cleanParams)}
+		>
 			<MrDashboardContent
 				isAdminView={true}
 				mrId={decodedId}

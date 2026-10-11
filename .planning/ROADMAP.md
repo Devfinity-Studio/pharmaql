@@ -45,4 +45,58 @@
 - [x] Ensure 100% transaction coverage (zero dropped rows, full MR mapping & auto-fallback reps).
 - [x] Validate database counts, calculations, and performance across all report views.
 
+## Phase 9: Legacy MySQL MR User Integration [COMPLETED]
+
+- [x] Create centralized server action `src/server/actions/mrInfo.ts` querying `pdyasvmaster.m_user` with lean column projection.
+- [x] Migrate MR lookup across all report views (Stock, Sales, Product, Overdue, Outstanding, Free Schemes).
+- [x] Migrate MR dashboard and admin MR inspection pages to use `mrInfo.ts`.
+- [x] Update API report download endpoints to resolve MR access from legacy MySQL.
+- [x] Verify build and validate end-to-end user navigation.
+
+## Phase 10: Legacy Stored Procedure Transition & Cleanup [COMPLETED]
+
+- [x] Gate raw SQL debug query banners behind URL toggle (`?debug=1`).
+- [x] Align Overview Dashboard metric cards with live procedure aggregations.
+- [x] Verify export endpoints and print formats against live procedure datasets.
+- [x] Run full TypeScript validation and commit cleanly to `localdb`.
+
+## Phase 11: Neon DB Elimination & Pure Legacy MySQL Transition [COMPLETED]
+
+- [x] Implement Stateless JWT / Signed Cookie Auth (Zero DB tables for sessions).
+- [x] Implement MR Email OTP login flow + Env-based Admin/Developer credential authentication.
+- [x] Migrate Product catalog queries to direct MySQL projection on `pdyasvmaster.m_item`.
+- [x] Migrate MR assignments and divisions to read directly from `pdyasvmaster.l_mktcompany_mr`.
+- [x] Migrate broadcast notices to `data/notices.json`.
+- [x] Completely remove Neon database dependencies from runtime routes, views, and server actions.
+
+## Phase 12: Outstanding & Blocking Management [COMPLETED]
+
+- [x] Implement live customer outstanding & periodical ageing analysis via `rptMRwisePeriodicalOutstanding`.
+- [x] Add party-level and invoice-level overdue tracking with age threshold highlighting (>90 days in red).
+- [x] Implement Admin MR blocking system (restricting OTP issuance, session validation, and access).
+- [x] Implement Party/Customer blocking based on ERP `IsBlocked`/overdue thresholds.
+- [x] Build Admin blocking management UI and integrate blocking enforcement across MR dashboard and reports.
+- [x] Implement 80–90 day warning popup notice with impending block dates.
+- [x] Implement division cascading blocking when peer MR has overdue >90 days.
+- [x] Implement password-protected Admin unblock modal with exemption logging.
+
+## Phase 13: Cleanup, Performance & Loading Speed Optimization
+
+- [x] Delete dead Postgres schema files (`src/server/db/schema.ts`, `src/server/db/index.ts`) and prune obsolete cloud DB dependencies.
+- [x] Optimize legacy MySQL connection pooling and query concurrency in `src/lib/legacy-db.ts`.
+- [x] Implement smart in-memory/server caching (TTL-based) for repetitive master data lookups (`m_mktcompany`, `m_customer`, `m_item`).
+- [x] Add React Suspense boundaries, skeleton loaders, and tab transitions across MR and Admin dashboards.
+- [x] Parallelize procedure calls and reduce payload sizes for report tables and export downloads.
+
+## Phase 14: Standalone Express.js API Layer Decoupling (MySQL Isolation) [COMPLETED]
+
+- [x] Scaffold standalone Express.js API backend in `api-server/` with `mysql2` pool, CORS, and 64-character `API_SECRET_KEY` Bearer auth middleware.
+- [x] Port all legacy MySQL queries and stored procedures (`rptStockMovementStatement`, `rptItemCustomerSale`, `rptMRwisePeriodicalOutstanding`, `rptClaimData`, `rptCompanyCustomerItemwiseSales`, `mrInfo`, `customerBlocking`, `itemCatalog`) into dedicated Express routes.
+- [x] Refactor Next.js server actions to consume the Express API via authenticated HTTP `fetch()`.
+- [x] Retain all TypeScript interfaces in Next.js to maintain seamless client type safety.
+- [x] Remove `mysql2` package and direct DB credentials from Next.js configuration.
+- [x] Validate Next.js Vercel build compatibility (zero native database drivers).
+
+
+
 

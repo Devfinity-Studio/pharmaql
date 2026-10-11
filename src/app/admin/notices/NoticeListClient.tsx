@@ -1,13 +1,27 @@
 "use client";
 
 import { useState } from "react";
-import { saveNotice, deleteNotice, activateNotice, deactivateNotice } from "@/server/actions/notices";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import {
+	Dialog,
+	DialogContent,
+	DialogHeader,
+	DialogTitle,
+} from "@/components/ui/dialog";
 import { Switch } from "@/components/ui/switch";
+import {
+	activateNotice,
+	deactivateNotice,
+	deleteNotice,
+	saveNotice,
+} from "@/server/actions/notices";
 
-export default function NoticeListClient({ initialNotices }: { initialNotices: any[] }) {
+export default function NoticeListClient({
+	initialNotices,
+}: {
+	initialNotices: any[];
+}) {
 	const [notices, setNotices] = useState(initialNotices);
-	
+
 	// Create/Edit Modal
 	const [isEditModalOpen, setIsEditModalOpen] = useState(false);
 	const [editId, setEditId] = useState<string | null>(null);
@@ -19,7 +33,9 @@ export default function NoticeListClient({ initialNotices }: { initialNotices: a
 	// Activate Modal
 	const [isActivateModalOpen, setIsActivateModalOpen] = useState(false);
 	const [activateId, setActivateId] = useState<string | null>(null);
-	const [durationMode, setDurationMode] = useState<"indefinite" | "days" | "date">("indefinite");
+	const [durationMode, setDurationMode] = useState<
+		"indefinite" | "days" | "date"
+	>("indefinite");
 	const [days, setDays] = useState(1);
 	const [endDate, setEndDate] = useState("");
 	const [isActivating, setIsActivating] = useState(false);
@@ -70,7 +86,9 @@ export default function NoticeListClient({ initialNotices }: { initialNotices: a
 	const toggleActive = async (notice: any) => {
 		if (notice.isActive) {
 			// Deactivate
-			if (confirm("Deactivate this notice? It will no longer be shown to MRs.")) {
+			if (
+				confirm("Deactivate this notice? It will no longer be shown to MRs.")
+			) {
 				await deactivateNotice(notice.id);
 				window.location.reload();
 			}
@@ -85,7 +103,7 @@ export default function NoticeListClient({ initialNotices }: { initialNotices: a
 	const handleActivateSubmit = async () => {
 		if (!activateId) return;
 		setIsActivating(true);
-		
+
 		let expiresAt: Date | null = null;
 		if (durationMode === "days") {
 			expiresAt = new Date();
@@ -102,7 +120,7 @@ export default function NoticeListClient({ initialNotices }: { initialNotices: a
 		try {
 			await activateNotice(activateId, expiresAt);
 			window.location.reload();
-		} catch(e) {
+		} catch (e) {
 			console.error(e);
 			alert("Failed to activate notice.");
 			setIsActivating(false);
@@ -113,57 +131,80 @@ export default function NoticeListClient({ initialNotices }: { initialNotices: a
 		<div className="space-y-6">
 			<div className="flex justify-end">
 				<button
+					className="rounded-lg bg-[#0B2545] px-4 py-2 font-bold text-white shadow-sm transition-colors hover:bg-[#0071BC]"
 					onClick={() => openEditModal()}
-					className="bg-[#0B2545] text-white px-4 py-2 rounded-lg font-bold hover:bg-[#0071BC] transition-colors shadow-sm"
 				>
 					+ New Notice
 				</button>
 			</div>
 
-			<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+			<div className="grid grid-cols-1 gap-4 md:grid-cols-2">
 				{notices.map((notice) => {
-					const isExpired = notice.expiresAt && new Date(notice.expiresAt) < new Date();
+					const isExpired =
+						notice.expiresAt && new Date(notice.expiresAt) < new Date();
 					const isActiveAndValid = notice.isActive && !isExpired;
 
 					return (
-						<div key={notice.id} className={`bg-white p-5 rounded-xl border ${isActiveAndValid ? 'border-green-400 ring-2 ring-green-100' : 'border-gray-200'} shadow-sm relative overflow-hidden`}>
-							<div className={`absolute top-0 left-0 w-full h-2 ${
-								notice.variant === 'warning' ? 'bg-yellow-400' :
-								notice.variant === 'danger' ? 'bg-red-500' :
-								notice.variant === 'success' ? 'bg-green-500' :
-								notice.variant === 'festive' ? 'bg-fuchsia-500' :
-								'bg-blue-500'
-							}`} />
-							
-							<div className="flex justify-between items-start mt-2">
-								<h3 className="font-bold text-lg text-gray-800">{notice.title}</h3>
-								
+						<div
+							className={`rounded-xl border bg-white p-5 ${isActiveAndValid ? "border-green-400 ring-2 ring-green-100" : "border-gray-200"} relative overflow-hidden shadow-sm`}
+							key={notice.id}
+						>
+							<div
+								className={`absolute top-0 left-0 h-2 w-full ${
+									notice.variant === "warning"
+										? "bg-yellow-400"
+										: notice.variant === "danger"
+											? "bg-red-500"
+											: notice.variant === "success"
+												? "bg-green-500"
+												: notice.variant === "festive"
+													? "bg-fuchsia-500"
+													: "bg-blue-500"
+								}`}
+							/>
+
+							<div className="mt-2 flex items-start justify-between">
+								<h3 className="font-bold text-gray-800 text-lg">
+									{notice.title}
+								</h3>
+
 								<div className="flex items-center gap-2">
 									{isExpired && notice.isActive && (
-										<span className="text-xs font-bold text-red-500 bg-red-50 px-2 py-1 rounded">Expired</span>
+										<span className="rounded bg-red-50 px-2 py-1 font-bold text-red-500 text-xs">
+											Expired
+										</span>
 									)}
-									<span className="text-sm font-medium text-gray-600">Active?</span>
+									<span className="font-medium text-gray-600 text-sm">
+										Active?
+									</span>
 									<Switch
 										checked={notice.isActive}
 										onCheckedChange={() => toggleActive(notice)}
 									/>
 								</div>
 							</div>
-							
-							<p className="text-xs text-gray-400 mt-1">
+
+							<p className="mt-1 text-gray-400 text-xs">
 								Variant: <span className="capitalize">{notice.variant}</span>
-								{notice.expiresAt && ` | Expires: ${new Date(notice.expiresAt).toLocaleDateString()}`}
+								{notice.expiresAt &&
+									` | Expires: ${new Date(notice.expiresAt).toLocaleDateString()}`}
 							</p>
-							
-							<div className="mt-4 text-gray-700 text-sm whitespace-pre-wrap line-clamp-3">
+
+							<div className="mt-4 line-clamp-3 whitespace-pre-wrap text-gray-700 text-sm">
 								{notice.content}
 							</div>
 
-							<div className="mt-6 flex items-center justify-end gap-3 pt-4 border-t border-gray-100">
-								<button onClick={() => openEditModal(notice)} className="text-sm font-medium text-blue-600 hover:text-blue-800">
+							<div className="mt-6 flex items-center justify-end gap-3 border-gray-100 border-t pt-4">
+								<button
+									className="font-medium text-blue-600 text-sm hover:text-blue-800"
+									onClick={() => openEditModal(notice)}
+								>
 									Edit
 								</button>
-								<button onClick={() => handleDelete(notice.id)} className="text-sm font-medium text-red-600 hover:text-red-800">
+								<button
+									className="font-medium text-red-600 text-sm hover:text-red-800"
+									onClick={() => handleDelete(notice.id)}
+								>
 									Delete
 								</button>
 							</div>
@@ -171,68 +212,78 @@ export default function NoticeListClient({ initialNotices }: { initialNotices: a
 					);
 				})}
 				{notices.length === 0 && (
-					<div className="col-span-full text-center py-10 bg-white rounded-xl border border-dashed border-gray-300 text-gray-500">
+					<div className="col-span-full rounded-xl border border-gray-300 border-dashed bg-white py-10 text-center text-gray-500">
 						No notices created yet.
 					</div>
 				)}
 			</div>
 
 			{/* Edit/Create Modal */}
-			<Dialog open={isEditModalOpen} onOpenChange={setIsEditModalOpen}>
+			<Dialog onOpenChange={setIsEditModalOpen} open={isEditModalOpen}>
 				<DialogContent className="sm:max-w-[600px]">
 					<DialogHeader>
-						<DialogTitle>{editId ? "Edit Notice" : "Create New Notice"}</DialogTitle>
+						<DialogTitle>
+							{editId ? "Edit Notice" : "Create New Notice"}
+						</DialogTitle>
 					</DialogHeader>
-					
+
 					<div className="space-y-4 py-4">
 						<div>
-							<label className="block font-bold text-gray-700 text-sm mb-1">Title</label>
+							<label className="mb-1 block font-bold text-gray-700 text-sm">
+								Title
+							</label>
 							<input
+								className="w-full rounded-lg border p-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+								onChange={(e) => setTitle(e.target.value)}
+								placeholder="E.g., System Maintenance"
 								type="text"
 								value={title}
-								onChange={(e) => setTitle(e.target.value)}
-								className="w-full p-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-								placeholder="E.g., System Maintenance"
-							/>
-						</div>
-						
-						<div>
-							<label className="block font-bold text-gray-700 text-sm mb-1">Message</label>
-							<textarea
-								value={content}
-								onChange={(e) => setContent(e.target.value)}
-								className="w-full h-32 p-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-								placeholder="Enter the notice content..."
 							/>
 						</div>
 
 						<div>
-							<label className="block font-bold text-gray-700 text-sm mb-1">Visual Variant</label>
+							<label className="mb-1 block font-bold text-gray-700 text-sm">
+								Message
+							</label>
+							<textarea
+								className="h-32 w-full rounded-lg border p-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+								onChange={(e) => setContent(e.target.value)}
+								placeholder="Enter the notice content..."
+								value={content}
+							/>
+						</div>
+
+						<div>
+							<label className="mb-1 block font-bold text-gray-700 text-sm">
+								Visual Variant
+							</label>
 							<select
-								value={variant}
+								className="w-full rounded-lg border p-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
 								onChange={(e) => setVariant(e.target.value)}
-								className="w-full p-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+								value={variant}
 							>
 								<option value="info">Info (Blue)</option>
 								<option value="success">Success (Green)</option>
 								<option value="warning">Warning (Yellow)</option>
 								<option value="danger">Danger (Red)</option>
-								<option value="festive">Festive (Party Poppers / Confetti)</option>
+								<option value="festive">
+									Festive (Party Poppers / Confetti)
+								</option>
 							</select>
 						</div>
 					</div>
 
-					<div className="flex justify-end gap-3 pt-4 border-t">
+					<div className="flex justify-end gap-3 border-t pt-4">
 						<button
+							className="rounded-lg px-4 py-2 font-medium text-gray-600 hover:bg-gray-100"
 							onClick={() => setIsEditModalOpen(false)}
-							className="px-4 py-2 rounded-lg font-medium text-gray-600 hover:bg-gray-100"
 						>
 							Cancel
 						</button>
 						<button
-							onClick={handleSave}
+							className="rounded-lg bg-[#0B2545] px-4 py-2 font-bold text-white transition-colors hover:bg-[#0071BC] disabled:opacity-50"
 							disabled={isSaving}
-							className="px-4 py-2 bg-[#0B2545] text-white rounded-lg font-bold hover:bg-[#0071BC] transition-colors disabled:opacity-50"
+							onClick={handleSave}
 						>
 							{isSaving ? "Saving..." : "Save Notice"}
 						</button>
@@ -241,30 +292,49 @@ export default function NoticeListClient({ initialNotices }: { initialNotices: a
 			</Dialog>
 
 			{/* Activate Modal */}
-			<Dialog open={isActivateModalOpen} onOpenChange={setIsActivateModalOpen}>
+			<Dialog onOpenChange={setIsActivateModalOpen} open={isActivateModalOpen}>
 				<DialogContent className="sm:max-w-[400px]">
 					<DialogHeader>
 						<DialogTitle>Activate Notice</DialogTitle>
 					</DialogHeader>
-					
+
 					<div className="space-y-4 py-4">
-						<div className="bg-yellow-50 text-yellow-800 p-3 rounded-lg text-sm mb-4 border border-yellow-200">
-							<strong>Warning:</strong> Activating this notice will automatically deactivate any currently active notice. Only one notice can be active at a time.
+						<div className="mb-4 rounded-lg border border-yellow-200 bg-yellow-50 p-3 text-sm text-yellow-800">
+							<strong>Warning:</strong> Activating this notice will
+							automatically deactivate any currently active notice. Only one
+							notice can be active at a time.
 						</div>
 
 						<div>
-							<label className="block font-bold text-gray-700 text-sm mb-2">How long should this be active?</label>
+							<label className="mb-2 block font-bold text-gray-700 text-sm">
+								How long should this be active?
+							</label>
 							<div className="space-y-2">
 								<label className="flex items-center gap-2">
-									<input type="radio" name="duration" checked={durationMode === "indefinite"} onChange={() => setDurationMode("indefinite")} />
+									<input
+										checked={durationMode === "indefinite"}
+										name="duration"
+										onChange={() => setDurationMode("indefinite")}
+										type="radio"
+									/>
 									Indefinitely
 								</label>
 								<label className="flex items-center gap-2">
-									<input type="radio" name="duration" checked={durationMode === "days"} onChange={() => setDurationMode("days")} />
+									<input
+										checked={durationMode === "days"}
+										name="duration"
+										onChange={() => setDurationMode("days")}
+										type="radio"
+									/>
 									For a specific number of days
 								</label>
 								<label className="flex items-center gap-2">
-									<input type="radio" name="duration" checked={durationMode === "date"} onChange={() => setDurationMode("date")} />
+									<input
+										checked={durationMode === "date"}
+										name="duration"
+										onChange={() => setDurationMode("date")}
+										type="radio"
+									/>
 									Until a specific date
 								</label>
 							</div>
@@ -272,24 +342,46 @@ export default function NoticeListClient({ initialNotices }: { initialNotices: a
 
 						{durationMode === "days" && (
 							<div className="pt-2">
-								<label className="block font-bold text-gray-700 text-sm mb-1">Number of Days</label>
-								<input type="number" min="1" value={days} onChange={e => setDays(parseInt(e.target.value))} className="w-full p-2 border rounded-lg" />
+								<label className="mb-1 block font-bold text-gray-700 text-sm">
+									Number of Days
+								</label>
+								<input
+									className="w-full rounded-lg border p-2"
+									min="1"
+									onChange={(e) => setDays(parseInt(e.target.value))}
+									type="number"
+									value={days}
+								/>
 							</div>
 						)}
 
 						{durationMode === "date" && (
 							<div className="pt-2">
-								<label className="block font-bold text-gray-700 text-sm mb-1">End Date</label>
-								<input type="date" value={endDate} onChange={e => setEndDate(e.target.value)} className="w-full p-2 border rounded-lg" />
+								<label className="mb-1 block font-bold text-gray-700 text-sm">
+									End Date
+								</label>
+								<input
+									className="w-full rounded-lg border p-2"
+									onChange={(e) => setEndDate(e.target.value)}
+									type="date"
+									value={endDate}
+								/>
 							</div>
 						)}
 					</div>
 
-					<div className="flex justify-end gap-3 pt-4 border-t">
-						<button onClick={() => setIsActivateModalOpen(false)} className="px-4 py-2 rounded-lg font-medium text-gray-600 hover:bg-gray-100">
+					<div className="flex justify-end gap-3 border-t pt-4">
+						<button
+							className="rounded-lg px-4 py-2 font-medium text-gray-600 hover:bg-gray-100"
+							onClick={() => setIsActivateModalOpen(false)}
+						>
 							Cancel
 						</button>
-						<button onClick={handleActivateSubmit} disabled={isActivating} className="px-4 py-2 bg-green-600 text-white rounded-lg font-bold hover:bg-green-700 disabled:opacity-50">
+						<button
+							className="rounded-lg bg-green-600 px-4 py-2 font-bold text-white hover:bg-green-700 disabled:opacity-50"
+							disabled={isActivating}
+							onClick={handleActivateSubmit}
+						>
 							{isActivating ? "Activating..." : "Confirm & Activate"}
 						</button>
 					</div>

@@ -1,9 +1,7 @@
-import { auth } from "@/server/auth";
-import { db } from "@/server/db";
-import { notices } from "@/server/db/schema";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
-import { desc } from "drizzle-orm";
+import { getNotices } from "@/server/actions/notices";
+import { auth } from "@/server/auth";
 import NoticeListClient from "./NoticeListClient";
 
 export const dynamic = "force-dynamic";
@@ -13,11 +11,24 @@ export default async function AdminNoticesPage() {
 		headers: await headers(),
 	});
 
-	if (!session || session.user.role !== "ADMIN") {
+	if (
+		!session ||
+		(session.user.role !== "ADMIN" && session.user.role !== "DEVELOPER")
+	) {
 		redirect("/login");
 	}
 
-	const allNotices = await db.select().from(notices).orderBy(desc(notices.createdAt));
+	const allNoticesRaw = await getNotices();
+	const allNotices = allNoticesRaw.map((n) => ({
+		id: n.id,
+		title: n.title,
+		content: n.content,
+		variant: n.variant,
+		isActive: n.isActive,
+		expiresAt: n.expiresAt ? new Date(n.expiresAt) : null,
+		createdAt: new Date(n.createdAt),
+		updatedAt: new Date(n.updatedAt),
+	}));
 
 	return (
 		<div className="mt-4 space-y-8">
@@ -26,11 +37,12 @@ export default async function AdminNoticesPage() {
 					Notice Board Management
 				</h1>
 				<p className="mt-2 text-gray-600">
-					Manage notices that appear on MR dashboards. You can set up multiple notices and toggle them on or off.
+					Manage notices that appear on MR dashboards. You can set up multiple
+					notices and toggle them on or off.
 				</p>
 			</div>
 
-			<NoticeListClient initialNotices={allNotices} />
+			<NoticeListClient initialNotices={allNotices as any} />
 		</div>
 	);
 }
