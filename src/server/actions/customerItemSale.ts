@@ -41,6 +41,17 @@ export type ItemCustomerSaleResult =
  * Syntax:
  * CALL `rptItemCustomerSale`(p_FromDate, p_ToDate, p_CompNo, p_LocNo, p_FinYear, p_CustIds, p_CityIds, p_ItemIds, p_CompCode, p_Div, p_IncludeZero, p_SalesmanIds, p_ReturnType, p_SeriesIds, p_ReportType, p_Remarks)
  */
+function formatDateToOdbc(dateStr: string): string {
+	if (!dateStr) return "''";
+	const trimmed = dateStr.trim();
+	if (trimmed.startsWith("{d") && trimmed.endsWith("}")) {
+		return trimmed;
+	}
+	const match = trimmed.match(/\d{4}-\d{2}-\d{2}/);
+	const ymd = match ? match[0] : trimmed;
+	return `{d '${ymd}'}`;
+}
+
 export async function getItemCustomerSale(params: {
 	fromDate: string;
 	toDate: string;
@@ -65,8 +76,8 @@ export async function getItemCustomerSale(params: {
 		conn = await legacyDb.getConnection();
 		await conn.query("SET sql_mode = ''");
 
-		const effectiveFrom = params.fromDate;
-		const effectiveTo = params.toDate;
+		const odbcFromDate = formatDateToOdbc(params.fromDate);
+		const odbcToDate = formatDateToOdbc(params.toDate);
 		const compNo = params.compNo ?? 11;
 		const locNoParam = params.locNo ? `('${params.locNo}')` : "('11')";
 		const finYear = params.finYear ?? 202627;
@@ -95,8 +106,8 @@ export async function getItemCustomerSale(params: {
 		}
 
 		// Exact parameter order for `rptItemCustomerSale`:
-		// 1: p_FromDt (DATE)
-		// 2: p_ToDt (DATE)
+		// 1: p_FromDt (DATE) - formatted as {d 'YYYY-MM-DD'}
+		// 2: p_ToDt (DATE)   - formatted as {d 'YYYY-MM-DD'}
 		// 3: p_CmpNo (INT)
 		// 4: p_LocNo (MEDIUMTEXT) e.g. "('11')"
 		// 5: p_YearNo (INT) e.g. 202627
@@ -124,13 +135,11 @@ export async function getItemCustomerSale(params: {
 
 		const callSql = `
 			CALL \`pdyasvtrans\`.\`rptItemCustomerSale\`(
-				?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
+				${odbcFromDate}, ${odbcToDate}, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
 			)
 		`;
 
 		const callParams = [
-			effectiveFrom,
-			effectiveTo,
 			compNo,
 			locNoParam,
 			finYear,
@@ -147,13 +156,13 @@ export async function getItemCustomerSale(params: {
 			cityParam,
 		];
 
-		const formattedParams = callParams
+		const formattedRest = callParams
 			.map((p) => {
 				if (typeof p === "number") return String(p);
 				return `'${String(p).replace(/'/g, "''")}'`;
 			})
 			.join(", ");
-		debugSql = `CALL \`pdyasvtrans\`.\`rptItemCustomerSale\`(${formattedParams})`;
+		debugSql = `CALL \`pdyasvtrans\`.\`rptItemCustomerSale\`(${odbcFromDate}, ${odbcToDate}, ${formattedRest})`;
 
 		console.log("\n=======================================================");
 		console.log("[TEMP DEBUG] Final SQL Query being executed:\n", debugSql);
