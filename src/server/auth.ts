@@ -1,5 +1,5 @@
 import { cookies } from "next/headers";
-import { verifySessionToken, type SessionUser } from "@/lib/jwt";
+import { type SessionUser, verifySessionToken } from "@/lib/jwt";
 
 export const AUTH_COOKIE_NAME = "pharmaql_session";
 
@@ -16,13 +16,17 @@ export interface Session {
  * Compatible replacement for Better Auth session getter.
  * Verifies stateless signed JWT cookie without database lookup.
  */
-export async function getSession(options?: { headers?: Headers }): Promise<Session | null> {
+export async function getSession(options?: {
+	headers?: Headers;
+}): Promise<Session | null> {
 	let token: string | undefined;
 
 	if (options?.headers) {
 		const cookieHeader = options.headers.get("cookie");
 		if (cookieHeader) {
-			const match = cookieHeader.match(new RegExp(`(?:^|; )${AUTH_COOKIE_NAME}=([^;]*)`));
+			const match = cookieHeader.match(
+				new RegExp(`(?:^|; )${AUTH_COOKIE_NAME}=([^;]*)`),
+			);
 			if (match?.[1]) token = decodeURIComponent(match[1]);
 		}
 	}

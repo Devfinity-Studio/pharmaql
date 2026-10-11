@@ -1,11 +1,11 @@
 import "@/styles/globals.css";
 
+import { Analytics } from "@vercel/analytics/next";
 import type { Metadata } from "next";
 import { Geist, Inter } from "next/font/google";
 import Header from "@/components/Header";
 import { cn } from "@/lib/utils";
 import { TRPCReactProvider } from "@/trpc/react";
-import { Analytics } from "@vercel/analytics/next"
 
 const inter = Inter({ subsets: ["latin"], variable: "--font-sans" });
 
@@ -42,7 +42,7 @@ export default function RootLayout({
 	return (
 		<html className={cn(geist.variable, "font-sans", inter.variable)} lang="en">
 			<body>
-				 <Analytics />
+				<Analytics />
 				<TRPCReactProvider>{children}</TRPCReactProvider>
 			</body>
 		</html>

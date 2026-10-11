@@ -1,9 +1,9 @@
 import { headers } from "next/headers";
 import { NextResponse } from "next/server";
 import * as xlsx from "xlsx";
-import { auth } from "@/server/auth";
-import { getMRInfo } from "@/server/actions/mrInfo";
 import { getItemCustomerSale } from "@/server/actions/customerItemSale";
+import { getMRInfo } from "@/server/actions/mrInfo";
+import { auth } from "@/server/auth";
 
 export async function GET(request: Request) {
 	const session = await auth.api.getSession({
@@ -28,7 +28,9 @@ export async function GET(request: Request) {
 
 	const requestingUserId = session.user.id;
 	const isSelf = requestingUserId === mrId;
-	const isAdmin = (session.user as any).role === "ADMIN" || (session.user as any).role === "DEVELOPER";
+	const isAdmin =
+		(session.user as any).role === "ADMIN" ||
+		(session.user as any).role === "DEVELOPER";
 
 	if (!isSelf && !isAdmin) {
 		return new NextResponse("Forbidden", { status: 403 });
@@ -53,7 +55,8 @@ export async function GET(request: Request) {
 	const compCodeToQuery =
 		company === "All"
 			? mrInfo.companyCode || ""
-			: mrInfo.companyCode && (mrInfo.company === company || mrInfo.division === company)
+			: mrInfo.companyCode &&
+					(mrInfo.company === company || mrInfo.division === company)
 				? mrInfo.companyCode
 				: company;
 
@@ -72,15 +75,15 @@ export async function GET(request: Request) {
 	const reportData = rows.map((r) => ({
 		"Inv No": r.InvNo,
 		"Inv Date": r.InvDt ? new Date(r.InvDt).toISOString().split("T")[0] : "-",
-		"Customer": r.Customer || "Unknown Party",
+		Customer: r.Customer || "Unknown Party",
 		"Item Code": r.ItemCode || "-",
 		"Item Name": r.ItemName,
-		"Packing": r.Packing || "-",
+		Packing: r.Packing || "-",
 		"Batch No": r.BatchNo,
-		"Qty": Number(r.Qty),
+		Qty: Number(r.Qty),
 		"Free Qty": Number(r.FQty),
-		"Rate": Number(r.Srate || r.PTR || 0).toFixed(2),
-		"Amount": Number(r.IAmt || 0).toFixed(2),
+		Rate: Number(r.Srate || r.PTR || 0).toFixed(2),
+		Amount: Number(r.IAmt || 0).toFixed(2),
 	}));
 
 	const timestamp = new Date().toISOString().split("T")[0];

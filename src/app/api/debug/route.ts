@@ -5,8 +5,12 @@ export const dynamic = "force-dynamic";
 
 export async function GET() {
 	try {
-		const [masterRows] = await legacyDb.query("SELECT COUNT(*) as count FROM `pdyasvmaster`.`l_mktcompany_mr`");
-		const [transRows] = await legacyDb.query("SELECT COUNT(*) as count FROM `pdyasvtrans`.`d_itemsummary`");
+		const [masterRows] = await legacyDb.query(
+			"SELECT COUNT(*) as count FROM `pdyasvmaster`.`l_mktcompany_mr`",
+		);
+		const [transRows] = await legacyDb.query(
+			"SELECT COUNT(*) as count FROM `pdyasvtrans`.`d_itemsummary`",
+		);
 
 		return NextResponse.json({
 			status: "connected",

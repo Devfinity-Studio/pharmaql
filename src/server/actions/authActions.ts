@@ -1,14 +1,17 @@
 "use server";
 
 import { cookies } from "next/headers";
+import { type SessionUser, signSessionToken } from "@/lib/jwt";
 import { legacyDb } from "@/lib/legacy-db";
-import { signSessionToken, type SessionUser } from "@/lib/jwt";
 import { sendOtpEmail } from "@/lib/mailer";
 import { AUTH_COOKIE_NAME } from "@/server/auth";
 
 // Temporary in-memory OTP storage: email -> { otp, expiresAt }
 // In production, server memory handles this seamlessly for standard verification cycles
-const otpStore = new Map<string, { otp: string; expiresAt: number; mrUser: SessionUser }>();
+const otpStore = new Map<
+	string,
+	{ otp: string; expiresAt: number; mrUser: SessionUser }
+>();
 
 /**
  * 1. Request OTP for Medical Representative (MR)
@@ -18,7 +21,10 @@ export async function requestMrOtp(emailOrPhone: string) {
 	try {
 		const cleanInput = emailOrPhone.trim();
 		if (!cleanInput) {
-			return { success: false, error: "Please enter your registered email address." };
+			return {
+				success: false,
+				error: "Please enter your registered email address.",
+			};
 		}
 
 		// Look up MR in legacy master table
@@ -46,13 +52,17 @@ export async function requestMrOtp(emailOrPhone: string) {
 		if (!mrList || mrList.length === 0) {
 			return {
 				success: false,
-				error: "No Medical Representative account found with this email. Please check with your administrator.",
+				error:
+					"No Medical Representative account found with this email. Please check with your administrator.",
 			};
 		}
 
 		const mr = mrList[0];
 		if (Number(mr.IsInActive || 0) === 1) {
-			return { success: false, error: "Your account is marked as inactive. Please contact support." };
+			return {
+				success: false,
+				error: "Your account is marked as inactive. Please contact support.",
+			};
 		}
 
 		// Check Live Overdue & Cascading Blocking status
@@ -61,7 +71,9 @@ export async function requestMrOtp(emailOrPhone: string) {
 		if (overdueStatus.isBlocked) {
 			return {
 				success: false,
-				error: overdueStatus.message || "Your account is currently blocked due to overdue payments. Please contact admin.",
+				error:
+					overdueStatus.message ||
+					"Your account is currently blocked due to overdue payments. Please contact admin.",
 				statusDetails: overdueStatus,
 			};
 		}
@@ -70,7 +82,8 @@ export async function requestMrOtp(emailOrPhone: string) {
 		if (!targetEmail) {
 			return {
 				success: false,
-				error: "No email address registered for this MR in the ERP system. Please ask Admin to update your Email ID.",
+				error:
+					"No email address registered for this MR in the ERP system. Please ask Admin to update your Email ID.",
 			};
 		}
 
@@ -85,7 +98,10 @@ export async function requestMrOtp(emailOrPhone: string) {
 			role: "MR",
 			locNo: "11",
 			division: mr.DivisionName ? String(mr.DivisionName).trim() : undefined,
-			company: (mr.CompanyName || mr.CompanyCode) ? String(mr.CompanyName || mr.CompanyCode).trim() : undefined,
+			company:
+				mr.CompanyName || mr.CompanyCode
+					? String(mr.CompanyName || mr.CompanyCode).trim()
+					: undefined,
 			companyCode: mr.CompanyCode ? String(mr.CompanyCode).trim() : undefined,
 			isBlocked: false,
 			canViewStock: true,
@@ -111,7 +127,10 @@ export async function requestMrOtp(emailOrPhone: string) {
 		};
 	} catch (error: any) {
 		console.error("[Auth] Error requesting MR OTP:", error);
-		return { success: false, error: error.message || "Failed to send OTP email." };
+		return {
+			success: false,
+			error: error.message || "Failed to send OTP email.",
+		};
 	}
 }
 
@@ -125,16 +144,25 @@ export async function verifyMrOtp(email: string, otp: string) {
 
 		const record = otpStore.get(cleanEmail);
 		if (!record) {
-			return { success: false, error: "OTP expired or not requested. Please request a new OTP." };
+			return {
+				success: false,
+				error: "OTP expired or not requested. Please request a new OTP.",
+			};
 		}
 
 		if (Date.now() > record.expiresAt) {
 			otpStore.delete(cleanEmail);
-			return { success: false, error: "OTP has expired. Please request a new OTP." };
+			return {
+				success: false,
+				error: "OTP has expired. Please request a new OTP.",
+			};
 		}
 
 		if (record.otp !== cleanOtp) {
-			return { success: false, error: "Invalid OTP code. Please enter the correct 6-digit code." };
+			return {
+				success: false,
+				error: "Invalid OTP code. Please enter the correct 6-digit code.",
+			};
 		}
 
 		// Check overdue block one more time before issuing session
@@ -144,7 +172,9 @@ export async function verifyMrOtp(email: string, otp: string) {
 			otpStore.delete(cleanEmail);
 			return {
 				success: false,
-				error: overdueStatus.message || "Your account has been blocked due to overdue payments.",
+				error:
+					overdueStatus.message ||
+					"Your account has been blocked due to overdue payments.",
 			};
 		}
 
@@ -177,10 +207,14 @@ export async function loginAdminOrDev(email: string, pass: string) {
 		const cleanEmail = email.trim().toLowerCase();
 		const cleanPass = pass.trim();
 
-		const adminEmail = (process.env.ADMIN_EMAIL || "admin@asmeepharma.com").toLowerCase();
+		const adminEmail = (
+			process.env.ADMIN_EMAIL || "admin@asmeepharma.com"
+		).toLowerCase();
 		const adminPass = process.env.ADMIN_PASSWORD || "Admin@PharmaQL2026";
 
-		const devEmail = (process.env.DEV_EMAIL || "dev@asmeepharma.com").toLowerCase();
+		const devEmail = (
+			process.env.DEV_EMAIL || "dev@asmeepharma.com"
+		).toLowerCase();
 		const devPass = process.env.DEV_PASSWORD || "Dev@PharmaQL2026";
 
 		let sessionUser: SessionUser | null = null;
@@ -214,7 +248,10 @@ export async function loginAdminOrDev(email: string, pass: string) {
 		}
 
 		if (!sessionUser) {
-			return { success: false, error: "Invalid credentials. Please verify email and password." };
+			return {
+				success: false,
+				error: "Invalid credentials. Please verify email and password.",
+			};
 		}
 
 		// Issue Stateless JWT Session Cookie

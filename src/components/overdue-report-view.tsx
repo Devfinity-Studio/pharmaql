@@ -1,11 +1,11 @@
 import Image from "next/image";
 import React from "react";
+import { getCustomerBlockingMap } from "@/server/actions/customerBlocking";
+import { getMRInfo } from "@/server/actions/mrInfo";
 import {
 	getMRwisePeriodicalOutstanding,
 	type OverduePeriodicalOutstandingRow,
 } from "@/server/actions/overdueReports";
-import { getMRInfo } from "@/server/actions/mrInfo";
-import { getCustomerBlockingMap } from "@/server/actions/customerBlocking";
 
 function formatDisplayDate(dateStr?: string | Date): string {
 	if (!dateStr) return "";
@@ -61,8 +61,10 @@ export async function OverdueReportView({
 
 	const compCodeToQuery =
 		company === "All"
-			? mrInfo.companyCode || (targetCompanies.length > 0 ? targetCompanies : "")
-			: mrInfo.companyCode && (mrInfo.company === company || mrInfo.division === company)
+			? mrInfo.companyCode ||
+				(targetCompanies.length > 0 ? targetCompanies : "")
+			: mrInfo.companyCode &&
+					(mrInfo.company === company || mrInfo.division === company)
 				? mrInfo.companyCode
 				: company;
 
@@ -78,7 +80,8 @@ export async function OverdueReportView({
 	// Fetch live customer blocking map from ERP
 	const customerBlockingMap = await getCustomerBlockingMap();
 
-	let rowsToProcess = procResult.success && procResult.data ? procResult.data : [];
+	let rowsToProcess =
+		procResult.success && procResult.data ? procResult.data : [];
 
 	if (searchParams?.party) {
 		const partyFilter = searchParams.party.toLowerCase();
@@ -154,25 +157,42 @@ export async function OverdueReportView({
 		<div className="mt-4 space-y-8 overflow-hidden rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
 			{/* DEBUG QUERY BANNER */}
 			{(searchParams?.debug === "1" || searchParams?.debug === "true") && (
-				<div className="rounded-xl border-2 border-amber-400 bg-amber-50 p-4 font-mono text-xs text-amber-950 shadow-sm print:hidden">
-					<div className="flex flex-wrap items-center justify-between gap-2 border-b border-amber-200 pb-2 mb-2 font-bold text-amber-900 text-xs">
-						<span>[DEBUG QUERY] Stored Procedure Execution Status (Overdue / Periodical Outstanding)</span>
-						<span className="rounded bg-amber-200 px-2 py-0.5 text-[11px] font-semibold">
+				<div className="rounded-xl border-2 border-amber-400 bg-amber-50 p-4 font-mono text-amber-950 text-xs shadow-sm print:hidden">
+					<div className="mb-2 flex flex-wrap items-center justify-between gap-2 border-amber-200 border-b pb-2 font-bold text-amber-900 text-xs">
+						<span>
+							[DEBUG QUERY] Stored Procedure Execution Status (Overdue /
+							Periodical Outstanding)
+						</span>
+						<span className="rounded bg-amber-200 px-2 py-0.5 font-semibold text-[11px]">
 							{procResult.success
 								? `${procResult.data?.length ?? 0} total rows (${reportData.length} pending overdue)`
 								: procResult.error || "Query Failed"}
 						</span>
 					</div>
 					<div className="space-y-1.5">
-						<p className="font-bold text-amber-900 text-[11px]">Final SQL Query being run:</p>
-						<pre className="overflow-x-auto rounded border border-amber-200 bg-amber-100 p-2.5 text-[11px] font-mono select-all whitespace-pre-wrap break-all text-amber-950">
+						<p className="font-bold text-[11px] text-amber-900">
+							Final SQL Query being run:
+						</p>
+						<pre className="select-all overflow-x-auto whitespace-pre-wrap break-all rounded border border-amber-200 bg-amber-100 p-2.5 font-mono text-[11px] text-amber-950">
 							{procResult.debugSql || "-- No SQL available"}
 						</pre>
-						<div className="mt-2 grid grid-cols-2 md:grid-cols-4 gap-2 text-[11px] text-amber-800 pt-1.5 border-t border-amber-200">
-							<div><span className="font-semibold">Company Code Query:</span> {JSON.stringify(compCodeToQuery)}</div>
-							<div><span className="font-semibold">MR Company:</span> {mrInfo.company || "N/A"}</div>
-							<div><span className="font-semibold">MR ID Param:</span> {`(${mrId})`}</div>
-							<div><span className="font-semibold">LocNo:</span> {mrInfo.locNo || "11"}</div>
+						<div className="mt-2 grid grid-cols-2 gap-2 border-amber-200 border-t pt-1.5 text-[11px] text-amber-800 md:grid-cols-4">
+							<div>
+								<span className="font-semibold">Company Code Query:</span>{" "}
+								{JSON.stringify(compCodeToQuery)}
+							</div>
+							<div>
+								<span className="font-semibold">MR Company:</span>{" "}
+								{mrInfo.company || "N/A"}
+							</div>
+							<div>
+								<span className="font-semibold">MR ID Param:</span>{" "}
+								{`(${mrId})`}
+							</div>
+							<div>
+								<span className="font-semibold">LocNo:</span>{" "}
+								{mrInfo.locNo || "11"}
+							</div>
 						</div>
 					</div>
 				</div>
@@ -183,7 +203,14 @@ export async function OverdueReportView({
 				<div className="flex items-center gap-4">
 					<div>
 						<h2 className="font-extrabold text-2xl text-[#0B2545] tracking-tight">
-							<Image src="/logo.png" alt="Asmee Pharma Logo" width={180} height={50} className="object-contain" priority />
+							<Image
+								alt="Asmee Pharma Logo"
+								className="object-contain"
+								height={50}
+								priority
+								src="/logo.png"
+								width={180}
+							/>
 						</h2>
 						<p className="mt-1 font-medium text-[#0B2545] text-sm leading-relaxed">
 							BASEMENE-GF, 11/2 ASHOK HOUSE, B/S SANSTHA VASAHAT GATE, PRATAP
@@ -202,7 +229,8 @@ export async function OverdueReportView({
 				<div>
 					<p>Year : 2026-27</p>
 					<p className="mt-2 text-base">
-						Overdue (Purchase Days & Outstanding) Statement for {fromDisplay} to {toDisplay}
+						Overdue (Purchase Days & Outstanding) Statement for {fromDisplay} to{" "}
+						{toDisplay}
 					</p>
 				</div>
 				<div>Total Records: {reportData.length}</div>
@@ -236,13 +264,18 @@ export async function OverdueReportView({
 					<tbody className="font-medium text-sm">
 						{manufacturers.length === 0 ? (
 							<tr>
-								<td colSpan={7} className="py-8 text-center text-gray-500 font-medium">
+								<td
+									className="py-8 text-center font-medium text-gray-500"
+									colSpan={7}
+								>
 									No overdue records found for the selected period.
 								</td>
 							</tr>
 						) : (
 							manufacturers.map((mfg, idx) => {
-								const mfgData = reportData.filter((d) => d.Manufacturer === mfg);
+								const mfgData = reportData.filter(
+									(d) => d.Manufacturer === mfg,
+								);
 								let mfgAmount = 0;
 
 								// Further group by Doctor/Party
@@ -267,7 +300,9 @@ export async function OverdueReportView({
 												(d) => d["Doctor / Party"] === party,
 											);
 											let partyTotal = 0;
-											const custBlockedInfo = customerBlockingMap.get(party.toUpperCase());
+											const custBlockedInfo = customerBlockingMap.get(
+												party.toUpperCase(),
+											);
 
 											return (
 												<React.Fragment key={pIdx}>
@@ -277,9 +312,9 @@ export async function OverdueReportView({
 														const isOlderThan90 = row["Purchase Days"] > 90;
 														return (
 															<tr
-																className={`border-b border-gray-100 transition-colors ${
+																className={`border-gray-100 border-b transition-colors ${
 																	isOlderThan90
-																		? "bg-red-50/70 hover:bg-red-100/60 text-red-950"
+																		? "bg-red-50/70 text-red-950 hover:bg-red-100/60"
 																		: "text-[#0B2545] hover:bg-gray-50"
 																}`}
 																key={rowIdx}
@@ -287,32 +322,41 @@ export async function OverdueReportView({
 																<td className="whitespace-nowrap py-1.5 pl-2 font-semibold">
 																	{row["Invoice No"]}
 																</td>
-																<td className="py-1.5">{row["Invoice Date"]}</td>
+																<td className="py-1.5">
+																	{row["Invoice Date"]}
+																</td>
 																<td className="py-1.5">{row["Due Date"]}</td>
 																<td
 																	className={`py-1.5 text-right font-bold ${
 																		isOlderThan90
-																			? "text-red-700 font-extrabold"
+																			? "font-extrabold text-red-700"
 																			: "text-amber-600"
 																	}`}
 																>
 																	{row["Purchase Days"]}
 																</td>
-																<td className="py-1.5 font-bold flex items-center gap-2">
+																<td className="flex items-center gap-2 py-1.5 font-bold">
 																	<span>{row["Doctor / Party"]}</span>
 																	{custBlockedInfo?.isBlocked && (
 																		<span
-																			className="inline-block rounded bg-red-100 px-1.5 py-0.5 text-[10px] font-black text-red-800 uppercase tracking-wider"
-																			title={custBlockedInfo.blockReason || "Party Blocked in ERP"}
+																			className="inline-block rounded bg-red-100 px-1.5 py-0.5 font-black text-[10px] text-red-800 uppercase tracking-wider"
+																			title={
+																				custBlockedInfo.blockReason ||
+																				"Party Blocked in ERP"
+																			}
 																		>
-																			{custBlockedInfo.blackList ? "BLACKLISTED" : "BLOCKED"}
+																			{custBlockedInfo.blackList
+																				? "BLACKLISTED"
+																				: "BLOCKED"}
 																		</span>
 																	)}
 																</td>
 																<td className="py-1.5">{row.City}</td>
 																<td
 																	className={`py-1.5 pr-2 text-right font-bold ${
-																		isOlderThan90 ? "text-red-700 font-black" : "text-rose-600"
+																		isOlderThan90
+																			? "font-black text-red-700"
+																			: "text-rose-600"
 																	}`}
 																>
 																	{row["Amount Due"].toFixed(2)}
@@ -322,7 +366,10 @@ export async function OverdueReportView({
 													})}
 													{/* Party Total */}
 													<tr className="border-gray-200 border-y bg-gray-50 font-bold text-[#0B2545]">
-														<td className="py-1.5 pl-2 text-right text-gray-500" colSpan={6}>
+														<td
+															className="py-1.5 pl-2 text-right text-gray-500"
+															colSpan={6}
+														>
 															Total for {party}
 														</td>
 														<td className="py-1.5 pr-2 text-right text-rose-700">
@@ -357,7 +404,10 @@ export async function OverdueReportView({
 						{/* Grand Total */}
 						{manufacturers.length > 0 && (
 							<tr className="border-[#0B2545] border-b-4 bg-gray-200 font-extrabold text-[#0B2545] text-base">
-								<td className="py-3 pl-2 text-right uppercase tracking-wider" colSpan={6}>
+								<td
+									className="py-3 pl-2 text-right uppercase tracking-wider"
+									colSpan={6}
+								>
 									Grand Total :
 								</td>
 								<td className="py-3 pr-2 text-right text-rose-700">

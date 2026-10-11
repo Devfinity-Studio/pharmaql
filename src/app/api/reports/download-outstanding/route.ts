@@ -1,9 +1,9 @@
 import { headers } from "next/headers";
 import { NextResponse } from "next/server";
 import * as xlsx from "xlsx";
-import { auth } from "@/server/auth";
 import { getMRInfo } from "@/server/actions/mrInfo";
 import { getMRwisePeriodicalOutstanding } from "@/server/actions/overdueReports";
+import { auth } from "@/server/auth";
 
 export async function GET(request: Request) {
 	const session = await auth.api.getSession({
@@ -50,7 +50,8 @@ export async function GET(request: Request) {
 	const compCodeToQuery =
 		division === "All"
 			? mrInfo.companyCode || mrInfo.company || ""
-			: mrInfo.companyCode && (mrInfo.company === division || mrInfo.division === division)
+			: mrInfo.companyCode &&
+					(mrInfo.company === division || mrInfo.division === division)
 				? mrInfo.companyCode
 				: division;
 
@@ -66,7 +67,10 @@ export async function GET(request: Request) {
 	});
 
 	if (!procResult.success || !procResult.data) {
-		return new NextResponse(`Error fetching outstanding report: ${procResult.error || "Query failed"}`, { status: 500 });
+		return new NextResponse(
+			`Error fetching outstanding report: ${procResult.error || "Query failed"}`,
+			{ status: 500 },
+		);
 	}
 
 	const timestampStr = new Date().toLocaleString("en-IN", {
@@ -81,7 +85,9 @@ export async function GET(request: Request) {
 			const originalAmt = Number(row.Amount || 0);
 			const adjAmt = Number(row.AdjAmt || 0);
 			const balanceAmt = originalAmt - adjAmt;
-			const billDateStr = row.DocDate ? new Date(row.DocDate).toLocaleDateString("en-GB") : "N/A";
+			const billDateStr = row.DocDate
+				? new Date(row.DocDate).toLocaleDateString("en-GB")
+				: "N/A";
 			return {
 				"MR Name": mrName,
 				"Customer / Party": row.Customer || "Unknown",

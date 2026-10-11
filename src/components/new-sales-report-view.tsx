@@ -1,7 +1,7 @@
 import Image from "next/image";
 import React from "react";
-import { getMRInfo } from "@/server/actions/mrInfo";
 import { getItemCustomerSale } from "@/server/actions/customerItemSale";
+import { getMRInfo } from "@/server/actions/mrInfo";
 
 function formatDisplayDate(val?: string | Date | null): string {
 	if (!val) return "";
@@ -38,7 +38,8 @@ export async function NewSalesReportView({
 	const compCodeToQuery =
 		company === "All"
 			? mrInfo.companyCode || ""
-			: mrInfo.companyCode && (mrInfo.company === company || mrInfo.division === company)
+			: mrInfo.companyCode &&
+					(mrInfo.company === company || mrInfo.division === company)
 				? mrInfo.companyCode
 				: company;
 
@@ -52,7 +53,8 @@ export async function NewSalesReportView({
 		compCode: compCodeToQuery,
 	});
 
-	const rawRows = salesResult.success && salesResult.data ? salesResult.data : [];
+	const rawRows =
+		salesResult.success && salesResult.data ? salesResult.data : [];
 
 	let reportData = rawRows.map((row) => ({
 		Division: mrInfo.division || mrInfo.company || "General",
@@ -118,7 +120,8 @@ export async function NewSalesReportView({
 							ASMEE PHARMA PRIVATE LIMITED
 						</h2>
 						<p className="mt-0.5 text-[11px] text-gray-700 leading-tight">
-							BASEMENE-GF, 11/2 ASHOK HOUSE, B/S SANSTHA VASAHAT GATE, PRATAP ROAD,
+							BASEMENE-GF, 11/2 ASHOK HOUSE, B/S SANSTHA VASAHAT GATE, PRATAP
+							ROAD,
 							<br />
 							RAOPURA, VADODARA - 390001, GUJARAT - 24
 						</p>
@@ -128,7 +131,8 @@ export async function NewSalesReportView({
 				<div className="mt-3 flex items-center justify-between border-gray-300 border-t pt-1.5 font-bold text-gray-900 text-xs">
 					<div>Year : 2026-27</div>
 					<div className="font-extrabold text-[#0B2545] text-xs">
-						Sales Statement for Period of {formatDisplayDate(defaultFrom)} to {formatDisplayDate(defaultTo)}
+						Sales Statement for Period of {formatDisplayDate(defaultFrom)} to{" "}
+						{formatDisplayDate(defaultTo)}
 					</div>
 					<div>Total Items: {reportData.length}</div>
 				</div>
@@ -138,27 +142,55 @@ export async function NewSalesReportView({
 				<table className="w-full min-w-[1200px] border-collapse text-left font-sans">
 					<thead>
 						<tr className="border-[#0B2545] border-y-2">
-							<th className="py-2 pl-2 font-bold text-[#0B2545] text-xs">Sr.</th>
-							<th className="py-2 font-bold text-[#0B2545] text-xs">Inv. No.</th>
-							<th className="py-2 font-bold text-[#0B2545] text-xs">Inv. Date</th>
+							<th className="py-2 pl-2 font-bold text-[#0B2545] text-xs">
+								Sr.
+							</th>
+							<th className="py-2 font-bold text-[#0B2545] text-xs">
+								Inv. No.
+							</th>
+							<th className="py-2 font-bold text-[#0B2545] text-xs">
+								Inv. Date
+							</th>
 							<th className="py-2 font-bold text-[#0B2545] text-xs">Code</th>
-							<th className="py-2 font-bold text-[#0B2545] text-xs">Item Name</th>
+							<th className="py-2 font-bold text-[#0B2545] text-xs">
+								Item Name
+							</th>
 							<th className="py-2 font-bold text-[#0B2545] text-xs">Packing</th>
-							<th className="py-2 font-bold text-[#0B2545] text-xs">Batch No.</th>
-							<th className="py-2 text-right font-bold text-[#0B2545] text-xs">MRP</th>
-							<th className="py-2 text-center font-bold text-[#0B2545] text-xs">Exp. Dt.</th>
-							<th className="py-2 text-right font-bold text-[#0B2545] text-xs">Qty.</th>
-							<th className="py-2 text-right font-bold text-[#0B2545] text-xs">FQty.</th>
-							<th className="py-2 text-right font-bold text-[#0B2545] text-xs">Rate</th>
-							<th className="py-2 text-right font-bold text-[#0B2545] text-xs">Taxable Amount</th>
-							<th className="py-2 text-right font-bold text-[#0B2545] text-xs">GST Amount</th>
-							<th className="py-2 pr-2 text-right font-bold text-[#0B2545] text-xs">Amount</th>
+							<th className="py-2 font-bold text-[#0B2545] text-xs">
+								Batch No.
+							</th>
+							<th className="py-2 text-right font-bold text-[#0B2545] text-xs">
+								MRP
+							</th>
+							<th className="py-2 text-center font-bold text-[#0B2545] text-xs">
+								Exp. Dt.
+							</th>
+							<th className="py-2 text-right font-bold text-[#0B2545] text-xs">
+								Qty.
+							</th>
+							<th className="py-2 text-right font-bold text-[#0B2545] text-xs">
+								FQty.
+							</th>
+							<th className="py-2 text-right font-bold text-[#0B2545] text-xs">
+								Rate
+							</th>
+							<th className="py-2 text-right font-bold text-[#0B2545] text-xs">
+								Taxable Amount
+							</th>
+							<th className="py-2 text-right font-bold text-[#0B2545] text-xs">
+								GST Amount
+							</th>
+							<th className="py-2 pr-2 text-right font-bold text-[#0B2545] text-xs">
+								Amount
+							</th>
 						</tr>
 					</thead>
 					<tbody className="font-medium text-xs">
 						{divisions.map((div, divIdx) => {
 							const divData = reportData.filter((d) => d.Division === div);
-							const customers = [...new Set(divData.map((d) => d.Customer))].sort();
+							const customers = [
+								...new Set(divData.map((d) => d.Customer)),
+							].sort();
 
 							let divQty = 0;
 							let divTaxable = 0;
@@ -215,17 +247,29 @@ export async function NewSalesReportView({
 															<td className="py-1.5 font-bold">{row.InvNo}</td>
 															<td className="py-1.5">{row.InvDate}</td>
 															<td className="py-1.5">{row.Code}</td>
-															<td className="py-1.5 font-bold text-gray-900">{row.ItemName}</td>
+															<td className="py-1.5 font-bold text-gray-900">
+																{row.ItemName}
+															</td>
 															<td className="py-1.5">{row.Packing}</td>
 															<td className="py-1.5">{row.BatchNo}</td>
 															<td className="py-1.5 text-right">{row.MRP}</td>
-															<td className="py-1.5 text-center">{row.ExpDt}</td>
-															<td className="py-1.5 text-right font-bold">{row.Qty}</td>
+															<td className="py-1.5 text-center">
+																{row.ExpDt}
+															</td>
+															<td className="py-1.5 text-right font-bold">
+																{row.Qty}
+															</td>
 															<td className="py-1.5 text-right">{row.FQty}</td>
 															<td className="py-1.5 text-right">{row.Rate}</td>
-															<td className="py-1.5 text-right">{row.TaxableAmt.toFixed(2)}</td>
-															<td className="py-1.5 text-right">{row.GSTAmt.toFixed(2)}</td>
-															<td className="py-1.5 pr-2 text-right font-bold">{row.Amount.toFixed(2)}</td>
+															<td className="py-1.5 text-right">
+																{row.TaxableAmt.toFixed(2)}
+															</td>
+															<td className="py-1.5 text-right">
+																{row.GSTAmt.toFixed(2)}
+															</td>
+															<td className="py-1.5 pr-2 text-right font-bold">
+																{row.Amount.toFixed(2)}
+															</td>
 														</tr>
 													);
 												})}
@@ -238,9 +282,15 @@ export async function NewSalesReportView({
 													<td className="py-1.5 text-right">{custQty}</td>
 													<td className="py-1.5 text-right"></td>
 													<td className="py-1.5 text-right"></td>
-													<td className="py-1.5 text-right">{custTaxable.toFixed(2)}</td>
-													<td className="py-1.5 text-right">{custGST.toFixed(2)}</td>
-													<td className="py-1.5 pr-2 text-right">{custAmt.toFixed(2)}</td>
+													<td className="py-1.5 text-right">
+														{custTaxable.toFixed(2)}
+													</td>
+													<td className="py-1.5 text-right">
+														{custGST.toFixed(2)}
+													</td>
+													<td className="py-1.5 pr-2 text-right">
+														{custAmt.toFixed(2)}
+													</td>
 												</tr>
 											</React.Fragment>
 										);
@@ -256,7 +306,9 @@ export async function NewSalesReportView({
 										<td className="py-2 text-right"></td>
 										<td className="py-2 text-right">{divTaxable.toFixed(2)}</td>
 										<td className="py-2 text-right">{divGST.toFixed(2)}</td>
-										<td className="py-2 pr-2 text-right">{divAmt.toFixed(2)}</td>
+										<td className="py-2 pr-2 text-right">
+											{divAmt.toFixed(2)}
+										</td>
 									</tr>
 								</React.Fragment>
 							);

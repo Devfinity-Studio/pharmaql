@@ -63,13 +63,20 @@ const LEGACY_MKT_MR_QUERY = `
 
 function normalizeLegacyMR(raw: any): LegacyMRUser {
 	const isBlocked = Number(raw.IsInActive ?? raw.IsBlocked ?? 0) === 1;
-	const name = (raw.MRName || raw.Description || raw.UCode || "MR User").toString().trim();
+	const name = (raw.MRName || raw.Description || raw.UCode || "MR User")
+		.toString()
+		.trim();
 	const email = (raw.EmailId || `${raw.ID}@asmeepharma.com`).toString().trim();
-	const division = raw.DivisionName ? String(raw.DivisionName).trim() : undefined;
-	const company = (raw.CompanyName || raw.CompanyCode)
-		? String(raw.CompanyName || raw.CompanyCode).trim()
+	const division = raw.DivisionName
+		? String(raw.DivisionName).trim()
 		: undefined;
-	const companyCode = raw.CompanyCode ? String(raw.CompanyCode).trim() : undefined;
+	const company =
+		raw.CompanyName || raw.CompanyCode
+			? String(raw.CompanyName || raw.CompanyCode).trim()
+			: undefined;
+	const companyCode = raw.CompanyCode
+		? String(raw.CompanyCode).trim()
+		: undefined;
 
 	return {
 		ID: raw.ID,
@@ -178,6 +185,7 @@ export async function getAllMRUsers(): Promise<LegacyMRUser[]> {
 
 /**
  * Fetch all marketing companies and their respective divisions from m_mktcompany and l_mktcompany.
+ * Cached in memory with a 1-hour TTL to accelerate navigation and rendering.
  */
 export async function getAllMarketingCompaniesWithDivisions(): Promise<
 	Array<{
@@ -188,22 +196,32 @@ export async function getAllMarketingCompaniesWithDivisions(): Promise<
 		divisionName: string;
 	}>
 > {
-	try {
-		const [rows] = await legacyDb.query(`
-			SELECT DISTINCT
-				m.ID AS companyId,
-				m.Code AS companyCode,
-				m.Description AS companyName,
-				l.ID AS divisionId,
-				l.Division AS divisionName
-			FROM \`pdyasvmaster\`.\`m_mktcompany\` m
-			JOIN \`pdyasvmaster\`.\`l_mktcompany\` l ON m.Code = l.CompCode
-			WHERE m.IsInActive = 0
-			ORDER BY m.Description ASC, l.Division ASC
-		`);
-		return (rows as any[]) || [];
-	} catch (error) {
-		console.error("Failed to query marketing companies and divisions:", error);
-		return [];
-	}
+	const { getOrSetCache } = await import("@/lib/cache");
+	return getOrSetCache(
+		"all_marketing_companies_with_divisions",
+		3600,
+		async () => {
+			try {
+				const [rows] = await legacyDb.query(`
+				SELECT DISTINCT
+					m.ID AS companyId,
+					m.Code AS companyCode,
+					m.Description AS companyName,
+					l.ID AS divisionId,
+					l.Division AS divisionName
+				FROM \`pdyasvmaster\`.\`m_mktcompany\` m
+				JOIN \`pdyasvmaster\`.\`l_mktcompany\` l ON m.Code = l.CompCode
+				WHERE m.IsInActive = 0
+				ORDER BY m.Description ASC, l.Division ASC
+			`);
+				return (rows as any[]) || [];
+			} catch (error) {
+				console.error(
+					"Failed to query marketing companies and divisions:",
+					error,
+				);
+				return [];
+			}
+		},
+	);
 }

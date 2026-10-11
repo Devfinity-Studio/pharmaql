@@ -1,10 +1,10 @@
 import { headers } from "next/headers";
 import { notFound, redirect } from "next/navigation";
-import { MrDashboardContent } from "@/components/mr-dashboard-content";
-import { auth } from "@/server/auth";
-import { getMRInfo } from "@/server/actions/mrInfo";
 import { Suspense } from "react";
-import { TableSkeleton } from "@/components/ui/table-skeleton";
+import { DashboardSkeleton } from "@/components/dashboard-skeleton";
+import { MrDashboardContent } from "@/components/mr-dashboard-content";
+import { getMRInfo } from "@/server/actions/mrInfo";
+import { auth } from "@/server/auth";
 
 export default async function AdminMRViewPage({
 	params,
@@ -52,7 +52,10 @@ export default async function AdminMRViewPage({
 	}
 
 	return (
-		<Suspense key={JSON.stringify(cleanParams)} fallback={<div className="p-4"><TableSkeleton rows={10} columns={5} /></div>}>
+		<Suspense
+			fallback={<DashboardSkeleton />}
+			key={JSON.stringify(cleanParams)}
+		>
 			<MrDashboardContent
 				isAdminView={true}
 				mrId={decodedId}

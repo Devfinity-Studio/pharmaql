@@ -1,5 +1,6 @@
 "use server";
 
+import { getOrSetCache } from "@/lib/cache";
 import { legacyDb } from "@/lib/legacy-db";
 
 export interface ItemCatalogRow {
@@ -86,46 +87,51 @@ export async function getItemCatalog(options?: {
 	offset?: number;
 	search?: string;
 }): Promise<ItemCatalogRow[]> {
-	try {
-		const conditions: string[] = ["InActive = 0"];
-		const params: any[] = [];
+	const cacheKey = `catalog:${options?.division || "all"}:${options?.company || "all"}:${options?.search || ""}:${options?.limit || 200}:${options?.offset || 0}`;
 
-		if (options?.division && options.division !== "All") {
-			conditions.push("(Division = ? OR MktBy = ?)");
-			params.push(options.division, options.division);
+	return getOrSetCache(cacheKey, 1800, async () => {
+		try {
+			const conditions: string[] = ["InActive = 0"];
+			const params: any[] = [];
+
+			if (options?.division && options.division !== "All") {
+				conditions.push("(Division = ? OR MktBy = ?)");
+				params.push(options.division, options.division);
+			}
+
+			if (options?.search) {
+				conditions.push("(ItemName LIKE ? OR ItemCode LIKE ?)");
+				params.push(`%${options.search}%`, `%${options.search}%`);
+			}
+
+			const limit = options?.limit || 200;
+			const offset = options?.offset || 0;
+
+			const whereSql =
+				conditions.length > 0 ? `WHERE ${conditions.join(" AND ")}` : "";
+			const sql = `
+				SELECT 
+					ID, AWACSCode, SeriesID, ItemCode, ItemName, PrintName, Packing,
+					BaseUnit, PurcUnit, QtyPerPurcUnit, MktByID, MktBy, MfgByID,
+					DivisionId, Division, AllowInvDisc, DiscPer, MinNetQty, MultipleOfQty,
+					MinSaleQty, AllowSLRT, AllowChangePTR, IncSS, ItemCatgID, ItemCategory,
+					IsColdChain, ItemGroup, MISRate, HSN, TaxGrpCode, GeneralTaxP, CompNo,
+					PriQty, PriContains, PriContainsUnit, LBatchNo, LPrate, LPTR, LMRP,
+					LExpDt, PTRMarginP, PRateMarginP, InActive
+				FROM \`pdyasvmaster\`.\`m_item\`
+				${whereSql}
+				ORDER BY ItemName ASC
+				LIMIT ? OFFSET ?
+			`;
+
+			params.push(limit, offset);
+			const [rows] = await legacyDb.query(sql, params);
+			return (rows as any[]) || [];
+		} catch (error) {
+			console.error("[Catalog] Error querying pdyasvmaster.m_item:", error);
+			return [];
 		}
-
-		if (options?.search) {
-			conditions.push("(ItemName LIKE ? OR ItemCode LIKE ?)");
-			params.push(`%${options.search}%`, `%${options.search}%`);
-		}
-
-		const limit = options?.limit || 200;
-		const offset = options?.offset || 0;
-
-		const whereSql = conditions.length > 0 ? `WHERE ${conditions.join(" AND ")}` : "";
-		const sql = `
-			SELECT 
-				ID, AWACSCode, SeriesID, ItemCode, ItemName, PrintName, Packing,
-				BaseUnit, PurcUnit, QtyPerPurcUnit, MktByID, MktBy, MfgByID,
-				DivisionId, Division, AllowInvDisc, DiscPer, MinNetQty, MultipleOfQty,
-				MinSaleQty, AllowSLRT, AllowChangePTR, IncSS, ItemCatgID, ItemCategory,
-				IsColdChain, ItemGroup, MISRate, HSN, TaxGrpCode, GeneralTaxP, CompNo,
-				PriQty, PriContains, PriContainsUnit, LBatchNo, LPrate, LPTR, LMRP,
-				LExpDt, PTRMarginP, PRateMarginP, InActive
-			FROM \`pdyasvmaster\`.\`m_item\`
-			${whereSql}
-			ORDER BY ItemName ASC
-			LIMIT ? OFFSET ?
-		`;
-
-		params.push(limit, offset);
-		const [rows] = await legacyDb.query(sql, params);
-		return (rows as any[]) || [];
-	} catch (error) {
-		console.error("[Catalog] Error querying pdyasvmaster.m_item:", error);
-		return [];
-	}
+	});
 }
 
 export async function getProductCatalog(options?: {
@@ -139,4 +145,3 @@ export async function getProductCatalog(options?: {
 	});
 	return { success: true, data };
 }
-
