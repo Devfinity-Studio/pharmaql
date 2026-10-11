@@ -105,14 +105,33 @@ export async function OverdueReportView({
 		);
 	}
 
-	const reportData = rowsToProcess.map((row) => {
-		const invDateStr = formatDisplayDate(row.DocDate) || "N/A";
-		const dueDateStr = row.DueDate || "N/A";
-		const purchaseDays = row.OverDays != null ? row.OverDays : 0;
+	// Filter strictly for entries where Amount - AdjAmt > 0
+	const overdueFilteredRows = rowsToProcess.filter((row) => {
 		const originalAmt = Number(row.Amount || 0);
 		const adjAmt = Number(row.AdjAmt || 0);
-		const dueAmt = Math.max(0, originalAmt - adjAmt);
-		const amountDue = dueAmt > 0 ? dueAmt : originalAmt;
+		return originalAmt - adjAmt > 0;
+	});
+
+	const now = new Date();
+
+	const reportData = overdueFilteredRows.map((row) => {
+		const invDateStr = formatDisplayDate(row.DocDate) || "N/A";
+		const dueDateStr = row.DueDate || "N/A";
+
+		let purchaseDays = 0;
+		if (row.DocDate) {
+			const invDate = new Date(row.DocDate);
+			if (!isNaN(invDate.getTime())) {
+				const diffTime = Math.abs(now.getTime() - invDate.getTime());
+				purchaseDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+			}
+		} else if (row.OverDays != null) {
+			purchaseDays = Math.abs(row.OverDays);
+		}
+
+		const originalAmt = Number(row.Amount || 0);
+		const adjAmt = Number(row.AdjAmt || 0);
+		const amountDue = originalAmt - adjAmt;
 
 		return {
 			Manufacturer: row.Division || row.CompCode || "Unknown",
@@ -145,7 +164,7 @@ export async function OverdueReportView({
 					<span>[DEBUG QUERY] Stored Procedure Execution Status (Overdue / Periodical Outstanding)</span>
 					<span className="rounded bg-amber-200 px-2 py-0.5 text-[11px] font-semibold">
 						{procResult.success
-							? `${procResult.data?.length ?? 0} rows returned`
+							? `${procResult.data?.length ?? 0} total rows (${reportData.length} pending overdue)`
 							: procResult.error || "Query Failed"}
 					</span>
 				</div>
@@ -268,7 +287,13 @@ export async function OverdueReportView({
 																</td>
 																<td className="py-1.5">{row["Invoice Date"]}</td>
 																<td className="py-1.5">{row["Due Date"]}</td>
-																<td className="py-1.5 text-right font-bold text-amber-600">
+																<td
+																	className={`py-1.5 text-right font-bold ${
+																		row["Purchase Days"] > 90
+																			? "text-red-600 font-extrabold"
+																			: "text-amber-600"
+																	}`}
+																>
 																	{row["Purchase Days"]}
 																</td>
 																<td className="py-1.5 font-bold">
