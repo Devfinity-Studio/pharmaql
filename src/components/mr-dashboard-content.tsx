@@ -139,6 +139,9 @@ export async function MrDashboardContent({
 	let recentInvoices: any[] = [];
 	let outstandingByDoctor: { doctor: string; city: string; amount: number }[] =
 		[];
+	let accessibleSales: any[] = [];
+	let accessibleInvoices: any[] = [];
+	let accessibleOutstanding: any[] = [];
 
 	if (canViewStock && productIds.length > 0) {
 		const inventory = await db
@@ -208,7 +211,7 @@ export async function MrDashboardContent({
 			}
 		}
 
-		const accessibleSales = salesCondition
+		accessibleSales = salesCondition
 			? await db
 					.select({
 						productId: sales.productId,
@@ -221,11 +224,11 @@ export async function MrDashboardContent({
 					.where(salesCondition)
 			: [];
 
-		const accessibleInvoices = invoiceCondition
+		accessibleInvoices = invoiceCondition
 			? await db.select().from(invoices).where(invoiceCondition)
 			: [];
 
-		const accessibleOutstanding = outstandingCondition
+		accessibleOutstanding = outstandingCondition
 			? await db.select().from(outstanding).where(outstandingCondition)
 			: [];
 
@@ -539,6 +542,35 @@ export async function MrDashboardContent({
 			{/* OVERVIEW TAB */}
 			{canViewSales && (searchParams?.tab || "overview") === "overview" && (
 				<div className="space-y-6">
+					{/* DEBUG QUERY BANNER FOR OVERVIEW */}
+					<div className="rounded-xl border-2 border-amber-400 bg-amber-50 p-4 font-mono text-xs text-amber-950 shadow-sm print:hidden">
+						<div className="flex flex-wrap items-center justify-between gap-2 border-b border-amber-200 pb-2 mb-2 font-bold text-amber-900 text-xs">
+							<span>[DEBUG QUERY] Overview Tab Data Status</span>
+							<span className="rounded bg-amber-200 px-2 py-0.5 text-[11px] font-semibold">
+								Sales: {accessibleSales.length} | Invoices: {accessibleInvoices.length} | Outstanding: {accessibleOutstanding.length}
+							</span>
+						</div>
+						<div className="space-y-1.5">
+							<p className="font-bold text-amber-900 text-[11px]">Database Queries & Filter Conditions:</p>
+							<pre className="overflow-x-auto rounded border border-amber-200 bg-amber-100 p-2.5 text-[11px] font-mono select-all whitespace-pre-wrap break-all text-amber-950">
+{`-- Overview metrics query local tables: sales, invoices, outstanding
+-- Accessible Products Count: ${productIds.length}
+-- Date Filters: from=${searchParams?.from || "NOT PROVIDED"}, to=${searchParams?.to || "NOT PROVIDED"}
+-- Division Selected: ${selectedDivision}
+-- Assigned Divisions: ${JSON.stringify(assignedDivisions)}
+-- Sales Query: SELECT * FROM sales WHERE mrId = '${mrId}' AND productId IN (${productIds.length > 0 ? productIds.slice(0, 5).join(", ") + (productIds.length > 5 ? "..." : "") : "NONE"})${searchParams?.from ? ` AND date >= '${searchParams.from}'` : ""}${searchParams?.to ? ` AND date <= '${searchParams.to}'` : ""} => ${accessibleSales.length} rows
+-- Invoices Query: SELECT * FROM invoices WHERE mrId = '${mrId}' AND manufacturerCode IN (${JSON.stringify(selectedAssignments.map((d) => d.manufacturer))})${searchParams?.from ? ` AND date >= '${searchParams.from}'` : ""}${searchParams?.to ? ` AND date <= '${searchParams.to}'` : ""} => ${accessibleInvoices.length} rows
+-- Outstanding Query: SELECT * FROM outstanding WHERE mrId = '${mrId}' AND manufacturerCode IN (${JSON.stringify(selectedAssignments.map((d) => d.manufacturer))})${searchParams?.from ? ` AND invDt >= '${searchParams.from}'` : ""}${searchParams?.to ? ` AND invDt <= '${searchParams.to}'` : ""} => ${accessibleOutstanding.length} rows`}
+							</pre>
+							<div className="mt-2 grid grid-cols-2 md:grid-cols-4 gap-2 text-[11px] text-amber-800 pt-1.5 border-t border-amber-200">
+								<div><span className="font-semibold">MR ID:</span> {mrId}</div>
+								<div><span className="font-semibold">MR Name:</span> {mrInfo.name || "N/A"}</div>
+								<div><span className="font-semibold">MR Company:</span> {mrInfo.company || "N/A"}</div>
+								<div><span className="font-semibold">LocNo:</span> {mrInfo.locNo || "11"}</div>
+							</div>
+						</div>
+					</div>
+
 					{/* Refined Metric Cards Family */}
 					<div className="grid grid-cols-1 gap-6 md:grid-cols-3">
 						<div className="rounded-xl bg-[#0071BC] p-6 text-white shadow-sm">
