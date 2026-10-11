@@ -9,6 +9,7 @@ import {
   sales,
 } from "@/server/db/schema";
 import { getMRInfo } from "@/server/actions/mrInfo";
+import { getClaimData } from "@/server/actions/claimData";
 
 export async function FreeSchemeReportView({
   mrId,
@@ -84,89 +85,143 @@ export async function FreeSchemeReportView({
     );
   }
 
-  // Query raw SQL for legacy tables for Sales/Free Schemes
-  let dateCondition = ``;
-  if (searchParams?.from) {
-    dateCondition += ` AND h.inv_dt >= '${searchParams.from}'`;
-  }
-  if (searchParams?.to) {
-    dateCondition += ` AND h.inv_dt <= '${searchParams.to}'`;
-  }
+  // Query claim data using stored procedure `rptClaimData`
+  const compCodeToQuery =
+    company === "All"
+      ? mrInfo.companyCode || (companiesToQuery.length > 0 ? companiesToQuery : "")
+      : mrInfo.companyCode && (mrInfo.company === company || mrInfo.division === company)
+        ? mrInfo.companyCode
+        : company;
 
-  const legacyDataResult = await db.execute(
-    sql.raw(`
-		SELECT 
-			h.inv_no as inv_no,
-			h.inv_dt as inv_dt,
-			CONCAT(h.cust_id, ' ', COALESCE(c.name, 'Unknown Party'), ' , ', COALESCE(c.city, '')) as customer,
-			l.item_id as item_id,
-			l.batch_no as batch_no,
-			l.mrp as mrp,
-			l.exp_dt as exp_dt,
-			l.qty as qty,
-			l.f_qty as f_qty,
-			l.rate as rate,
-			l.taxable_amt as taxable_amt,
-			l.vat_amt as gst_amt,
-			l.line_amt as amount
-		FROM "pg-drizzle_legacy_h_sale" h
-		JOIN "pg-drizzle_legacy_l_sale" l ON l.rid = h.id
-		LEFT JOIN "pg-drizzle_legacy_customers" c ON c.id = h.cust_id
-		WHERE l.item_id IN (${productIds.map((id) => `'${id}'`).join(",")})
-		${dateCondition}
-	`),
-  );
-
-  const legacyRows = legacyDataResult as any[];
+  const claimResult = await getClaimData({
+    uniqueCode: "c9510231-4a58-4cb0-b40e-8fd18ff5f4ef",
+    fromDate: searchParams?.from,
+    toDate: searchParams?.to,
+    compCode: compCodeToQuery,
+    locNo: mrInfo.locNo,
+  });
 
   const reportData: any[] = [];
-  legacyRows.forEach((row: any) => {
-    const p = accessibleProducts.find(
-      (prod) => prod.id === String(row.item_id),
-    );
-    if (p) {
-      const pStock = stockMap.get(p.id) || { mrp: 0, ptr: 0 };
-      const qty = Number(row.qty) || 0;
-      const fQty = Number(row.f_qty) || 0;
 
-      if (fQty <= 0) return;
-
-      const netRate = Number(row.rate) || 0;
-      const invRate = pStock.ptr;
-      const schemeQty = 0; // Requires deeper scheme evaluation
-      const claimQty = fQty; // Using FQty for now as ClaimQty
-
-      // Claim Value = (PTR - InvRate) x SaleQty ( No Scheme ) or PTR x ClaimQty
-      const claimValue = invRate * claimQty;
+  if (claimResult.success && claimResult.data.length > 0) {
+    claimResult.data.forEach((row) => {
+      const ptr = Number(row.PTR || 0);
+      const sRate = Number(row.SRate || 0);
+      const pRate = Number(row.PRate || 0);
+      const mrp = Number(row.MRP || 0);
+      const qty = Number(row.Qty || 0);
+      const free = Number(row.Free || row.FQty || 0);
+      const fQty = Number(row.FQty || 0);
+      const claimVal = Number(row.FreeIAmt || 0);
 
       reportData.push({
-        Manufacturer: p.division || p.manufacturer,
-        SchemeType: "Qty",
-        Party: row.customer || "Unknown Party",
-        Code: p.code || "-",
-        "Product Name": p.name,
-        Packing: p.freeScheme || "-",
-        "Batch No.": row.batch_no || "-",
-        "Inv. No.": row.inv_no || "-",
-        "Inv. Dt.": row.inv_dt
-          ? new Date(row.inv_dt).toLocaleDateString("en-GB").replace(/\//g, "-")
+        Manufacturer: row.Company || row.Division || (company !== "All" ? company : "All"),
+        SchemeType: row.Scheme ? "Rate" : "Qty",
+        Party: `${row.CustCode ? `[${row.CustCode}] ` : ""}${row.Customer || "Unknown Party"}${row.City ? ` , ${row.City}` : ""}`,
+        Code: row.ItemCode || "-",
+        "Product Name": row.ItemName || "Unknown Item",
+        Packing: row.Packing || "-",
+        "Batch No.": row.BatchNo || "-",
+        "Inv. No.": row.InvNo || "-",
+        "Inv. Dt.": row.InvDt
+          ? new Date(row.InvDt).toLocaleDateString("en-GB").replace(/\//g, "-")
           : "-",
-        MRP: Number(row.mrp || pStock.mrp),
-        PRate: invRate,
-        PTR: invRate,
-        "Net Rate": netRate,
-        "Inv. Rate": netRate, // Same as Net Rate for now
+        MRP: mrp,
+        PRate: pRate,
+        PTR: ptr,
+        "Net Rate": sRate,
+        "Inv. Rate": sRate,
         "Sale Qty": qty,
-        "Free Qty": fQty,
+        "Free Qty": free,
         "Actual FQty": fQty,
-        "Claim Qty": claimQty,
-        "Rate Diff.": invRate - netRate,
-        "Claim Value": claimValue,
-        "Item Scheme": p.freeScheme || "-",
-        "Applied Scheme": "-",
+        "Claim Qty": free,
+        "Rate Diff.": ptr - sRate,
+        "Claim Value": claimVal,
+        "Item Scheme": row.Scheme || "-",
+        "Applied Scheme": row.Scheme || "-",
       });
+    });
+  } else {
+    // Fallback to local tables if procedure returns no data
+    let dateCondition = ``;
+    if (searchParams?.from) {
+      dateCondition += ` AND h.inv_dt >= '${searchParams.from}'`;
     }
-  });
+    if (searchParams?.to) {
+      dateCondition += ` AND h.inv_dt <= '${searchParams.to}'`;
+    }
+
+    const legacyDataResult = await db.execute(
+      sql.raw(`
+        SELECT 
+          h.inv_no as inv_no,
+          h.inv_dt as inv_dt,
+          CONCAT(h.cust_id, ' ', COALESCE(c.name, 'Unknown Party'), ' , ', COALESCE(c.city, '')) as customer,
+          l.item_id as item_id,
+          l.batch_no as batch_no,
+          l.mrp as mrp,
+          l.exp_dt as exp_dt,
+          l.qty as qty,
+          l.f_qty as f_qty,
+          l.rate as rate,
+          l.taxable_amt as taxable_amt,
+          l.vat_amt as gst_amt,
+          l.line_amt as amount
+        FROM "pg-drizzle_legacy_h_sale" h
+        JOIN "pg-drizzle_legacy_l_sale" l ON l.rid = h.id
+        LEFT JOIN "pg-drizzle_legacy_customers" c ON c.id = h.cust_id
+        WHERE l.item_id IN (${productIds.map((id) => `'${id}'`).join(",")})
+        ${dateCondition}
+      `),
+    );
+
+    const legacyRows = legacyDataResult as any[];
+
+    legacyRows.forEach((row: any) => {
+      const p = accessibleProducts.find(
+        (prod) => prod.id === String(row.item_id),
+      );
+      if (p) {
+        const pStock = stockMap.get(p.id) || { mrp: 0, ptr: 0 };
+        const qty = Number(row.qty) || 0;
+        const fQty = Number(row.f_qty) || 0;
+
+        if (fQty <= 0) return;
+
+        const netRate = Number(row.rate) || 0;
+        const invRate = pStock.ptr;
+        const claimQty = fQty;
+        const claimValue = invRate * claimQty;
+
+        reportData.push({
+          Manufacturer: p.division || p.manufacturer,
+          SchemeType: "Qty",
+          Party: row.customer || "Unknown Party",
+          Code: p.code || "-",
+          "Product Name": p.name,
+          Packing: p.freeScheme || "-",
+          "Batch No.": row.batch_no || "-",
+          "Inv. No.": row.inv_no || "-",
+          "Inv. Dt.": row.inv_dt
+            ? new Date(row.inv_dt).toLocaleDateString("en-GB").replace(/\//g, "-")
+            : "-",
+          MRP: Number(row.mrp || pStock.mrp),
+          PRate: invRate,
+          PTR: invRate,
+          "Net Rate": netRate,
+          "Inv. Rate": netRate,
+          "Sale Qty": qty,
+          "Free Qty": fQty,
+          "Actual FQty": fQty,
+          "Claim Qty": claimQty,
+          "Rate Diff.": invRate - netRate,
+          "Claim Value": claimValue,
+          "Item Scheme": p.freeScheme || "-",
+          "Applied Scheme": "-",
+        });
+      }
+    });
+  }
 
   if (reportData.length === 0) {
     return (
