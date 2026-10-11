@@ -1,7 +1,7 @@
 import { headers } from "next/headers";
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { legacyDb } from "@/lib/legacy-db";
+import { apiGet } from "@/lib/api-client";
 import { auth } from "@/server/auth";
 
 export default async function AdminDashboardPage() {
@@ -16,37 +16,22 @@ export default async function AdminDashboardPage() {
 		redirect("/login");
 	}
 
-	// Fetch live counts from legacy MySQL ERP
-	const [mrCountRows] = await legacyDb.query(`
-		SELECT COUNT(*) AS total FROM \`pdyasvmaster\`.\`l_mktcompany_mr\` WHERE IsInActive = 0
-	`);
-	const totalMRs = (mrCountRows as any[])[0]?.total || 0;
+	// Fetch live counts from standalone Database API
+	const statsRes = await apiGet<{
+		totalMRs: number;
+		totalCompanies: number;
+		totalItems: number;
+		manufacturerStats: Array<{
+			manufacturer: string;
+			description: string;
+			totalProducts: number;
+		}>;
+	}>("/api/kpi/dashboard-stats");
 
-	const [companyCountRows] = await legacyDb.query(`
-		SELECT COUNT(*) AS total FROM \`pdyasvmaster\`.\`m_mktcompany\` WHERE IsInActive = 0
-	`);
-	const totalCompanies = (companyCountRows as any[])[0]?.total || 0;
-
-	const [itemCountRows] = await legacyDb.query(`
-		SELECT COUNT(*) AS total FROM \`pdyasvmaster\`.\`m_item\` WHERE InActive = 0
-	`);
-	const totalItems = (itemCountRows as any[])[0]?.total || 0;
-
-	// Company Breakdown
-	const [companyRows] = await legacyDb.query(`
-		SELECT 
-			m.Code AS manufacturer,
-			m.Description AS description,
-			COUNT(DISTINCT i.ID) AS totalProducts
-		FROM \`pdyasvmaster\`.\`m_mktcompany\` m
-		LEFT JOIN \`pdyasvmaster\`.\`l_mktcompany\` l ON m.Code = l.CompCode
-		LEFT JOIN \`pdyasvmaster\`.\`m_item\` i ON i.DivisionId = l.ID AND i.InActive = 0
-		WHERE m.IsInActive = 0
-		GROUP BY m.Code, m.Description
-		ORDER BY totalProducts DESC
-		LIMIT 15
-	`);
-	const manufacturerStats = (companyRows as any[]) || [];
+	const totalMRs = statsRes.data?.totalMRs || 0;
+	const totalCompanies = statsRes.data?.totalCompanies || 0;
+	const totalItems = statsRes.data?.totalItems || 0;
+	const manufacturerStats = statsRes.data?.manufacturerStats || [];
 
 	return (
 		<div className="mt-4 space-y-8">

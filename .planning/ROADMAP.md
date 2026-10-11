@@ -88,6 +88,15 @@
 - [x] Add React Suspense boundaries, skeleton loaders, and tab transitions across MR and Admin dashboards.
 - [x] Parallelize procedure calls and reduce payload sizes for report tables and export downloads.
 
+## Phase 14: Standalone Express.js API Layer Decoupling (MySQL Isolation) [COMPLETED]
+
+- [x] Scaffold standalone Express.js API backend in `api-server/` with `mysql2` pool, CORS, and 64-character `API_SECRET_KEY` Bearer auth middleware.
+- [x] Port all legacy MySQL queries and stored procedures (`rptStockMovementStatement`, `rptItemCustomerSale`, `rptMRwisePeriodicalOutstanding`, `rptClaimData`, `rptCompanyCustomerItemwiseSales`, `mrInfo`, `customerBlocking`, `itemCatalog`) into dedicated Express routes.
+- [x] Refactor Next.js server actions to consume the Express API via authenticated HTTP `fetch()`.
+- [x] Retain all TypeScript interfaces in Next.js to maintain seamless client type safety.
+- [x] Remove `mysql2` package and direct DB credentials from Next.js configuration.
+- [x] Validate Next.js Vercel build compatibility (zero native database drivers).
+
 
 
 

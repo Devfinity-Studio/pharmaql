@@ -10,12 +10,16 @@ export const env = createEnv({
 		ADMIN_PASSWORD: z.string().optional(),
 		DEV_EMAIL: z.string().email().optional(),
 		DEV_PASSWORD: z.string().optional(),
+		API_SERVER_URL: z.string().url().default("http://127.0.0.1:9273"),
+		API_SECRET_KEY: z.string().min(16).optional(),
 		NODE_ENV: z
 			.enum(["development", "test", "production"])
 			.default("development"),
 	},
 	client: {},
 	runtimeEnv: {
+		API_SERVER_URL: process.env.API_SERVER_URL,
+		API_SECRET_KEY: process.env.API_SECRET_KEY,
 		BETTER_AUTH_SECRET: process.env.BETTER_AUTH_SECRET,
 		GMAIL_USER: process.env.GMAIL_USER,
 		GMAIL_PASS: process.env.GMAIL_PASS,

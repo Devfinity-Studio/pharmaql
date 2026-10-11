@@ -1,21 +1,17 @@
 import { NextResponse } from "next/server";
-import { legacyDb } from "@/lib/legacy-db";
+import { apiGet } from "@/lib/api-client";
 
 export const dynamic = "force-dynamic";
 
 export async function GET() {
 	try {
-		const [masterRows] = await legacyDb.query(
-			"SELECT COUNT(*) as count FROM `pdyasvmaster`.`l_mktcompany_mr`",
-		);
-		const [transRows] = await legacyDb.query(
-			"SELECT COUNT(*) as count FROM `pdyasvtrans`.`d_itemsummary`",
-		);
+		const healthRes = await apiGet<{ status: string; db: string; port: number }>("/health");
+		const kpiRes = await apiGet<{ totalCustomers: number; totalProducts: number; totalMRs: number }>("/api/kpi/summary");
 
 		return NextResponse.json({
-			status: "connected",
-			pdyasvmasterMrCount: (masterRows as any)[0]?.count ?? 0,
-			pdyasvtransItemSummaryCount: (transRows as any)[0]?.count ?? 0,
+			status: healthRes.success ? "connected" : "disconnected",
+			apiServer: healthRes.data,
+			kpiSummary: kpiRes.data,
 		});
 	} catch (e: any) {
 		return NextResponse.json({ error: e.message }, { status: 500 });

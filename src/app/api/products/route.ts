@@ -1,5 +1,5 @@
 import { type NextRequest, NextResponse } from "next/server";
-import { legacyDb } from "@/lib/legacy-db";
+import { getAllMarketingCompaniesWithDivisions } from "@/server/actions/mrInfo";
 import { getItemCatalog } from "@/server/actions/itemCatalog";
 
 export async function GET(request: NextRequest) {
@@ -8,16 +8,10 @@ export async function GET(request: NextRequest) {
 		const filterType = searchParams.get("type");
 
 		if (filterType === "companies") {
-			const [rows] = await legacyDb.query(`
-				SELECT DISTINCT Code, Description 
-				FROM \`pdyasvmaster\`.\`m_mktcompany\`
-				WHERE IsInActive = 0
-				ORDER BY Description ASC
-			`);
-			const list = (rows as any[]) || [];
-			const companies = list
-				.map((r) => r.Description || r.Code)
-				.filter(Boolean);
+			const list = await getAllMarketingCompaniesWithDivisions();
+			const companies = Array.from(
+				new Set(list.map((r) => r.companyName || r.companyCode).filter(Boolean)),
+			);
 			return NextResponse.json({ companies });
 		}
 
