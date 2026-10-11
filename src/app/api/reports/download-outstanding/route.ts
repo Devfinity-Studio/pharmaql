@@ -1,11 +1,9 @@
-import { and, eq, gte, lte, or } from "drizzle-orm";
 import { headers } from "next/headers";
 import { NextResponse } from "next/server";
 import * as xlsx from "xlsx";
 import { auth } from "@/server/auth";
-import { db } from "@/server/db";
-import { mrManufacturers, outstanding } from "@/server/db/schema";
 import { getMRInfo } from "@/server/actions/mrInfo";
+import { getMRwisePeriodicalOutstanding } from "@/server/actions/overdueReports";
 
 export async function GET(request: Request) {
 	const session = await auth.api.getSession({
@@ -48,87 +46,61 @@ export async function GET(request: Request) {
 		return new NextResponse("Forbidden - Sales view disabled", { status: 403 });
 	}
 
-	// Get MR's assigned manufacturers/divisions
-	const assigned = await db
-		.select()
-		.from(mrManufacturers)
-		.where(eq(mrManufacturers.mrId, mrId));
-
-	const selectedAssignments =
+	// Query live stored procedure rptMRwisePeriodicalOutstanding
+	const compCodeToQuery =
 		division === "All"
-			? assigned
-			: assigned.filter((a) => (a.division || a.manufacturer) === division);
+			? mrInfo.companyCode || mrInfo.company || ""
+			: mrInfo.companyCode && (mrInfo.company === division || mrInfo.division === division)
+				? mrInfo.companyCode
+				: division;
 
-	if (selectedAssignments.length === 0) {
-		return new NextResponse("No data assigned", { status: 404 });
-	}
+	const defaultFrom = from || "2026-04-01";
+	const defaultTo = to || "2026-09-30";
 
-	// Build Outstanding Condition
-	const outstandingConditionList = selectedAssignments.map((d) => {
-		const conditions = [eq(outstanding.manufacturerCode, d.manufacturer)];
-		if (d.division) {
-			conditions.push(eq(outstanding.division, d.division));
-		}
-		return and(...conditions);
+	const procResult = await getMRwisePeriodicalOutstanding({
+		mrId,
+		compCode: compCodeToQuery,
+		fromDate: defaultFrom,
+		toDate: defaultTo,
+		locNo: mrInfo.locNo || "11",
 	});
 
-	let outstandingCondition = and(
-		eq(outstanding.mrId, mrId),
-		or(...outstandingConditionList),
-	);
-
-	if (from) {
-		const fromDate = new Date(from);
-		if (!isNaN(fromDate.getTime())) {
-			outstandingCondition = and(
-				outstandingCondition,
-				gte(outstanding.invDt, fromDate),
-			);
-		}
+	if (!procResult.success || !procResult.data) {
+		return new NextResponse(`Error fetching outstanding report: ${procResult.error || "Query failed"}`, { status: 500 });
 	}
 
-	if (to) {
-		const toDate = new Date(to);
-		if (!isNaN(toDate.getTime())) {
-			toDate.setUTCHours(23, 59, 59, 999);
-			outstandingCondition = and(
-				outstandingCondition,
-				lte(outstanding.invDt, toDate),
-			);
-		}
-	}
-
-	const accessibleOutstanding = outstandingCondition
-		? await db.select().from(outstanding).where(outstandingCondition)
-		: [];
-
-	// Build Output Data
 	const timestampStr = new Date().toLocaleString("en-IN", {
 		dateStyle: "medium",
 		timeStyle: "short",
 	});
 	const mrName = mrInfo.name || "Unknown MR";
 
-	const reportData = accessibleOutstanding.map((out) => {
-		return {
-			"MR Name": mrName,
-			"Doctor / Party": out.doctor || "Unknown",
-			City: out.city || "Unknown",
-			"Invoice No": out.invNo || "N/A",
-			"Invoice Date": out.invDt
-				? new Date(out.invDt).toLocaleDateString()
-				: "N/A",
-			Division: out.division || "N/A",
-			"Company Code": out.manufacturerCode || "N/A",
-			"Amount Due": out.invAmt ? parseFloat(out.invAmt) : 0,
-			"Generated At": timestampStr,
-		};
-	});
+	// Filter strictly for Amount - AdjAmt > 0 (pending balance)
+	const reportData = procResult.data
+		.map((row) => {
+			const originalAmt = Number(row.Amount || 0);
+			const adjAmt = Number(row.AdjAmt || 0);
+			const balanceAmt = originalAmt - adjAmt;
+			const billDateStr = row.DocDate ? new Date(row.DocDate).toLocaleDateString("en-GB") : "N/A";
+			return {
+				"MR Name": mrName,
+				"Customer / Party": row.Customer || "Unknown",
+				City: row.City || "Unknown",
+				"Bill No": row.DocNo || "N/A",
+				"Bill Date": billDateStr,
+				"Bill Amount": originalAmt,
+				"Adjusted Amount": adjAmt,
+				"Balance Amount": balanceAmt,
+				"Purchase Days": Number(row.OverDays || 0),
+				Division: row.Division || division,
+				"Company Code": row.CompCode || compCodeToQuery,
+				"Generated At": timestampStr,
+			};
+		})
+		.filter((r) => r["Balance Amount"] > 0);
 
-	// Sort by Amount Descending
-	reportData.sort(
-		(a, b) => (b["Amount Due"] as number) - (a["Amount Due"] as number),
-	);
+	// Sort by Purchase Days descending
+	reportData.sort((a, b) => b["Purchase Days"] - a["Purchase Days"]);
 
 	const timestamp = new Date().toISOString().split("T")[0];
 	const filename = `Outstanding_Invoices_${division.replace(/[^a-zA-Z0-9]/g, "_")}_${timestamp}`;

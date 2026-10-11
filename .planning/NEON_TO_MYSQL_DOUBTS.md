@@ -48,6 +48,8 @@
 #### ❓ Doubts / Questions for You:
 - Is stateless JWT cookie authentication approved? *(This requires 0 tables in MySQL and 0 local DB files).*
 
+yes
+
 ---
 
 ### 3. `mr_manufacturer` (MR Company & Division Assignments)
@@ -75,6 +77,8 @@ WHERE mr.ID = ?
 1. Is `l_mktcompany_mr` the single source of truth for an MR's assigned division and company?
 2. Can a single MR ID have multiple rows in `l_mktcompany_mr` if they handle multiple divisions, or is there another mapping table?
 
+no a single MR can have multiple assignments but the table is the only source of truth with the m_mktcompany_mr joined with it
+
 ---
 
 ### 4. `company` (Companies / Manufacturers)
@@ -88,6 +92,8 @@ WHERE mr.ID = ?
 
 #### ❓ Doubts / Questions for You:
 - In `pdyasvmaster.m_mktcompany`, is `Code` (e.g. `'AASPAN'`, `'STARTOS'`) the primary code to use for all report filters, and `Description` for the UI label?
+
+that is not the code the code is supposed to be the first word of the company string. for e.g. if its XYZ health care the code will be XYZ
 
 ---
 
@@ -105,6 +111,9 @@ WHERE mr.ID = ?
    - What are the exact columns in `pdyasvmaster.m_item` for Item Code, Item Name, Pack, and Company Code? (e.g., `ItemCode`, `ItemName`, `Pack`, `CompCode`?)
 2. Where is `freeScheme` (e.g. "10+2" or scheme details) stored in the legacy database, or is it handled solely inside the `rptClaimData` procedure?
 
+
+1. yes
+2. yes rpt claim data process
 ---
 
 ### 6. `mr_inventory` (Stock & Inventory)
@@ -119,6 +128,7 @@ WHERE mr.ID = ?
 #### ❓ Doubts / Questions for You:
 - Can we completely deprecate the `mr_inventory` table and rely 100% on `CALL rptStockMovementStatement(...)` for all stock views and Excel exports?
 
+yes we have to
 ---
 
 ### 7. `sale` & `invoice` (Sales Transactions)
@@ -134,6 +144,7 @@ WHERE mr.ID = ?
 - For the Overview Dashboard metric cards ("Total Sales Volume" and "Total Invoices"):
   - Should we calculate them on-the-fly by querying `rptItemCustomerSale` for the current month?
 
+yes you can also cache them for a day
 ---
 
 ### 8. `outstanding` (Overdue & Outstandings)
@@ -148,6 +159,7 @@ WHERE mr.ID = ?
 #### ❓ Doubts / Questions for You:
 - Can we confirm that all overdue/outstanding reporting and exports should be sourced strictly from `CALL rptMRwisePeriodicalOutstanding(...)`?
 
+yes absolutely.
 ---
 
 ### 9. `notice` (Broadcast Notices)
@@ -162,11 +174,18 @@ WHERE mr.ID = ?
 #### ❓ Doubts / Questions for You:
 - Does the legacy ERP system already have an internal notice or announcement table in `pdyasvmaster` that we should read from, or is storing broadcast notices in `data/notices.json` the preferred approach?
 
+no it doesnt have.
 ---
 
 ## Summary of Input Needed from You:
 Please reply with specifications for:
-1. **MR Authentication:** Which table & column contains MR passwords/credentials in `pdyasvmaster` (e.g., `m_user`), or do you prefer OTP/mobile login?
-2. **Admin Credentials:** Should admin login check `m_user` or use environment variables (`ADMIN_EMAIL`/`ADMIN_PASSWORD`)?
-3. **Product Catalog:** What are the exact column names in `pdyasvmaster.m_item` (ItemCode, ItemName, CompCode)?
+1. **MR Authentication:** Which table & column contains MR passwords/credentials in `pdyasvmaster` (e.g., `m_user`), or do you prefer OTP/mobile login? OTP login only. just add the ability to explisitely mention some admin users with email and password hash. the rest is OTP only.
+
+add one developer account too. (we will add developer abilites later)
+
+2. **Admin Credentials:** Should admin login check `m_user` or use environment variables (`ADMIN_EMAIL`/`ADMIN_PASSWORD`)? yes mention the admin and developer creds in the env file
+3. **Product Catalog:** What are the exact column names in `pdyasvmaster.m_item` (ItemCode, ItemName, CompCode)? 
 4. **Notices:** Local `data/notices.json` or is there an existing ERP notice table?
+
+this is the item query 
+select `pdyasvmaster`.`m_item`.`ID` AS `ID`,`pdyasvmaster`.`m_item`.`AWACSCode` AS `AWACSCode`,`pdyasvmaster`.`m_item`.`SeriesID` AS `SeriesID`,`pdyasvmaster`.`m_item`.`ItemCode` AS `ItemCode`,`pdyasvmaster`.`m_item`.`ItemName` AS `ItemName`,`pdyasvmaster`.`m_item`.`PrintName` AS `PrintName`,`pdyasvmaster`.`m_item`.`Packing` AS `Packing`,`pdyasvmaster`.`m_item`.`BaseUnit` AS `BaseUnit`,`pdyasvmaster`.`m_item`.`PurcUnit` AS `PurcUnit`,`pdyasvmaster`.`m_item`.`QtyPerPurcUnit` AS `QtyPerPurcUnit`,`pdyasvmaster`.`m_item`.`MktByID` AS `MktByID`,`pdyasvmaster`.`m_item`.`MktBy` AS `MktBy`,`pdyasvmaster`.`m_item`.`MfgByID` AS `MfgByID`,`pdyasvmaster`.`m_item`.`DivisionId` AS `DivisionId`,`pdyasvmaster`.`m_item`.`Division` AS `Division`,`pdyasvmaster`.`m_item`.`AllowInvDisc` AS `AllowInvDisc`,`pdyasvmaster`.`m_item`.`DiscPer` AS `DiscPer`,`pdyasvmaster`.`m_item`.`MinNetQty` AS `MinNetQty`,`pdyasvmaster`.`m_item`.`MultipleOfQty` AS `MultipleOfQty`,`pdyasvmaster`.`m_item`.`MinSaleQty` AS `MinSaleQty`,`pdyasvmaster`.`m_item`.`AllowSLRT` AS `AllowSLRT`,`pdyasvmaster`.`m_item`.`AllowChangePTR` AS `AllowChangePTR`,`pdyasvmaster`.`m_item`.`IncSS` AS `IncSS`,`pdyasvmaster`.`m_item`.`ItemCatgID` AS `ItemCatgID`,`pdyasvmaster`.`m_item`.`ItemCategory` AS `ItemCategory`,`pdyasvmaster`.`m_item`.`IsColdChain` AS `IsColdChain`,`pdyasvmaster`.`m_item`.`ItemGroup` AS `ItemGroup`,`pdyasvmaster`.`m_item`.`MISRate` AS `MISRate`,`pdyasvmaster`.`m_item`.`HSN` AS `HSN`,`pdyasvmaster`.`m_item`.`TaxGrpCode` AS `TaxGrpCode`,`pdyasvmaster`.`m_item`.`GeneralTaxP` AS `GeneralTaxP`,`pdyasvmaster`.`m_item`.`CompNo` AS `CompNo`,`pdyasvmaster`.`m_item`.`Initial` AS `Initial`,`pdyasvmaster`.`m_item`.`Notes` AS `Notes`,`pdyasvmaster`.`m_item`.`Remark` AS `Remark`,`pdyasvmaster`.`m_item`.`ItemUnder` AS `ItemUnder`,`pdyasvmaster`.`m_item`.`shortIname` AS `shortIname`,`pdyasvmaster`.`m_item`.`AllowSALE` AS `AllowSALE`,`pdyasvmaster`.`m_item`.`VendorRefICode` AS `VendorRefICode`,`pdyasvmaster`.`m_item`.`AllowBranchTrans` AS `AllowBranchTrans`,`pdyasvmaster`.`m_item`.`Block` AS `Block`,`pdyasvmaster`.`m_item`.`CNQty` AS `CNQty`,`pdyasvmaster`.`m_item`.`CNFree` AS `CNFree`,`pdyasvmaster`.`m_item`.`CreatedBy` AS `CreatedBy`,`pdyasvmaster`.`m_item`.`CreatedDate` AS `CreatedDate`,`pdyasvmaster`.`m_item`.`EditedBy` AS `EditedBy`,`pdyasvmaster`.`m_item`.`EditedDate` AS `EditedDate`,`pdyasvmaster`.`m_item`.`RowVersion` AS `RowVersion`,`pdyasvmaster`.`m_item`.`PriQty` AS `PriQty`,`pdyasvmaster`.`m_item`.`PriContains` AS `PriContains`,`pdyasvmaster`.`m_item`.`PriContainsUnit` AS `PriContainsUnit`,`pdyasvmaster`.`m_item`.`PerBoxPri` AS `PerBoxPri`,`pdyasvmaster`.`m_item`.`PerTerPri` AS `PerTerPri`,`pdyasvmaster`.`m_item`.`EffectInward` AS `EffectInward`,`pdyasvmaster`.`m_item`.`LBatchNo` AS `LBatchNo`,`pdyasvmaster`.`m_item`.`LPrate` AS `LPrate`,`pdyasvmaster`.`m_item`.`LPTR` AS `LPTR`,`pdyasvmaster`.`m_item`.`LMRP` AS `LMRP`,`pdyasvmaster`.`m_item`.`LExpDt` AS `LExpDt`,`pdyasvmaster`.`m_item`.`PTRMarginP` AS `PTRMarginP`,`pdyasvmaster`.`m_item`.`PRateMarginP` AS `PRateMarginP`,`pdyasvmaster`.`m_item`.`InActive` AS `InActive`,`pdyasvmaster`.`m_item`.`IsUpdated` AS `IsUpdated`,`pdyasvmaster`.`m_item`.`DropPTR` AS `DropPTR`,`pdyasvmaster`.`m_item`.`ItemMainCategory` AS `ItemMainCategory`,`pdyasvmaster`.`m_item`.`ItemSubCategory` AS `ItemSubCategory`,`pdyasvmaster`.`m_item`.`LMfgBy` AS `LMfgBy`,`pdyasvmaster`.`m_item`.`AllowExpiry` AS `AllowExpiry`,`pdyasvmaster`.`m_item`.`OldTaxGrpCode` AS `OldTaxGrpCode`,`pdyasvmaster`.`m_item`.`OldLMRP` AS `OldLMRP`,`pdyasvmaster`.`m_item`.`SchMinQty` AS `SchMinQty` from `pdyasvmaster`.`m_item`

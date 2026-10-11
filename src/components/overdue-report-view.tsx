@@ -30,6 +30,7 @@ export async function OverdueReportView({
 		to?: string;
 		party?: string;
 		q?: string;
+		debug?: string;
 	};
 }) {
 	// 1. Fetch MR Info
@@ -159,28 +160,30 @@ export async function OverdueReportView({
 	return (
 		<div className="mt-4 space-y-8 overflow-hidden rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
 			{/* DEBUG QUERY BANNER */}
-			<div className="rounded-xl border-2 border-amber-400 bg-amber-50 p-4 font-mono text-xs text-amber-950 shadow-sm print:hidden">
-				<div className="flex flex-wrap items-center justify-between gap-2 border-b border-amber-200 pb-2 mb-2 font-bold text-amber-900 text-xs">
-					<span>[DEBUG QUERY] Stored Procedure Execution Status (Overdue / Periodical Outstanding)</span>
-					<span className="rounded bg-amber-200 px-2 py-0.5 text-[11px] font-semibold">
-						{procResult.success
-							? `${procResult.data?.length ?? 0} total rows (${reportData.length} pending overdue)`
-							: procResult.error || "Query Failed"}
-					</span>
-				</div>
-				<div className="space-y-1.5">
-					<p className="font-bold text-amber-900 text-[11px]">Final SQL Query being run:</p>
-					<pre className="overflow-x-auto rounded border border-amber-200 bg-amber-100 p-2.5 text-[11px] font-mono select-all whitespace-pre-wrap break-all text-amber-950">
-						{procResult.debugSql || "-- No SQL available"}
-					</pre>
-					<div className="mt-2 grid grid-cols-2 md:grid-cols-4 gap-2 text-[11px] text-amber-800 pt-1.5 border-t border-amber-200">
-						<div><span className="font-semibold">Company Code Query:</span> {JSON.stringify(compCodeToQuery)}</div>
-						<div><span className="font-semibold">MR Company:</span> {mrInfo.company || "N/A"}</div>
-						<div><span className="font-semibold">MR ID Param:</span> {`(${mrId})`}</div>
-						<div><span className="font-semibold">LocNo:</span> {mrInfo.locNo || "11"}</div>
+			{(searchParams?.debug === "1" || searchParams?.debug === "true") && (
+				<div className="rounded-xl border-2 border-amber-400 bg-amber-50 p-4 font-mono text-xs text-amber-950 shadow-sm print:hidden">
+					<div className="flex flex-wrap items-center justify-between gap-2 border-b border-amber-200 pb-2 mb-2 font-bold text-amber-900 text-xs">
+						<span>[DEBUG QUERY] Stored Procedure Execution Status (Overdue / Periodical Outstanding)</span>
+						<span className="rounded bg-amber-200 px-2 py-0.5 text-[11px] font-semibold">
+							{procResult.success
+								? `${procResult.data?.length ?? 0} total rows (${reportData.length} pending overdue)`
+								: procResult.error || "Query Failed"}
+						</span>
+					</div>
+					<div className="space-y-1.5">
+						<p className="font-bold text-amber-900 text-[11px]">Final SQL Query being run:</p>
+						<pre className="overflow-x-auto rounded border border-amber-200 bg-amber-100 p-2.5 text-[11px] font-mono select-all whitespace-pre-wrap break-all text-amber-950">
+							{procResult.debugSql || "-- No SQL available"}
+						</pre>
+						<div className="mt-2 grid grid-cols-2 md:grid-cols-4 gap-2 text-[11px] text-amber-800 pt-1.5 border-t border-amber-200">
+							<div><span className="font-semibold">Company Code Query:</span> {JSON.stringify(compCodeToQuery)}</div>
+							<div><span className="font-semibold">MR Company:</span> {mrInfo.company || "N/A"}</div>
+							<div><span className="font-semibold">MR ID Param:</span> {`(${mrId})`}</div>
+							<div><span className="font-semibold">LocNo:</span> {mrInfo.locNo || "11"}</div>
+						</div>
 					</div>
 				</div>
-			</div>
+			)}
 
 			{/* Header */}
 			<div className="mb-2 flex flex-col items-start justify-between gap-4 border-[#0B2545] border-b-2 pb-2 md:flex-row">
