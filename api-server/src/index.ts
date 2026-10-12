@@ -16,6 +16,16 @@ const port = parseInt(process.env.PORT || "9443", 10);
 app.use(cors());
 app.use(express.json({ limit: "10mb" }));
 
+// Request logging middleware
+app.use((req, res, next) => {
+  const start = Date.now();
+  res.on("finish", () => {
+    const duration = Date.now() - start;
+    console.log(`[${new Date().toISOString()}] ${req.method} ${req.originalUrl} -> ${res.statusCode} (${duration}ms)`);
+  });
+  next();
+});
+
 // Public health check endpoint
 app.get("/health", async (_req, res) => {
   try {
