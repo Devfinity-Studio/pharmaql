@@ -175,8 +175,12 @@ export async function MrDashboardContent({
 			docOutMap.set(key, existing);
 		}
 	});
-	// If local tables are unpopulated, aggregate metrics live from stored procedures
-	if (accessibleSales.length === 0 || accessibleOutstanding.length === 0) {
+	// If on the Overview tab and metrics need aggregation, query stored procedures
+	const activeTab = searchParams?.tab || "overview";
+	if (
+		activeTab === "overview" &&
+		(accessibleSales.length === 0 || accessibleOutstanding.length === 0)
+	) {
 		const compCodeForProc = mrInfo.companyCode || mrInfo.company || "";
 		const defaultFrom = searchParams?.from || "2026-04-01";
 		const defaultTo = searchParams?.to || "2026-09-30";
