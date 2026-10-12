@@ -19,8 +19,8 @@ export function authMiddleware(req: Request, res: Response, next: NextFunction):
     return;
   }
 
-  const token = parts[1];
-  const expectedSecret = process.env.API_SECRET_KEY;
+  const token = parts[1]?.trim().replace(/^["']|["']$/g, "");
+  const expectedSecret = process.env.API_SECRET_KEY?.trim().replace(/^["']|["']$/g, "");
 
   if (!expectedSecret || token !== expectedSecret) {
     res.status(401).json({ error: "Unauthorized: Invalid API secret key" });
