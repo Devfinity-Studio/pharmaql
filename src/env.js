@@ -10,14 +10,7 @@ export const env = createEnv({
 		ADMIN_PASSWORD: z.string().optional(),
 		DEV_EMAIL: z.string().email().optional(),
 		DEV_PASSWORD: z.string().optional(),
-		API_SERVER_URL: z
-			.string()
-			.transform((val) => {
-				const trimmed = val ? val.trim().replace(/^["']|["']$/g, "") : "";
-				return trimmed || "https://api.asmeepharma.com";
-			})
-			.pipe(z.string().url())
-			.default("https://api.asmeepharma.com"),
+		API_SERVER_URL: z.string().optional().default("https://api.asmeepharma.com"),
 		API_SECRET_KEY: z.string().min(16).optional(),
 		NODE_ENV: z
 			.enum(["development", "test", "production"])
