@@ -1,10 +1,7 @@
 import "server-only";
 
-const API_SERVER_URL =
-	process.env.API_SERVER_URL || "http://127.0.0.1:9273";
-const API_SECRET_KEY =
-	process.env.API_SECRET_KEY ||
-	"c1693fd5cfbef7b5c456796ac4870c586d26e7d247863d8b362f0f5a6cc4b92d";
+const API_SERVER_URL = process.env.API_SERVER_URL || "http://127.0.0.1:9443";
+const API_SECRET_KEY = process.env.API_SECRET_KEY;
 
 interface ApiResponse<T> {
 	success: boolean;
