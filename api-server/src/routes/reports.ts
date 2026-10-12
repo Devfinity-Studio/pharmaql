@@ -25,10 +25,11 @@ reportsRouter.post("/stock-movement", async (req: Request, res: Response) => {
     const odbcToDate = formatDateToOdbc(effectiveTo);
 
     const compCodeParam = formatCompanyCodeParam(companyCode);
+    const compNo = req.body?.compNo ?? 11;
     const locParam = locNo ? `('${locNo}')` : "('11')";
 
     const formattedParams = [
-      1,
+      compNo,
       `'${locParam.replace(/'/g, "''")}'`,
       202627,
       odbcFinYearStart,
@@ -64,7 +65,7 @@ reportsRouter.post("/customer-item-sale", async (req: Request, res: Response) =>
     conn = await dbPool.getConnection();
     await conn.query("SET sql_mode = ''");
 
-    const compNo = params.compNo || 1;
+    const compNo = params.compNo ?? 11;
     const locNoParam = params.locNo ? `('${params.locNo}')` : "('11')";
     const finYear = params.finYear || 202627;
 
@@ -125,6 +126,18 @@ reportsRouter.post("/customer-item-sale", async (req: Request, res: Response) =>
 /**
  * 3. Party Customer Itemwise Sales
  * Procedure: rptCompanyCustomerItemwiseSales
+ * Expected arguments: 11
+ * 1: p_CmpNo (INT)
+ * 2: p_LocNo (MEDIUMTEXT) e.g. "('11')"
+ * 3: p_YearNo (INT) e.g. 202627
+ * 4: p_FromDt (DATE) e.g. {d '2026-04-01'}
+ * 5: p_ToDt (DATE) e.g. {d '2026-09-30'}
+ * 6: p_CustIds (LONGTEXT) e.g. ''
+ * 7: p_CompCode (LONGTEXT) e.g. "('SEE')"
+ * 8: p_Div (LONGTEXT) e.g. ''
+ * 9: p_ItemIds (LONGTEXT) e.g. ''
+ * 10: p_IsChallan (CHAR(10)) e.g. 'Y'
+ * 11: p_SeriesIds (LONGTEXT) e.g. ''
  */
 reportsRouter.post("/party-item-sale", async (req: Request, res: Response) => {
   let conn;
@@ -133,7 +146,7 @@ reportsRouter.post("/party-item-sale", async (req: Request, res: Response) => {
     conn = await dbPool.getConnection();
     await conn.query("SET sql_mode = ''");
 
-    const compNo = params.compNo || 1;
+    const compNo = params.compNo ?? 11;
     const locNo = params.locNo ? `('${params.locNo}')` : "('11')";
     const finYear = params.finYear || 202627;
 
@@ -144,11 +157,9 @@ reportsRouter.post("/party-item-sale", async (req: Request, res: Response) => {
 
     const compCodeParam = formatCompanyCodeParam(params.compCode);
     const custIdsParam = params.custIds || "";
-    const salesmanIdsParam = params.salesmanIds || "";
-    const cityParam = params.city || "";
     const divParam = params.div || "";
     const itemIdsParam = params.itemIds || "";
-    const isChallanParam = params.isChallan || "";
+    const isChallanParam = params.isChallan || "Y";
     const seriesIdsParam = params.seriesIds || "";
 
     const formattedParams = [
@@ -157,10 +168,8 @@ reportsRouter.post("/party-item-sale", async (req: Request, res: Response) => {
       finYear,
       odbcFromDate,
       odbcToDate,
-      `'${compCodeParam.replace(/'/g, "''")}'`,
       `'${custIdsParam.replace(/'/g, "''")}'`,
-      `'${salesmanIdsParam.replace(/'/g, "''")}'`,
-      `'${cityParam.replace(/'/g, "''")}'`,
+      `'${compCodeParam.replace(/'/g, "''")}'`,
       `'${divParam.replace(/'/g, "''")}'`,
       `'${itemIdsParam.replace(/'/g, "''")}'`,
       `'${isChallanParam.replace(/'/g, "''")}'`,
@@ -191,8 +200,8 @@ reportsRouter.post("/mr-overdue", async (req: Request, res: Response) => {
     conn = await dbPool.getConnection();
     await conn.query("SET sql_mode = ''");
 
-    const compNo = params.compNo || 1;
-    const locNo = params.locNo ? `('${params.locNo}')` : "('11')";
+    const compNo = params.compNo ?? 11;
+    const locNo = Number(params.locNo) || 11;
     const finYear = params.finYear || 202627;
 
     const finYearStart = "2026-04-01";
@@ -204,7 +213,7 @@ reportsRouter.post("/mr-overdue", async (req: Request, res: Response) => {
 
     const cityParam = params.city || "";
     const areaParam = params.area || "";
-    const custTypeParam = params.custType || "";
+    const custTypeParam = params.custType || "All";
     const custIdsParam = params.custIds || "";
     const seriesIdsParam = params.seriesIds || "";
     const compCodeParam = formatCompanyCodeParam(params.compCode);
