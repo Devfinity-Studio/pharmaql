@@ -1,6 +1,6 @@
 import "server-only";
 
-const API_SERVER_URL = process.env.API_SERVER_URL || "http://127.0.0.1:9443";
+const API_SERVER_URL = process.env.API_SERVER_URL;
 const API_SECRET_KEY = process.env.API_SECRET_KEY;
 
 interface ApiResponse<T> {
@@ -44,7 +44,11 @@ export async function apiGet<T>(
 			};
 		}
 
-		return await response.json();
+		const json = await response.json();
+		if (json && typeof json === "object" && "success" in json) {
+			return json;
+		}
+		return { success: true, data: json };
 	} catch (error: any) {
 		console.error(`[API Client GET Error] ${path}:`, error.message);
 		return {
@@ -75,7 +79,11 @@ export async function apiPost<T>(
 			};
 		}
 
-		return await response.json();
+		const json = await response.json();
+		if (json && typeof json === "object" && "success" in json) {
+			return json;
+		}
+		return { success: true, data: json };
 	} catch (error: any) {
 		console.error(`[API Client POST Error] ${path}:`, error.message);
 		return {
