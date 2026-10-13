@@ -4,11 +4,7 @@ import fs from "fs/promises";
 import { revalidatePath } from "next/cache";
 import { headers } from "next/headers";
 import path from "path";
-import {
-	getPermissionsForRank,
-	type MROverride,
-	type MRRank,
-} from "@/lib/permissions";
+import { type MROverride } from "@/lib/permissions";
 import { getMRInfo } from "@/server/actions/mrInfo";
 import { auth } from "@/server/auth";
 
@@ -180,37 +176,6 @@ export async function checkMRExists(email: string) {
 	}
 }
 
-/**
- * Updates an MR's rank in local overrides and automatically syncs their strict permissions.
- */
-export async function updateMRRank(mrId: string, rank: MRRank) {
-	const session = await auth.api.getSession({
-		headers: await headers(),
-	});
-
-	if (
-		!session ||
-		(session.user.role !== "ADMIN" && session.user.role !== "DEVELOPER")
-	) {
-		return { success: false, error: "Unauthorized" };
-	}
-
-	try {
-		const allOverrides = await getMROverrides();
-		const perms = getPermissionsForRank(rank);
-		allOverrides[mrId] = {
-			...allOverrides[mrId],
-			rank,
-			permissions: perms,
-		};
-		await saveMROverrides(allOverrides);
-		revalidatePath("/admin/mrs");
-		revalidatePath(`/admin/mrs/${mrId}`);
-		return { success: true };
-	} catch (error) {
-		return { success: false, error: "Failed to update MR rank" };
-	}
-}
 
 /**
  * Records the timestamp of when an MR logs in successfully.

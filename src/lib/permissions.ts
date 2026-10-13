@@ -10,7 +10,6 @@ export interface RankPermissions {
 
 export interface MROverride {
 	isBlocked?: boolean;
-	rank?: MRRank;
 	lastLogin?: string;
 	permissions?: {
 		canViewFreeScheme: boolean;

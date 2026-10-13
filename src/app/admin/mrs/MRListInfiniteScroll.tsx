@@ -2,13 +2,9 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { getPermissionsForRank, type MRRank } from "@/lib/permissions";
 import type { MRDisplayItem } from "@/server/actions/mrInfo";
 import { fetchMRsPage } from "@/server/actions/mrInfo";
-import {
-	toggleMRBlockStatus,
-	updateMRRank,
-} from "@/server/actions/mrs";
+import { toggleMRBlockStatus } from "@/server/actions/mrs";
 
 interface Props {
 	initialItems: MRDisplayItem[];
@@ -144,36 +140,6 @@ export function MRListInfiniteScroll({
 		}
 	}
 
-	// Card Action: Instant Rank Update & Strict Permission Synchronization
-	async function handleUpdateRank(mr: MRDisplayItem, rank: MRRank) {
-		if (mr.rank === rank) return;
-		setActionPendingId(mr.id);
-		const perms = getPermissionsForRank(rank);
-
-		// Optimistic update
-		setItems((prev) =>
-			prev.map((i) =>
-				i.id === mr.id
-					? {
-							...i,
-							rank,
-							...perms,
-						}
-					: i,
-			),
-		);
-
-		try {
-			const res = await updateMRRank(mr.id, rank);
-			if (!res.success) {
-				console.error("Failed to update rank:", res.error);
-			}
-		} catch (err) {
-			console.error("Rank update error:", err);
-		} finally {
-			setActionPendingId(null);
-		}
-	}
 
 	return (
 		<div className="space-y-6">
@@ -273,31 +239,12 @@ export function MRListInfiniteScroll({
 									</div>
 								</div>
 
-								{/* Rank Section */}
+								{/* Rank Section (Read-only from database) */}
 								<div>
 									<div className="flex items-center justify-between">
 										<span className="font-bold uppercase tracking-wider text-gray-500 text-[11px]">
 											MR Rank
 										</span>
-										{/* Quick Rank Switch Buttons */}
-										<div className="flex items-center gap-1">
-											{([1, 2, 3] as const).map((r) => (
-												<button
-													className={`rounded-md px-2 py-0.5 font-bold text-xs transition ${
-														mr.rank === r
-															? "bg-[#0B2545] text-white shadow-sm"
-															: "bg-gray-100 text-gray-600 hover:bg-gray-200"
-													}`}
-													disabled={isBusy}
-													key={r}
-													onClick={() => handleUpdateRank(mr, r)}
-													title={`Set to Rank ${r}`}
-													type="button"
-												>
-													Rank {r}
-												</button>
-											))}
-										</div>
 									</div>
 									<div className="mt-1.5">
 										<span
