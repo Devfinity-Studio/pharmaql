@@ -48,7 +48,7 @@ function addFooterToAllPages(
 		// Print at bottom right
 		const pageWidth = doc.internal.pageSize.width;
 		const pageHeight = doc.internal.pageSize.height;
-		doc.text(footerText, pageWidth - 14, pageHeight - 5, { align: "right" });
+		doc.text(footerText, pageWidth - 14, pageHeight - 7, { align: "right" });
 	}
 }
 
@@ -689,11 +689,22 @@ export async function generateStockPdfReport(
 
 		// Map data for autoTable body
 		const bodyData = divData.map((row) => {
-			const prate = Number(row["prate"]) || 0;
-			const openingVal = (row["Opening Qty."] || 0) * prate;
-			const purchaseVal = (row["Purchase Qty"] || 0) * prate;
-			const salesVal = (row["Sales Qty."] || 0) * prate;
-			const stockVal = row["Stock Value"] || 0;
+			const prate =
+				Number(row["prate"] ?? row["P Rate"] ?? row["PRate"] ?? 0) || 0;
+			const openingQty = Number(
+				row["Opening Qty."] ?? row["Opening Qty"] ?? row["Opening"] ?? 0,
+			);
+			const purchaseQty = Number(row["Purchase Qty"] ?? row["Purchase"] ?? 0);
+			const salesQty = Number(
+				row["Sales Qty."] ?? row["Sales Qty"] ?? row["SalesQty"] ?? 0,
+			);
+			const balanceQty = Number(
+				row["Balance Qty."] ?? row["Balance Qty"] ?? row["Qty"] ?? 0,
+			);
+			const openingVal = openingQty * prate;
+			const purchaseVal = purchaseQty * prate;
+			const salesVal = salesQty * prate;
+			const stockVal = Number(row["Stock Value"] ?? balanceQty * prate);
 
 			divOpeningValue += openingVal;
 			divPurchaseValue += purchaseVal;
@@ -703,15 +714,16 @@ export async function generateStockPdfReport(
 			return {
 				...row,
 				"Stock Value": stockVal.toFixed(2),
-				"Opening Qty.": row["Opening Qty."] || "-",
-				"Purchase Qty": row["Purchase Qty"] || "-",
-				"S.Ret Qty.": row["S.Ret Qty."] || "-",
-				"Stk Adj Add": row["Stk Adj Add"] || "-",
-				"Total In Qty": row["Total In Qty"] || "-",
-				"Sales Qty.": row["Sales Qty."] || "-",
-				"P.Ret Qty.": row["P.Ret Qty."] || "-",
-				"Stk Adj Less": row["Stk Adj Less"] || "-",
-				"Balance Qty.": row["Balance Qty."] || "-",
+				"Opening Qty.": openingQty || "-",
+				"Purchase Qty": purchaseQty || "-",
+				"S.Ret Qty.": row["S.Ret Qty."] ?? row["SReturn"] ?? "-",
+				"Stk Adj Add": row["Stk Adj Add"] ?? row["StkAdjAdd"] ?? "-",
+				"Total In Qty":
+					row["Total In Qty"] ?? (openingQty + purchaseQty || "-"),
+				"Sales Qty.": salesQty || "-",
+				"P.Ret Qty.": row["P.Ret Qty."] ?? row["PReturn"] ?? "-",
+				"Stk Adj Less": row["Stk Adj Less"] ?? row["StkAdjLess"] ?? "-",
+				"Balance Qty.": balanceQty || "-",
 			};
 		});
 
@@ -754,17 +766,18 @@ export async function generateStockPdfReport(
 				halign: "right", // Right align headers for numeric columns
 			},
 			columnStyles: {
-				"Opening Qty.": { halign: "right" },
-				"Purchase Qty": { halign: "right" },
-				"S.Ret Qty.": { halign: "right" },
-				"Stk Adj Add": { halign: "right" },
-				"Total In Qty": { halign: "right" },
-				"Sales Qty.": { halign: "right" },
-				"P.Ret Qty.": { halign: "right" },
-				"Stk Adj Less": { halign: "right" },
-				"Balance Qty.": { halign: "right" },
-				"Stock Value": { halign: "right" },
-				Packing: { halign: "center" },
+				"Item Name": { cellWidth: 42, halign: "left" },
+				Packing: { cellWidth: 14, halign: "center" },
+				"Opening Qty.": { cellWidth: 12, halign: "right" },
+				"Purchase Qty": { cellWidth: 12, halign: "right" },
+				"S.Ret Qty.": { cellWidth: 10, halign: "right" },
+				"Stk Adj Add": { cellWidth: 10, halign: "right" },
+				"Total In Qty": { cellWidth: 11, halign: "right" },
+				"Sales Qty.": { cellWidth: 11, halign: "right" },
+				"P.Ret Qty.": { cellWidth: 10, halign: "right" },
+				"Stk Adj Less": { cellWidth: 10, halign: "right" },
+				"Balance Qty.": { cellWidth: 12, halign: "right" },
+				"Stock Value": { cellWidth: 17, halign: "right" },
 			},
 			didParseCell: (data) => {
 				// Reset halign for string columns in header
@@ -820,11 +833,22 @@ export async function generateStockPdfReport(
 			let summarySales = 0;
 			let summaryStock = 0;
 			divData.forEach((row) => {
-				const prate = Number(row["prate"]) || 0;
-				summaryOpening += (row["Opening Qty."] || 0) * prate;
-				summaryPurchase += (row["Purchase Qty"] || 0) * prate;
-				summarySales += (row["Sales Qty."] || 0) * prate;
-				summaryStock += row["Stock Value"] || 0;
+				const prate =
+					Number(row["prate"] ?? row["P Rate"] ?? row["PRate"] ?? 0) || 0;
+				const openingQty = Number(
+					row["Opening Qty."] ?? row["Opening Qty"] ?? row["Opening"] ?? 0,
+				);
+				const purchaseQty = Number(row["Purchase Qty"] ?? row["Purchase"] ?? 0);
+				const salesQty = Number(
+					row["Sales Qty."] ?? row["Sales Qty"] ?? row["SalesQty"] ?? 0,
+				);
+				const balanceQty = Number(
+					row["Balance Qty."] ?? row["Balance Qty"] ?? row["Qty"] ?? 0,
+				);
+				summaryOpening += openingQty * prate;
+				summaryPurchase += purchaseQty * prate;
+				summarySales += salesQty * prate;
+				summaryStock += Number(row["Stock Value"] ?? balanceQty * prate);
 			});
 
 			finalTableData.push({
@@ -1096,12 +1120,28 @@ export async function generateGroupedPdfReport(
 
 		// Map data for autoTable body
 		const bodyData = mfgData.map((row) => {
-			if (amountKey) mfgAmount += Number(row[amountKey]) || 0;
-			if (qtyKey) mfgQty += Number(row[qtyKey]) || 0;
+			const rawAmt = amountKey ? row[amountKey] : 0;
+			const cleanAmt =
+				typeof rawAmt === "number"
+					? isNaN(rawAmt)
+						? 0
+						: rawAmt
+					: parseFloat(String(rawAmt || "0").replace(/[^0-9.-]/g, "")) || 0;
+
+			const rawQty = qtyKey ? row[qtyKey] : 0;
+			const cleanQty =
+				typeof rawQty === "number"
+					? isNaN(rawQty)
+						? 0
+						: rawQty
+					: parseFloat(String(rawQty || "0").replace(/[^0-9.-]/g, "")) || 0;
+
+			if (amountKey) mfgAmount += cleanAmt;
+			if (qtyKey) mfgQty += cleanQty;
 
 			const newRow: any = { ...row };
-			if (amountKey && row[amountKey])
-				newRow[amountKey] = Number(row[amountKey]).toFixed(2);
+			if (amountKey) newRow[amountKey] = cleanAmt.toFixed(2);
+			if (qtyKey) newRow[qtyKey] = cleanQty.toString();
 			return newRow;
 		});
 
@@ -1959,11 +1999,14 @@ export async function generateFreeSchemePdfReport(
 				let custClaimValue = 0;
 
 				const custRows = custData.map((row) => {
-					const saleQty = Number(row["Sale Qty"]) || 0;
-					const freeQty = Number(row["Free Qty"]) || 0;
-					const actualFQty = Number(row["Actual FQty"]) || 0;
-					const claimQty = Number(row["Claim Qty"]) || 0;
-					const claimValue = Number(row["Claim Value"]) || 0;
+					const saleQty = Number(row["Sale Qty"] ?? row.Qty ?? 0) || 0;
+					const freeQty =
+						Number(row["Free Qty"] ?? row.Free ?? row.FQty ?? 0) || 0;
+					const actualFQty = Number(row["Actual FQty"] ?? row.FQty ?? 0) || 0;
+					const claimQty =
+						Number(row["Claim Qty"] ?? row.Free ?? row.FQty ?? 0) || 0;
+					const claimValue =
+						Number(row["Claim Value"] ?? row.FreeIAmt ?? 0) || 0;
 
 					custSaleQty += saleQty;
 					custFreeQty += freeQty;
@@ -1971,7 +2014,7 @@ export async function generateFreeSchemePdfReport(
 					custClaimQty += claimQty;
 					custClaimValue += claimValue;
 
-					const pName = row["Product Name"] || "-";
+					const pName = row["Product Name"] || row.ItemName || "-";
 					if (!typeSummaryMap.has(pName)) {
 						typeSummaryMap.set(pName, {
 							Packing: row.Packing || "-",
@@ -1989,26 +2032,37 @@ export async function generateFreeSchemePdfReport(
 					sum.claimQty += claimQty;
 					sum.claimValue += claimValue;
 
+					const invDtStr =
+						row["Inv. Dt."] ||
+						(row.InvDt
+							? new Date(row.InvDt)
+									.toLocaleDateString("en-GB")
+									.replace(/\//g, "-")
+							: "-");
+					const netRate = Number(row["Net Rate"] ?? row.SRate ?? 0);
+					const ptr = Number(row.PTR ?? 0);
+					const rateDiff = Number(row["Rate Diff."] ?? ptr - netRate);
+
 					return [
-						row.Code || "-",
+						row.Code || row.ItemCode || "-",
 						pName,
 						row.Packing || "-",
-						row["Batch No."] || "-",
-						row["Inv. No."] || "-",
-						row["Inv. Dt."] || "-",
+						row["Batch No."] || row.BatchNo || "-",
+						row["Inv. No."] || row.InvNo || "-",
+						invDtStr,
 						Number(row.MRP || 0).toFixed(2),
 						Number(row.PRate || 0).toFixed(2),
-						Number(row.PTR || 0).toFixed(2),
-						Number(row["Net Rate"] || 0).toFixed(2),
-						Number(row["Inv. Rate"] || 0).toFixed(2),
+						ptr.toFixed(2),
+						netRate.toFixed(2),
+						netRate.toFixed(2),
 						saleQty > 0 ? saleQty.toString() : "-",
 						freeQty > 0 ? freeQty.toString() : "-",
 						actualFQty > 0 ? actualFQty.toString() : "-",
 						claimQty > 0 ? claimQty.toString() : "-",
-						Number(row["Rate Diff."] || 0).toFixed(2),
+						rateDiff.toFixed(2),
 						claimValue > 0 ? claimValue.toFixed(2) : "-",
-						row["Item Scheme"] || "-",
-						row["Applied Scheme"] || "-",
+						row["Item Scheme"] || row.Scheme || "-",
+						row["Applied Scheme"] || row.Scheme || "-",
 					];
 				});
 

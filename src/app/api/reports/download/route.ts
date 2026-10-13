@@ -60,30 +60,65 @@ export async function GET(request: Request) {
 
 	const rows = salesResult.success && salesResult.data ? salesResult.data : [];
 
-	const reportData = rows.map((r) => ({
-		"Inv No": r.InvNo,
-		"Inv Date": r.InvDt ? new Date(r.InvDt).toISOString().split("T")[0] : "-",
-		Customer: r.Customer || "Unknown Party",
-		"Item Code": r.ItemCode || "-",
-		"Item Name": r.ItemName,
-		Packing: r.Packing || "-",
-		"Batch No": r.BatchNo,
-		Qty: Number(r.Qty),
-		"Free Qty": Number(r.FQty),
-		Rate: Number(r.Srate || r.PTR || 0).toFixed(2),
-		Amount: Number(r.IAmt || 0).toFixed(2),
-	}));
+	let totalQty = 0;
+	let totalFreeQty = 0;
+	let totalAmount = 0;
 
-	const timestamp = new Date().toISOString().split("T")[0];
-	const filename = `Report_${(company || "All").replace(/[^a-zA-Z0-9]/g, "_")}_${timestamp}`;
+	const tabularData = rows.map((r) => {
+		const qty = Number(r.Qty || 0);
+		const fQty = Number(r.FQty || 0);
+		const amt = Number(r.IAmt || 0);
+		const rate = Number(r.Srate || r.PTR || 0);
+
+		totalQty += qty;
+		totalFreeQty += fQty;
+		totalAmount += amt;
+
+		return {
+			"Inv No": r.InvNo,
+			"Inv Date": r.InvDt ? new Date(r.InvDt).toISOString().split("T")[0] : "-",
+			Customer: r.Customer || "Unknown Party",
+			"Item Code": r.ItemCode || "-",
+			"Item Name": r.ItemName,
+			Packing: r.Packing || "-",
+			"Batch No": r.BatchNo,
+			Qty: qty,
+			"Free Qty": fQty,
+			Rate: Number(rate.toFixed(2)),
+			Amount: Number(amt.toFixed(2)),
+		};
+	});
+
+	if (tabularData.length > 0) {
+		tabularData.push({
+			"Inv No": "" as any,
+			"Inv Date": "",
+			Customer: "TOTAL :",
+			"Item Code": "",
+			"Item Name": "",
+			Packing: "",
+			"Batch No": "",
+			Qty: totalQty,
+			"Free Qty": totalFreeQty,
+			Rate: "" as any,
+			Amount: Number(totalAmount.toFixed(2)),
+		});
+	}
+
+	const mrName = mrInfo.name || "Unknown";
+	const safeMrName = mrName.replace(/[^a-zA-Z0-9]/g, "_");
+	const safeCompany = (company || "All").replace(/[^a-zA-Z0-9]/g, "_");
+	const dateRangeTag =
+		from && to ? `${from}_to_${to}` : new Date().toISOString().split("T")[0];
+	const filename = `${safeMrName}_${safeCompany}_Report_${dateRangeTag}`;
 
 	if (format === "excel") {
-		const worksheet = xlsx.utils.json_to_sheet(reportData);
+		const worksheet = xlsx.utils.json_to_sheet(tabularData);
 		const workbook = xlsx.utils.book_new();
 		xlsx.utils.book_append_sheet(workbook, worksheet, "Report");
-		const buffer = xlsx.write(workbook, { type: "buffer", bookType: "xlsx" });
+		const arrayBuf = xlsx.write(workbook, { type: "array", bookType: "xlsx" });
 
-		return new NextResponse(buffer, {
+		return new NextResponse(new Uint8Array(arrayBuf), {
 			headers: {
 				"Content-Disposition": `attachment; filename="${filename}.xlsx"`,
 				"Content-Type":
@@ -91,13 +126,14 @@ export async function GET(request: Request) {
 			},
 		});
 	} else {
-		if (reportData.length === 0 || !reportData[0]) {
+		const firstRow = tabularData[0];
+		if (!firstRow) {
 			return new NextResponse("No data available", { status: 200 });
 		}
-		const headersKeys = Object.keys(reportData[0]);
+		const headersKeys = Object.keys(firstRow);
 		const csvContent = [
 			headersKeys.join(","),
-			...reportData.map((row) =>
+			...tabularData.map((row) =>
 				headersKeys
 					.map((key) => {
 						const val = (row as any)[key];
