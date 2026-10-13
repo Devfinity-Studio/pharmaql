@@ -300,3 +300,22 @@ export async function evaluateMROverdueStatus(
 		exemptionUntil: exemptionUntilStr,
 	};
 }
+
+/**
+ * Scan all MRs across divisions for overdue evaluation.
+ * Decoupled from the initial page load to avoid locking the UI.
+ */
+export async function getOverdueEvaluationsSummary(): Promise<
+	MROverdueEvaluation[]
+> {
+	try {
+		const legacyMRs = await getAllMRUsers();
+		const overdueEvaluations = await Promise.all(
+			legacyMRs.map((lmr) => evaluateMROverdueStatus(lmr.id)),
+		);
+		return overdueEvaluations;
+	} catch (error) {
+		console.error("[OverdueEngine] Failed to evaluate summary:", error);
+		return [];
+	}
+}

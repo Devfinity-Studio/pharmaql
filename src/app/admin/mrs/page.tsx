@@ -1,19 +1,11 @@
 import { headers } from "next/headers";
-import Link from "next/link";
 import { redirect } from "next/navigation";
 import {
+	fetchMRsPage,
 	getAllMarketingCompaniesWithDivisions,
-	getAllMRUsers,
 } from "@/server/actions/mrInfo";
-import {
-	assignManufacturer,
-	toggleMRBlockStatus,
-	unassignManufacturer,
-	updateMRPermissions,
-} from "@/server/actions/mrs";
-import { evaluateMROverdueStatus } from "@/server/actions/overdueEngine";
 import { auth } from "@/server/auth";
-import { AddMRButton } from "./add-mr-button";
+import { MRListInfiniteScroll } from "./MRListInfiniteScroll";
 import { MRSearchForm } from "./MRSearchForm";
 import { OverdueMRsSection } from "./overdue-mrs-section";
 
@@ -31,94 +23,18 @@ export default async function AdminMRsPage({
 	}
 
 	const awaitedParams = await searchParams;
-	const searchQuery = (awaitedParams.search || "").toLowerCase();
+	const searchQuery = (awaitedParams.search || "").trim();
 	const sortQuery = awaitedParams.sort || "name_asc";
 
-	// Fetch all MRs directly from legacy master
-	const legacyMRs = await getAllMRUsers();
-
-	type MRDisplayItem = {
-		id: string;
-		legacyId?: string;
-		name: string;
-		email: string;
-		company?: string;
-		division?: string;
-		isBlocked: boolean;
-		role: string;
-		canViewStock: boolean;
-		canViewSales: boolean;
-		canViewFreeScheme: boolean;
-		canViewPartyWise: boolean;
-		canViewProductWise: boolean;
-	};
-
-	let allMRs: MRDisplayItem[] = legacyMRs.map((lmr) => ({
-		id: lmr.id,
-		legacyId: lmr.id,
-		name: lmr.name || "MR User",
-		email: lmr.email || "",
-		company: lmr.company,
-		division: lmr.division,
-		isBlocked: lmr.isBlocked,
-		role: "MR",
-		canViewStock: lmr.canViewStock,
-		canViewSales: lmr.canViewSales,
-		canViewFreeScheme: lmr.canViewFreeScheme,
-		canViewPartyWise: lmr.canViewPartyWise,
-		canViewProductWise: lmr.canViewProductWise,
-	}));
-
-	const allAssignments: any[] = [];
-	const allSessions: any[] = [];
-
-	// Filter MRs by Search Query
-	if (searchQuery) {
-		allMRs = allMRs.filter((mr) => {
-			if (mr.name?.toLowerCase().includes(searchQuery)) return true;
-			if (mr.email?.toLowerCase().includes(searchQuery)) return true;
-			if (mr.company?.toLowerCase().includes(searchQuery)) return true;
-			if (mr.division?.toLowerCase().includes(searchQuery)) return true;
-
-			const assignments = allAssignments.filter(
-				(a) =>
-					a.mrId === mr.id ||
-					("legacyId" in mr && mr.legacyId && a.mrId === mr.legacyId),
-			);
-			return assignments.some(
-				(a) =>
-					a.manufacturer?.toLowerCase().includes(searchQuery) ||
-					a.division?.toLowerCase().includes(searchQuery),
-			);
-		});
-	}
-
-	// Sort MRs
-	allMRs.sort((a, b) => {
-		if (sortQuery === "name_asc") {
-			return (a.name || "").localeCompare(b.name || "");
-		}
-		if (sortQuery === "email_asc") {
-			return (a.email || "").localeCompare(b.email || "");
-		}
-		if (sortQuery === "company_asc") {
-			// Find primary company for a
-			const aAssigns = allAssignments.filter(
-				(aAssign) => aAssign.mrId === a.id,
-			);
-			const aCompany = aAssigns[0]?.manufacturer || "ZZZ";
-			// Find primary company for b
-			const bAssigns = allAssignments.filter(
-				(bAssign) => bAssign.mrId === b.id,
-			);
-			const bCompany = bAssigns[0]?.manufacturer || "ZZZ";
-
-			return aCompany.localeCompare(bCompany);
-		}
-		return 0;
+	// 1. Fetch first batch of 10 MRs paginated (Instant initial load)
+	const initialPageData = await fetchMRsPage({
+		page: 1,
+		limit: 10,
+		search: searchQuery,
+		sort: sortQuery,
 	});
 
-	// Get all unique manufacturers and divisions linked via m_mktcompany
+	// 2. Fetch marketing companies & divisions for assignment dropdown
 	const mktCompanies = await getAllMarketingCompaniesWithDivisions();
 	const allManufacturers = mktCompanies.map((c) => ({
 		manufacturer: c.companyName || c.companyCode,
@@ -132,11 +48,6 @@ export default async function AdminMRsPage({
 		return (a.manufacturer || "").localeCompare(b.manufacturer || "");
 	});
 
-	// Evaluate overdue statuses for all MRs in parallel
-	const overdueEvaluations = await Promise.all(
-		legacyMRs.map((lmr) => evaluateMROverdueStatus(lmr.id)),
-	);
-
 	return (
 		<div className="mt-4 space-y-8">
 			<div>
@@ -149,260 +60,25 @@ export default async function AdminMRsPage({
 				</p>
 			</div>
 
-			{/* Live Overdue & Cascading Blocking Control Center */}
-			<OverdueMRsSection evaluations={overdueEvaluations} />
+			{/* Live Overdue & Cascading Blocking Control Center (scanned on demand) */}
+			<OverdueMRsSection />
 
 			{/* Search Bar */}
 			<div className="flex flex-col gap-4 rounded-2xl border border-gray-100 bg-white p-4 shadow-sm xl:flex-row xl:items-center">
 				<div className="flex flex-grow items-center">
 					<MRSearchForm />
 				</div>
-				<AddMRButton manufacturers={allManufacturers} />
 			</div>
 
-			<div className="grid grid-cols-1 gap-6 xl:grid-cols-2 2xl:grid-cols-3">
-				{allMRs.map((mr) => {
-					const dbAssignments = allAssignments.filter(
-						(a) =>
-							a.mrId === mr.id ||
-							("legacyId" in mr && mr.legacyId && a.mrId === mr.legacyId),
-					);
-					const assignments =
-						dbAssignments.length > 0
-							? dbAssignments
-							: mr.company
-								? [
-										{
-											id: `legacy-${mr.id}`,
-											mrId: mr.id,
-											manufacturer: mr.company,
-											division: mr.division || null,
-											assignedAt: new Date(),
-										},
-									]
-								: [];
-					const mrSessions = allSessions.filter((s) => s.userId === mr.id);
-					const lastLogin =
-						mrSessions.length > 0
-							? new Date(
-									Math.max(...mrSessions.map((s) => s.createdAt.getTime())),
-								).toLocaleString()
-							: "Never";
-
-					const unassignedManufacturers = allManufacturers.filter(
-						(m) =>
-							!assignments.some(
-								(a) =>
-									a.manufacturer === m.manufacturer &&
-									a.division === m.division,
-							),
-					);
-
-					return (
-						<div
-							className="relative flex h-full flex-col rounded-2xl border border-gray-100 bg-white p-6 shadow-sm"
-							key={mr.id}
-						>
-							<div className="mb-4 flex flex-col items-start justify-between gap-4 sm:flex-row">
-								<div>
-									<h3 className="font-bold text-gray-900 text-xl">{mr.name}</h3>
-									<p className="text-gray-500 text-sm">{mr.email}</p>
-									<p className="mt-1 font-medium text-gray-400 text-xs">
-										Last Login: {lastLogin}
-									</p>
-								</div>
-								<div className="flex flex-wrap gap-2">
-									<form
-										action={async () => {
-											"use server";
-											await toggleMRBlockStatus(mr.id, !mr.isBlocked);
-										}}
-									>
-										<button
-											className={`whitespace-nowrap rounded-lg px-3 py-1 font-bold text-xs transition ${
-												mr.isBlocked
-													? "bg-red-100 text-red-700 hover:bg-red-200"
-													: "bg-gray-100 text-gray-700 hover:bg-gray-200"
-											}`}
-											type="submit"
-										>
-											{mr.isBlocked ? "Unblock" : "Block"}
-										</button>
-									</form>
-									<Link
-										className="whitespace-nowrap rounded-lg bg-blue-50 px-3 py-1 font-bold text-blue-700 text-xs transition hover:bg-blue-100"
-										href={`/admin/mrs/${mr.id}`}
-									>
-										View Data &rarr;
-									</Link>
-								</div>
-							</div>
-
-							<div className="flex-grow space-y-4">
-								<h4 className="font-bold text-gray-700 text-sm uppercase tracking-wider">
-									Assigned Data
-								</h4>
-								{assignments.length === 0 ? (
-									<div className="text-gray-400 text-sm italic">
-										No manufacturers assigned.
-									</div>
-								) : (
-									<ul className="space-y-2">
-										{assignments.map((a) => (
-											<li
-												className="flex items-center justify-between rounded-xl border border-blue-100 bg-blue-50/50 px-3 py-2"
-												key={a.id}
-											>
-												<span className="truncate font-semibold text-blue-900 text-sm">
-													{a.manufacturer}
-													{a.division ? ` - ${a.division}` : ""}
-												</span>
-												<form
-													action={async () => {
-														"use server";
-														await unassignManufacturer(a.id);
-													}}
-												>
-													<button
-														className="p-1 font-bold text-red-500 text-xs hover:text-red-700"
-														type="submit"
-													>
-														Remove
-													</button>
-												</form>
-											</li>
-										))}
-									</ul>
-								)}
-							</div>
-
-							<div className="mt-6 space-y-4 border-gray-100 border-t pt-4">
-								<h4 className="font-bold text-gray-700 text-sm uppercase tracking-wider">
-									Permissions
-								</h4>
-								<form
-									action={async (formData) => {
-										"use server";
-										await updateMRPermissions(mr.id, {
-											canViewFreeScheme:
-												formData.get("canViewFreeScheme") === "on",
-											canViewStock: formData.get("canViewStock") === "on",
-											canViewSales: formData.get("canViewSales") === "on",
-											canViewPartyWise:
-												formData.get("canViewPartyWise") === "on",
-											canViewProductWise:
-												formData.get("canViewProductWise") === "on",
-										});
-									}}
-									className="space-y-2 rounded-xl border border-gray-100 bg-gray-50 p-3"
-								>
-									<label className="flex cursor-pointer items-center gap-2 font-medium text-gray-700 text-sm">
-										<input
-											className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-											defaultChecked={mr.canViewFreeScheme ?? true}
-											name="canViewFreeScheme"
-											type="checkbox"
-										/>
-										Free Scheme
-									</label>
-									<label className="flex cursor-pointer items-center gap-2 font-medium text-gray-700 text-sm">
-										<input
-											className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-											defaultChecked={mr.canViewStock ?? true}
-											name="canViewStock"
-											type="checkbox"
-										/>
-										Stock Reports
-									</label>
-									<label className="flex cursor-pointer items-center gap-2 font-medium text-gray-700 text-sm">
-										<input
-											className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-											defaultChecked={mr.canViewSales ?? true}
-											name="canViewSales"
-											type="checkbox"
-										/>
-										Sales Reports
-									</label>
-									<label className="flex cursor-pointer items-center gap-2 font-medium text-gray-700 text-sm">
-										<input
-											className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-											defaultChecked={mr.canViewProductWise ?? true}
-											name="canViewProductWise"
-											type="checkbox"
-										/>
-										Product Wise
-									</label>
-									<label className="flex cursor-pointer items-center gap-2 font-medium text-gray-700 text-sm">
-										<input
-											className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-											defaultChecked={mr.canViewPartyWise ?? true}
-											name="canViewPartyWise"
-											type="checkbox"
-										/>
-										Party Wise
-									</label>
-									<button
-										className="mt-2 font-bold text-blue-600 text-xs underline hover:text-blue-800"
-										type="submit"
-									>
-										Save Permissions
-									</button>
-								</form>
-							</div>
-
-							<div className="mt-6 border-gray-100 border-t pt-4">
-								<form
-									action={async (formData) => {
-										"use server";
-										const val = formData.get("manufacturer") as string;
-										if (val) {
-											const [mfg, div] = val.split("::");
-											await assignManufacturer(mr.id, mfg!, div || null);
-										}
-									}}
-									className="flex gap-2"
-								>
-									<select
-										className="block w-full flex-grow rounded-xl border border-gray-200 bg-gray-50 p-2.5 font-medium text-gray-900 text-sm outline-none focus:border-blue-500 focus:ring-blue-500"
-										defaultValue=""
-										name="manufacturer"
-										required
-									>
-										<option disabled value="">
-											Select Manufacturer / Division
-										</option>
-										{unassignedManufacturers.map((m) => {
-											const val = `${m.manufacturer}::${m.division || ""}`;
-											const label = m.division
-												? `${m.manufacturer} - ${m.division}`
-												: m.manufacturer;
-											return (
-												<option key={val} value={val}>
-													{label}
-												</option>
-											);
-										})}
-									</select>
-									<button
-										className="rounded-xl bg-blue-600 px-4 py-2 font-bold text-white shadow-sm transition hover:bg-blue-700"
-										type="submit"
-									>
-										Assign
-									</button>
-								</form>
-							</div>
-						</div>
-					);
-				})}
-
-				{allMRs.length === 0 && (
-					<div className="col-span-full rounded-2xl border border-gray-100 border-dashed bg-white py-12 text-center text-gray-500">
-						{searchQuery
-							? "No MRs found matching your search."
-							: "No Medical Representatives found."}
-					</div>
-				)}
-			</div>
+			{/* Paginated Infinite Scroll MR List */}
+			<MRListInfiniteScroll
+				allManufacturers={allManufacturers}
+				initialHasMore={initialPageData.hasMore}
+				initialItems={initialPageData.items}
+				initialTotal={initialPageData.total}
+				searchQuery={searchQuery}
+				sortQuery={sortQuery}
+			/>
 		</div>
 	);
 }

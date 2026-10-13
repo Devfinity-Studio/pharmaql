@@ -1,7 +1,7 @@
 # State
 
 **Current Milestone:** Milestone 1 - Production Hardening & Optimization
-**Active Phase:** None (Phase 15 completed)
-**Status:** Phase 15 complete. Repository pruned of dead scripts/prototypes, redundant dependencies removed, Biome code formatting verified (0 errors), TypeScript passed (0 errors), and Next.js + api-server production builds validated.
+**Active Phase:** None (Phase 16 completed)
+**Status:** Phase 16 complete. /admin/mrs page optimized to 10-per-batch paginated infinite scroll. Dead Add MR button/action pruned. Overdue evaluation decoupled and made on-demand. TypeScript, api-server, and Next.js production builds verified.
 
 
