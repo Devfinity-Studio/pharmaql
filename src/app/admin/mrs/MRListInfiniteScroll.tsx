@@ -2,11 +2,10 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { getPermissionsForRank, type MRRank } from "@/lib/permissions";
 import type { MRDisplayItem } from "@/server/actions/mrInfo";
 import { fetchMRsPage } from "@/server/actions/mrInfo";
 import {
-	getPermissionsForRank,
-	type MRRank,
 	toggleMRBlockStatus,
 	updateMRRank,
 } from "@/server/actions/mrs";
