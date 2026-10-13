@@ -47,20 +47,39 @@ export function OutstandingDownloadButtons({ mrId }: { mrId: string }) {
 
 				// Filter by party if specified
 				const filteredData = party
-					? data.filter((row: any) => row["Doctor / Party"] === party)
+					? data.filter(
+							(row: any) =>
+								(row["Customer / Party"] || row["Doctor / Party"]) === party,
+						)
 					: data;
 
 				const mrName = data.length > 0 ? data[0]["MR Name"] : "Unknown";
+				const safeMrName = mrName.replace(/[^a-zA-Z0-9]/g, "_");
+				const safeDivision = division.replace(/[^a-zA-Z0-9]/g, "_");
+				const dateRangeTag =
+					from && to
+						? `${from}_to_${to}`
+						: new Date().toISOString().split("T")[0];
 
 				// Format data for the PDF
 				const cleanDataForPdf = filteredData.map((row: any) => {
 					return {
-						Manufacturer: row["Company Code"] || row["Division"] || "Unknown",
-						"Doctor / Party": row["Doctor / Party"],
-						City: row["City"],
-						"Invoice No": row["Invoice No"],
-						"Invoice Date": row["Invoice Date"],
-						"Amount Due": row["Amount Due"],
+						Manufacturer:
+							row["Company Code"] || row["Division"] || division || "Unknown",
+						"Doctor / Party":
+							row["Customer / Party"] || row["Doctor / Party"] || "Unknown",
+						City: row["City"] || "Unknown",
+						"Invoice No": row["Bill No"] || row["Invoice No"] || "N/A",
+						"Invoice Date": row["Bill Date"] || row["Invoice Date"] || "N/A",
+						"Amount Due": Number(
+							row["Balance Amount"] ??
+								row["Amount Due"] ??
+								row["Bill Amount"] ??
+								0,
+						),
+						"Overdue Days": Number(
+							row["Purchase Days"] ?? row["Overdue Days"] ?? 0,
+						),
 					};
 				});
 
@@ -69,12 +88,21 @@ export function OutstandingDownloadButtons({ mrId }: { mrId: string }) {
 					{ header: "City", dataKey: "City" },
 					{ header: "Invoice No", dataKey: "Invoice No" },
 					{ header: "Invoice Date", dataKey: "Invoice Date" },
-					{ header: "Amount Due", dataKey: "Amount Due" },
+					{
+						header: "Amount Due",
+						dataKey: "Amount Due",
+						halign: "right" as const,
+					},
+					{
+						header: "Overdue Days",
+						dataKey: "Overdue Days",
+						halign: "right" as const,
+					},
 				];
 
 				await generateGroupedPdfReport(
 					`Party Wise Outstanding Statement`,
-					`Outstanding_${division}_${new Date().toISOString().split("T")[0]}.pdf`,
+					`${safeMrName}_${safeDivision}_Outstanding_${dateRangeTag}.pdf`,
 					cleanDataForPdf,
 					columns as any,
 					format === "print" ? "print" : "download",
@@ -164,9 +192,9 @@ export function OutstandingDownloadButtons({ mrId }: { mrId: string }) {
 				</button>
 
 				<button
-					className="flex h-[36px] items-center justify-center gap-1.5 rounded-xl border border-red-700 bg-red-600 px-3 py-2 font-bold text-white text-xs transition hover:bg-red-700"
+					className="flex h-[36px] items-center justify-center gap-1.5 rounded-xl border border-slate-700 bg-slate-800 px-3 py-2 font-bold text-white text-xs transition hover:bg-slate-900"
 					onClick={() => openModal("print")}
-					title="Download Outstanding Invoices (Print)"
+					title="Print Outstanding Invoices"
 				>
 					<svg
 						className="h-3.5 w-3.5"
@@ -176,13 +204,13 @@ export function OutstandingDownloadButtons({ mrId }: { mrId: string }) {
 						xmlns="http://www.w3.org/2000/svg"
 					>
 						<path
-							d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+							d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"
 							strokeLinecap="round"
 							strokeLinejoin="round"
 							strokeWidth="2"
 						></path>
 					</svg>
-					PDF
+					Print
 				</button>
 			</div>
 

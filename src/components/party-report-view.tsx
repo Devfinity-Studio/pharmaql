@@ -76,25 +76,25 @@ export async function PartyReportView({
 				? mrInfo.companyCode
 				: company;
 
-	const partySalesResult: PartyCustomerItemSaleResult =
-		mrInfo.canViewSales && searchParams?.from && searchParams?.to
-			? await getPartyCustomerItemSale({
-					fromDate: searchParams.from,
-					toDate: searchParams.to,
-					compCode: compCodeToQuery,
-					locNo: mrInfo.locNo,
-				})
-			: {
-					success: false,
-					error: !mrInfo.canViewSales
-						? "MR does not have sales view permissions"
-						: "Missing 'from' or 'to' date parameters in URL",
-					data: null,
-					debugSql: undefined,
-				};
+	const defaultFrom = searchParams?.from || "2026-04-01";
+	const defaultTo = searchParams?.to || "2026-09-30";
 
-	const fromDisplay = formatDisplayDate(searchParams?.from) || "01/09/2026";
-	const toDisplay = formatDisplayDate(searchParams?.to) || "29/09/2026";
+	const partySalesResult: PartyCustomerItemSaleResult = mrInfo.canViewSales
+		? await getPartyCustomerItemSale({
+				fromDate: defaultFrom,
+				toDate: defaultTo,
+				compCode: compCodeToQuery,
+				locNo: mrInfo.locNo,
+			})
+		: {
+				success: false,
+				error: "MR does not have sales view permissions",
+				data: null,
+				debugSql: undefined,
+			};
+
+	const fromDisplay = formatDisplayDate(defaultFrom);
+	const toDisplay = formatDisplayDate(defaultTo);
 
 	if (
 		partySalesResult.success &&

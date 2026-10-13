@@ -5,6 +5,11 @@
 import "./src/env.js";
 
 /** @type {import("next").NextConfig} */
-const config = {};
+const config = {
+	webpack: (webpackConfig) => {
+		webpackConfig.output.hashFunction = "sha256";
+		return webpackConfig;
+	},
+};
 
 export default config;

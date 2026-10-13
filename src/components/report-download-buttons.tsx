@@ -2,13 +2,20 @@
 
 import { useSearchParams } from "next/navigation";
 import { useState } from "react";
-import { generatePdfReport, generateStockPdfReport } from "@/lib/pdf";
+import {
+	generateFreeSchemePdfReport,
+	generateGroupedPdfReport,
+	generatePdfReport,
+	generateSalesPdfReport,
+	generateStockPdfReport,
+} from "@/lib/pdf";
 
 export function ReportDownloadButtons({ mrId }: { mrId: string }) {
 	const searchParams = useSearchParams();
 	const division = searchParams.get("division") || "All";
-	const defaultFrom = searchParams.get("from") || "";
-	const defaultTo = searchParams.get("to") || "";
+	const defaultFrom = searchParams.get("from") || "2026-04-01";
+	const defaultTo =
+		searchParams.get("to") || new Date().toISOString().split("T")[0];
 	const product = searchParams.get("product") || "";
 	const currentTab = searchParams.get("tab");
 
@@ -22,8 +29,8 @@ export function ReportDownloadButtons({ mrId }: { mrId: string }) {
 
 	const openModal = (fmt: "csv" | "excel" | "pdf" | "print") => {
 		setFormat(fmt);
-		setFrom(defaultFrom);
-		setTo(defaultTo);
+		setFrom(searchParams.get("from") || defaultFrom);
+		setTo(searchParams.get("to") || defaultTo);
 		setIsOpen(true);
 	};
 
@@ -36,14 +43,13 @@ export function ReportDownloadButtons({ mrId }: { mrId: string }) {
 		if (to) params.set("to", to);
 		if (product) params.set("product", product);
 
-		const isFreeScheme = currentTab === "free-schemes";
-
 		if (format === "pdf" || format === "print") {
 			params.set("format", "json");
 			try {
-				let endpoint = "/api/reports/download"; // fallback
-				if (currentTab === "stock") endpoint = "/api/reports/download-stock";
-				else if (
+				let endpoint = "/api/reports/download-sales";
+				if (currentTab === "stock") {
+					endpoint = "/api/reports/download-stock";
+				} else if (
 					currentTab === "sales" ||
 					currentTab === "products" ||
 					currentTab === "new-sales" ||
@@ -92,7 +98,7 @@ export function ReportDownloadButtons({ mrId }: { mrId: string }) {
 					const mrName = data.length > 0 ? data[0]["MR Name"] : "Unknown";
 					const safeMrName = mrName.replace(/[^a-zA-Z0-9]/g, "_");
 					await generateStockPdfReport(
-						`${safeMrName}_${safeDivision}_stock_${fromToSuffix}.pdf`,
+						`${safeMrName}_${safeDivision}_stock${fromToSuffix}.pdf`,
 						data,
 						mrName,
 						displayFrom,
@@ -100,21 +106,18 @@ export function ReportDownloadButtons({ mrId }: { mrId: string }) {
 						format === "print" ? "print" : "download",
 						serverDateStr,
 					);
-				} else if (currentTab === "sales") {
+				} else if (currentTab === "sales" || currentTab === "new-sales") {
 					const mrName = data.length > 0 ? data[0]["MR Name"] : "Unknown";
 					const safeMrName = mrName.replace(/[^a-zA-Z0-9]/g, "_");
-
-					import("@/lib/pdf").then(async ({ generateSalesPdfReport }) => {
-						await generateSalesPdfReport(
-							`${safeMrName}_${safeDivision}${fromToSuffix}.pdf`,
-							data,
-							mrName,
-							displayFrom,
-							displayTo,
-							format === "print" ? "print" : "download",
-							serverDateStr,
-						);
-					});
+					await generateSalesPdfReport(
+						`${safeMrName}_${safeDivision}_sales${fromToSuffix}.pdf`,
+						data,
+						mrName,
+						displayFrom,
+						displayTo,
+						format === "print" ? "print" : "download",
+						serverDateStr,
+					);
 				} else if (currentTab === "products") {
 					const mrName = data.length > 0 ? data[0]["MR Name"] : "Unknown";
 					const safeMrName = mrName.replace(/[^a-zA-Z0-9]/g, "_");
@@ -123,23 +126,29 @@ export function ReportDownloadButtons({ mrId }: { mrId: string }) {
 						{ header: "Product Name", dataKey: "Product Name" },
 						{ header: "Free Scheme", dataKey: "Free Scheme" },
 						{ header: "Current Stock", dataKey: "Current Stock" },
-						{ header: "Total Sales Qty", dataKey: "Total Sales Qty" },
-						{ header: "Total Sales Amt", dataKey: "Total Sales Amt" },
+						{
+							header: "Total Sales Qty",
+							dataKey: "Total Sales Qty",
+							halign: "right" as const,
+						},
+						{
+							header: "Total Sales Amt",
+							dataKey: "Total Sales Amt",
+							halign: "right" as const,
+						},
 					];
 
-					import("@/lib/pdf").then(async ({ generateGroupedPdfReport }) => {
-						await generateGroupedPdfReport(
-							`Product Wise Statement`,
-							`${safeMrName}_${safeDivision}_products_${fromToSuffix}.pdf`,
-							data,
-							columns as any,
-							format === "print" ? "print" : "download",
-							mrName,
-							displayFrom,
-							displayTo,
-							serverDateStr,
-						);
-					});
+					await generateGroupedPdfReport(
+						`Product Wise Statement`,
+						`${safeMrName}_${safeDivision}_products${fromToSuffix}.pdf`,
+						data,
+						columns as any,
+						format === "print" ? "print" : "download",
+						mrName,
+						displayFrom,
+						displayTo,
+						serverDateStr,
+					);
 				} else {
 					// Free Scheme (default)
 					const filteredData = product
@@ -150,22 +159,15 @@ export function ReportDownloadButtons({ mrId }: { mrId: string }) {
 						filteredData.length > 0 ? filteredData[0]["MR Name"] : "Unknown";
 					const safeMrName = mrName.replace(/[^a-zA-Z0-9]/g, "_");
 
-					const cleanDataForPdf = filteredData.map((row: any) => {
-						const { "MR Name": _, "Generated At": __, ...rest } = row;
-						return rest;
-					});
-
-					import("@/lib/pdf").then(async ({ generateFreeSchemePdfReport }) => {
-						await generateFreeSchemePdfReport(
-							`${safeMrName}_${safeDivision}_free_schemes_${fromToSuffix}.pdf`,
-							cleanDataForPdf,
-							mrName,
-							displayFrom,
-							displayTo,
-							format === "print" ? "print" : "download",
-							serverDateStr,
-						);
-					});
+					await generateFreeSchemePdfReport(
+						`${safeMrName}_${safeDivision}_free_schemes${fromToSuffix}.pdf`,
+						filteredData,
+						mrName,
+						displayFrom,
+						displayTo,
+						format === "print" ? "print" : "download",
+						serverDateStr,
+					);
 				}
 			} catch (e) {
 				console.error(e);
@@ -173,7 +175,7 @@ export function ReportDownloadButtons({ mrId }: { mrId: string }) {
 			}
 		} else {
 			params.set("format", format);
-			let endpoint = "/api/reports/download";
+			let endpoint = "/api/reports/download-sales";
 			if (
 				currentTab === "sales" ||
 				currentTab === "products" ||

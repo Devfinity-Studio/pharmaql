@@ -115,10 +115,10 @@
 - [x] Document database write audit report confirming 100% read-only ERP database usage.
 - [x] Verify build and commit cleanly.
 
-## Phase 17: Reports Export and Formatting Improvements
+## Phase 17: Reports Export and Formatting Improvements [COMPLETED]
 
-- [ ] Synchronize date range filters with presets (Full FY, Current Month) across all report views.
-- [ ] Standardize CSV/Excel export endpoints with formatted columns, numeric decimals, and total rows.
-- [ ] Align download modal dialogs and standardize export filename schemes across all tabs.
-- [ ] Polish PDF report layouts, column auto-wrapping, and multi-page header/footer branding.
-- [ ] Verify build and commit cleanly.
+- [x] Synchronize date range filters with presets (Full FY, Current Month, Last Month, Last 90 Days) across all report views.
+- [x] Standardize CSV/Excel export endpoints with formatted columns, numeric decimals, total rows, and proper Uint8Array binary buffers.
+- [x] Align download modal dialogs and standardize export filename schemes (`<MR>_<Division>_<ReportType>_<DateRange>.<ext>`) across all tabs.
+- [x] Polish PDF report layouts, column auto-wrapping, and multi-page header/footer branding.
+- [x] Verify build and commit cleanly.

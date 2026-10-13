@@ -447,7 +447,7 @@ export async function MrDashboardContent({
 					searchParams?.tab === "stock") && (
 					<ReportDownloadButtons mrId={mrId} />
 				)}
-				{searchParams?.tab === "party" && (
+				{(searchParams?.tab === "party" || searchParams?.tab === "overdue") && (
 					<OutstandingDownloadButtons mrId={mrId} />
 				)}
 			</div>

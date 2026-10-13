@@ -78,6 +78,11 @@ export async function GET(request: Request) {
 		timeStyle: "short",
 	});
 	const mrName = mrInfo.name || "Unknown MR";
+	const safeMrName = mrName.replace(/[^a-zA-Z0-9]/g, "_");
+	const safeDivision = division.replace(/[^a-zA-Z0-9]/g, "_");
+	const dateRangeTag =
+		from && to ? `${from}_to_${to}` : new Date().toISOString().split("T")[0];
+	const filename = `${safeMrName}_${safeDivision}_Outstanding_${dateRangeTag}`;
 
 	// Filter strictly for Amount - AdjAmt > 0 (pending balance)
 	const reportData = procResult.data
@@ -91,15 +96,21 @@ export async function GET(request: Request) {
 			return {
 				"MR Name": mrName,
 				"Customer / Party": row.Customer || "Unknown",
+				"Doctor / Party": row.Customer || "Unknown",
 				City: row.City || "Unknown",
 				"Bill No": row.DocNo || "N/A",
+				"Invoice No": row.DocNo || "N/A",
 				"Bill Date": billDateStr,
+				"Invoice Date": billDateStr,
 				"Bill Amount": originalAmt,
 				"Adjusted Amount": adjAmt,
 				"Balance Amount": balanceAmt,
+				"Amount Due": balanceAmt,
 				"Purchase Days": Number(row.OverDays || 0),
+				"Overdue Days": Number(row.OverDays || 0),
 				Division: row.Division || division,
 				"Company Code": row.CompCode || compCodeToQuery,
+				Manufacturer: row.CompCode || row.Division || division,
 				"Generated At": timestampStr,
 			};
 		})
@@ -108,20 +119,54 @@ export async function GET(request: Request) {
 	// Sort by Purchase Days descending
 	reportData.sort((a, b) => b["Purchase Days"] - a["Purchase Days"]);
 
-	const timestamp = new Date().toISOString().split("T")[0];
-	const filename = `Outstanding_Invoices_${division.replace(/[^a-zA-Z0-9]/g, "_")}_${timestamp}`;
-
 	if (format === "json") {
 		return NextResponse.json(reportData);
 	}
 
+	// Tabular spreadsheet data
+	let totalOriginalAmt = 0;
+	let totalAdjAmt = 0;
+	let totalBalanceAmt = 0;
+
+	const tabularData = reportData.map((r) => {
+		totalOriginalAmt += r["Bill Amount"];
+		totalAdjAmt += r["Adjusted Amount"];
+		totalBalanceAmt += r["Balance Amount"];
+
+		return {
+			"Customer / Party": r["Customer / Party"],
+			City: r.City,
+			"Bill No": r["Bill No"],
+			"Bill Date": r["Bill Date"],
+			"Bill Amount": Number(r["Bill Amount"].toFixed(2)),
+			"Adjusted Amount": Number(r["Adjusted Amount"].toFixed(2)),
+			"Balance Amount": Number(r["Balance Amount"].toFixed(2)),
+			"Overdue Days": r["Purchase Days"],
+			Division: r.Division,
+		};
+	});
+
+	if (tabularData.length > 0) {
+		tabularData.push({
+			"Customer / Party": "TOTAL :",
+			City: "",
+			"Bill No": "",
+			"Bill Date": "",
+			"Bill Amount": Number(totalOriginalAmt.toFixed(2)),
+			"Adjusted Amount": Number(totalAdjAmt.toFixed(2)),
+			"Balance Amount": Number(totalBalanceAmt.toFixed(2)),
+			"Overdue Days": "" as any,
+			Division: "",
+		});
+	}
+
 	if (format === "excel") {
-		const worksheet = xlsx.utils.json_to_sheet(reportData);
+		const worksheet = xlsx.utils.json_to_sheet(tabularData);
 		const workbook = xlsx.utils.book_new();
 		xlsx.utils.book_append_sheet(workbook, worksheet, "Outstanding");
-		const buffer = xlsx.write(workbook, { type: "buffer", bookType: "xlsx" });
+		const arrayBuf = xlsx.write(workbook, { type: "array", bookType: "xlsx" });
 
-		return new NextResponse(buffer, {
+		return new NextResponse(new Uint8Array(arrayBuf), {
 			headers: {
 				"Content-Disposition": `attachment; filename="${filename}.xlsx"`,
 				"Content-Type":
@@ -130,13 +175,14 @@ export async function GET(request: Request) {
 		});
 	} else {
 		// CSV
-		if (reportData.length === 0 || !reportData[0]) {
+		const firstRow = tabularData[0];
+		if (!firstRow) {
 			return new NextResponse("No data available", { status: 200 });
 		}
-		const headersKeys = Object.keys(reportData[0]);
+		const headersKeys = Object.keys(firstRow);
 		const csvContent = [
 			headersKeys.join(","),
-			...reportData.map((row: any) =>
+			...tabularData.map((row: any) =>
 				headersKeys
 					.map((key) => {
 						const val = row[key];
