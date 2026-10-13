@@ -1,7 +1,7 @@
 # State
 
 **Current Milestone:** Milestone 1 - Production Hardening & Optimization
-**Active Phase:** None (Phase 16 completed)
-**Status:** Phase 16 complete. /admin/mrs page optimized to 10-per-batch paginated infinite scroll. Dead Add MR button/action pruned. Overdue evaluation decoupled and made on-demand. TypeScript, api-server, and Next.js production builds verified.
+**Active Phase:** Phase 17 - Reports Export and Formatting Improvements
+**Status:** Phase 17 initialized. Enhancing CSV/Excel exports, standardizing filename conventions, polishing PDF/print table formatting, and synchronizing date range presets.
 
 

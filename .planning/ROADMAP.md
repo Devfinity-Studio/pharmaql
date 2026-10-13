@@ -114,3 +114,11 @@
 - [x] Scope/defer overdue evaluation stored procedures to avoid parallel query saturation.
 - [x] Document database write audit report confirming 100% read-only ERP database usage.
 - [x] Verify build and commit cleanly.
+
+## Phase 17: Reports Export and Formatting Improvements
+
+- [ ] Synchronize date range filters with presets (Full FY, Current Month) across all report views.
+- [ ] Standardize CSV/Excel export endpoints with formatted columns, numeric decimals, and total rows.
+- [ ] Align download modal dialogs and standardize export filename schemes across all tabs.
+- [ ] Polish PDF report layouts, column auto-wrapping, and multi-page header/footer branding.
+- [ ] Verify build and commit cleanly.
