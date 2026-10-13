@@ -1,7 +1,8 @@
 "use server";
 
 import { apiGet } from "@/lib/api-client";
-import { getMROverrides, getPermissionsForRank, type MRRank } from "./mrs";
+import { getPermissionsForRank, type MRRank } from "@/lib/permissions";
+import { getMROverrides } from "./mrs";
 
 /**
  * Compact MR profile containing only the necessary fields

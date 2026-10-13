@@ -4,8 +4,9 @@ import { cookies } from "next/headers";
 import { apiPost } from "@/lib/api-client";
 import { type SessionUser, signSessionToken } from "@/lib/jwt";
 import { sendOtpEmail } from "@/lib/mailer";
+import { getPermissionsForRank } from "@/lib/permissions";
 import { getMRInfo } from "@/server/actions/mrInfo";
-import { getPermissionsForRank, recordMRLastLogin } from "@/server/actions/mrs";
+import { recordMRLastLogin } from "@/server/actions/mrs";
 import { AUTH_COOKIE_NAME } from "@/server/auth";
 
 // Temporary in-memory OTP storage: email -> { otp, expiresAt }

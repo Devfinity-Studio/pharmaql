@@ -4,12 +4,13 @@ import fs from "fs/promises";
 import { revalidatePath } from "next/cache";
 import { headers } from "next/headers";
 import path from "path";
+import { getPermissionsForRank, type MRRank } from "@/lib/permissions";
 import { getMRInfo } from "@/server/actions/mrInfo";
 import { auth } from "@/server/auth";
 
-const OVERRIDES_FILE = path.join(process.cwd(), "data", "mr_overrides.json");
+export type { MRRank } from "@/lib/permissions";
 
-export type MRRank = 1 | 2 | 3;
+const OVERRIDES_FILE = path.join(process.cwd(), "data", "mr_overrides.json");
 
 export interface MROverride {
 	isBlocked?: boolean;
@@ -27,41 +28,6 @@ export interface MROverride {
 		manufacturer: string;
 		division: string | null;
 	}[];
-}
-
-/**
- * Derives strict report permissions according to MR Rank:
- * - Rank 1: Only Stock reports
- * - Rank 2: Stock and Claim Quantity (Free Scheme) reports
- * - Rank 3: All reports (Stock, Free Scheme, Sales, Party Wise, Product Wise)
- */
-export function getPermissionsForRank(rank: MRRank) {
-	if (rank === 1) {
-		return {
-			canViewStock: true,
-			canViewFreeScheme: false,
-			canViewSales: false,
-			canViewPartyWise: false,
-			canViewProductWise: false,
-		};
-	}
-	if (rank === 2) {
-		return {
-			canViewStock: true,
-			canViewFreeScheme: true,
-			canViewSales: false,
-			canViewPartyWise: false,
-			canViewProductWise: false,
-		};
-	}
-	// Rank 3 (or any higher)
-	return {
-		canViewStock: true,
-		canViewFreeScheme: true,
-		canViewSales: true,
-		canViewPartyWise: true,
-		canViewProductWise: true,
-	};
 }
 
 export async function getMROverrides(): Promise<Record<string, MROverride>> {
