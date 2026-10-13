@@ -27,19 +27,30 @@ export function MRSearchForm() {
 		return () => document.removeEventListener("mousedown", handleClickOutside);
 	}, []);
 
+	// Synchronize local states if URL parameters change externally
+	useEffect(() => {
+		const urlSearch = searchParams.get("search") || "";
+		if (urlSearch !== search) {
+			setSearch(urlSearch);
+		}
+		const urlSort = searchParams.get("sort") || "name_asc";
+		if (urlSort !== sort) {
+			setSort(urlSort);
+		}
+	}, [searchParams]);
+
 	// Hot live search debounce
 	useEffect(() => {
+		const currentUrlSearch = searchParams.get("search") || "";
+		if (search === currentUrlSearch) return;
+
 		const timer = setTimeout(() => {
 			startTransition(() => {
 				const params = new URLSearchParams(searchParams.toString());
-				if (search) params.set("search", search);
+				if (search.trim()) params.set("search", search.trim());
 				else params.delete("search");
 				params.set("sort", sort);
-
-				const currentSearch = searchParams.get("search") || "";
-				if (currentSearch !== search) {
-					router.push(`/admin/mrs?${params.toString()}`);
-				}
+				router.push(`/admin/mrs?${params.toString()}`);
 			});
 		}, 300);
 
@@ -51,7 +62,7 @@ export function MRSearchForm() {
 		setIsSortOpen(false);
 		startTransition(() => {
 			const params = new URLSearchParams(searchParams.toString());
-			if (search) params.set("search", search);
+			if (search.trim()) params.set("search", search.trim());
 			else params.delete("search");
 			params.set("sort", newSort);
 			router.push(`/admin/mrs?${params.toString()}`);

@@ -15,6 +15,7 @@ export interface SessionUser {
 	company?: string;
 	companyCode?: string;
 	isBlocked?: boolean;
+	rank?: 1 | 2 | 3;
 	canViewStock?: boolean;
 	canViewSales?: boolean;
 	canViewFreeScheme?: boolean;

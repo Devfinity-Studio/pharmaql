@@ -93,39 +93,6 @@ export async function StockReportView({
 	if (!response.success || !response.data) {
 		return (
 			<div className="mt-4 space-y-4">
-				{/* DEBUG QUERY BANNER */}
-				{(searchParams?.debug === "1" || searchParams?.debug === "true") && (
-					<div className="rounded-xl border-2 border-red-400 bg-red-50 p-4 font-mono text-red-950 text-xs shadow-sm print:hidden">
-						<div className="mb-2 flex flex-wrap items-center justify-between gap-2 border-red-200 border-b pb-2 font-bold text-red-900 text-xs">
-							<span>[DEBUG QUERY] Stored Procedure Execution Status</span>
-							<span className="rounded bg-red-200 px-2 py-0.5 font-semibold text-[11px]">
-								{response.error || "Query Failed"}
-							</span>
-						</div>
-						<div className="space-y-1.5">
-							<p className="font-bold text-[11px] text-red-900">
-								Final SQL Query being run:
-							</p>
-							<pre className="select-all overflow-x-auto whitespace-pre-wrap break-all rounded border border-red-200 bg-red-100 p-2.5 font-mono text-[11px] text-red-950">
-								{response.debugSql || "-- No SQL available"}
-							</pre>
-							<div className="mt-2 grid grid-cols-2 gap-2 border-red-200 border-t pt-1.5 text-[11px] text-red-800 md:grid-cols-4">
-								<div>
-									<span className="font-semibold">Target Companies:</span>{" "}
-									{JSON.stringify(targetCompanies)}
-								</div>
-								<div>
-									<span className="font-semibold">MR Company:</span>{" "}
-									{mrInfo.company || "N/A"}
-								</div>
-								<div>
-									<span className="font-semibold">MR LocNo:</span>{" "}
-									{effectiveLocNo}
-								</div>
-							</div>
-						</div>
-					</div>
-				)}
 				<div className="p-4 font-semibold text-red-500">
 					Failed to load stock report: {response.error || "Unknown error"}
 				</div>
@@ -233,47 +200,6 @@ export async function StockReportView({
 
 	return (
 		<div className="mt-4 space-y-8 overflow-hidden rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
-			{/* DEBUG QUERY BANNER */}
-			{(searchParams?.debug === "1" || searchParams?.debug === "true") && (
-				<div className="rounded-xl border-2 border-amber-400 bg-amber-50 p-4 font-mono text-amber-950 text-xs shadow-sm print:hidden">
-					<div className="mb-2 flex flex-wrap items-center justify-between gap-2 border-amber-200 border-b pb-2 font-bold text-amber-900 text-xs">
-						<span>
-							[DEBUG QUERY] Stored Procedure Execution Status (Stock Movement)
-						</span>
-						<span className="rounded bg-amber-200 px-2 py-0.5 font-semibold text-[11px]">
-							{response.data.length} total rows ({matchingRows.length} matched
-							assigned)
-						</span>
-					</div>
-					<div className="space-y-1.5">
-						<p className="font-bold text-[11px] text-amber-900">
-							Final SQL Query being run:
-						</p>
-						<pre className="select-all overflow-x-auto whitespace-pre-wrap break-all rounded border border-amber-200 bg-amber-100 p-2.5 font-mono text-[11px] text-amber-950">
-							{response.debugSql || "-- No SQL query available"}
-						</pre>
-						<div className="mt-2 grid grid-cols-2 gap-2 border-amber-200 border-t pt-1.5 text-[11px] text-amber-800 md:grid-cols-4">
-							<div>
-								<span className="font-semibold">Target Companies:</span>{" "}
-								{JSON.stringify(targetCompanies)}
-							</div>
-							<div>
-								<span className="font-semibold">MR Company:</span>{" "}
-								{mrInfo.company || "N/A"}
-							</div>
-							<div>
-								<span className="font-semibold">MR LocNo:</span>{" "}
-								{effectiveLocNo}
-							</div>
-							<div>
-								<span className="font-semibold">Filtered Items:</span>{" "}
-								{reportData.length}
-							</div>
-						</div>
-					</div>
-				</div>
-			)}
-
 			{/* Header */}
 			<div className="mb-2 flex flex-col items-start justify-between gap-4 border-[#0B2545] border-b-2 pb-2 md:flex-row">
 				<div className="flex items-center gap-4">

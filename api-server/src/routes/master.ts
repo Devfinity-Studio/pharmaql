@@ -13,6 +13,7 @@ const SELECT_MKT_MR_COLUMNS = `
   mr.JobProfile AS JobProfile,
   mr.IsInActive AS IsInActive,
   mr.ShowDealerSalesinWeb AS ShowDealerSalesinWeb,
+  mr.\`Rank\` AS \`Rank\`,
   l.Division AS DivisionName,
   m.ID AS CompanyID,
   m.Code AS CompanyCode,
@@ -33,6 +34,31 @@ function normalizeLegacyMR(raw: any) {
   const division = raw.DivisionName ? String(raw.DivisionName).trim() : undefined;
   const company = raw.CompanyName || raw.CompanyCode ? String(raw.CompanyName || raw.CompanyCode).trim() : undefined;
   const companyCode = raw.CompanyCode ? String(raw.CompanyCode).trim() : undefined;
+
+  // Determine Rank: 1, 2, or 3
+  const rawRank = raw.Rank ?? raw.rank;
+  let rank: 1 | 2 | 3 = 3;
+  if (rawRank !== undefined && rawRank !== null) {
+    const parsed = Number(rawRank);
+    if (parsed === 1 || parsed === 2 || parsed === 3) {
+      rank = parsed;
+    }
+  } else if (raw.JobProfile) {
+    const jp = String(raw.JobProfile).toUpperCase().trim();
+    if (jp === "MR") rank = 1;
+    else if (jp === "ABM" || jp === "BO") rank = 2;
+    else rank = 3;
+  }
+
+  // Strict rank-based permissions:
+  // Rank 1: Stock only
+  // Rank 2: Stock and Claim Qty (Free Scheme)
+  // Rank 3: All reports
+  const canViewStock = true;
+  const canViewFreeScheme = rank >= 2;
+  const canViewSales = rank === 3;
+  const canViewPartyWise = rank === 3;
+  const canViewProductWise = rank === 3;
 
   return {
     ID: raw.ID,
@@ -55,11 +81,12 @@ function normalizeLegacyMR(raw: any) {
     company,
     companyCode,
     isBlocked,
-    canViewStock: true,
-    canViewSales: true,
-    canViewFreeScheme: true,
-    canViewPartyWise: true,
-    canViewProductWise: true,
+    rank,
+    canViewStock,
+    canViewSales,
+    canViewFreeScheme,
+    canViewPartyWise,
+    canViewProductWise,
   };
 }
 
