@@ -11,6 +11,10 @@ interface ApiResponse<T> {
 	success: boolean;
 	data?: T;
 	error?: string;
+	total?: number;
+	hasMore?: boolean;
+	page?: number;
+	limit?: number;
 }
 
 function getHeaders(): HeadersInit {

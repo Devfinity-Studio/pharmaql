@@ -173,63 +173,6 @@ export async function updateMRPermissions(
 	}
 }
 
-export async function createMR(
-	name: string,
-	email: string,
-	permissions: {
-		canViewFreeScheme: boolean;
-		canViewStock: boolean;
-		canViewSales: boolean;
-		canViewPartyWise: boolean;
-		canViewProductWise: boolean;
-	},
-	manufacturers: { manufacturer: string; division: string | null }[],
-) {
-	const session = await auth.api.getSession({
-		headers: await headers(),
-	});
-
-	if (
-		!session ||
-		(session.user.role !== "ADMIN" && session.user.role !== "DEVELOPER")
-	) {
-		throw new Error("Unauthorized");
-	}
-
-	try {
-		const existingMR = await getMRInfo(email);
-		if (existingMR) {
-			return {
-				success: false,
-				error: "An MR with this email already exists in legacy ERP.",
-			};
-		}
-
-		// Store custom MR registration in overrides
-		const newMrId = `custom_${Date.now()}`;
-		const allOverrides = await getMROverrides();
-		allOverrides[newMrId] = {
-			isBlocked: false,
-			permissions,
-			assignedManufacturers: manufacturers.map((m) => ({
-				id: crypto.randomUUID(),
-				manufacturer: m.manufacturer,
-				division: m.division,
-			})),
-		};
-		await saveMROverrides(allOverrides);
-
-		revalidatePath("/admin/mrs");
-		return { success: true };
-	} catch (error) {
-		console.error("Failed to create MR", error);
-		return {
-			success: false,
-			error: "An unexpected error occurred while creating the MR.",
-		};
-	}
-}
-
 export async function checkActiveSessions(email: string) {
 	return { success: true, hasActiveSessions: false };
 }

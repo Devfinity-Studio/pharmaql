@@ -105,3 +105,12 @@
 - [x] Resolve TypeScript compiler warnings, Biome lint warnings, and runtime deprecations.
 - [x] Audit dependencies in root and `api-server` for duplicates, unused packages, and security updates.
 - [x] Generate comprehensive pre-cleanup audit report and execute verification pass.
+
+## Phase 16: Admin MR Pagination, Infinite Scroll & Read-Only Cleanup [COMPLETED]
+
+- [x] Audit and remove "Add MR" UI and server actions (`add-mr-button.tsx`, `createMR`).
+- [x] Implement paginated MR query (10 MRs per batch) with total count and filtering.
+- [x] Implement client-side infinite scroll on `/admin/mrs` via IntersectionObserver.
+- [x] Scope/defer overdue evaluation stored procedures to avoid parallel query saturation.
+- [x] Document database write audit report confirming 100% read-only ERP database usage.
+- [x] Verify build and commit cleanly.
