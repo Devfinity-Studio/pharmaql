@@ -8,6 +8,24 @@ export interface RankPermissions {
 	canViewProductWise: boolean;
 }
 
+export interface MROverride {
+	isBlocked?: boolean;
+	rank?: MRRank;
+	lastLogin?: string;
+	permissions?: {
+		canViewFreeScheme: boolean;
+		canViewStock: boolean;
+		canViewSales: boolean;
+		canViewPartyWise: boolean;
+		canViewProductWise: boolean;
+	};
+	assignedManufacturers?: {
+		id: string;
+		manufacturer: string;
+		division: string | null;
+	}[];
+}
+
 /**
  * Derives strict report permissions according to MR Rank:
  * - Rank 1: Only Stock reports

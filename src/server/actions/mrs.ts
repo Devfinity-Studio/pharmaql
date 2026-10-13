@@ -4,31 +4,15 @@ import fs from "fs/promises";
 import { revalidatePath } from "next/cache";
 import { headers } from "next/headers";
 import path from "path";
-import { getPermissionsForRank, type MRRank } from "@/lib/permissions";
+import {
+	getPermissionsForRank,
+	type MROverride,
+	type MRRank,
+} from "@/lib/permissions";
 import { getMRInfo } from "@/server/actions/mrInfo";
 import { auth } from "@/server/auth";
 
-export type { MRRank } from "@/lib/permissions";
-
 const OVERRIDES_FILE = path.join(process.cwd(), "data", "mr_overrides.json");
-
-export interface MROverride {
-	isBlocked?: boolean;
-	rank?: MRRank;
-	lastLogin?: string;
-	permissions?: {
-		canViewFreeScheme: boolean;
-		canViewStock: boolean;
-		canViewSales: boolean;
-		canViewPartyWise: boolean;
-		canViewProductWise: boolean;
-	};
-	assignedManufacturers?: {
-		id: string;
-		manufacturer: string;
-		division: string | null;
-	}[];
-}
 
 export async function getMROverrides(): Promise<Record<string, MROverride>> {
 	try {
