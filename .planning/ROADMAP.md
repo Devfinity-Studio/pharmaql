@@ -130,3 +130,21 @@
 - [x] Align UI and PDF/Excel export table layouts with exact 15-column format, customer subtotals, and item summary totals matching reference standard.
 - [x] Ensure strict multi-tenant MR company filtering and sanitize date parameter mapping.
 - [x] Verify builds and end-to-end data against September 2026 reference dataset.
+
+## Phase 19: Admin MR Management & UI Diagnostics Hardening [COMPLETED]
+
+- [x] Remove intrusive debug SQL banners across report views (e.g. Free Scheme report).
+- [x] Fix MR search and sort functionality when loading MRs in 10-item paginated batches.
+- [x] Support robust multi-field search across MR names, emails, company, division, and assigned manufacturers.
+- [x] Ensure seamless infinite scrolling and page counter updates on `/admin/mrs`.
+- [x] Verify clean builds and report UI without debug artifacts.
+
+## Phase 20: MR Ranking-Based Permissions
+
+- [x] Define MR ranking levels (Rank 1 = Stock only, Rank 2 = Stock + Claim Qty, Rank 3 = All reports) with ERP database rank projection and custom admin rank overrides.
+- [x] Implement strict ranking-based permission presets and automated synchronization.
+- [x] Add Admin UI controls to view and update MR ranking and display active report permissions.
+- [x] Enforce ranking-based data and report access across server actions, dashboard tabs, and export endpoints.
+- [x] Verify build, permission enforcement, and test across different MR ranks.
+
+

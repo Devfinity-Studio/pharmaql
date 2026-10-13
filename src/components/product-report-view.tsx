@@ -190,26 +190,6 @@ export async function ProductReportView({
 
 		return (
 			<div className="mt-4 space-y-4 rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
-				{/* DEBUG QUERY BANNER */}
-				{(searchParams?.debug === "1" || searchParams?.debug === "true") && (
-					<div className="rounded-xl border-2 border-amber-400 bg-amber-50 p-4 font-mono text-amber-950 text-xs shadow-sm print:hidden">
-						<div className="mb-2 flex flex-wrap items-center justify-between gap-2 border-amber-200 border-b pb-2 font-bold text-amber-900 text-xs">
-							<span>[DEBUG QUERY] Stored Procedure Execution Status</span>
-							<span className="rounded bg-amber-200 px-2 py-0.5 font-semibold text-[11px]">
-								{procSalesResult.data.length} rows returned
-							</span>
-						</div>
-						<div className="space-y-1.5">
-							<p className="font-bold text-[11px] text-amber-900">
-								Final SQL Query being run:
-							</p>
-							<pre className="select-all overflow-x-auto whitespace-pre-wrap break-all rounded border border-amber-200 bg-amber-100 p-2.5 font-mono text-[11px] text-amber-950">
-								{procSalesResult.debugSql}
-							</pre>
-						</div>
-					</div>
-				)}
-
 				{/* HEADER */}
 				<div className="border-gray-900 border-b-2 pb-2">
 					<div className="flex items-start gap-4">

@@ -179,78 +179,9 @@ export async function FreeSchemeReportView({
 		});
 	}
 
-	const constructedDebugSql =
-		claimResult.debugSql ||
-		`-- 1. Prepare Stored Procedure:
-CALL \`pdyasvtrans\`.\`rptSaleFreeQtyStatement\`(
-  'F',
-  '${defaultFrom}',
-  '${defaultTo}',
-  ${mrInfo.locNo || 11},
-  ${mrInfo.locNo || 11},
-  202627,
-  '${compCodeToQuery}',
-  '',
-  '',
-  '',
-  'SRate',
-  'claim-${mrId}',
-  'Y',
-  'Y'
-);
-
--- 2. Fetch Stored Procedure Data:
-CALL \`pdyasvtrans\`.\`rptClaimData\`('claim-${mrId}');`;
-
-	const debugBanner = (
-		<div className="mb-4 rounded-xl border-2 border-amber-400 bg-amber-50 p-4 font-mono text-amber-950 text-xs shadow-sm print:hidden">
-			<div className="mb-2 flex flex-wrap items-center justify-between gap-2 border-amber-200 border-b pb-2 font-bold text-amber-900 text-xs">
-				<span>
-					[DEBUG QUERY] Stored Procedure Execution Status (Claim Qty)
-				</span>
-				<span className="rounded bg-amber-200 px-2 py-0.5 font-semibold text-[11px]">
-					{claimResult.success
-						? `${filteredRows.length} valid MR rows (${rawRows.length} total DB rows)`
-						: claimResult.error || "Query Failed"}
-				</span>
-			</div>
-			<div className="space-y-1.5">
-				<p className="font-bold text-[11px] text-amber-900">
-					Final SQL Query being run:
-				</p>
-				<pre className="select-all overflow-x-auto whitespace-pre-wrap break-all rounded border border-amber-200 bg-amber-100 p-2.5 font-mono text-[11px] text-amber-950">
-					{constructedDebugSql}
-				</pre>
-				<div className="mt-2 grid grid-cols-2 gap-2 border-amber-200 border-t pt-1.5 text-[11px] text-amber-800 md:grid-cols-4">
-					<div>
-						<span className="font-semibold">Company Code Query:</span>{" "}
-						{JSON.stringify(compCodeToQuery)}
-					</div>
-					<div>
-						<span className="font-semibold">MR Company:</span>{" "}
-						{mrInfo.company || "N/A"}
-					</div>
-					<div>
-						<span className="font-semibold">MR Code:</span>{" "}
-						{mrInfo.companyCode || "N/A"}
-					</div>
-					<div>
-						<span className="font-semibold">LocNo:</span>{" "}
-						{mrInfo.locNo || "11"}
-					</div>
-					<div className="col-span-2 md:col-span-4">
-						<span className="font-semibold">Registered MR Companies:</span>{" "}
-						{Array.from(registeredCompanies).join(", ") || mrInfo.company || "All"}
-					</div>
-				</div>
-			</div>
-		</div>
-	);
-
 	if (reportData.length === 0) {
 		return (
 			<div className="mt-4 space-y-4">
-				{debugBanner}
 				<div className="rounded-xl border bg-white p-8 text-center font-medium text-gray-500">
 					No free scheme data available for the selected filters.
 				</div>
@@ -295,9 +226,6 @@ CALL \`pdyasvtrans\`.\`rptClaimData\`('claim-${mrId}');`;
 
 	return (
 		<div className="mt-4 bg-white p-8 shadow-sm print:p-0 print:shadow-none">
-			{/* DEBUG QUERY BANNER */}
-			{debugBanner}
-
 			<div className="mb-4 flex flex-col justify-between md:flex-row">
 				<div>
 					<h2 className="font-bold text-[#0B2545] text-xl">

@@ -175,9 +175,23 @@ export async function MrDashboardContent({
 			docOutMap.set(key, existing);
 		}
 	});
+	// Derive strictly allowed tabs according to MR Rank permissions
+	const allowedTabs: string[] = [];
+	if (canViewSales) allowedTabs.push("overview");
+	if (canViewStock) allowedTabs.push("stock");
+	if (canViewPartyWise) allowedTabs.push("party");
+	if (canViewProductWise) allowedTabs.push("products");
+	if (canViewFreeScheme) allowedTabs.push("free-schemes");
+	allowedTabs.push("overdue");
+
+	const activeTab =
+		searchParams?.tab && allowedTabs.includes(searchParams.tab)
+			? searchParams.tab
+			: (allowedTabs[0] || "stock");
+
 	// If on the Overview tab and metrics need aggregation, query stored procedures
-	const activeTab = searchParams?.tab || "overview";
 	if (
+		canViewSales &&
 		activeTab === "overview" &&
 		(accessibleSales.length === 0 || accessibleOutstanding.length === 0)
 	) {
@@ -338,59 +352,37 @@ export async function MrDashboardContent({
 						Viewing aggregated sales & financial data
 					</p>
 					{!isAdminView && (
-						<div className="mt-3 inline-flex items-center gap-2 rounded-lg border border-gray-200 bg-white p-2 font-medium text-gray-600 text-xs">
-							<span className="font-bold text-[#0B2545]">
-								Debug Permissions:
+						<div className="mt-3 inline-flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-3 py-1.5 font-medium text-gray-700 text-xs shadow-sm">
+							<span className="font-extrabold text-[#0B2545]">
+								Rank {mrInfo.rank || 3}
 							</span>
-							<span
-								className={
-									mrInfo.canViewFreeScheme
-										? "font-bold text-[#0071BC]"
-										: "text-red-400 line-through"
-								}
-							>
-								Free Scheme
-							</span>{" "}
-							&bull;
+							<span className="text-gray-300">|</span>
+							<span className="text-gray-500">Access:</span>
 							<span
 								className={
 									mrInfo.canViewStock
-										? "font-bold text-[#0071BC]"
-										: "text-red-400 line-through"
+										? "font-semibold text-emerald-600"
+										: "text-gray-300 line-through"
 								}
 							>
-								Stock Reports
-							</span>{" "}
-							&bull;
-							<span
-								className={
-									mrInfo.canViewSales
-										? "font-bold text-[#0071BC]"
-										: "text-red-400 line-through"
-								}
-							>
-								Sales & Financials
-							</span>{" "}
-							&bull;
-							<span
-								className={
-									mrInfo.canViewProductWise
-										? "font-bold text-[#0071BC]"
-										: "text-red-400 line-through"
-								}
-							>
-								Product Wise
-							</span>{" "}
-							&bull;
-							<span
-								className={
-									mrInfo.canViewPartyWise
-										? "font-bold text-[#0071BC]"
-										: "text-red-400 line-through"
-								}
-							>
-								Party Wise
+								Stock
 							</span>
+							{mrInfo.canViewFreeScheme && (
+								<>
+									<span className="text-gray-300">&bull;</span>
+									<span className="font-semibold text-emerald-600">
+										Claim Qty
+									</span>
+								</>
+							)}
+							{mrInfo.canViewSales && (
+								<>
+									<span className="text-gray-300">&bull;</span>
+									<span className="font-semibold text-emerald-600">
+										Sales & Analytics
+									</span>
+								</>
+							)}
 						</div>
 					)}
 				</div>
@@ -441,13 +433,13 @@ export async function MrDashboardContent({
 					<DateRangePicker />
 				</div>
 				{/* RENDER THE CORRECT DOWNLOAD BUTTON CONDITIONALLY AT THE TOP FILTER BAR */}
-				{(searchParams?.tab === "products" ||
-					searchParams?.tab === "sales" ||
-					searchParams?.tab === "free-schemes" ||
-					searchParams?.tab === "stock") && (
+				{(activeTab === "products" ||
+					activeTab === "sales" ||
+					activeTab === "free-schemes" ||
+					activeTab === "stock") && (
 					<ReportDownloadButtons mrId={mrId} />
 				)}
-				{(searchParams?.tab === "party" || searchParams?.tab === "overdue") && (
+				{(activeTab === "party" || activeTab === "overdue") && (
 					<OutstandingDownloadButtons mrId={mrId} />
 				)}
 			</div>
@@ -457,7 +449,7 @@ export async function MrDashboardContent({
 				{canViewSales && (
 					<Link
 						className={`border-b-4 px-6 py-4 font-bold text-base transition-colors ${
-							(searchParams?.tab || "overview") === "overview"
+							activeTab === "overview"
 								? "border-[#0071BC] text-[#0071BC]"
 								: "border-transparent text-gray-500 hover:text-[#0B2545]"
 						}`}
@@ -472,7 +464,7 @@ export async function MrDashboardContent({
 				{canViewStock && (
 					<Link
 						className={`border-b-4 px-6 py-4 font-bold text-base transition-colors ${
-							searchParams?.tab === "stock"
+							activeTab === "stock"
 								? "border-[#0071BC] text-[#0071BC]"
 								: "border-transparent text-gray-500 hover:text-[#0B2545]"
 						}`}
@@ -487,7 +479,7 @@ export async function MrDashboardContent({
 				{canViewPartyWise && (
 					<Link
 						className={`border-b-4 px-6 py-4 font-bold text-base transition-colors ${
-							searchParams?.tab === "party"
+							activeTab === "party"
 								? "border-[#0071BC] text-[#0071BC]"
 								: "border-transparent text-gray-500 hover:text-[#0B2545]"
 						}`}
@@ -502,7 +494,7 @@ export async function MrDashboardContent({
 				{canViewProductWise && (
 					<Link
 						className={`border-b-4 px-6 py-4 font-bold text-base transition-colors ${
-							searchParams?.tab === "products"
+							activeTab === "products"
 								? "border-[#0071BC] text-[#0071BC]"
 								: "border-transparent text-gray-500 hover:text-[#0B2545]"
 						}`}
@@ -517,7 +509,7 @@ export async function MrDashboardContent({
 				{canViewFreeScheme && (
 					<Link
 						className={`border-b-4 px-6 py-4 font-bold text-base transition-colors ${
-							searchParams?.tab === "free-schemes"
+							activeTab === "free-schemes"
 								? "border-[#0071BC] text-[#0071BC]"
 								: "border-transparent text-gray-500 hover:text-[#0B2545]"
 						}`}
@@ -531,7 +523,7 @@ export async function MrDashboardContent({
 				)}
 				<Link
 					className={`border-b-4 px-6 py-4 font-bold text-base transition-colors ${
-						searchParams?.tab === "overdue"
+						activeTab === "overdue"
 							? "border-[#0071BC] text-[#0071BC]"
 							: "border-transparent text-gray-500 hover:text-[#0B2545]"
 					}`}
@@ -545,52 +537,8 @@ export async function MrDashboardContent({
 			</div>
 
 			{/* OVERVIEW TAB */}
-			{canViewSales && (searchParams?.tab || "overview") === "overview" && (
+			{canViewSales && activeTab === "overview" && (
 				<div className="space-y-6">
-					{/* DEBUG QUERY BANNER FOR OVERVIEW */}
-					{(searchParams?.debug === "1" || searchParams?.debug === "true") && (
-						<div className="rounded-xl border-2 border-amber-400 bg-amber-50 p-4 font-mono text-amber-950 text-xs shadow-sm print:hidden">
-							<div className="mb-2 flex flex-wrap items-center justify-between gap-2 border-amber-200 border-b pb-2 font-bold text-amber-900 text-xs">
-								<span>[DEBUG QUERY] Overview Tab Data Status</span>
-								<span className="rounded bg-amber-200 px-2 py-0.5 font-semibold text-[11px]">
-									Sales: {accessibleSales.length} | Invoices:{" "}
-									{accessibleInvoices.length} | Outstanding:{" "}
-									{accessibleOutstanding.length}
-								</span>
-							</div>
-							<div className="space-y-1.5">
-								<p className="font-bold text-[11px] text-amber-900">
-									Database Queries & Filter Conditions:
-								</p>
-								<pre className="select-all overflow-x-auto whitespace-pre-wrap break-all rounded border border-amber-200 bg-amber-100 p-2.5 font-mono text-[11px] text-amber-950">
-									{`-- Overview metrics calculated live via MySQL ERP stored procedures
--- Date Filters: from=${searchParams?.from || "NOT PROVIDED"}, to=${searchParams?.to || "NOT PROVIDED"}
--- Division Selected: ${selectedDivision}
--- Assigned Divisions: ${JSON.stringify(assignedDivisions)}
--- Sales: rptItemCustomerSale => ${totalSales} units | ₹${totalInvoicesAmt.toFixed(2)}
--- Outstanding: rptMRwisePeriodicalOutstanding => ₹${totalOutstandingAmt.toFixed(2)}`}
-								</pre>
-								<div className="mt-2 grid grid-cols-2 gap-2 border-amber-200 border-t pt-1.5 text-[11px] text-amber-800 md:grid-cols-4">
-									<div>
-										<span className="font-semibold">MR ID:</span> {mrId}
-									</div>
-									<div>
-										<span className="font-semibold">MR Name:</span>{" "}
-										{mrInfo.name || "N/A"}
-									</div>
-									<div>
-										<span className="font-semibold">MR Company:</span>{" "}
-										{mrInfo.company || "N/A"}
-									</div>
-									<div>
-										<span className="font-semibold">LocNo:</span>{" "}
-										{mrInfo.locNo || "11"}
-									</div>
-								</div>
-							</div>
-						</div>
-					)}
-
 					{/* Refined Metric Cards Family */}
 					<div className="grid grid-cols-1 gap-6 md:grid-cols-3">
 						<div className="rounded-xl bg-[#0071BC] p-6 text-white shadow-sm">
@@ -745,7 +693,7 @@ export async function MrDashboardContent({
 			)}
 
 			{/* DYNAMIC REPORTS */}
-			{searchParams?.tab === "products" && canViewProductWise && (
+			{activeTab === "products" && canViewProductWise && (
 				<div>
 					<div className="mb-4 flex items-center justify-between">
 						<form
@@ -777,7 +725,7 @@ export async function MrDashboardContent({
 				</div>
 			)}
 
-			{searchParams?.tab === "party" && canViewPartyWise && (
+			{activeTab === "party" && canViewPartyWise && (
 				<div>
 					<div className="mb-4 flex items-center justify-between"></div>
 					<PartyReportView mrId={mrId} searchParams={searchParams} />
@@ -785,17 +733,17 @@ export async function MrDashboardContent({
 			)}
 
 			{/* FREE SCHEME REPORTS TAB */}
-			{canViewFreeScheme && searchParams?.tab === "free-schemes" && (
+			{activeTab === "free-schemes" && canViewFreeScheme && (
 				<FreeSchemeReportView mrId={mrId} searchParams={searchParams} />
 			)}
 
 			{/* OVERDUE TAB */}
-			{searchParams?.tab === "overdue" && (
+			{activeTab === "overdue" && (
 				<OverdueReportView mrId={mrId} searchParams={searchParams} />
 			)}
 
 			{/* STOCK REPORTS TAB */}
-			{canViewStock && searchParams?.tab === "stock" && (
+			{activeTab === "stock" && canViewStock && (
 				<StockReportView mrId={mrId} searchParams={searchParams} />
 			)}
 		</div>

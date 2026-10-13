@@ -9,8 +9,12 @@ import { auth } from "@/server/auth";
 
 const OVERRIDES_FILE = path.join(process.cwd(), "data", "mr_overrides.json");
 
+export type MRRank = 1 | 2 | 3;
+
 export interface MROverride {
 	isBlocked?: boolean;
+	rank?: MRRank;
+	lastLogin?: string;
 	permissions?: {
 		canViewFreeScheme: boolean;
 		canViewStock: boolean;
@@ -23,6 +27,41 @@ export interface MROverride {
 		manufacturer: string;
 		division: string | null;
 	}[];
+}
+
+/**
+ * Derives strict report permissions according to MR Rank:
+ * - Rank 1: Only Stock reports
+ * - Rank 2: Stock and Claim Quantity (Free Scheme) reports
+ * - Rank 3: All reports (Stock, Free Scheme, Sales, Party Wise, Product Wise)
+ */
+export function getPermissionsForRank(rank: MRRank) {
+	if (rank === 1) {
+		return {
+			canViewStock: true,
+			canViewFreeScheme: false,
+			canViewSales: false,
+			canViewPartyWise: false,
+			canViewProductWise: false,
+		};
+	}
+	if (rank === 2) {
+		return {
+			canViewStock: true,
+			canViewFreeScheme: true,
+			canViewSales: false,
+			canViewPartyWise: false,
+			canViewProductWise: false,
+		};
+	}
+	// Rank 3 (or any higher)
+	return {
+		canViewStock: true,
+		canViewFreeScheme: true,
+		canViewSales: true,
+		canViewPartyWise: true,
+		canViewProductWise: true,
+	};
 }
 
 export async function getMROverrides(): Promise<Record<string, MROverride>> {
@@ -190,3 +229,54 @@ export async function checkMRExists(email: string) {
 		return false;
 	}
 }
+
+/**
+ * Updates an MR's rank in local overrides and automatically syncs their strict permissions.
+ */
+export async function updateMRRank(mrId: string, rank: MRRank) {
+	const session = await auth.api.getSession({
+		headers: await headers(),
+	});
+
+	if (
+		!session ||
+		(session.user.role !== "ADMIN" && session.user.role !== "DEVELOPER")
+	) {
+		return { success: false, error: "Unauthorized" };
+	}
+
+	try {
+		const allOverrides = await getMROverrides();
+		const perms = getPermissionsForRank(rank);
+		allOverrides[mrId] = {
+			...allOverrides[mrId],
+			rank,
+			permissions: perms,
+		};
+		await saveMROverrides(allOverrides);
+		revalidatePath("/admin/mrs");
+		revalidatePath(`/admin/mrs/${mrId}`);
+		return { success: true };
+	} catch (error) {
+		return { success: false, error: "Failed to update MR rank" };
+	}
+}
+
+/**
+ * Records the timestamp of when an MR logs in successfully.
+ */
+export async function recordMRLastLogin(mrId: string) {
+	try {
+		const allOverrides = await getMROverrides();
+		allOverrides[mrId] = {
+			...allOverrides[mrId],
+			lastLogin: new Date().toISOString(),
+		};
+		await saveMROverrides(allOverrides);
+		return { success: true };
+	} catch (error) {
+		console.error("Failed to record MR last login:", error);
+		return { success: false };
+	}
+}
+

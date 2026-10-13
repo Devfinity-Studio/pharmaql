@@ -165,47 +165,6 @@ export async function PartyReportView({
 
 		return (
 			<div className="mt-4 space-y-4 rounded-xl border border-gray-300 bg-white p-6 font-sans text-gray-900 shadow-sm print:m-0 print:border-none print:p-0 print:shadow-none">
-				{/* DEBUG QUERY BANNER */}
-				{(searchParams?.debug === "1" || searchParams?.debug === "true") && (
-					<div className="rounded-xl border-2 border-amber-400 bg-amber-50 p-4 font-mono text-amber-950 text-xs shadow-sm print:hidden">
-						<div className="mb-2 flex flex-wrap items-center justify-between gap-2 border-amber-200 border-b pb-2 font-bold text-amber-900 text-xs">
-							<span>
-								[DEBUG QUERY] Stored Procedure Execution Status (Party Wise)
-							</span>
-							<span className="rounded bg-amber-200 px-2 py-0.5 font-semibold text-[11px]">
-								{partySalesResult.data?.length ?? 0} rows returned
-							</span>
-						</div>
-						<div className="space-y-1.5">
-							<p className="font-bold text-[11px] text-amber-900">
-								Final SQL Query being run:
-							</p>
-							<pre className="select-all overflow-x-auto whitespace-pre-wrap break-all rounded border border-amber-200 bg-amber-100 p-2.5 font-mono text-[11px] text-amber-950">
-								{partySalesResult.debugSql ||
-									`-- Procedure was not called because 'from' and/or 'to' date parameters are missing in searchParams.\n-- Current searchParams: from=${searchParams?.from || "NOT PROVIDED"}, to=${searchParams?.to || "NOT PROVIDED"}, division=${searchParams?.division || "All"}`}
-							</pre>
-							<div className="mt-2 grid grid-cols-2 gap-2 border-amber-200 border-t pt-1.5 text-[11px] text-amber-800 md:grid-cols-4">
-								<div>
-									<span className="font-semibold">Company Code Query:</span>{" "}
-									{JSON.stringify(compCodeToQuery)}
-								</div>
-								<div>
-									<span className="font-semibold">MR Company:</span>{" "}
-									{mrInfo.company || "N/A"}
-								</div>
-								<div>
-									<span className="font-semibold">MR Code:</span>{" "}
-									{mrInfo.companyCode || "N/A"}
-								</div>
-								<div>
-									<span className="font-semibold">LocNo:</span>{" "}
-									{mrInfo.locNo || "11"}
-								</div>
-							</div>
-						</div>
-					</div>
-				)}
-
 				{/* REPORT HEADER */}
 				<div className="border-gray-900 border-b-2 pb-2">
 					<div className="flex flex-col items-start justify-between gap-3 md:flex-row">
@@ -379,49 +338,6 @@ export async function PartyReportView({
 
 	return (
 		<div className="mt-4 space-y-4 rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
-			{/* DEBUG QUERY BANNER */}
-			{(searchParams?.debug === "1" || searchParams?.debug === "true") && (
-				<div className="rounded-xl border-2 border-amber-400 bg-amber-50 p-4 font-mono text-amber-950 text-xs shadow-sm print:hidden">
-					<div className="mb-2 flex flex-wrap items-center justify-between gap-2 border-amber-200 border-b pb-2 font-bold text-amber-900 text-xs">
-						<span>
-							[DEBUG QUERY] Stored Procedure Execution Status (Party Wise)
-						</span>
-						<span className="rounded bg-amber-200 px-2 py-0.5 font-semibold text-[11px]">
-							{partySalesResult.success
-								? `${partySalesResult.data?.length ?? 0} rows returned`
-								: partySalesResult.error || "Query Not Run"}
-						</span>
-					</div>
-					<div className="space-y-1.5">
-						<p className="font-bold text-[11px] text-amber-900">
-							Final SQL Query being run:
-						</p>
-						<pre className="select-all overflow-x-auto whitespace-pre-wrap break-all rounded border border-amber-200 bg-amber-100 p-2.5 font-mono text-[11px] text-amber-950">
-							{partySalesResult.debugSql ||
-								`-- Procedure was not called because 'from' and/or 'to' date parameters are missing in searchParams.\n-- Current searchParams: from=${searchParams?.from || "NOT PROVIDED"}, to=${searchParams?.to || "NOT PROVIDED"}, division=${searchParams?.division || "All"}`}
-						</pre>
-						<div className="mt-2 grid grid-cols-2 gap-2 border-amber-200 border-t pt-1.5 text-[11px] text-amber-800 md:grid-cols-4">
-							<div>
-								<span className="font-semibold">Company Code Query:</span>{" "}
-								{JSON.stringify(compCodeToQuery)}
-							</div>
-							<div>
-								<span className="font-semibold">MR Company:</span>{" "}
-								{mrInfo.company || "N/A"}
-							</div>
-							<div>
-								<span className="font-semibold">MR Code:</span>{" "}
-								{mrInfo.companyCode || "N/A"}
-							</div>
-							<div>
-								<span className="font-semibold">LocNo:</span>{" "}
-								{mrInfo.locNo || "11"}
-							</div>
-						</div>
-					</div>
-				</div>
-			)}
-
 			<div className="border-gray-900 border-b-2 pb-2">
 				<div className="flex items-start gap-4">
 					<Image

@@ -4,6 +4,8 @@ import { cookies } from "next/headers";
 import { apiPost } from "@/lib/api-client";
 import { type SessionUser, signSessionToken } from "@/lib/jwt";
 import { sendOtpEmail } from "@/lib/mailer";
+import { getMRInfo } from "@/server/actions/mrInfo";
+import { getPermissionsForRank, recordMRLastLogin } from "@/server/actions/mrs";
 import { AUTH_COOKIE_NAME } from "@/server/auth";
 
 // Temporary in-memory OTP storage: email -> { otp, expiresAt }
@@ -82,6 +84,11 @@ export async function requestMrOtp(emailOrPhone: string) {
 		const otp = Math.floor(100000 + Math.random() * 900000).toString();
 		const expiresAt = Date.now() + 10 * 60 * 1000; // 10 minutes
 
+		// Look up MR info including rank and permissions
+		const mrDetails = await getMRInfo(mr.id);
+		const rank = mrDetails?.rank || 3;
+		const perms = getPermissionsForRank(rank);
+
 		const mrSessionUser: SessionUser = {
 			id: mr.id,
 			name: mr.name || "MR User",
@@ -92,11 +99,12 @@ export async function requestMrOtp(emailOrPhone: string) {
 			company: mr.company || undefined,
 			companyCode: mr.companyCode || undefined,
 			isBlocked: false,
-			canViewStock: true,
-			canViewSales: true,
-			canViewFreeScheme: true,
-			canViewPartyWise: true,
-			canViewProductWise: true,
+			rank,
+			canViewStock: perms.canViewStock,
+			canViewSales: perms.canViewSales,
+			canViewFreeScheme: perms.canViewFreeScheme,
+			canViewPartyWise: perms.canViewPartyWise,
+			canViewProductWise: perms.canViewProductWise,
 		};
 
 		otpStore.set(targetEmail.toLowerCase(), {
@@ -168,6 +176,9 @@ export async function verifyMrOtp(email: string, otp: string) {
 
 		// OTP Valid! Clean up used OTP
 		otpStore.delete(cleanEmail);
+
+		// Record Last Login timestamp for MR
+		await recordMRLastLogin(record.mrUser.id);
 
 		// Issue Stateless JWT Session Cookie
 		const token = await signSessionToken(record.mrUser, "7d");

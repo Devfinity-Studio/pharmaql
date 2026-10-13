@@ -1,7 +1,7 @@
 "use server";
 
 import { apiGet } from "@/lib/api-client";
-import { getMROverrides } from "./mrs";
+import { getMROverrides, getPermissionsForRank, type MRRank } from "./mrs";
 
 /**
  * Compact MR profile containing only the necessary fields
@@ -29,6 +29,8 @@ export interface LegacyMRUser {
 	company?: string;
 	companyCode?: string;
 	isBlocked: boolean;
+	rank: MRRank;
+	lastLogin?: string;
 	canViewStock: boolean;
 	canViewSales: boolean;
 	canViewFreeScheme: boolean;
@@ -48,7 +50,38 @@ export async function getMRInfo(
 	if (!res.success || !res.data) {
 		return null;
 	}
-	return res.data;
+
+	const rawData = res.data;
+	const allOverrides = await getMROverrides();
+	const override = allOverrides[rawData.id] || {};
+
+	// Resolve Rank: Override -> ERP column -> ERP JobProfile -> default 3
+	let rank: MRRank = 3;
+	if (override.rank === 1 || override.rank === 2 || override.rank === 3) {
+		rank = override.rank;
+	} else if (rawData.rank === 1 || rawData.rank === 2 || rawData.rank === 3) {
+		rank = rawData.rank;
+	} else if (rawData.JobProfile) {
+		const jp = rawData.JobProfile.toUpperCase().trim();
+		if (jp === "MR") rank = 1;
+		else if (jp === "ABM" || jp === "BO") rank = 2;
+		else rank = 3;
+	}
+
+	const perms = getPermissionsForRank(rank);
+
+	return {
+		...rawData,
+		rank,
+		lastLogin: override.lastLogin,
+		isBlocked:
+			override.isBlocked !== undefined ? override.isBlocked : rawData.isBlocked,
+		canViewStock: perms.canViewStock,
+		canViewSales: perms.canViewSales,
+		canViewFreeScheme: perms.canViewFreeScheme,
+		canViewPartyWise: perms.canViewPartyWise,
+		canViewProductWise: perms.canViewProductWise,
+	};
 }
 
 /**
@@ -70,7 +103,7 @@ export interface PaginatedMRResponse {
 }
 
 /**
- * Fetch paginated MR users from API server (10 at a time by default)
+ * Fetch paginated MR users (10 at a time by default)
  */
 export async function getPaginatedMRUsers(params: {
 	page?: number;
@@ -80,24 +113,38 @@ export async function getPaginatedMRUsers(params: {
 }): Promise<PaginatedMRResponse> {
 	const page = Math.max(1, params.page || 1);
 	const limit = Math.max(1, params.limit || 10);
-	const offset = (page - 1) * limit;
 
-	const res = await apiGet<LegacyMRUser[]>("/api/master/mrs", {
+	const res = await fetchMRsPage({
+		page,
 		limit,
-		offset,
-		search: params.search?.trim() || undefined,
-		sort: params.sort?.trim() || "name_asc",
+		search: params.search,
+		sort: params.sort,
 	});
 
-	if (!res.success || !res.data) {
-		return { mrs: [], total: 0, hasMore: false, page };
-	}
-
 	return {
-		mrs: res.data,
-		total: res.total ?? res.data.length,
-		hasMore: res.hasMore ?? false,
-		page,
+		mrs: res.items.map((i) => ({
+			ID: Number(i.id) || 0,
+			MRName: i.name,
+			EmailId: i.email,
+			MobileNo: null,
+			id: i.id,
+			name: i.name,
+			email: i.email,
+			locNo: "11",
+			company: i.company,
+			division: i.division,
+			isBlocked: i.isBlocked,
+			rank: i.rank,
+			lastLogin: i.lastLogin,
+			canViewStock: i.canViewStock,
+			canViewSales: i.canViewSales,
+			canViewFreeScheme: i.canViewFreeScheme,
+			canViewPartyWise: i.canViewPartyWise,
+			canViewProductWise: i.canViewProductWise,
+		})),
+		total: res.total,
+		hasMore: res.hasMore,
+		page: res.page,
 	};
 }
 
@@ -110,6 +157,8 @@ export interface MRDisplayItem {
 	division?: string;
 	isBlocked: boolean;
 	role: string;
+	rank: MRRank;
+	lastLogin?: string;
 	canViewStock: boolean;
 	canViewSales: boolean;
 	canViewFreeScheme: boolean;
@@ -124,6 +173,8 @@ export interface MRDisplayItem {
 
 /**
  * Fetch a page of MRs with custom overrides merged (10 at a time by default)
+ * Performs robust in-memory search across names, emails, companies, and assignments,
+ * applies sorting, and slices into 10 items per page.
  */
 export async function fetchMRsPage(params: {
 	page: number;
@@ -136,20 +187,39 @@ export async function fetchMRsPage(params: {
 	hasMore: boolean;
 	page: number;
 }> {
-	const paginated = await getPaginatedMRUsers(params);
+	const page = Math.max(1, params.page || 1);
+	const limit = Math.max(1, params.limit || 10);
+	const searchQuery = (params.search || "").trim().toLowerCase();
+	const sortQuery = (params.sort || "name_asc").trim();
+
+	const allRawMRs = await getAllMRUsers();
 	const allOverrides = await getMROverrides();
 
-	const items: MRDisplayItem[] = paginated.mrs.map((mr) => {
+	let allItems: MRDisplayItem[] = allRawMRs.map((mr) => {
 		const override = allOverrides[mr.id] || {};
 		const isBlocked =
 			override.isBlocked !== undefined ? override.isBlocked : mr.isBlocked;
-		const perms = override.permissions || {
-			canViewStock: mr.canViewStock,
-			canViewSales: mr.canViewSales,
-			canViewFreeScheme: mr.canViewFreeScheme,
-			canViewPartyWise: mr.canViewPartyWise,
-			canViewProductWise: mr.canViewProductWise,
-		};
+
+		// Resolve Rank: override -> ERP column -> ERP JobProfile -> default 3
+		let rank: MRRank = 3;
+		if (override.rank === 1 || override.rank === 2 || override.rank === 3) {
+			rank = override.rank;
+		} else if (mr.rank === 1 || mr.rank === 2 || mr.rank === 3) {
+			rank = mr.rank;
+		} else if (mr.JobProfile) {
+			const jp = mr.JobProfile.toUpperCase().trim();
+			if (jp === "MR") {
+				rank = 1;
+			} else if (jp === "ABM" || jp === "BO") {
+				rank = 2;
+			} else {
+				rank = 3;
+			}
+		}
+
+		// Strictly derive permissions from rank
+		const perms = getPermissionsForRank(rank);
+
 		const assignments =
 			override.assignedManufacturers &&
 			override.assignedManufacturers.length > 0
@@ -167,12 +237,14 @@ export async function fetchMRsPage(params: {
 		return {
 			id: mr.id,
 			legacyId: mr.id,
-			name: mr.name,
-			email: mr.email,
+			name: mr.name || "MR User",
+			email: mr.email || "",
 			company: mr.company,
 			division: mr.division,
 			isBlocked,
 			role: "MR",
+			rank,
+			lastLogin: override.lastLogin,
 			canViewStock: perms.canViewStock,
 			canViewSales: perms.canViewSales,
 			canViewFreeScheme: perms.canViewFreeScheme,
@@ -182,11 +254,47 @@ export async function fetchMRsPage(params: {
 		};
 	});
 
+	// Search filter across MR name, email, company, division, and assigned manufacturers
+	if (searchQuery) {
+		allItems = allItems.filter((mr) => {
+			if (mr.name?.toLowerCase().includes(searchQuery)) return true;
+			if (mr.email?.toLowerCase().includes(searchQuery)) return true;
+			if (mr.company?.toLowerCase().includes(searchQuery)) return true;
+			if (mr.division?.toLowerCase().includes(searchQuery)) return true;
+			return mr.assignments.some(
+				(a) =>
+					a.manufacturer?.toLowerCase().includes(searchQuery) ||
+					a.division?.toLowerCase().includes(searchQuery),
+			);
+		});
+	}
+
+	// Sort items
+	allItems.sort((a, b) => {
+		if (sortQuery === "email_asc") {
+			return (a.email || "").localeCompare(b.email || "");
+		}
+		if (sortQuery === "company_asc") {
+			const compA = a.assignments[0]?.manufacturer || a.company || "";
+			const compB = b.assignments[0]?.manufacturer || b.company || "";
+			const cmp = compA.localeCompare(compB);
+			if (cmp !== 0) return cmp;
+			return (a.name || "").localeCompare(b.name || "");
+		}
+		// Default name_asc
+		return (a.name || "").localeCompare(b.name || "");
+	});
+
+	const total = allItems.length;
+	const offset = (page - 1) * limit;
+	const pageItems = allItems.slice(offset, offset + limit);
+	const hasMore = offset + limit < total;
+
 	return {
-		items,
-		total: paginated.total,
-		hasMore: paginated.hasMore,
-		page: paginated.page,
+		items: pageItems,
+		total,
+		hasMore,
+		page,
 	};
 }
 

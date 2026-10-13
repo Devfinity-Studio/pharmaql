@@ -55,8 +55,7 @@ export default async function AdminMRsPage({
 					MR Data Access Management
 				</h1>
 				<p className="mt-2 font-medium text-gray-500">
-					Assign specific Manufacturers to Medical Representatives and view
-					their data.
+					View Medical Representatives, manage block status, verify ERP division assignments, and check ranking-based report access.
 				</p>
 			</div>
 

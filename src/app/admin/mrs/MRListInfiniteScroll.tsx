@@ -1,21 +1,21 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useRef, useState, useTransition } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { MRDisplayItem } from "@/server/actions/mrInfo";
 import { fetchMRsPage } from "@/server/actions/mrInfo";
 import {
-	assignManufacturer,
+	getPermissionsForRank,
+	type MRRank,
 	toggleMRBlockStatus,
-	unassignManufacturer,
-	updateMRPermissions,
+	updateMRRank,
 } from "@/server/actions/mrs";
 
 interface Props {
 	initialItems: MRDisplayItem[];
 	initialTotal: number;
 	initialHasMore: boolean;
-	allManufacturers: Array<{
+	allManufacturers?: Array<{
 		manufacturer: string | null;
 		division: string | null;
 	}>;
@@ -23,11 +23,27 @@ interface Props {
 	sortQuery: string;
 }
 
+function formatLastLogin(timestamp?: string | null): string {
+	if (!timestamp) return "Never logged in";
+	try {
+		const d = new Date(timestamp);
+		if (isNaN(d.getTime())) return "Never logged in";
+		return d.toLocaleDateString("en-IN", {
+			day: "2-digit",
+			month: "short",
+			year: "numeric",
+			hour: "2-digit",
+			minute: "2-digit",
+		});
+	} catch {
+		return "Never logged in";
+	}
+}
+
 export function MRListInfiniteScroll({
 	initialItems,
 	initialTotal,
 	initialHasMore,
-	allManufacturers,
 	searchQuery,
 	sortQuery,
 }: Props) {
@@ -37,7 +53,6 @@ export function MRListInfiniteScroll({
 	const [total, setTotal] = useState(initialTotal);
 	const [isLoading, setIsLoading] = useState(false);
 	const [actionPendingId, setActionPendingId] = useState<string | null>(null);
-	const [statusPills, setStatusPills] = useState<Record<string, string>>({});
 
 	const observerRef = useRef<HTMLDivElement | null>(null);
 
@@ -47,7 +62,7 @@ export function MRListInfiniteScroll({
 		setPage(1);
 		setHasMore(initialHasMore);
 		setTotal(initialTotal);
-	}, [initialItems, initialHasMore, initialTotal]);
+	}, [initialItems, initialHasMore, initialTotal, searchQuery, sortQuery]);
 
 	const loadMore = useCallback(async () => {
 		if (isLoading || !hasMore) return;
@@ -130,106 +145,32 @@ export function MRListInfiniteScroll({
 		}
 	}
 
-	// Card Action: Save Permissions
-	async function handleSavePermissions(
-		mr: MRDisplayItem,
-		e: React.FormEvent<HTMLFormElement>,
-	) {
-		e.preventDefault();
-		const form = e.currentTarget;
-		const formData = new FormData(form);
-
-		const perms = {
-			canViewFreeScheme: formData.get("canViewFreeScheme") === "on",
-			canViewStock: formData.get("canViewStock") === "on",
-			canViewSales: formData.get("canViewSales") === "on",
-			canViewPartyWise: formData.get("canViewPartyWise") === "on",
-			canViewProductWise: formData.get("canViewProductWise") === "on",
-		};
-
+	// Card Action: Instant Rank Update & Strict Permission Synchronization
+	async function handleUpdateRank(mr: MRDisplayItem, rank: MRRank) {
+		if (mr.rank === rank) return;
 		setActionPendingId(mr.id);
-		try {
-			await updateMRPermissions(mr.id, perms);
-			setItems((prev) =>
-				prev.map((i) => (i.id === mr.id ? { ...i, ...perms } : i)),
-			);
-			setStatusPills((prev) => ({ ...prev, [mr.id]: "Permissions Saved" }));
-			setTimeout(() => {
-				setStatusPills((prev) => {
-					const next = { ...prev };
-					delete next[mr.id];
-					return next;
-				});
-			}, 2500);
-		} catch (err) {
-			console.error("Failed to update permissions", err);
-		} finally {
-			setActionPendingId(null);
-		}
-	}
+		const perms = getPermissionsForRank(rank);
 
-	// Card Action: Assign Manufacturer
-	async function handleAssignManufacturer(
-		mr: MRDisplayItem,
-		e: React.FormEvent<HTMLFormElement>,
-	) {
-		e.preventDefault();
-		const form = e.currentTarget;
-		const formData = new FormData(form);
-		const val = formData.get("manufacturer") as string;
-		if (!val) return;
-
-		const [mfg, div] = val.split("::");
-		if (!mfg) return;
-
-		setActionPendingId(mr.id);
-		try {
-			const res = await assignManufacturer(mr.id, mfg, div || null);
-			if (res.success) {
-				const newAssignment = {
-					id: `assign-${Date.now()}`,
-					manufacturer: mfg,
-					division: div || null,
-				};
-				setItems((prev) =>
-					prev.map((i) =>
-						i.id === mr.id
-							? { ...i, assignments: [...i.assignments, newAssignment] }
-							: i,
-					),
-				);
-				form.reset();
-			}
-		} catch (err) {
-			console.error("Failed to assign manufacturer", err);
-		} finally {
-			setActionPendingId(null);
-		}
-	}
-
-	// Card Action: Remove Assignment
-	async function handleRemoveAssignment(mr: MRDisplayItem, assignId: string) {
-		setActionPendingId(mr.id);
-		// Optimistic removal
+		// Optimistic update
 		setItems((prev) =>
 			prev.map((i) =>
 				i.id === mr.id
 					? {
 							...i,
-							assignments: i.assignments.filter((a) => a.id !== assignId),
+							rank,
+							...perms,
 						}
 					: i,
 			),
 		);
 
 		try {
-			const res = await unassignManufacturer(assignId);
+			const res = await updateMRRank(mr.id, rank);
 			if (!res.success) {
-				// Refresh page on error
-				console.error("Failed to unassign manufacturer", res.error);
+				console.error("Failed to update rank:", res.error);
 			}
 		} catch (err) {
-			console.error("Failed to unassign manufacturer", err);
+			console.error("Rank update error:", err);
 		} finally {
 			setActionPendingId(null);
 		}
@@ -256,206 +197,182 @@ export function MRListInfiniteScroll({
 			{/* MR Cards Grid */}
 			<div className="grid grid-cols-1 gap-6 xl:grid-cols-2 2xl:grid-cols-3">
 				{items.map((mr) => {
-					const unassignedManufacturers = allManufacturers.filter(
-						(m) =>
-							!mr.assignments.some(
-								(a) =>
-									a.manufacturer === m.manufacturer &&
-									a.division === m.division,
-							),
-					);
-
 					const isBusy = actionPendingId === mr.id;
 
 					return (
 						<div
-							className={`relative flex h-full flex-col rounded-2xl border border-gray-100 bg-white p-6 shadow-sm transition-all ${
+							className={`relative flex h-full flex-col justify-between rounded-2xl border border-gray-100 bg-white p-6 shadow-sm transition-all hover:shadow-md ${
 								isBusy ? "opacity-75" : ""
 							}`}
 							key={mr.id}
 						>
-							{/* Card Header */}
-							<div className="mb-4 flex flex-col items-start justify-between gap-4 sm:flex-row">
-								<div>
-									<div className="flex items-center gap-2">
-										<h3 className="font-bold text-gray-900 text-xl">
-											{mr.name}
-										</h3>
-										{mr.isBlocked && (
-											<span className="rounded-full bg-red-100 px-2 py-0.5 font-bold text-[10px] text-red-700">
-												Blocked
-											</span>
-										)}
-									</div>
-									<p className="text-gray-500 text-sm">{mr.email}</p>
-									{mr.division && (
-										<p className="mt-1 font-semibold text-blue-600 text-xs">
-											Division: {mr.division}
-										</p>
-									)}
-								</div>
-								<div className="flex flex-wrap gap-2">
-									<button
-										className={`whitespace-nowrap rounded-lg px-3 py-1 font-bold text-xs transition ${
-											mr.isBlocked
-												? "bg-red-100 text-red-700 hover:bg-red-200"
-												: "bg-gray-100 text-gray-700 hover:bg-gray-200"
-										}`}
-										disabled={isBusy}
-										onClick={() => handleToggleBlock(mr)}
-										type="button"
-									>
-										{mr.isBlocked ? "Unblock" : "Block"}
-									</button>
-									<Link
-										className="whitespace-nowrap rounded-lg bg-blue-50 px-3 py-1 font-bold text-blue-700 text-xs transition hover:bg-blue-100"
-										href={`/admin/mrs/${mr.id}`}
-									>
-										View Data &rarr;
-									</Link>
-								</div>
-							</div>
-
-							{/* Assigned Data Section */}
-							<div className="flex-grow space-y-4">
-								<h4 className="font-bold text-gray-700 text-sm uppercase tracking-wider">
-									Assigned Data
-								</h4>
-								{mr.assignments.length === 0 ? (
-									<div className="text-gray-400 text-sm italic">
-										No manufacturers assigned.
-									</div>
-								) : (
-									<ul className="space-y-2">
-										{mr.assignments.map((a) => (
-											<li
-												className="flex items-center justify-between rounded-xl border border-blue-100 bg-blue-50/50 px-3 py-2"
-												key={a.id}
-											>
-												<span className="truncate font-semibold text-blue-900 text-sm">
-													{a.manufacturer}
-													{a.division ? ` - ${a.division}` : ""}
+							<div className="space-y-4">
+								{/* Card Header: Name, Block Status, Action Buttons */}
+								<div className="flex flex-col items-start justify-between gap-3 sm:flex-row">
+									<div>
+										<div className="flex items-center gap-2">
+											<h3 className="font-bold text-gray-900 text-xl">
+												{mr.name}
+											</h3>
+											{mr.isBlocked && (
+												<span className="rounded-full bg-red-100 px-2.5 py-0.5 font-bold text-[10px] text-red-700">
+													Blocked
 												</span>
+											)}
+										</div>
+										<p className="text-gray-500 text-sm">{mr.email}</p>
+									</div>
+									<div className="flex flex-wrap items-center gap-2">
+										<button
+											className={`whitespace-nowrap rounded-lg px-3 py-1.5 font-bold text-xs transition ${
+												mr.isBlocked
+													? "bg-red-100 text-red-700 hover:bg-red-200"
+													: "bg-gray-100 text-gray-700 hover:bg-gray-200"
+											}`}
+											disabled={isBusy}
+											onClick={() => handleToggleBlock(mr)}
+											type="button"
+										>
+											{mr.isBlocked ? "Unblock" : "Block"}
+										</button>
+										<Link
+											className="whitespace-nowrap rounded-lg bg-blue-50 px-3 py-1.5 font-bold text-blue-700 text-xs transition hover:bg-blue-100"
+											href={`/admin/mrs/${mr.id}`}
+										>
+											View Data &rarr;
+										</Link>
+									</div>
+								</div>
+
+								{/* Info Box: Last Login, Division & Manufacturer */}
+								<div className="space-y-2 rounded-xl border border-gray-100 bg-gray-50/80 p-3.5 text-xs">
+									<div className="flex items-center justify-between">
+										<span className="font-semibold text-gray-500 uppercase tracking-wider text-[11px]">
+											Last Login
+										</span>
+										<span className="font-medium text-gray-900">
+											{formatLastLogin(mr.lastLogin)}
+										</span>
+									</div>
+									<div className="border-gray-200/60 border-t pt-2 flex flex-col gap-1.5">
+										<div className="flex items-start justify-between gap-2">
+											<span className="font-semibold text-gray-500 uppercase tracking-wider text-[11px]">
+												Manufacturer
+											</span>
+											<span className="font-medium text-gray-900 text-right">
+												{mr.company || "Not assigned"}
+											</span>
+										</div>
+										<div className="flex items-start justify-between gap-2">
+											<span className="font-semibold text-gray-500 uppercase tracking-wider text-[11px]">
+												Division
+											</span>
+											<span className="font-semibold text-blue-700 text-right">
+												{mr.division || "Not assigned"}
+											</span>
+										</div>
+									</div>
+								</div>
+
+								{/* Rank Section */}
+								<div>
+									<div className="flex items-center justify-between">
+										<span className="font-bold uppercase tracking-wider text-gray-500 text-[11px]">
+											MR Rank
+										</span>
+										{/* Quick Rank Switch Buttons */}
+										<div className="flex items-center gap-1">
+											{([1, 2, 3] as const).map((r) => (
 												<button
-													className="p-1 font-bold text-red-500 text-xs hover:text-red-700"
+													className={`rounded-md px-2 py-0.5 font-bold text-xs transition ${
+														mr.rank === r
+															? "bg-[#0B2545] text-white shadow-sm"
+															: "bg-gray-100 text-gray-600 hover:bg-gray-200"
+													}`}
 													disabled={isBusy}
-													onClick={() => handleRemoveAssignment(mr, a.id)}
+													key={r}
+													onClick={() => handleUpdateRank(mr, r)}
+													title={`Set to Rank ${r}`}
 													type="button"
 												>
-													Remove
+													Rank {r}
 												</button>
-											</li>
-										))}
-									</ul>
-								)}
-							</div>
-
-							{/* Permissions Section */}
-							<div className="mt-6 space-y-4 border-gray-100 border-t pt-4">
-								<div className="flex items-center justify-between">
-									<h4 className="font-bold text-gray-700 text-sm uppercase tracking-wider">
-										Permissions
-									</h4>
-									{statusPills[mr.id] && (
-										<span className="rounded bg-emerald-100 px-2 py-0.5 font-bold text-[10px] text-emerald-800">
-											✓ {statusPills[mr.id]}
+											))}
+										</div>
+									</div>
+									<div className="mt-1.5">
+										<span
+											className={`inline-flex items-center rounded-lg px-2.5 py-1 font-bold text-xs ${
+												mr.rank === 1
+													? "border border-amber-200 bg-amber-50 text-amber-800"
+													: mr.rank === 2
+														? "border border-blue-200 bg-blue-50 text-blue-800"
+														: "border border-purple-200 bg-purple-50 text-purple-800"
+											}`}
+										>
+											Rank {mr.rank} &bull;{" "}
+											{mr.rank === 1
+												? "Stock Reports Only"
+												: mr.rank === 2
+													? "Stock & Claim Qty Reports"
+													: "All Reports Access"}
 										</span>
-									)}
+									</div>
 								</div>
-								<form
-									className="space-y-2 rounded-xl border border-gray-100 bg-gray-50 p-3"
-									onSubmit={(e) => handleSavePermissions(mr, e)}
-								>
-									<label className="flex cursor-pointer items-center gap-2 font-medium text-gray-700 text-sm">
-										<input
-											className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-											defaultChecked={mr.canViewFreeScheme}
-											name="canViewFreeScheme"
-											type="checkbox"
-										/>
-										Free Scheme
-									</label>
-									<label className="flex cursor-pointer items-center gap-2 font-medium text-gray-700 text-sm">
-										<input
-											className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-											defaultChecked={mr.canViewStock}
-											name="canViewStock"
-											type="checkbox"
-										/>
-										Stock Reports
-									</label>
-									<label className="flex cursor-pointer items-center gap-2 font-medium text-gray-700 text-sm">
-										<input
-											className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-											defaultChecked={mr.canViewSales}
-											name="canViewSales"
-											type="checkbox"
-										/>
-										Sales Reports
-									</label>
-									<label className="flex cursor-pointer items-center gap-2 font-medium text-gray-700 text-sm">
-										<input
-											className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-											defaultChecked={mr.canViewProductWise}
-											name="canViewProductWise"
-											type="checkbox"
-										/>
-										Product Wise
-									</label>
-									<label className="flex cursor-pointer items-center gap-2 font-medium text-gray-700 text-sm">
-										<input
-											className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-											defaultChecked={mr.canViewPartyWise}
-											name="canViewPartyWise"
-											type="checkbox"
-										/>
-										Party Wise
-									</label>
-									<button
-										className="mt-2 font-bold text-blue-600 text-xs underline hover:text-blue-800 disabled:opacity-50"
-										disabled={isBusy}
-										type="submit"
-									>
-										Save Permissions
-									</button>
-								</form>
 							</div>
 
-							{/* Assign Manufacturer Form */}
-							<div className="mt-6 border-gray-100 border-t pt-4">
-								<form
-									className="flex gap-2"
-									onSubmit={(e) => handleAssignManufacturer(mr, e)}
-								>
-									<select
-										className="block w-full flex-grow rounded-xl border border-gray-200 bg-gray-50 p-2.5 font-medium text-gray-900 text-sm outline-none focus:border-blue-500 focus:ring-blue-500"
-										defaultValue=""
-										name="manufacturer"
-										required
+							{/* Current Permissions Section (Read-only badges) */}
+							<div className="mt-4 border-gray-100 border-t pt-3">
+								<span className="font-bold uppercase tracking-wider text-gray-500 text-[11px]">
+									Active Report Permissions
+								</span>
+								<div className="mt-2 flex flex-wrap gap-1.5">
+									<span
+										className={`inline-flex items-center rounded-md px-2 py-0.5 font-semibold text-[11px] ${
+											mr.canViewStock
+												? "border border-emerald-200 bg-emerald-50 text-emerald-700"
+												: "border border-gray-100 bg-gray-50 text-gray-400 line-through"
+										}`}
 									>
-										<option disabled value="">
-											Select Manufacturer / Division
-										</option>
-										{unassignedManufacturers.map((m) => {
-											const val = `${m.manufacturer}::${m.division || ""}`;
-											const label = m.division
-												? `${m.manufacturer} - ${m.division}`
-												: m.manufacturer;
-											return (
-												<option key={val} value={val}>
-													{label}
-												</option>
-											);
-										})}
-									</select>
-									<button
-										className="rounded-xl bg-blue-600 px-4 py-2 font-bold text-white shadow-sm transition hover:bg-blue-700 disabled:opacity-50"
-										disabled={isBusy}
-										type="submit"
+										{mr.canViewStock ? "✓" : "✕"} Stock
+									</span>
+									<span
+										className={`inline-flex items-center rounded-md px-2 py-0.5 font-semibold text-[11px] ${
+											mr.canViewFreeScheme
+												? "border border-emerald-200 bg-emerald-50 text-emerald-700"
+												: "border border-gray-100 bg-gray-50 text-gray-400 line-through"
+										}`}
 									>
-										Assign
-									</button>
-								</form>
+										{mr.canViewFreeScheme ? "✓" : "✕"} Claim Qty
+									</span>
+									<span
+										className={`inline-flex items-center rounded-md px-2 py-0.5 font-semibold text-[11px] ${
+											mr.canViewSales
+												? "border border-emerald-200 bg-emerald-50 text-emerald-700"
+												: "border border-gray-100 bg-gray-50 text-gray-400 line-through"
+										}`}
+									>
+										{mr.canViewSales ? "✓" : "✕"} Sales Overview
+									</span>
+									<span
+										className={`inline-flex items-center rounded-md px-2 py-0.5 font-semibold text-[11px] ${
+											mr.canViewProductWise
+												? "border border-emerald-200 bg-emerald-50 text-emerald-700"
+												: "border border-gray-100 bg-gray-50 text-gray-400 line-through"
+										}`}
+									>
+										{mr.canViewProductWise ? "✓" : "✕"} Product Wise
+									</span>
+									<span
+										className={`inline-flex items-center rounded-md px-2 py-0.5 font-semibold text-[11px] ${
+											mr.canViewPartyWise
+												? "border border-emerald-200 bg-emerald-50 text-emerald-700"
+												: "border border-gray-100 bg-gray-50 text-gray-400 line-through"
+										}`}
+									>
+										{mr.canViewPartyWise ? "✓" : "✕"} Party Wise
+									</span>
+								</div>
 							</div>
 						</div>
 					);
@@ -464,8 +381,8 @@ export function MRListInfiniteScroll({
 				{/* Loading skeleton placeholder cards */}
 				{isLoading && (
 					<>
-						<div className="h-96 animate-pulse rounded-2xl border border-gray-100 bg-gray-100/60 p-6" />
-						<div className="h-96 animate-pulse rounded-2xl border border-gray-100 bg-gray-100/60 p-6" />
+						<div className="h-64 animate-pulse rounded-2xl border border-gray-100 bg-gray-100/60 p-6" />
+						<div className="h-64 animate-pulse rounded-2xl border border-gray-100 bg-gray-100/60 p-6" />
 					</>
 				)}
 
