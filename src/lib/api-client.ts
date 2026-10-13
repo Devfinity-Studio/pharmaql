@@ -1,7 +1,10 @@
 import "server-only";
 
 const RAW_API_SERVER_URL = process.env.API_SERVER_URL;
-const API_SERVER_URL = (RAW_API_SERVER_URL ? RAW_API_SERVER_URL.trim().replace(/^["']|["']$/g, "") : "") || "https://api.asmeepharma.com";
+const API_SERVER_URL =
+	(RAW_API_SERVER_URL
+		? RAW_API_SERVER_URL.trim().replace(/^["']|["']$/g, "")
+		: "") || "https://api.asmeepharma.com";
 const API_SECRET_KEY = process.env.API_SECRET_KEY;
 
 interface ApiResponse<T> {

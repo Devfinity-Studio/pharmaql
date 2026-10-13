@@ -29,7 +29,9 @@ export function LoginForm() {
 				keysToRemove.push(key);
 			}
 		}
-		keysToRemove.forEach((k) => sessionStorage.removeItem(k));
+		for (const k of keysToRemove) {
+			sessionStorage.removeItem(k);
+		}
 	}, []);
 
 	const [mode, setMode] = useState<"mr" | "admin">("mr");

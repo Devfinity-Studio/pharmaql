@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { getAllMarketingCompaniesWithDivisions } from "@/server/actions/mrInfo";
 import { getItemCatalog } from "@/server/actions/itemCatalog";
+import { getAllMarketingCompaniesWithDivisions } from "@/server/actions/mrInfo";
 import { ProductListClient } from "./product-list-client";
 
 export default async function CompanyProductsPage({
@@ -15,7 +15,9 @@ export default async function CompanyProductsPage({
 	// Fetch all companies from API server
 	const compList = await getAllMarketingCompaniesWithDivisions();
 	const allCompanies = Array.from(
-		new Set(compList.map((c) => c.companyName || c.companyCode).filter(Boolean)),
+		new Set(
+			compList.map((c) => c.companyName || c.companyCode).filter(Boolean),
+		),
 	);
 
 	// Fetch products for this company/division

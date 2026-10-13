@@ -50,12 +50,6 @@ export default async function AdminLayout({
 					>
 						Notice Board
 					</Link>
-					<Link
-						className="rounded p-2 font-medium hover:bg-gray-800"
-						href="/admin/beta"
-					>
-						Beta
-					</Link>
 				</nav>
 				<div className="mt-auto flex flex-col gap-3 border-gray-800 border-t pt-4">
 					<div className="text-gray-400 text-sm">
