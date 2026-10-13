@@ -11,6 +11,7 @@ interface ApiResponse<T> {
 	success: boolean;
 	data?: T;
 	error?: string;
+	debugSql?: string;
 	total?: number;
 	hasMore?: boolean;
 	page?: number;

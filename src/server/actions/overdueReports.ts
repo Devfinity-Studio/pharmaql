@@ -84,5 +84,6 @@ export async function getMRwisePeriodicalOutstanding(params: {
 	return {
 		success: true,
 		data: res.data,
+		debugSql: res.debugSql,
 	};
 }

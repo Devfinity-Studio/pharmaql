@@ -53,5 +53,6 @@ export async function getStockMovement(
 	return {
 		success: true,
 		data: res.data,
+		debugSql: res.debugSql,
 	};
 }
