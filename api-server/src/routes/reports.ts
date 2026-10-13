@@ -45,7 +45,7 @@ reportsRouter.post("/stock-movement", async (req: Request, res: Response) => {
     const [rows] = await conn.query(sql);
     const reportData = ((rows as any)?.[0] || []);
 
-    res.json({ success: true, data: reportData });
+    res.json({ success: true, data: reportData, debugSql: sql });
   } catch (error: any) {
     console.error("[Reports API] Stock Movement Error:", error);
     res.status(500).json({ success: false, error: error.message || "Failed to generate stock report" });
@@ -114,7 +114,7 @@ reportsRouter.post("/customer-item-sale", async (req: Request, res: Response) =>
     const [callRes] = await conn.query(sql);
     const rows = Array.isArray(callRes) ? callRes[0] : callRes;
 
-    res.json({ success: true, data: rows || [] });
+    res.json({ success: true, data: rows || [], debugSql: sql });
   } catch (error: any) {
     console.error("[Reports API] Customer Item Sale Error:", error);
     res.status(500).json({ success: false, error: error.message || "Failed to execute rptItemCustomerSale" });
@@ -180,7 +180,7 @@ reportsRouter.post("/party-item-sale", async (req: Request, res: Response) => {
     const [callRes] = await conn.query(sql);
     const rows = Array.isArray(callRes) ? callRes[0] : callRes;
 
-    res.json({ success: true, data: rows || [] });
+    res.json({ success: true, data: rows || [], debugSql: sql });
   } catch (error: any) {
     console.error("[Reports API] Party Item Sale Error:", error);
     res.status(500).json({ success: false, error: error.message || "Failed to execute rptCompanyCustomerItemwiseSales" });
@@ -248,7 +248,7 @@ reportsRouter.post("/mr-overdue", async (req: Request, res: Response) => {
     const [resData] = await conn.query(sql);
     const rows = Array.isArray(resData) ? resData[0] : resData;
 
-    res.json({ success: true, data: rows || [] });
+    res.json({ success: true, data: rows || [], debugSql: sql });
   } catch (error: any) {
     console.error("[Reports API] Overdue Report Error:", error);
     res.status(500).json({ success: false, error: error.message || "Failed to load overdue report" });
@@ -305,7 +305,7 @@ reportsRouter.post("/claim-data", async (req: Request, res: Response) => {
     const [callRes] = await conn.query(sql);
     const rows = Array.isArray(callRes) ? callRes[0] : callRes;
 
-    res.json({ success: true, data: rows || [] });
+    res.json({ success: true, data: rows || [], debugSql: sql });
   } catch (error: any) {
     console.error("[Reports API] Claim Data Error:", error);
     res.status(500).json({ success: false, error: error.message || "Failed to load claim data" });

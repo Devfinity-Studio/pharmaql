@@ -72,6 +72,7 @@ export async function getCompanyCustomerItemwiseSales(params: {
 	return {
 		success: true,
 		data: res.data,
+		debugSql: res.debugSql,
 	};
 }
 

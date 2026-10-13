@@ -70,5 +70,6 @@ export async function getItemCustomerSale(params: {
 	return {
 		success: true,
 		data: res.data,
+		debugSql: res.debugSql,
 	};
 }
