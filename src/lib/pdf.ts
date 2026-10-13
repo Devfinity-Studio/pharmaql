@@ -96,7 +96,7 @@ export async function generatePdfReport(
 	doc.setFont("helvetica", "normal");
 	doc.setTextColor(50, 50, 50);
 	doc.text(
-		"BASEMENE-GF, 11/2 ASHOK HOUSE, B/S SANSTHA VASAHAT GATE, PRATAP ROAD,",
+		"BASEMENT-GF, 11/2 ASHOK HOUSE, B/S SANSTHA VASAHAT GATE, PRATAP ROAD,",
 		textX,
 		currentY,
 	);
@@ -157,9 +157,9 @@ export async function generatePdfReport(
 		{ header: "Sale\nQty", dataKey: "Sale Qty" },
 		{ header: "Free\nQty", dataKey: "Free Qty" },
 		{ header: "Actual\nFQty", dataKey: "Actual FQty" },
-		{ header: "Claim\nQty", dataKey: "Scheme Qty" },
+		{ header: "Claim\nQty", dataKey: "Claim Qty" },
 		{ header: "Rate\nDiff.", dataKey: "Rate Diff." },
-		{ header: "Claim\nValue", dataKey: "Scheme Value" },
+		{ header: "Claim\nValue", dataKey: "Claim Value" },
 		{ header: "Item\nScheme", dataKey: "Item Scheme" },
 		{ header: "Applied\nScheme", dataKey: "Applied Scheme" },
 	];
@@ -250,22 +250,33 @@ export async function generatePdfReport(
 						"Sale Qty": { halign: "right" },
 						"Free Qty": { halign: "right" },
 						"Actual FQty": { halign: "right" },
-						"Scheme Qty": { halign: "right" },
+						"Claim Qty": { halign: "right" },
 						"Rate Diff.": { halign: "right" },
-						"Scheme Value": { halign: "right" },
+						"Claim Value": { halign: "right" },
 					},
 					didParseCell: (data) => {
-						// Optionally format numbers to 2 decimal places here if they are numbers
-						if (data.section === "body" && typeof data.cell.raw === "number") {
-							// Avoid formatting integer quantities with decimals if we can detect them
-							if (
-								["Sale Qty", "Free Qty", "Actual FQty", "Scheme Qty"].includes(
-									data.column.dataKey as string,
-								)
-							) {
-								data.cell.text = [data.cell.raw.toString()];
-							} else {
-								data.cell.text = [data.cell.raw.toFixed(2)];
+						if (data.section === "body") {
+							if (data.column.dataKey === "Rate Diff.") {
+								const val = Number(data.cell.raw);
+								if (!isNaN(val) && val > 0) {
+									data.cell.text = [val.toFixed(2)];
+								} else {
+									data.cell.text = ["-"];
+								}
+							} else if (typeof data.cell.raw === "number") {
+								if (
+									[
+										"Sale Qty",
+										"Free Qty",
+										"Actual FQty",
+										"Claim Qty",
+										"Scheme Qty",
+									].includes(data.column.dataKey as string)
+								) {
+									data.cell.text = [data.cell.raw.toString()];
+								} else {
+									data.cell.text = [data.cell.raw.toFixed(2)];
+								}
 							}
 						}
 					},
@@ -273,21 +284,28 @@ export async function generatePdfReport(
 
 				currentY = (doc as any).lastAutoTable.finalY + 4;
 
-				// Party Subtotal row (mocking visually)
+				// Party Subtotal row
 				const totalSaleQty = partyData.reduce(
-					(acc, curr) => acc + (curr["Sale Qty"] || 0),
+					(acc, curr) => acc + (Number(curr["Sale Qty"]) || 0),
 					0,
 				);
 				const totalFreeQty = partyData.reduce(
-					(acc, curr) => acc + (curr["Free Qty"] || 0),
+					(acc, curr) => acc + (Number(curr["Free Qty"]) || 0),
 					0,
 				);
-				const totalSchemeQty = partyData.reduce(
-					(acc, curr) => acc + (curr["Scheme Qty"] || 0),
+				const totalActualFQty = partyData.reduce(
+					(acc, curr) => acc + (Number(curr["Actual FQty"]) || 0),
+					0,
+				);
+				const totalClaimQty = partyData.reduce(
+					(acc, curr) =>
+						acc + (Number(curr["Claim Qty"] ?? curr["Scheme Qty"]) || 0),
 					0,
 				);
 				const totalClaimVal = partyData.reduce(
-					(acc, curr) => acc + (curr["Scheme Value"] || 0),
+					(acc, curr) =>
+						acc +
+						(Number(curr["Claim Value"] ?? curr["Scheme Value"]) || 0),
 					0,
 				);
 
@@ -309,8 +327,8 @@ export async function generatePdfReport(
 							"",
 							totalSaleQty,
 							totalFreeQty,
-							"-",
-							totalSchemeQty,
+							totalActualFQty > 0 ? totalActualFQty : "-",
+							totalClaimQty,
 							"",
 							totalClaimVal.toFixed(2),
 							"",
@@ -342,6 +360,84 @@ export async function generatePdfReport(
 				});
 				currentY = (doc as any).lastAutoTable.finalY + 6;
 			}
+
+			// Claim Type Total Row
+			const typeSaleQty = cTypeData.reduce(
+				(acc, curr) => acc + (Number(curr["Sale Qty"]) || 0),
+				0,
+			);
+			const typeFreeQty = cTypeData.reduce(
+				(acc, curr) => acc + (Number(curr["Free Qty"]) || 0),
+				0,
+			);
+			const typeActualFQty = cTypeData.reduce(
+				(acc, curr) => acc + (Number(curr["Actual FQty"]) || 0),
+				0,
+			);
+			const typeClaimQty = cTypeData.reduce(
+				(acc, curr) =>
+					acc + (Number(curr["Claim Qty"] ?? curr["Scheme Qty"]) || 0),
+				0,
+			);
+			const typeClaimVal = cTypeData.reduce(
+				(acc, curr) =>
+					acc +
+					(Number(curr["Claim Value"] ?? curr["Scheme Value"]) || 0),
+				0,
+			);
+
+			autoTable(doc, {
+				startY: currentY - 2,
+				theme: "plain",
+				body: [
+					[
+						"",
+						"",
+						"",
+						"",
+						"",
+						"",
+						"",
+						"",
+						"",
+						"",
+						"",
+						typeSaleQty,
+						typeFreeQty,
+						typeActualFQty > 0 ? typeActualFQty : "-",
+						typeClaimQty,
+						"",
+						typeClaimVal.toFixed(2),
+						"",
+						"",
+					],
+				],
+				styles: {
+					fontSize: 8,
+					fontStyle: "bold",
+					cellPadding: 1,
+					halign: "right",
+				},
+				willDrawCell: (data) => {
+					if (data.section === "body") {
+						doc.setDrawColor(150, 150, 150);
+						doc.setLineWidth(0.5);
+						doc.line(
+							data.cell.x,
+							data.cell.y,
+							data.cell.x + data.cell.width,
+							data.cell.y,
+						);
+						doc.line(
+							data.cell.x,
+							data.cell.y + data.cell.height,
+							data.cell.x + data.cell.width,
+							data.cell.y + data.cell.height,
+						);
+					}
+				},
+			});
+			currentY = (doc as any).lastAutoTable.finalY + 6;
 		}
 
 		// Summary table for Manufacturer
@@ -355,30 +451,33 @@ export async function generatePdfReport(
 			{ header: "Sale\nQty", dataKey: "Sale Qty" },
 			{ header: "Free\nQty", dataKey: "Free Qty" },
 			{ header: "Actual\nFQty", dataKey: "Actual FQty" },
-			{ header: "Claim\nQty", dataKey: "Scheme Qty" },
-			{ header: "Claim\nValue", dataKey: "Scheme Value" },
+			{ header: "Claim\nQty", dataKey: "Claim Qty" },
+			{ header: "Claim\nValue", dataKey: "Claim Value" },
 		];
 
 		// Aggregate items for summary
 		const summaryMap = new Map();
 		mfgData.forEach((item) => {
-			const key = item["Product Name"];
+			const key = item["Product Name"] || item.ItemName;
 			if (!summaryMap.has(key)) {
 				summaryMap.set(key, {
 					ItemName: key,
 					Packing: item["Packing"],
 					"Sale Qty": 0,
 					"Free Qty": 0,
-					"Actual FQty": "-",
-					"Scheme Qty": 0,
-					"Scheme Value": 0,
+					"Actual FQty": 0,
+					"Claim Qty": 0,
+					"Claim Value": 0,
 				});
 			}
 			const agg = summaryMap.get(key);
-			agg["Sale Qty"] += item["Sale Qty"] || 0;
-			agg["Free Qty"] += item["Free Qty"] || 0;
-			agg["Scheme Qty"] += item["Scheme Qty"] || 0;
-			agg["Scheme Value"] += item["Scheme Value"] || 0;
+			agg["Sale Qty"] += Number(item["Sale Qty"]) || 0;
+			agg["Free Qty"] += Number(item["Free Qty"]) || 0;
+			agg["Actual FQty"] += Number(item["Actual FQty"]) || 0;
+			agg["Claim Qty"] +=
+				Number(item["Claim Qty"] ?? item["Scheme Qty"]) || 0;
+			agg["Claim Value"] +=
+				Number(item["Claim Value"] ?? item["Scheme Value"]) || 0;
 		});
 
 		const summaryData = Array.from(summaryMap.values());
@@ -392,12 +491,16 @@ export async function generatePdfReport(
 			(acc, curr) => acc + curr["Free Qty"],
 			0,
 		);
-		const mfgSchemeQty = summaryData.reduce(
-			(acc, curr) => acc + curr["Scheme Qty"],
+		const mfgActualFQty = summaryData.reduce(
+			(acc, curr) => acc + curr["Actual FQty"],
+			0,
+		);
+		const mfgClaimQty = summaryData.reduce(
+			(acc, curr) => acc + curr["Claim Qty"],
 			0,
 		);
 		const mfgClaimVal = summaryData.reduce(
-			(acc, curr) => acc + curr["Scheme Value"],
+			(acc, curr) => acc + curr["Claim Value"],
 			0,
 		);
 
@@ -406,9 +509,9 @@ export async function generatePdfReport(
 			Packing: "",
 			"Sale Qty": mfgSaleQty,
 			"Free Qty": mfgFreeQty,
-			"Actual FQty": "-",
-			"Scheme Qty": mfgSchemeQty,
-			"Scheme Value": mfgClaimVal,
+			"Actual FQty": mfgActualFQty > 0 ? mfgActualFQty : "-",
+			"Claim Qty": mfgClaimQty,
+			"Claim Value": mfgClaimVal,
 		});
 
 		autoTable(doc, {
@@ -429,15 +532,15 @@ export async function generatePdfReport(
 				"Sale Qty": { halign: "right" },
 				"Free Qty": { halign: "right" },
 				"Actual FQty": { halign: "right" },
-				"Scheme Qty": { halign: "right" },
-				"Scheme Value": { halign: "right" },
+				"Claim Qty": { halign: "right" },
+				"Claim Value": { halign: "right" },
 			},
 			didParseCell: (data) => {
 				if (data.row.index === summaryData.length - 1) {
 					data.cell.styles.fontStyle = "bold";
 				}
 				if (data.section === "body" && typeof data.cell.raw === "number") {
-					if (data.column.dataKey === "Scheme Value") {
+					if (data.column.dataKey === "Claim Value") {
 						data.cell.text = [data.cell.raw.toFixed(2)];
 					} else {
 						data.cell.text = [data.cell.raw.toString()];
@@ -473,8 +576,7 @@ export async function generatePdfReport(
 
 		doc.text(`Total of ${mfg.toUpperCase()} :`, 14, currentY + 4);
 
-		// Align values manually or use a trick with autoTable
-		// We can just use an empty autoTable to align it perfectly with the columns
+		// Align values manually with an empty autoTable
 		autoTable(doc, {
 			startY: currentY + 0.5,
 			theme: "plain",
@@ -494,7 +596,7 @@ export async function generatePdfReport(
 					mfgSaleQty,
 					mfgFreeQty,
 					"-",
-					mfgSchemeQty,
+					mfgClaimQty,
 					"",
 					mfgClaimVal.toFixed(2),
 					"",
@@ -1035,7 +1137,7 @@ export async function generateGroupedPdfReport(
 	doc.setFont("helvetica", "normal");
 	doc.setTextColor(50, 50, 50);
 	doc.text(
-		"BASEMENE-GF, 11/2 ASHOK HOUSE, B/S SANSTHA VASAHAT GATE, PRATAP ROAD,",
+		"BASEMENT-GF, 11/2 ASHOK HOUSE, B/S SANSTHA VASAHAT GATE, PRATAP ROAD,",
 		textX,
 		currentY,
 	);
@@ -1336,7 +1438,7 @@ export async function generateSalesPdfReport(
 	doc.setFont("helvetica", "normal");
 	doc.setTextColor(11, 37, 69);
 	doc.text(
-		"BASEMENE-GF, 11/2 ASHOK HOUSE, B/S SANSTHA VASAHAT GATE, PRATAP ROAD,",
+		"BASEMENT-GF, 11/2 ASHOK HOUSE, B/S SANSTHA VASAHAT GATE, PRATAP ROAD,",
 		textX,
 		currentY,
 	);
@@ -1369,9 +1471,8 @@ export async function generateSalesPdfReport(
 
 	currentY += 5;
 	doc.setFont("helvetica", "normal");
-	const periodText = `Company / Customer / Itemwise Sales for period of ${
-		fromDate || "Start"
-	} to ${toDate || "End"}`;
+	const periodText = `Company / Customer / Itemwise Sales for period of ${fromDate || "Start"
+		} to ${toDate || "End"}`;
 	doc.text(periodText, 14, currentY);
 
 	currentY += 3;
@@ -1817,7 +1918,7 @@ export async function generateFreeSchemePdfReport(
 	doc.setFont("helvetica", "normal");
 	doc.setTextColor(11, 37, 69);
 	doc.text(
-		"BASEMENE-GF, 11/2 ASHOK HOUSE, B/S SANSTHA VASAHAT GATE, PRATAP ROAD,",
+		"BASEMENT-GF, 11/2 ASHOK HOUSE, B/S SANSTHA VASAHAT GATE, PRATAP ROAD,",
 		textX,
 		currentY,
 	);
@@ -1868,9 +1969,8 @@ export async function generateFreeSchemePdfReport(
 
 	currentY += 5;
 	doc.setFont("helvetica", "bold");
-	const periodText = `Qty / Special Rate Claim Report for the period of ${
-		fromDate || "Start"
-	} to ${toDate || "End"}`;
+	const periodText = `Qty / Special Rate Claim Report for the period of ${fromDate || "Start"
+		} to ${toDate || "End"}`;
 	doc.text(periodText, 14, currentY);
 
 	currentY += 3;
@@ -2036,12 +2136,14 @@ export async function generateFreeSchemePdfReport(
 						row["Inv. Dt."] ||
 						(row.InvDt
 							? new Date(row.InvDt)
-									.toLocaleDateString("en-GB")
-									.replace(/\//g, "-")
+								.toLocaleDateString("en-GB")
+								.replace(/\//g, "-")
 							: "-");
 					const netRate = Number(row["Net Rate"] ?? row.SRate ?? 0);
+					const invRate = Number(row["Inv. Rate"] ?? row.SRate ?? 0);
 					const ptr = Number(row.PTR ?? 0);
-					const rateDiff = Number(row["Rate Diff."] ?? ptr - netRate);
+					const rawRateDiff = Number(row["Rate Diff."] ?? (netRate - invRate));
+					const rateDiffStr = rawRateDiff > 0 ? rawRateDiff.toFixed(2) : "-";
 
 					return [
 						row.Code || row.ItemCode || "-",
@@ -2054,12 +2156,12 @@ export async function generateFreeSchemePdfReport(
 						Number(row.PRate || 0).toFixed(2),
 						ptr.toFixed(2),
 						netRate.toFixed(2),
-						netRate.toFixed(2),
+						invRate.toFixed(2),
 						saleQty > 0 ? saleQty.toString() : "-",
 						freeQty > 0 ? freeQty.toString() : "-",
 						actualFQty > 0 ? actualFQty.toString() : "-",
 						claimQty > 0 ? claimQty.toString() : "-",
-						rateDiff.toFixed(2),
+						rateDiffStr,
 						claimValue > 0 ? claimValue.toFixed(2) : "-",
 						row["Item Scheme"] || row.Scheme || "-",
 						row["Applied Scheme"] || row.Scheme || "-",
@@ -2067,6 +2169,46 @@ export async function generateFreeSchemePdfReport(
 				});
 
 				typeBodyData.push(...custRows);
+
+				// Customer Subtotal Row
+				typeBodyData.push([
+					{
+						content: `Total of ${cust} :`,
+						colSpan: 11,
+						styles: {
+							fontStyle: "bold",
+							halign: "right",
+							fontSize: 7.5,
+							textColor: [0, 0, 0],
+						},
+					},
+					{
+						content: custSaleQty > 0 ? custSaleQty.toString() : "-",
+						styles: { fontStyle: "bold", halign: "right", fontSize: 7.5 },
+					},
+					{
+						content: custFreeQty > 0 ? custFreeQty.toString() : "-",
+						styles: { fontStyle: "bold", halign: "right", fontSize: 7.5 },
+					},
+					{
+						content: custActualFQty > 0 ? custActualFQty.toString() : "-",
+						styles: { fontStyle: "bold", halign: "right", fontSize: 7.5 },
+					},
+					{
+						content: custClaimQty > 0 ? custClaimQty.toString() : "-",
+						styles: { fontStyle: "bold", halign: "right", fontSize: 7.5 },
+					},
+					{
+						content: "-",
+						styles: { fontStyle: "bold", halign: "right", fontSize: 7.5 },
+					},
+					{
+						content: custClaimValue > 0 ? custClaimValue.toFixed(2) : "-",
+						styles: { fontStyle: "bold", halign: "right", fontSize: 7.5 },
+					},
+					{ content: "", styles: {} },
+					{ content: "", styles: {} },
+				]);
 
 				typeSaleQty += custSaleQty;
 				typeFreeQty += custFreeQty;

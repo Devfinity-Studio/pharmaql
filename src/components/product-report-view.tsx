@@ -73,7 +73,7 @@ export async function ProductReportView({
 		company === "All"
 			? mrInfo.companyCode || mrInfo.company || ""
 			: mrInfo.companyCode &&
-					(mrInfo.company === company || mrInfo.division === company)
+				(mrInfo.company === company || mrInfo.division === company)
 				? mrInfo.companyCode
 				: company;
 
@@ -82,17 +82,17 @@ export async function ProductReportView({
 
 	const procSalesResult: ItemCustomerSaleResult = mrInfo.canViewSales
 		? await getItemCustomerSale({
-				fromDate: fromParam,
-				toDate: toParam,
-				compCode: compCodeToQuery,
-				locNo: mrInfo.locNo || "11",
-			})
+			fromDate: fromParam,
+			toDate: toParam,
+			compCode: compCodeToQuery,
+			locNo: mrInfo.locNo || "11",
+		})
 		: {
-				success: false,
-				error: "MR does not have sales view permissions",
-				data: null,
-				debugSql: undefined,
-			};
+			success: false,
+			error: "MR does not have sales view permissions",
+			data: null,
+			debugSql: undefined,
+		};
 
 	const fromDisplay = formatDisplayDate(fromParam);
 	const toDisplay = formatDisplayDate(toParam);
@@ -226,7 +226,7 @@ export async function ProductReportView({
 								ASMEE PHARMA PRIVATE LIMITED
 							</h2>
 							<p className="mt-0.5 text-[11px] text-gray-700 leading-tight">
-								BASEMENE-GF, 11/2 ASHOK HOUSE, B/S SANSTHA VASAHAT GATE, PRATAP
+								BASEMENT-GF, 11/2 ASHOK HOUSE, B/S SANSTHA VASAHAT GATE, PRATAP
 								ROAD,
 								<br />
 								RAOPURA, VADODARA - 390001, GUJARAT - 24

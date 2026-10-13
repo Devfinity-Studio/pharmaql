@@ -39,7 +39,7 @@ export async function NewSalesReportView({
 		company === "All"
 			? mrInfo.companyCode || ""
 			: mrInfo.companyCode &&
-					(mrInfo.company === company || mrInfo.division === company)
+				(mrInfo.company === company || mrInfo.division === company)
 				? mrInfo.companyCode
 				: company;
 
@@ -120,7 +120,7 @@ export async function NewSalesReportView({
 							ASMEE PHARMA PRIVATE LIMITED
 						</h2>
 						<p className="mt-0.5 text-[11px] text-gray-700 leading-tight">
-							BASEMENE-GF, 11/2 ASHOK HOUSE, B/S SANSTHA VASAHAT GATE, PRATAP
+							BASEMENT-GF, 11/2 ASHOK HOUSE, B/S SANSTHA VASAHAT GATE, PRATAP
 							ROAD,
 							<br />
 							RAOPURA, VADODARA - 390001, GUJARAT - 24

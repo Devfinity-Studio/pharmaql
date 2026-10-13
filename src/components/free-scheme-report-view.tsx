@@ -2,6 +2,7 @@ import Image from "next/image";
 import React from "react";
 import { getClaimData } from "@/server/actions/claimData";
 import { getMRInfo } from "@/server/actions/mrInfo";
+import { getMROverrides } from "@/server/actions/mrs";
 
 export async function FreeSchemeReportView({
 	mrId,
@@ -20,26 +21,90 @@ export async function FreeSchemeReportView({
 	if (!mrInfo) return <div>MR not found</div>;
 
 	const company = searchParams?.division || "All";
+	const defaultFrom = searchParams?.from || "2026-04-01";
+	const defaultTo = searchParams?.to || "2026-09-30";
+
+	const mrOverrides = await getMROverrides();
+	const currentOverrides = mrOverrides[mrId] || {};
+	const assigned = currentOverrides.assignedManufacturers || [];
+
+	// Collect all registered company and division names for this MR
+	const registeredCompanies = new Set<string>();
+	const registeredCodes = new Set<string>();
+
+	if (mrInfo.company) registeredCompanies.add(mrInfo.company.toLowerCase().trim());
+	if (mrInfo.companyCode) registeredCodes.add(mrInfo.companyCode.toLowerCase().trim());
+	if (mrInfo.division) registeredCompanies.add(mrInfo.division.toLowerCase().trim());
+
+	for (const a of assigned) {
+		if (a.manufacturer) registeredCompanies.add(a.manufacturer.toLowerCase().trim());
+		if (a.division) registeredCompanies.add(a.division.toLowerCase().trim());
+	}
+
 	const compCodeToQuery =
 		company === "All"
 			? mrInfo.companyCode || mrInfo.company || ""
 			: mrInfo.companyCode &&
-					(mrInfo.company === company || mrInfo.division === company)
+				(mrInfo.company === company || mrInfo.division === company)
 				? mrInfo.companyCode
 				: company;
 
 	const claimResult = await getClaimData({
-		uniqueCode: "c9510231-4a58-4cb0-b40e-8fd18ff5f4ef",
-		fromDate: searchParams?.from,
-		toDate: searchParams?.to,
+		uniqueCode: `claim-${mrId}-${Date.now()}`,
+		fromDate: defaultFrom,
+		toDate: defaultTo,
 		compCode: compCodeToQuery,
 		locNo: mrInfo.locNo,
 	});
 
+	const rawRows = claimResult.success && claimResult.data ? claimResult.data : [];
+
+	// Filter rows so only companies the MR is registered for are ever displayed
+	const filteredRows = rawRows.filter((row) => {
+		const rowComp = (row.Company || "").toLowerCase().trim();
+		const rowDiv = (row.Division || "").toLowerCase().trim();
+		const rowCode = (row.Code || "").toLowerCase().trim();
+
+		// If a specific division was chosen from the division selector:
+		if (company !== "All") {
+			const sel = company.toLowerCase().trim();
+			return (
+				(rowComp !== "" && (rowComp.includes(sel) || sel.includes(rowComp))) ||
+				(rowDiv !== "" && (rowDiv.includes(sel) || sel.includes(rowDiv))) ||
+				(rowCode !== "" && rowCode === sel)
+			);
+		}
+
+		// When "All" is selected, only permit registered companies/divisions for this MR
+		if (registeredCompanies.size === 0 && registeredCodes.size === 0) return true;
+
+		for (const reg of registeredCompanies) {
+			if (!reg) continue;
+			if (
+				(rowComp !== "" && (rowComp.includes(reg) || reg.includes(rowComp))) ||
+				(rowDiv !== "" && (rowDiv.includes(reg) || reg.includes(rowDiv)))
+			) {
+				return true;
+			}
+		}
+
+		for (const code of registeredCodes) {
+			if (!code) continue;
+			if (
+				(rowCode !== "" && rowCode === code) ||
+				(rowComp !== "" && (rowComp.includes(code) || code.includes(rowComp)))
+			) {
+				return true;
+			}
+		}
+
+		return false;
+	});
+
 	const reportData: any[] = [];
 
-	if (claimResult.success && claimResult.data.length > 0) {
-		claimResult.data.forEach((row) => {
+	if (filteredRows.length > 0) {
+		filteredRows.forEach((row) => {
 			const ptr = Number(row.PTR || 0);
 			const sRate = Number(row.SRate || 0);
 			const pRate = Number(row.PRate || 0);
@@ -47,12 +112,47 @@ export async function FreeSchemeReportView({
 			const qty = Number(row.Qty || 0);
 			const free = Number(row.Free || row.FQty || 0);
 			const fQty = Number(row.FQty || 0);
-			const claimVal = Number(row.FreeIAmt || 0);
+			const schemeStr = (row.Scheme || "").toString().trim();
+
+			// Calculate NetRate from Scheme if present
+			let netRate = ptr;
+			if (schemeStr && schemeStr.includes("+")) {
+				const parts = schemeStr.split("+");
+				const a = parseFloat(parts[0] || "");
+				const b = parseFloat(parts[1] || "");
+				if (!isNaN(a) && !isNaN(b) && a > 0 && a + b > 0) {
+					netRate = Number(((ptr * a) / (a + b)).toFixed(2));
+				}
+			} else if (schemeStr && schemeStr.endsWith("%")) {
+				const disc = parseFloat(schemeStr);
+				if (!isNaN(disc) && disc > 0) {
+					netRate = Number((ptr * (1 - disc / 100)).toFixed(2));
+				}
+			}
+
+			// Qty Claim if free goods given (or returned), otherwise Rate Claim
+			const isQtyClaim = free !== 0;
+			const schemeType = isQtyClaim ? "Qty" : "Rate";
+
+			// Apply Exact User Formulae:
+			// Qty Claim: Claim Value = PTR x ClaimQty
+			// Rate Claim (Scheme): Claim Value = (NetRate - InvRate) x SaleQty
+			// Rate Claim (No Scheme): Claim Value = (PTR - InvRate) x SaleQty
+			let claimVal = 0;
+			if (isQtyClaim) {
+				claimVal = Number((ptr * free).toFixed(2));
+			} else {
+				const diff = netRate - sRate;
+				claimVal = diff > 0 ? Number((diff * qty).toFixed(2)) : 0;
+			}
+
+			const rawDiff = Number((netRate - sRate).toFixed(2));
+			const rateDiff = rawDiff > 0 ? rawDiff : "-";
 
 			reportData.push({
 				Manufacturer:
 					row.Company || row.Division || (company !== "All" ? company : "All"),
-				SchemeType: row.Scheme ? "Rate" : "Qty",
+				SchemeType: schemeType,
 				Party: `${row.CustCode ? `[${row.CustCode}] ` : ""}${row.Customer || "Unknown Party"}${row.City ? ` , ${row.City}` : ""}`,
 				Code: row.ItemCode || "-",
 				"Product Name": row.ItemName || "Unknown Item",
@@ -65,65 +165,92 @@ export async function FreeSchemeReportView({
 				MRP: mrp,
 				PRate: pRate,
 				PTR: ptr,
-				"Net Rate": sRate,
+				"Net Rate": netRate,
 				"Inv. Rate": sRate,
 				"Sale Qty": qty,
 				"Free Qty": free,
 				"Actual FQty": fQty,
 				"Claim Qty": free,
-				"Rate Diff.": ptr - sRate,
+				"Rate Diff.": rateDiff,
 				"Claim Value": claimVal,
-				"Item Scheme": row.Scheme || "-",
-				"Applied Scheme": row.Scheme || "-",
+				"Item Scheme": schemeStr || "-",
+				"Applied Scheme": schemeStr || "-",
 			});
 		});
 	}
 
+	const constructedDebugSql =
+		claimResult.debugSql ||
+		`-- 1. Prepare Stored Procedure:
+CALL \`pdyasvtrans\`.\`rptSaleFreeQtyStatement\`(
+  'F',
+  '${defaultFrom}',
+  '${defaultTo}',
+  ${mrInfo.locNo || 11},
+  ${mrInfo.locNo || 11},
+  202627,
+  '${compCodeToQuery}',
+  '',
+  '',
+  '',
+  'SRate',
+  'claim-${mrId}',
+  'Y',
+  'Y'
+);
+
+-- 2. Fetch Stored Procedure Data:
+CALL \`pdyasvtrans\`.\`rptClaimData\`('claim-${mrId}');`;
+
+	const debugBanner = (
+		<div className="mb-4 rounded-xl border-2 border-amber-400 bg-amber-50 p-4 font-mono text-amber-950 text-xs shadow-sm print:hidden">
+			<div className="mb-2 flex flex-wrap items-center justify-between gap-2 border-amber-200 border-b pb-2 font-bold text-amber-900 text-xs">
+				<span>
+					[DEBUG QUERY] Stored Procedure Execution Status (Claim Qty)
+				</span>
+				<span className="rounded bg-amber-200 px-2 py-0.5 font-semibold text-[11px]">
+					{claimResult.success
+						? `${filteredRows.length} valid MR rows (${rawRows.length} total DB rows)`
+						: claimResult.error || "Query Failed"}
+				</span>
+			</div>
+			<div className="space-y-1.5">
+				<p className="font-bold text-[11px] text-amber-900">
+					Final SQL Query being run:
+				</p>
+				<pre className="select-all overflow-x-auto whitespace-pre-wrap break-all rounded border border-amber-200 bg-amber-100 p-2.5 font-mono text-[11px] text-amber-950">
+					{constructedDebugSql}
+				</pre>
+				<div className="mt-2 grid grid-cols-2 gap-2 border-amber-200 border-t pt-1.5 text-[11px] text-amber-800 md:grid-cols-4">
+					<div>
+						<span className="font-semibold">Company Code Query:</span>{" "}
+						{JSON.stringify(compCodeToQuery)}
+					</div>
+					<div>
+						<span className="font-semibold">MR Company:</span>{" "}
+						{mrInfo.company || "N/A"}
+					</div>
+					<div>
+						<span className="font-semibold">MR Code:</span>{" "}
+						{mrInfo.companyCode || "N/A"}
+					</div>
+					<div>
+						<span className="font-semibold">LocNo:</span>{" "}
+						{mrInfo.locNo || "11"}
+					</div>
+					<div className="col-span-2 md:col-span-4">
+						<span className="font-semibold">Registered MR Companies:</span>{" "}
+						{Array.from(registeredCompanies).join(", ") || mrInfo.company || "All"}
+					</div>
+				</div>
+			</div>
+		</div>
+	);
+
 	if (reportData.length === 0) {
 		return (
 			<div className="mt-4 space-y-4">
-				{/* DEBUG QUERY BANNER */}
-				{(searchParams?.debug === "1" || searchParams?.debug === "true") && (
-					<div className="rounded-xl border-2 border-amber-400 bg-amber-50 p-4 font-mono text-amber-950 text-xs shadow-sm print:hidden">
-						<div className="mb-2 flex flex-wrap items-center justify-between gap-2 border-amber-200 border-b pb-2 font-bold text-amber-900 text-xs">
-							<span>
-								[DEBUG QUERY] Stored Procedure Execution Status (Claim Qty)
-							</span>
-							<span className="rounded bg-amber-200 px-2 py-0.5 font-semibold text-[11px]">
-								{claimResult.success
-									? `${claimResult.data?.length ?? 0} rows returned`
-									: claimResult.error || "Query Failed"}
-							</span>
-						</div>
-						<div className="space-y-1.5">
-							<p className="font-bold text-[11px] text-amber-900">
-								Final SQL Query being run:
-							</p>
-							<pre className="select-all overflow-x-auto whitespace-pre-wrap break-all rounded border border-amber-200 bg-amber-100 p-2.5 font-mono text-[11px] text-amber-950">
-								{claimResult.debugSql || "-- No SQL available"}
-							</pre>
-							<div className="mt-2 grid grid-cols-2 gap-2 border-amber-200 border-t pt-1.5 text-[11px] text-amber-800 md:grid-cols-4">
-								<div>
-									<span className="font-semibold">Company Code Query:</span>{" "}
-									{JSON.stringify(compCodeToQuery)}
-								</div>
-								<div>
-									<span className="font-semibold">MR Company:</span>{" "}
-									{mrInfo.company || "N/A"}
-								</div>
-								<div>
-									<span className="font-semibold">MR Code:</span>{" "}
-									{mrInfo.companyCode || "N/A"}
-								</div>
-								<div>
-									<span className="font-semibold">LocNo:</span>{" "}
-									{mrInfo.locNo || "11"}
-								</div>
-							</div>
-						</div>
-					</div>
-				)}
-
+				{debugBanner}
 				<div className="rounded-xl border bg-white p-8 text-center font-medium text-gray-500">
 					No free scheme data available for the selected filters.
 				</div>
@@ -169,46 +296,7 @@ export async function FreeSchemeReportView({
 	return (
 		<div className="mt-4 bg-white p-8 shadow-sm print:p-0 print:shadow-none">
 			{/* DEBUG QUERY BANNER */}
-			{(searchParams?.debug === "1" || searchParams?.debug === "true") && (
-				<div className="mb-4 rounded-xl border-2 border-amber-400 bg-amber-50 p-4 font-mono text-amber-950 text-xs shadow-sm print:hidden">
-					<div className="mb-2 flex flex-wrap items-center justify-between gap-2 border-amber-200 border-b pb-2 font-bold text-amber-900 text-xs">
-						<span>
-							[DEBUG QUERY] Stored Procedure Execution Status (Claim Qty)
-						</span>
-						<span className="rounded bg-amber-200 px-2 py-0.5 font-semibold text-[11px]">
-							{claimResult.success
-								? `${claimResult.data?.length ?? 0} rows returned`
-								: claimResult.error || "Query Failed"}
-						</span>
-					</div>
-					<div className="space-y-1.5">
-						<p className="font-bold text-[11px] text-amber-900">
-							Final SQL Query being run:
-						</p>
-						<pre className="select-all overflow-x-auto whitespace-pre-wrap break-all rounded border border-amber-200 bg-amber-100 p-2.5 font-mono text-[11px] text-amber-950">
-							{claimResult.debugSql || "-- No SQL available"}
-						</pre>
-						<div className="mt-2 grid grid-cols-2 gap-2 border-amber-200 border-t pt-1.5 text-[11px] text-amber-800 md:grid-cols-4">
-							<div>
-								<span className="font-semibold">Company Code Query:</span>{" "}
-								{JSON.stringify(compCodeToQuery)}
-							</div>
-							<div>
-								<span className="font-semibold">MR Company:</span>{" "}
-								{mrInfo.company || "N/A"}
-							</div>
-							<div>
-								<span className="font-semibold">MR Code:</span>{" "}
-								{mrInfo.companyCode || "N/A"}
-							</div>
-							<div>
-								<span className="font-semibold">LocNo:</span>{" "}
-								{mrInfo.locNo || "11"}
-							</div>
-						</div>
-					</div>
-				</div>
-			)}
+			{debugBanner}
 
 			<div className="mb-4 flex flex-col justify-between md:flex-row">
 				<div>
@@ -223,7 +311,7 @@ export async function FreeSchemeReportView({
 						/>
 					</h2>
 					<p className="mt-1 text-black text-xs">
-						BASEMENE-GF, 11/2 ASHOK HOUSE, B/S SANSTHA VASAHAT GATE,, PRATAP
+						BASEMENT-GF, 11/2 ASHOK HOUSE, B/S SANSTHA VASAHAT GATE,, PRATAP
 						ROAD,
 						<br />
 						RAOPURA, VADODARA - 390001, GUJARAT - 24
@@ -252,18 +340,14 @@ export async function FreeSchemeReportView({
 				Year : {currentYear}-{String(currentYear + 1).slice(2)}
 			</div>
 			<div className="mb-2 font-bold text-[11px] text-black">
-				Qty / Special Rate Claim Report for the period of{" "}
-				{searchParams?.from
-					? new Date(searchParams.from)
-							.toLocaleDateString("en-GB")
-							.replace(/\//g, "-")
-					: "Start"}{" "}
+				Claim Quantity Statement for Period of{" "}
+				{new Date(defaultFrom)
+					.toLocaleDateString("en-GB")
+					.replace(/\//g, "-")}{" "}
 				to{" "}
-				{searchParams?.to
-					? new Date(searchParams.to)
-							.toLocaleDateString("en-GB")
-							.replace(/\//g, "-")
-					: "End"}
+				{new Date(defaultTo)
+					.toLocaleDateString("en-GB")
+					.replace(/\//g, "-")}
 			</div>
 
 			<div className="mt-4 w-full overflow-x-auto border-gray-300 border-t border-b">
@@ -336,11 +420,17 @@ export async function FreeSchemeReportView({
 													const partyData = cTypeData.filter(
 														(d) => d.Party === party,
 													);
+													let partySaleQty = 0;
+													let partyFreeQty = 0;
+													let partyActualFQty = 0;
+													let partyClaimQty = 0;
+													let partyClaimVal = 0;
+
 													return (
 														<React.Fragment key={party}>
 															<tr>
 																<td
-																	className="px-2 pt-1 pb-1 font-bold text-[11px] italic"
+																	className="px-2 pt-2 pb-1 font-bold text-[11px] italic"
 																	colSpan={19}
 																>
 																	{party}
@@ -352,6 +442,12 @@ export async function FreeSchemeReportView({
 																typeActualFQty += row["Actual FQty"];
 																typeClaimQty += row["Claim Qty"];
 																typeClaimVal += row["Claim Value"];
+
+																partySaleQty += row["Sale Qty"];
+																partyFreeQty += row["Free Qty"];
+																partyActualFQty += row["Actual FQty"];
+																partyClaimQty += row["Claim Qty"];
+																partyClaimVal += row["Claim Value"];
 
 																return (
 																	<tr key={idx}>
@@ -389,27 +485,28 @@ export async function FreeSchemeReportView({
 																			{row["Inv. Rate"].toFixed(2)}
 																		</Td>
 																		<Td className="border-none pt-0.5 pb-0 text-right">
-																			{row["Sale Qty"] > 0
+																			{row["Sale Qty"] !== 0
 																				? row["Sale Qty"]
 																				: "-"}
 																		</Td>
 																		<Td className="border-none pt-0.5 pb-0 text-right">
-																			{row["Free Qty"] > 0
+																			{row["Free Qty"] !== 0
 																				? row["Free Qty"]
 																				: "-"}
 																		</Td>
 																		<Td className="border-none pt-0.5 pb-0 text-right">
-																			{row["Actual FQty"] > 0
+																			{row["Actual FQty"] !== 0
 																				? row["Actual FQty"]
 																				: "-"}
 																		</Td>
 																		<Td className="border-none pt-0.5 pb-0 text-right">
-																			{row["Claim Qty"] > 0
+																			{row["Claim Qty"] !== 0
 																				? row["Claim Qty"]
 																				: "-"}
 																		</Td>
 																		<Td className="border-none pt-0.5 pb-0 text-right">
-																			{row["Rate Diff."] > 0
+																			{typeof row["Rate Diff."] === "number" &&
+																				row["Rate Diff."] > 0
 																				? row["Rate Diff."].toFixed(2)
 																				: "-"}
 																		</Td>
@@ -427,6 +524,34 @@ export async function FreeSchemeReportView({
 																	</tr>
 																);
 															})}
+															{/* Customer Subtotal Row */}
+															<tr className="border-gray-200 border-t">
+																<td
+																	className="px-2 pt-1 pb-1 text-right font-bold text-[10px] text-gray-700 italic"
+																	colSpan={11}
+																>
+																	Total of {party} :
+																</td>
+																<td className="px-2 pt-1 pb-1 text-right font-bold text-[10px] text-gray-900">
+																	{partySaleQty !== 0 ? partySaleQty : "-"}
+																</td>
+																<td className="px-2 pt-1 pb-1 text-right font-bold text-[10px] text-gray-900">
+																	{partyFreeQty !== 0 ? partyFreeQty : "-"}
+																</td>
+																<td className="px-2 pt-1 pb-1 text-right font-bold text-[10px] text-gray-900">
+																	{partyActualFQty > 0 ? partyActualFQty : "-"}
+																</td>
+																<td className="px-2 pt-1 pb-1 text-right font-bold text-[10px] text-gray-900">
+																	{partyClaimQty !== 0 ? partyClaimQty : "-"}
+																</td>
+																<td className="px-2 pt-1 pb-1"></td>
+																<td className="px-2 pt-1 pb-1 text-right font-bold text-[10px] text-gray-900">
+																	{partyClaimVal > 0
+																		? partyClaimVal.toFixed(2)
+																		: "-"}
+																</td>
+																<td colSpan={2}></td>
+															</tr>
 														</React.Fragment>
 													);
 												})}
@@ -434,16 +559,16 @@ export async function FreeSchemeReportView({
 												<tr>
 													<td colSpan={11}></td>
 													<td className="border-gray-400 border-y px-2 py-1 text-right font-bold text-[11px]">
-														{typeSaleQty > 0 ? typeSaleQty : "-"}
+														{typeSaleQty !== 0 ? typeSaleQty : "-"}
 													</td>
 													<td className="border-gray-400 border-y px-2 py-1 text-right font-bold text-[11px]">
-														{typeFreeQty > 0 ? typeFreeQty : "-"}
+														{typeFreeQty !== 0 ? typeFreeQty : "-"}
 													</td>
 													<td className="border-gray-400 border-y px-2 py-1 text-right font-bold text-[11px]">
 														{typeActualFQty > 0 ? typeActualFQty : "-"}
 													</td>
 													<td className="border-gray-400 border-y px-2 py-1 text-right font-bold text-[11px]">
-														{typeClaimQty > 0 ? typeClaimQty : "-"}
+														{typeClaimQty !== 0 ? typeClaimQty : "-"}
 													</td>
 													<td className="px-2 py-1"></td>
 													<td className="border-gray-400 border-y px-2 py-1 text-right font-bold text-[11px]">
@@ -505,6 +630,7 @@ export async function FreeSchemeReportView({
 										Packing: item.Packing,
 										SaleQty: 0,
 										FreeQty: 0,
+										ActualFQty: 0,
 										ClaimQty: 0,
 										ClaimValue: 0,
 									});
@@ -512,6 +638,7 @@ export async function FreeSchemeReportView({
 								const agg = summaryMap.get(key);
 								agg.SaleQty += item["Sale Qty"];
 								agg.FreeQty += item["Free Qty"];
+								agg.ActualFQty += item["Actual FQty"];
 								agg.ClaimQty += item["Claim Qty"];
 								agg.ClaimValue += item["Claim Value"];
 							});
@@ -521,11 +648,12 @@ export async function FreeSchemeReportView({
 								(acc, curr) => {
 									acc.SaleQty += curr.SaleQty;
 									acc.FreeQty += curr.FreeQty;
+									acc.ActualFQty += curr.ActualFQty;
 									acc.ClaimQty += curr.ClaimQty;
 									acc.ClaimValue += curr.ClaimValue;
 									return acc;
 								},
-								{ SaleQty: 0, FreeQty: 0, ClaimQty: 0, ClaimValue: 0 },
+								{ SaleQty: 0, FreeQty: 0, ActualFQty: 0, ClaimQty: 0, ClaimValue: 0 },
 							);
 
 							return (
@@ -545,7 +673,7 @@ export async function FreeSchemeReportView({
 												{s.FreeQty}
 											</Td>
 											<Td className="border-none pb-0 text-right">
-												{s.FreeQty > 0 ? s.FreeQty : "-"}
+												{s.ActualFQty > 0 ? s.ActualFQty : "-"}
 											</Td>
 											<Td className="border-none pb-0 text-right">
 												{s.ClaimQty}
@@ -569,7 +697,7 @@ export async function FreeSchemeReportView({
 											{totals.FreeQty}
 										</td>
 										<td className="mt-2 border-gray-300 border-y px-2 py-1 text-right font-bold text-[11px]">
-											{totals.FreeQty > 0 ? totals.FreeQty : "-"}
+											{totals.ActualFQty > 0 ? totals.ActualFQty : "-"}
 										</td>
 										<td className="mt-2 border-gray-300 border-y px-2 py-1 text-right font-bold text-[11px]">
 											{totals.ClaimQty}
@@ -603,21 +731,21 @@ export async function FreeSchemeReportView({
 						className="mt-8 w-full border-gray-300 border-y py-2 font-bold text-[11px] text-black"
 						key={mfg}
 					>
-						<table className="w-full min-w-[1200px] text-left">
+						<table className="w-full min-w-[1200px] border-collapse text-left">
 							<tbody>
 								<tr>
-									<td className="w-[60%]" colSpan={11}>
+									<td className="px-2" colSpan={11}>
 										Total of {mfg} :
 									</td>
-									<td className="text-right">{mfgTotals.SaleQty}</td>
-									<td className="text-right">{mfgTotals.FreeQty}</td>
-									<td className="text-right">-</td>
-									<td className="text-right">{mfgTotals.ClaimQty}</td>
-									<td></td>
-									<td className="text-right">
+									<td className="px-2 text-right">{mfgTotals.SaleQty}</td>
+									<td className="px-2 text-right">{mfgTotals.FreeQty}</td>
+									<td className="px-2 text-right">-</td>
+									<td className="px-2 text-right">{mfgTotals.ClaimQty}</td>
+									<td className="px-2"></td>
+									<td className="px-2 text-right">
 										{mfgTotals.ClaimValue.toFixed(2)}
 									</td>
-									<td colSpan={2}></td>
+									<td className="px-2" colSpan={2}></td>
 								</tr>
 							</tbody>
 						</table>

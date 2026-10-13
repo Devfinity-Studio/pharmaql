@@ -122,3 +122,11 @@
 - [x] Align download modal dialogs and standardize export filename schemes (`<MR>_<Division>_<ReportType>_<DateRange>.<ext>`) across all tabs.
 - [x] Polish PDF report layouts, column auto-wrapping, and multi-page header/footer branding.
 - [x] Verify build and commit cleanly.
+
+## Phase 18: Claim Quantity Report & Calculation Engine Alignment [COMPLETED]
+
+- [x] Fix claim calculations and formulas (`Claim Value = PRate * ClaimQty`, Rate Claim rate differentials).
+- [x] Refactor Express backend query logic to bypass fragile temporary table collisions and properly isolate MR assigned companies.
+- [x] Align UI and PDF/Excel export table layouts with exact 15-column format, customer subtotals, and item summary totals matching reference standard.
+- [x] Ensure strict multi-tenant MR company filtering and sanitize date parameter mapping.
+- [x] Verify builds and end-to-end data against September 2026 reference dataset.

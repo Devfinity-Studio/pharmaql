@@ -1,7 +1,12 @@
 # State
 
 **Current Milestone:** Milestone 1 - Production Hardening & Optimization
-**Active Phase:** Phase 17 - Reports Export and Formatting Improvements (Completed)
-**Status:** Phase 17 completed. Fixed Excel & PDF generation failures across all report endpoints (Stock, Sales, Outstanding, Free Schemes), converted spreadsheet buffers to web-standard Uint8Array, aligned PDF column mappings and numeric totals, added quick date presets to DateRangePicker, and verified clean production builds.
+**Active Phase:** Phase 18 - Claim Quantity Report & Calculation Engine Alignment (Completed)
+**Status:** Phase 18 completed. Aligned Claim Quantity calculations (`PRate * ClaimQty`), hardened `api-server` backend query engine with dynamic session codes and automatic temporary table cleanup, aligned UI table layout and subtotals with reference PDF, synchronized Excel/CSV exports, and verified clean TypeScript builds (0 errors).
+
+## Accumulated Context
+
+### Roadmap Evolution
+- Phase 18 added: Claim Quantity Report & Calculation Engine Alignment
 
 

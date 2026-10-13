@@ -75,15 +75,46 @@ export async function GET(request: Request) {
 	// Handle Free Schemes (Claim Qty)
 	if (tab === "free-schemes") {
 		const claimResult = await getClaimData({
-			uniqueCode: "c9510231-4a58-4cb0-b40e-8fd18ff5f4ef",
+			uniqueCode: `claim-${mrId}-${Date.now()}`,
 			fromDate: defaultFrom,
 			toDate: defaultTo,
 			compCode: compCodeToQuery,
 			locNo: mrInfo.locNo || "11",
 		});
 
-		const claimRows =
+		const rawRows =
 			claimResult.success && claimResult.data ? claimResult.data : [];
+
+		// Filter claim rows so only registered MR companies are exported
+		const mrCompany = (mrInfo.company || "").toLowerCase().trim();
+		const mrCode = (mrInfo.companyCode || "").toLowerCase().trim();
+		const mrDiv = (mrInfo.division || "").toLowerCase().trim();
+
+		const claimRows = rawRows.filter((r) => {
+			const rowComp = (r.Company || "").toLowerCase().trim();
+			const rowDiv = (r.Division || "").toLowerCase().trim();
+			const rowCode = (r.Code || "").toLowerCase().trim();
+
+			if (company !== "All") {
+				const sel = company.toLowerCase().trim();
+				return (
+					rowComp.includes(sel) ||
+					sel.includes(rowComp) ||
+					rowDiv.includes(sel) ||
+					sel.includes(rowDiv) ||
+					rowCode === sel
+				);
+			}
+
+			if (!mrCompany && !mrCode && !mrDiv) return true;
+			return (
+				(mrCompany &&
+					(rowComp.includes(mrCompany) || mrCompany.includes(rowComp))) ||
+				(mrCode && (rowCode === mrCode || rowComp.includes(mrCode))) ||
+				(mrDiv && (rowDiv.includes(mrDiv) || mrDiv.includes(rowDiv)))
+			);
+		});
+
 		const filename = `${safeMrName}_${safeCompany}_Claim_Report_${dateRangeTag}`;
 
 		if (format === "json") {
@@ -95,7 +126,34 @@ export async function GET(request: Request) {
 				const qty = Number(row.Qty || 0);
 				const free = Number(row.Free || row.FQty || 0);
 				const fQty = Number(row.FQty || 0);
-				const claimVal = Number(row.FreeIAmt || 0);
+				const schemeStr = (row.Scheme || "").toString().trim();
+
+				let netRate = ptr;
+				if (schemeStr && schemeStr.includes("+")) {
+					const parts = schemeStr.split("+");
+					const a = parseFloat(parts[0] || "");
+					const b = parseFloat(parts[1] || "");
+					if (!isNaN(a) && !isNaN(b) && a > 0 && a + b > 0) {
+						netRate = Number(((ptr * a) / (a + b)).toFixed(2));
+					}
+				} else if (schemeStr && schemeStr.endsWith("%")) {
+					const disc = parseFloat(schemeStr);
+					if (!isNaN(disc) && disc > 0) {
+						netRate = Number((ptr * (1 - disc / 100)).toFixed(2));
+					}
+				}
+
+				const isQtyClaim = free > 0;
+				let claimVal = 0;
+				if (isQtyClaim) {
+					claimVal = Number((ptr * free).toFixed(2));
+				} else {
+					const diff = netRate - sRate;
+					claimVal = diff > 0 ? Number((diff * qty).toFixed(2)) : 0;
+				}
+
+				const rawDiff = Number((netRate - sRate).toFixed(2));
+				const rateDiff = rawDiff > 0 ? rawDiff : "-";
 
 				return {
 					Manufacturer:
@@ -110,7 +168,7 @@ export async function GET(request: Request) {
 						mrInfo.division ||
 						mrInfo.company ||
 						"General",
-					SchemeType: row.Scheme ? "Rate" : "Qty",
+					SchemeType: isQtyClaim ? "Qty" : "Rate",
 					Party: `${row.CustCode ? `[${row.CustCode}] ` : ""}${row.Customer || "Unknown Party"}${row.City ? ` , ${row.City}` : ""}`,
 					Customer: row.Customer || "Unknown Party",
 					Code: row.ItemCode || "-",
@@ -127,16 +185,18 @@ export async function GET(request: Request) {
 					MRP: mrp,
 					PRate: pRate,
 					PTR: ptr,
-					"Net Rate": sRate,
+					"Net Rate": netRate,
 					"Inv. Rate": sRate,
 					"Sale Qty": qty,
 					"Free Qty": free,
 					"Actual FQty": fQty,
 					"Claim Qty": free,
-					"Rate Diff.": ptr - sRate,
+					"Scheme Qty": free,
+					"Rate Diff.": rateDiff,
 					"Claim Value": claimVal,
-					"Item Scheme": row.Scheme || "-",
-					"Applied Scheme": row.Scheme || "-",
+					"Scheme Value": claimVal,
+					"Item Scheme": schemeStr || "-",
+					"Applied Scheme": schemeStr || "-",
 					"MR Name": mrName,
 				};
 			});
@@ -146,14 +206,49 @@ export async function GET(request: Request) {
 		// Tabular data for CSV/Excel
 		let totalSaleQty = 0;
 		let totalFreeQty = 0;
+		let totalClaimQty = 0;
 		let totalClaimVal = 0;
 
 		const tabularData = claimRows.map((r) => {
+			const ptr = Number(r.PTR || 0);
+			const sRate = Number(r.SRate || 0);
+			const pRate = Number(r.PRate || 0);
+			const mrp = Number(r.MRP || 0);
 			const qty = Number(r.Qty || 0);
 			const free = Number(r.Free || r.FQty || 0);
-			const claimVal = Number(r.FreeIAmt || 0);
+			const schemeStr = (r.Scheme || "").toString().trim();
+
+			let netRate = ptr;
+			if (schemeStr && schemeStr.includes("+")) {
+				const parts = schemeStr.split("+");
+				const a = parseFloat(parts[0] || "");
+				const b = parseFloat(parts[1] || "");
+				if (!isNaN(a) && !isNaN(b) && a > 0 && a + b > 0) {
+					netRate = Number(((ptr * a) / (a + b)).toFixed(2));
+				}
+			} else if (schemeStr && schemeStr.endsWith("%")) {
+				const disc = parseFloat(schemeStr);
+				if (!isNaN(disc) && disc > 0) {
+					netRate = Number((ptr * (1 - disc / 100)).toFixed(2));
+				}
+			}
+
+			const isQtyClaim = free !== 0;
+			const claimQty = isQtyClaim ? free : 0;
+			let claimVal = 0;
+			if (isQtyClaim) {
+				claimVal = Number((ptr * free).toFixed(2));
+			} else {
+				const diff = netRate - sRate;
+				claimVal = diff > 0 ? Number((diff * qty).toFixed(2)) : 0;
+			}
+
+			const rawDiff = Number((netRate - sRate).toFixed(2));
+			const rateDiff = rawDiff > 0 ? rawDiff : "-";
+
 			totalSaleQty += qty;
 			totalFreeQty += free;
+			totalClaimQty += claimQty;
 			totalClaimVal += claimVal;
 
 			return {
@@ -167,11 +262,16 @@ export async function GET(request: Request) {
 				"Batch No": r.BatchNo || "-",
 				"Sale Qty": qty,
 				"Free Qty": free,
-				PTR: Number(Number(r.PTR || 0).toFixed(2)),
-				Rate: Number(Number(r.SRate || 0).toFixed(2)),
+				"Actual FQty": r.FQty ?? free,
+				Scheme: schemeStr || "-",
+				"Claim Qty": claimQty,
+				MRP: Number(mrp.toFixed(2)),
+				PRate: Number(pRate.toFixed(2)),
+				PTR: Number(ptr.toFixed(2)),
+				"Net Rate": Number(netRate.toFixed(2)),
+				"Inv Rate": Number(sRate.toFixed(2)),
+				"Rate Diff": rateDiff,
 				"Claim Value": Number(claimVal.toFixed(2)),
-				Scheme: r.Scheme || "-",
-				Division: r.Division || r.Company || mrInfo.division || "-",
 			};
 		});
 
@@ -185,11 +285,16 @@ export async function GET(request: Request) {
 				"Batch No": "",
 				"Sale Qty": totalSaleQty,
 				"Free Qty": totalFreeQty,
-				PTR: "" as any,
-				Rate: "" as any,
-				"Claim Value": Number(totalClaimVal.toFixed(2)),
+				"Actual FQty": "-" as any,
 				Scheme: "",
-				Division: "",
+				"Claim Qty": totalClaimQty,
+				MRP: "" as any,
+				PRate: "" as any,
+				PTR: "" as any,
+				"Net Rate": "" as any,
+				"Inv Rate": "" as any,
+				"Rate Diff": "",
+				"Claim Value": Number(totalClaimVal.toFixed(2)),
 			});
 		}
 

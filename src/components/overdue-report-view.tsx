@@ -38,16 +38,16 @@ export async function OverdueReportView({
 	const company = searchParams?.division || "All";
 	const assigned = mrInfo.company
 		? [
-				{
-					id: `legacy-${mrId}`,
-					mrId,
-					manufacturer: mrInfo.company,
-					firmNo: null,
-					division: mrInfo.division || null,
-					company: mrInfo.company,
-					createdAt: new Date(),
-				},
-			]
+			{
+				id: `legacy-${mrId}`,
+				mrId,
+				manufacturer: mrInfo.company,
+				firmNo: null,
+				division: mrInfo.division || null,
+				company: mrInfo.company,
+				createdAt: new Date(),
+			},
+		]
 		: [];
 
 	const selectedAssignments =
@@ -62,9 +62,9 @@ export async function OverdueReportView({
 	const compCodeToQuery =
 		company === "All"
 			? mrInfo.companyCode ||
-				(targetCompanies.length > 0 ? targetCompanies : "")
+			(targetCompanies.length > 0 ? targetCompanies : "")
 			: mrInfo.companyCode &&
-					(mrInfo.company === company || mrInfo.division === company)
+				(mrInfo.company === company || mrInfo.division === company)
 				? mrInfo.companyCode
 				: company;
 
@@ -213,7 +213,7 @@ export async function OverdueReportView({
 							/>
 						</h2>
 						<p className="mt-1 font-medium text-[#0B2545] text-sm leading-relaxed">
-							BASEMENE-GF, 11/2 ASHOK HOUSE, B/S SANSTHA VASAHAT GATE, PRATAP
+							BASEMENT-GF, 11/2 ASHOK HOUSE, B/S SANSTHA VASAHAT GATE, PRATAP
 							ROAD,
 							<br />
 							RAOPURA, VADODARA - 390001, GUJARAT - 24
@@ -312,11 +312,10 @@ export async function OverdueReportView({
 														const isOlderThan90 = row["Purchase Days"] > 90;
 														return (
 															<tr
-																className={`border-gray-100 border-b transition-colors ${
-																	isOlderThan90
+																className={`border-gray-100 border-b transition-colors ${isOlderThan90
 																		? "bg-red-50/70 text-red-950 hover:bg-red-100/60"
 																		: "text-[#0B2545] hover:bg-gray-50"
-																}`}
+																	}`}
 																key={rowIdx}
 															>
 																<td className="whitespace-nowrap py-1.5 pl-2 font-semibold">
@@ -327,11 +326,10 @@ export async function OverdueReportView({
 																</td>
 																<td className="py-1.5">{row["Due Date"]}</td>
 																<td
-																	className={`py-1.5 text-right font-bold ${
-																		isOlderThan90
+																	className={`py-1.5 text-right font-bold ${isOlderThan90
 																			? "font-extrabold text-red-700"
 																			: "text-amber-600"
-																	}`}
+																		}`}
 																>
 																	{row["Purchase Days"]}
 																</td>
@@ -353,11 +351,10 @@ export async function OverdueReportView({
 																</td>
 																<td className="py-1.5">{row.City}</td>
 																<td
-																	className={`py-1.5 pr-2 text-right font-bold ${
-																		isOlderThan90
+																	className={`py-1.5 pr-2 text-right font-bold ${isOlderThan90
 																			? "font-black text-red-700"
 																			: "text-rose-600"
-																	}`}
+																		}`}
 																>
 																	{row["Amount Due"].toFixed(2)}
 																</td>

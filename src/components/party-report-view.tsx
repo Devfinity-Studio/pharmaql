@@ -72,7 +72,7 @@ export async function PartyReportView({
 		company === "All"
 			? mrInfo.companyCode || mrInfo.company || ""
 			: mrInfo.companyCode &&
-					(mrInfo.company === company || mrInfo.division === company)
+				(mrInfo.company === company || mrInfo.division === company)
 				? mrInfo.companyCode
 				: company;
 
@@ -81,17 +81,17 @@ export async function PartyReportView({
 
 	const partySalesResult: PartyCustomerItemSaleResult = mrInfo.canViewSales
 		? await getPartyCustomerItemSale({
-				fromDate: defaultFrom,
-				toDate: defaultTo,
-				compCode: compCodeToQuery,
-				locNo: mrInfo.locNo,
-			})
+			fromDate: defaultFrom,
+			toDate: defaultTo,
+			compCode: compCodeToQuery,
+			locNo: mrInfo.locNo,
+		})
 		: {
-				success: false,
-				error: "MR does not have sales view permissions",
-				data: null,
-				debugSql: undefined,
-			};
+			success: false,
+			error: "MR does not have sales view permissions",
+			data: null,
+			debugSql: undefined,
+		};
 
 	const fromDisplay = formatDisplayDate(defaultFrom);
 	const toDisplay = formatDisplayDate(defaultTo);
@@ -223,7 +223,7 @@ export async function PartyReportView({
 									ASMEE PHARMA PRIVATE LIMITED
 								</h1>
 								<p className="mt-0.5 text-[11px] text-gray-700 leading-tight">
-									BASEMENE-GF, 11/2 ASHOK HOUSE, B/S SANSTHA VASAHAT GATE,,
+									BASEMENT-GF, 11/2 ASHOK HOUSE, B/S SANSTHA VASAHAT GATE,,
 									PRATAP ROAD,
 									<br />
 									RAOPURA, VADODARA - 390001, GUJARAT - 24
@@ -437,7 +437,7 @@ export async function PartyReportView({
 							ASMEE PHARMA PRIVATE LIMITED
 						</h2>
 						<p className="mt-0.5 text-[11px] text-gray-700 leading-tight">
-							BASEMENE-GF, 11/2 ASHOK HOUSE, B/S SANSTHA VASAHAT GATE,, PRATAP
+							BASEMENT-GF, 11/2 ASHOK HOUSE, B/S SANSTHA VASAHAT GATE,, PRATAP
 							ROAD,
 							<br />
 							RAOPURA, VADODARA - 390001, GUJARAT - 24
