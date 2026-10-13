@@ -265,7 +265,9 @@ reportsRouter.post("/claim-data", async (req: Request, res: Response) => {
   let conn;
   try {
     const params = req.body || {};
-    const uniqueCode = params.uniqueCode || "c9510231-4a58-4cb0-b40e-8fd18ff5f4ef";
+    const uniqueCode =
+      params.uniqueCode ||
+      `claim-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
 
     conn = await dbPool.getConnection();
     await conn.query("SET sql_mode = ''");
@@ -280,10 +282,13 @@ reportsRouter.post("/claim-data", async (req: Request, res: Response) => {
       const finYear = params.finYear ?? 202627;
       const compCodeParam = formatCompanyCodeParam(params.compCode);
 
+      // Clean existing rows for this uniqueCode before populating
+      await conn.query("DELETE FROM `pdyasvtrans`.`claimdata` WHERE `UniqueCode` = ?", [uniqueCode]);
+
       const prepSql =
         "CALL `pdyasvtrans`.`rptSaleFreeQtyStatement`(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
       const prepParams = [
-        "F",
+        params.isFC || "F",
         effectiveFrom,
         effectiveTo,
         compNo,
@@ -301,11 +306,22 @@ reportsRouter.post("/claim-data", async (req: Request, res: Response) => {
       await conn.query(prepSql, prepParams);
     }
 
-    const sql = `CALL \`pdyasvtrans\`.\`rptClaimData\`('${uniqueCode}')`;
-    const [callRes] = await conn.query(sql);
+    const sql = "CALL `pdyasvtrans`.`rptClaimData`(?)";
+    const [callRes] = await conn.query(sql, [uniqueCode]);
     const rows = Array.isArray(callRes) ? callRes[0] : callRes;
 
-    res.json({ success: true, data: rows || [], debugSql: sql });
+    // Purge temporary claimdata rows after retrieval to keep database lean
+    try {
+      await conn.query("DELETE FROM `pdyasvtrans`.`claimdata` WHERE `UniqueCode` = ?", [uniqueCode]);
+    } catch (_) {
+      // non-blocking cleanup
+    }
+
+    res.json({
+      success: true,
+      data: rows || [],
+      debugSql: `CALL \`pdyasvtrans\`.\`rptClaimData\`('${uniqueCode}')`,
+    });
   } catch (error: any) {
     console.error("[Reports API] Claim Data Error:", error);
     res.status(500).json({ success: false, error: error.message || "Failed to load claim data" });
