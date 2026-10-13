@@ -59,7 +59,10 @@ export async function getCustomerBlockingMap(): Promise<
 			map.set(String(info.id), info);
 		});
 	} catch (error) {
-		console.error("[CustomerBlocking] Error fetching customer blocking map:", error);
+		console.error(
+			"[CustomerBlocking] Error fetching customer blocking map:",
+			error,
+		);
 	}
 
 	return map;

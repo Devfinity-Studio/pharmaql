@@ -3,7 +3,6 @@ import "@/styles/globals.css";
 import { Analytics } from "@vercel/analytics/next";
 import type { Metadata } from "next";
 import { Geist, Inter } from "next/font/google";
-import Header from "@/components/Header";
 import { cn } from "@/lib/utils";
 import { TRPCReactProvider } from "@/trpc/react";
 

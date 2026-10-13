@@ -9,7 +9,6 @@ export function LogoutButton({ className }: { className?: string }) {
 
 	return (
 		<button
-			type="button"
 			className={
 				className ||
 				"rounded-full bg-red-600 px-6 py-2 font-bold text-white shadow-sm transition hover:bg-red-700"
@@ -21,6 +20,7 @@ export function LogoutButton({ className }: { className?: string }) {
 					router.push("/login");
 				}
 			}}
+			type="button"
 		>
 			Logout
 		</button>

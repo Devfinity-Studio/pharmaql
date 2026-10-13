@@ -1,6 +1,6 @@
 import { type NextRequest, NextResponse } from "next/server";
-import { getAllMarketingCompaniesWithDivisions } from "@/server/actions/mrInfo";
 import { getItemCatalog } from "@/server/actions/itemCatalog";
+import { getAllMarketingCompaniesWithDivisions } from "@/server/actions/mrInfo";
 
 export async function GET(request: NextRequest) {
 	try {
@@ -10,7 +10,9 @@ export async function GET(request: NextRequest) {
 		if (filterType === "companies") {
 			const list = await getAllMarketingCompaniesWithDivisions();
 			const companies = Array.from(
-				new Set(list.map((r) => r.companyName || r.companyCode).filter(Boolean)),
+				new Set(
+					list.map((r) => r.companyName || r.companyCode).filter(Boolean),
+				),
 			);
 			return NextResponse.json({ companies });
 		}
