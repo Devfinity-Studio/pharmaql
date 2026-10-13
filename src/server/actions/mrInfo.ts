@@ -56,11 +56,9 @@ export async function getMRInfo(
 	const allOverrides = await getMROverrides();
 	const override = allOverrides[rawData.id] || {};
 
-	// Resolve Rank: Override -> ERP column -> ERP JobProfile -> default 3
+	// Resolve Rank directly from database (ERP Rank column -> ERP JobProfile -> default 3)
 	let rank: MRRank = 3;
-	if (override.rank === 1 || override.rank === 2 || override.rank === 3) {
-		rank = override.rank;
-	} else if (rawData.rank === 1 || rawData.rank === 2 || rawData.rank === 3) {
+	if (rawData.rank === 1 || rawData.rank === 2 || rawData.rank === 3) {
 		rank = rawData.rank;
 	} else if (rawData.JobProfile) {
 		const jp = rawData.JobProfile.toUpperCase().trim();
@@ -201,11 +199,9 @@ export async function fetchMRsPage(params: {
 		const isBlocked =
 			override.isBlocked !== undefined ? override.isBlocked : mr.isBlocked;
 
-		// Resolve Rank: override -> ERP column -> ERP JobProfile -> default 3
+		// Resolve Rank directly from database (ERP Rank column -> ERP JobProfile -> default 3)
 		let rank: MRRank = 3;
-		if (override.rank === 1 || override.rank === 2 || override.rank === 3) {
-			rank = override.rank;
-		} else if (mr.rank === 1 || mr.rank === 2 || mr.rank === 3) {
+		if (mr.rank === 1 || mr.rank === 2 || mr.rank === 3) {
 			rank = mr.rank;
 		} else if (mr.JobProfile) {
 			const jp = mr.JobProfile.toUpperCase().trim();
