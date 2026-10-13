@@ -97,6 +97,11 @@
 - [x] Remove `mysql2` package and direct DB credentials from Next.js configuration.
 - [x] Validate Next.js Vercel build compatibility (zero native database drivers).
 
+## Phase 15: Code Cleanup, Formatting & Dependency Audit
 
-
-
+- [ ] Audit repository for unnecessary test scripts, scratch files, and obsolete demo assets.
+- [ ] Ensure proper directory organization and file structure across frontend and `api-server`.
+- [ ] Format and prettify entire codebase using Biome and standard formatters.
+- [ ] Resolve TypeScript compiler warnings, Biome lint warnings, and runtime deprecations.
+- [ ] Audit dependencies in root and `api-server` for duplicates, unused packages, and security updates.
+- [ ] Generate comprehensive pre-cleanup audit report and execute verification pass.
