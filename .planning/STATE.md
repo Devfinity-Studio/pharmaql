@@ -2,7 +2,7 @@
 
 **Current Milestone:** Milestone 1 - Production Hardening & Optimization
 **Active Phase:** Phase 21 - PDF and Report Polishing
-**Status:** Phase 21 added to roadmap. Ready for planning and execution.
+**Status:** Completed. All PDF/Excel generation engines overhauled, stationery headers unified, collapsible sidebars integrated, and UI polished.
 
 ## Accumulated Context
 

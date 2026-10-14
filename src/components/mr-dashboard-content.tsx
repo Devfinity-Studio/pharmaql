@@ -1,14 +1,15 @@
 import Link from "next/link";
+import React, { Suspense } from "react";
 import { DateRangePicker } from "@/components/date-range-picker";
 import { FilterSelect } from "@/components/filter-select";
 import { FreeSchemeReportView } from "@/components/free-scheme-report-view";
 import { MROverdueWarningModal } from "@/components/mr-overdue-warning-modal";
-import { NewSalesReportView } from "@/components/new-sales-report-view";
 import { OutstandingDownloadButtons } from "@/components/outstanding-download-buttons";
 import { OverdueReportView } from "@/components/overdue-report-view";
 import { PartyReportView } from "@/components/party-report-view";
 import { ProductReportView } from "@/components/product-report-view";
 import { ReportDownloadButtons } from "@/components/report-download-buttons";
+import { ReportTableSkeleton } from "@/components/report-table-skeleton";
 import { StockReportView } from "@/components/stock-report-view";
 import { getItemCustomerSale } from "@/server/actions/customerItemSale";
 import { getMRInfo } from "@/server/actions/mrInfo";
@@ -343,198 +344,208 @@ export async function MrDashboardContent({
 					</div>
 				</div>
 			)}
-			<div className="flex flex-col justify-between gap-4 md:flex-row md:items-center">
-				<div>
-					<h1 className="font-extrabold text-3xl text-[#0B2545] tracking-tight md:text-4xl">
-						{isAdminView ? `${mrInfo.name}'s Data` : `Welcome, ${mrInfo.name}`}
-					</h1>
-					<p className="mt-1 font-semibold text-base text-gray-500">
-						Viewing aggregated sales & financial data
-					</p>
-					{!isAdminView && (
-						<div className="mt-3 inline-flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-3 py-1.5 font-medium text-gray-700 text-xs shadow-sm">
-							<span className="font-extrabold text-[#0B2545]">
-								Rank {mrInfo.rank || 3}
-							</span>
-							<span className="text-gray-300">|</span>
-							<span className="text-gray-500">Access:</span>
-							<span
-								className={
-									mrInfo.canViewStock
-										? "font-semibold text-emerald-600"
-										: "text-gray-300 line-through"
-								}
-							>
-								Stock
-							</span>
-							{mrInfo.canViewFreeScheme && (
-								<>
-									<span className="text-gray-300">&bull;</span>
-									<span className="font-semibold text-emerald-600">
-										Claim Qty
-									</span>
-								</>
-							)}
-							{mrInfo.canViewSales && (
-								<>
-									<span className="text-gray-300">&bull;</span>
-									<span className="font-semibold text-emerald-600">
-										Sales & Analytics
-									</span>
-								</>
-							)}
-						</div>
+			{/* STICKY TOP CONTROLS & NAVIGATION BAR */}
+			<div className="sticky top-0 z-30 -mx-6 bg-[#F8FAFC]/95 px-6 pt-3 pb-1 backdrop-blur-md shadow-xs border-b border-gray-200/80 space-y-4">
+				<div className="flex flex-col justify-between gap-3 md:flex-row md:items-center">
+					<div>
+						<h1 className="font-extrabold text-2xl text-[#0B2545] tracking-tight md:text-3xl">
+							{isAdminView ? `${mrInfo.name}'s Data` : `Welcome, ${mrInfo.name}`}
+						</h1>
+						<p className="mt-0.5 font-semibold text-sm text-gray-500">
+							Viewing aggregated sales & financial data
+						</p>
+						{!isAdminView && (
+							<div className="mt-2 inline-flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-3 py-1 font-medium text-gray-700 text-xs shadow-sm">
+								<span className="font-extrabold text-[#0B2545]">
+									Rank {mrInfo.rank || 3}
+								</span>
+								<span className="text-gray-300">|</span>
+								<span className="text-gray-500">Access:</span>
+								<span
+									className={
+										mrInfo.canViewStock
+											? "font-semibold text-emerald-600"
+											: "text-gray-300 line-through"
+									}
+								>
+									Stock
+								</span>
+								{mrInfo.canViewFreeScheme && (
+									<>
+										<span className="text-gray-300">&bull;</span>
+										<span className="font-semibold text-emerald-600">
+											Claim Qty
+										</span>
+									</>
+								)}
+								{mrInfo.canViewSales && (
+									<>
+										<span className="text-gray-300">&bull;</span>
+										<span className="font-semibold text-emerald-600">
+											Sales & Analytics
+										</span>
+									</>
+								)}
+							</div>
+						)}
+					</div>
+					{isAdminView && (
+						<Link
+							className="font-bold text-[#0071BC] text-sm underline underline-offset-4 transition-colors hover:text-[#134074]"
+							href="/admin/mrs"
+						>
+							&larr; Back to MR List
+						</Link>
 					)}
 				</div>
-				{isAdminView && (
-					<Link
-						className="font-bold text-[#0071BC] underline underline-offset-4 transition-colors hover:text-[#134074]"
-						href="/admin/mrs"
-					>
-						&larr; Back to MR List
-					</Link>
-				)}
-			</div>
 
-			{/* Filters and Actions */}
-			<div className="flex flex-col justify-between gap-6 border-gray-200 border-b pb-6 xl:flex-row xl:items-end">
-				<div className="flex flex-col gap-4">
-					<div className="flex flex-wrap gap-2">
+				{/* Filters and Actions */}
+				<div className="flex flex-col justify-between gap-4 border-gray-200 border-b pb-3 xl:flex-row xl:items-end">
+					<div className="flex flex-col gap-3">
+						<div className="flex flex-wrap gap-2">
+							<Link
+								className={`rounded-lg px-3.5 py-1.5 font-bold text-xs transition-colors ${selectedDivision === "All" ? "bg-[#0B2545] text-white" : "border border-gray-200 bg-white text-gray-600 hover:bg-gray-50"}`}
+								href={`${baseUrl}?${new URLSearchParams({
+									...(searchParams?.from && { from: searchParams.from }),
+									...(searchParams?.to && { to: searchParams.to }),
+									...(searchParams?.tab && { tab: searchParams.tab }),
+									...(searchParams?.q && { q: searchParams.q }),
+								}).toString()}`}
+							>
+								All Divisions
+							</Link>
+							{assignedDivisions.map((div) => {
+								const p = new URLSearchParams();
+								p.set("division", div);
+								if (searchParams?.from) p.set("from", searchParams.from);
+								if (searchParams?.to) p.set("to", searchParams.to);
+								if (searchParams?.tab) p.set("tab", searchParams.tab);
+								if (searchParams?.q) p.set("q", searchParams.q);
+
+								return (
+									<Link
+										className={`rounded-lg px-3.5 py-1.5 font-bold text-xs transition-colors ${selectedDivision === div ? "bg-[#0B2545] text-white" : "border border-gray-200 bg-white text-gray-600 hover:bg-gray-50"}`}
+										href={`${baseUrl}?${p.toString()}`}
+										key={div}
+									>
+										{div}
+									</Link>
+								);
+							})}
+						</div>
+						<DateRangePicker />
+					</div>
+					{/* RENDER THE CORRECT DOWNLOAD BUTTON CONDITIONALLY AT THE TOP FILTER BAR */}
+					{(activeTab === "products" ||
+						activeTab === "free-schemes" ||
+						activeTab === "stock" ||
+						activeTab === "party") && (
+						<ReportDownloadButtons mrId={mrId} />
+					)}
+					{activeTab === "overdue" && (
+						<OutstandingDownloadButtons mrId={mrId} />
+					)}
+				</div>
+
+				{/* Tabs Row */}
+				<div className="scrollbar-hide flex overflow-x-auto whitespace-nowrap rounded-t-xl border-gray-200 border-b bg-white px-2">
+					{canViewSales && (
 						<Link
-							className={`rounded-lg px-4 py-2 font-bold text-sm transition-colors ${selectedDivision === "All" ? "bg-[#0B2545] text-white" : "border-2 border-gray-200 bg-white text-gray-600 hover:bg-gray-50"}`}
+							className={`border-b-4 px-5 py-3 font-bold text-sm transition-colors ${
+								activeTab === "overview"
+									? "border-[#0071BC] text-[#0071BC]"
+									: "border-transparent text-gray-500 hover:text-[#0B2545]"
+							}`}
 							href={`${baseUrl}?${new URLSearchParams({
-								...(searchParams?.from && { from: searchParams.from }),
-								...(searchParams?.to && { to: searchParams.to }),
-								...(searchParams?.tab && { tab: searchParams.tab }),
-								...(searchParams?.q && { q: searchParams.q }),
+								...searchParams,
+								tab: "overview",
 							}).toString()}`}
 						>
-							All Divisions
+							Overview
 						</Link>
-						{assignedDivisions.map((div) => {
-							const p = new URLSearchParams();
-							p.set("division", div);
-							if (searchParams?.from) p.set("from", searchParams.from);
-							if (searchParams?.to) p.set("to", searchParams.to);
-							if (searchParams?.tab) p.set("tab", searchParams.tab);
-							if (searchParams?.q) p.set("q", searchParams.q);
-
-							return (
-								<Link
-									className={`rounded-lg px-4 py-2 font-bold text-sm transition-colors ${selectedDivision === div ? "bg-[#0B2545] text-white" : "border-2 border-gray-200 bg-white text-gray-600 hover:bg-gray-50"}`}
-									href={`${baseUrl}?${p.toString()}`}
-									key={div}
-								>
-									{div}
-								</Link>
-							);
-						})}
-					</div>
-					<DateRangePicker />
+					)}
+					{canViewStock && (
+						<Link
+							className={`border-b-4 px-5 py-3 font-bold text-sm transition-colors ${
+								activeTab === "stock"
+									? "border-[#0071BC] text-[#0071BC]"
+									: "border-transparent text-gray-500 hover:text-[#0B2545]"
+							}`}
+							href={`${baseUrl}?${new URLSearchParams({
+								...searchParams,
+								tab: "stock",
+							}).toString()}`}
+						>
+							Stock & Sales
+						</Link>
+					)}
+					{canViewPartyWise && (
+						<Link
+							className={`border-b-4 px-5 py-3 font-bold text-sm transition-colors ${
+								activeTab === "party"
+									? "border-[#0071BC] text-[#0071BC]"
+									: "border-transparent text-gray-500 hover:text-[#0B2545]"
+							}`}
+							href={`${baseUrl}?${new URLSearchParams({
+								...searchParams,
+								tab: "party",
+							}).toString()}`}
+						>
+							Party Wise
+						</Link>
+					)}
+					{canViewProductWise && (
+						<Link
+							className={`border-b-4 px-5 py-3 font-bold text-sm transition-colors ${
+								activeTab === "products"
+									? "border-[#0071BC] text-[#0071BC]"
+									: "border-transparent text-gray-500 hover:text-[#0B2545]"
+							}`}
+							href={`${baseUrl}?${new URLSearchParams({
+								...searchParams,
+								tab: "products",
+							}).toString()}`}
+						>
+							Product Wise
+						</Link>
+					)}
+					{canViewFreeScheme && (
+						<Link
+							className={`border-b-4 px-5 py-3 font-bold text-sm transition-colors ${
+								activeTab === "free-schemes"
+									? "border-[#0071BC] text-[#0071BC]"
+									: "border-transparent text-gray-500 hover:text-[#0B2545]"
+							}`}
+							href={`${baseUrl}?${new URLSearchParams({
+								...searchParams,
+								tab: "free-schemes",
+							}).toString()}`}
+						>
+							Claim Qty
+						</Link>
+					)}
+					<Link
+						className={`border-b-4 px-5 py-3 font-bold text-sm transition-colors ${
+							activeTab === "overdue"
+								? "border-[#0071BC] text-[#0071BC]"
+								: "border-transparent text-gray-500 hover:text-[#0B2545]"
+						}`}
+						href={`${baseUrl}?${new URLSearchParams({
+							...searchParams,
+							tab: "overdue",
+						}).toString()}`}
+					>
+						Overdue
+					</Link>
 				</div>
-				{/* RENDER THE CORRECT DOWNLOAD BUTTON CONDITIONALLY AT THE TOP FILTER BAR */}
-				{(activeTab === "products" ||
-					activeTab === "sales" ||
-					activeTab === "free-schemes" ||
-					activeTab === "stock") && (
-					<ReportDownloadButtons mrId={mrId} />
-				)}
-				{(activeTab === "party" || activeTab === "overdue") && (
-					<OutstandingDownloadButtons mrId={mrId} />
-				)}
 			</div>
 
-			{/* Tabs Row */}
-			<div className="scrollbar-hide flex overflow-x-auto whitespace-nowrap rounded-t-xl border-gray-200 border-b bg-white px-2">
-				{canViewSales && (
-					<Link
-						className={`border-b-4 px-6 py-4 font-bold text-base transition-colors ${
-							activeTab === "overview"
-								? "border-[#0071BC] text-[#0071BC]"
-								: "border-transparent text-gray-500 hover:text-[#0B2545]"
-						}`}
-						href={`${baseUrl}?${new URLSearchParams({
-							...searchParams,
-							tab: "overview",
-						}).toString()}`}
-					>
-						Overview
-					</Link>
-				)}
-				{canViewStock && (
-					<Link
-						className={`border-b-4 px-6 py-4 font-bold text-base transition-colors ${
-							activeTab === "stock"
-								? "border-[#0071BC] text-[#0071BC]"
-								: "border-transparent text-gray-500 hover:text-[#0B2545]"
-						}`}
-						href={`${baseUrl}?${new URLSearchParams({
-							...searchParams,
-							tab: "stock",
-						}).toString()}`}
-					>
-						Stock & Sales
-					</Link>
-				)}
-				{canViewPartyWise && (
-					<Link
-						className={`border-b-4 px-6 py-4 font-bold text-base transition-colors ${
-							activeTab === "party"
-								? "border-[#0071BC] text-[#0071BC]"
-								: "border-transparent text-gray-500 hover:text-[#0B2545]"
-						}`}
-						href={`${baseUrl}?${new URLSearchParams({
-							...searchParams,
-							tab: "party",
-						}).toString()}`}
-					>
-						Party Wise
-					</Link>
-				)}
-				{canViewProductWise && (
-					<Link
-						className={`border-b-4 px-6 py-4 font-bold text-base transition-colors ${
-							activeTab === "products"
-								? "border-[#0071BC] text-[#0071BC]"
-								: "border-transparent text-gray-500 hover:text-[#0B2545]"
-						}`}
-						href={`${baseUrl}?${new URLSearchParams({
-							...searchParams,
-							tab: "products",
-						}).toString()}`}
-					>
-						Product Wise
-					</Link>
-				)}
-				{canViewFreeScheme && (
-					<Link
-						className={`border-b-4 px-6 py-4 font-bold text-base transition-colors ${
-							activeTab === "free-schemes"
-								? "border-[#0071BC] text-[#0071BC]"
-								: "border-transparent text-gray-500 hover:text-[#0B2545]"
-						}`}
-						href={`${baseUrl}?${new URLSearchParams({
-							...searchParams,
-							tab: "free-schemes",
-						}).toString()}`}
-					>
-						Claim Qty
-					</Link>
-				)}
-				<Link
-					className={`border-b-4 px-6 py-4 font-bold text-base transition-colors ${
-						activeTab === "overdue"
-							? "border-[#0071BC] text-[#0071BC]"
-							: "border-transparent text-gray-500 hover:text-[#0B2545]"
-					}`}
-					href={`${baseUrl}?${new URLSearchParams({
-						...searchParams,
-						tab: "overdue",
-					}).toString()}`}
+			{/* TARGETED REPORT DATA CONTAINER WITH SUSPENSE */}
+			<div className="min-h-[450px]">
+				<Suspense
+					fallback={<ReportTableSkeleton />}
+					key={`${activeTab}-${selectedDivision}-${searchParams?.from || ""}-${searchParams?.to || ""}-${searchParams?.q || ""}-${searchParams?.party || ""}`}
 				>
-					Overdue
-				</Link>
-			</div>
 
 			{/* OVERVIEW TAB */}
 			{canViewSales && activeTab === "overview" && (
@@ -746,6 +757,8 @@ export async function MrDashboardContent({
 			{activeTab === "stock" && canViewStock && (
 				<StockReportView mrId={mrId} searchParams={searchParams} />
 			)}
+				</Suspense>
+			</div>
 		</div>
 	);
 }

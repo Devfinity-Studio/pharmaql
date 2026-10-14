@@ -1,6 +1,7 @@
 import { headers } from "next/headers";
 import { NextResponse } from "next/server";
 import * as xlsx from "xlsx";
+import { buildStyledExcelBuffer } from "@/lib/excel";
 import { getMRInfo } from "@/server/actions/mrInfo";
 import {
 	getStockMovement,
@@ -43,11 +44,34 @@ export async function GET(request: Request) {
 	}
 
 	const effectiveLocNo = mrInfo.locNo || "11";
-	const compCode =
-		company === "All" ? mrInfo.companyCode || undefined : company;
+
+	const assignments = mrInfo.company
+		? [
+				{
+					id: `legacy-${mrId}`,
+					mrId,
+					manufacturer: mrInfo.company,
+					firmNo: null,
+					division: mrInfo.division || null,
+					company: mrInfo.company,
+					createdAt: new Date(),
+				},
+			]
+		: [];
+
+	const selectedAssignments =
+		company === "All"
+			? assignments
+			: assignments.filter((a) => (a.division || a.manufacturer) === company);
+
+	const targetCompanies = Array.from(
+		new Set(selectedAssignments.map((a) => a.manufacturer).filter(Boolean)),
+	) as string[];
 
 	const result = await getStockMovement(
-		compCode,
+		targetCompanies.length > 0
+			? targetCompanies
+			: mrInfo.companyCode || undefined,
 		from || undefined,
 		to || undefined,
 		effectiveLocNo,
@@ -55,6 +79,59 @@ export async function GET(request: Request) {
 
 	const items: StockMovementRow[] =
 		result.success && result.data ? result.data : [];
+
+	// Filter rows strictly by assigned divisions/companies (exact match to web view)
+	const matchingRows = items.filter((row: StockMovementRow) => {
+		if (selectedAssignments.length === 0) return true;
+		return selectedAssignments.some((a) => {
+			const mfgName = a.manufacturer?.trim().toUpperCase();
+			const mfgFirstWord = mfgName ? mfgName.split(/\s+/)[0] : "";
+			const divName = a.division?.trim().toUpperCase();
+			const divFirstWord = divName ? divName.split(/\s+/)[0] : "";
+			const rowMake = (row.Make || "").toString().trim().toUpperCase();
+			const rowDiv = (row.Division || "").toString().trim().toUpperCase();
+
+			const matchesMfg =
+				!mfgName ||
+				rowMake === mfgName ||
+				rowMake.includes(mfgName) ||
+				mfgName.includes(rowMake) ||
+				Boolean(mfgFirstWord && rowMake.includes(mfgFirstWord)) ||
+				(a.company && rowMake === a.company.trim().toUpperCase());
+
+			const matchesDiv =
+				!divName ||
+				divName === mfgName ||
+				rowDiv === divName ||
+				rowDiv.includes(divName) ||
+				divName.includes(rowDiv) ||
+				Boolean(divFirstWord && rowDiv.includes(divFirstWord));
+
+			return matchesMfg && matchesDiv;
+		});
+	});
+
+	// Filter items to include ONLY products with transactions or non-zero balances (matches web view)
+	const activeItems = matchingRows.filter((item: StockMovementRow) => {
+		const opening = Number(item.Opening || 0);
+		const purchase = Number(item.Purchase || 0);
+		const sRet = Number(item.SReturn || 0);
+		const stkAdjAdd = Number(item.StkAdjAdd || 0);
+		const salesQty = Number(item.SalesQty || 0);
+		const pRet = Number(item.PReturn || 0);
+		const stkAdjLess = Number(item.StkAdjLess || 0);
+		const balance = Number(item.Qty || 0);
+		return (
+			opening !== 0 ||
+			purchase !== 0 ||
+			balance !== 0 ||
+			salesQty !== 0 ||
+			sRet !== 0 ||
+			stkAdjAdd !== 0 ||
+			stkAdjLess !== 0 ||
+			pRet !== 0
+		);
+	});
 
 	const mrName = mrInfo.name || "Unknown";
 	const safeMrName = mrName.replace(/[^a-zA-Z0-9]/g, "_");
@@ -66,8 +143,8 @@ export async function GET(request: Request) {
 	const format = searchParams.get("format") || "csv";
 
 	if (format === "json") {
-		// Provide rich mapping matching StockReportItem expected by generateStockPdfReport
-		const jsonReportData = items.map((item: StockMovementRow) => {
+		// Provide rich mapping matching StockReportItem expected by generateStockPdfReport (filtered)
+		const jsonReportData = activeItems.map((item: StockMovementRow) => {
 			const opening = Number(item.Opening || 0);
 			const purchase = Number(item.Purchase || 0);
 			const sRet = Number(item.SReturn || 0);
@@ -114,7 +191,7 @@ export async function GET(request: Request) {
 	let totalBalance = 0;
 	let totalStockVal = 0;
 
-	const tabularData = items.map((item: StockMovementRow) => {
+	const tabularData = activeItems.map((item: StockMovementRow) => {
 		const opening = Number(item.Opening || 0);
 		const purchase = Number(item.Purchase || 0);
 		const sales = Number(item.SalesQty || 0);
@@ -145,7 +222,53 @@ export async function GET(request: Request) {
 		};
 	});
 
-	// Append grand total row for spreadsheets
+	if (format === "excel") {
+		const columns = [
+			{ header: "Item Code", key: "Item Code", width: 12 },
+			{ header: "Item Name", key: "Item Name", width: 32 },
+			{ header: "Packing", key: "Packing", width: 12 },
+			{ header: "Division", key: "Division", width: 18 },
+			{ header: "Manufacturer", key: "Manufacturer", width: 22 },
+			{ header: "Opening Qty", key: "Opening Qty", width: 14, numFmt: "#,##0" },
+			{ header: "Purchase Qty", key: "Purchase Qty", width: 14, numFmt: "#,##0" },
+			{ header: "Sales Qty", key: "Sales Qty", width: 14, numFmt: "#,##0" },
+			{ header: "Balance Qty", key: "Balance Qty", width: 14, numFmt: "#,##0" },
+			{ header: "PTR", key: "PTR", width: 12, numFmt: "#,##0.00" },
+			{ header: "P Rate", key: "P Rate", width: 12, numFmt: "#,##0.00" },
+			{ header: "Stock Value", key: "Stock Value", width: 16, numFmt: "#,##0.00" },
+		];
+
+		const excelBuf = await buildStyledExcelBuffer({
+			sheetName: "Stock Movement",
+			title: "Stock Movement Statement",
+			metadata: {
+				mrName,
+				division: company,
+				period: from && to ? `${from} to ${to}` : "Current",
+				year: "2026-27",
+			},
+			columns,
+			data: tabularData,
+			totals: {
+				"Item Name": "GRAND TOTAL",
+				"Opening Qty": totalOpening,
+				"Purchase Qty": totalPurchase,
+				"Sales Qty": totalSales,
+				"Balance Qty": totalBalance,
+				"Stock Value": Number(totalStockVal.toFixed(2)),
+			},
+		});
+
+		return new NextResponse(new Uint8Array(excelBuf), {
+			headers: {
+				"Content-Disposition": `attachment; filename="${filename}.xlsx"`,
+				"Content-Type":
+					"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+			},
+		});
+	}
+
+	// Append grand total row for CSV
 	if (tabularData.length > 0) {
 		tabularData.push({
 			"Item Code": "" as any,
@@ -160,21 +283,6 @@ export async function GET(request: Request) {
 			PTR: "" as any,
 			"P Rate": "" as any,
 			"Stock Value": Number(totalStockVal.toFixed(2)),
-		});
-	}
-
-	if (format === "excel") {
-		const worksheet = xlsx.utils.json_to_sheet(tabularData);
-		const workbook = xlsx.utils.book_new();
-		xlsx.utils.book_append_sheet(workbook, worksheet, "Stock Movement");
-		const arrayBuf = xlsx.write(workbook, { type: "array", bookType: "xlsx" });
-
-		return new NextResponse(new Uint8Array(arrayBuf), {
-			headers: {
-				"Content-Disposition": `attachment; filename="${filename}.xlsx"`,
-				"Content-Type":
-					"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-			},
 		});
 	}
 
