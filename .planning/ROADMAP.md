@@ -139,12 +139,20 @@
 - [x] Ensure seamless infinite scrolling and page counter updates on `/admin/mrs`.
 - [x] Verify clean builds and report UI without debug artifacts.
 
-## Phase 20: MR Ranking-Based Permissions
+## Phase 20: MR Ranking-Based Permissions [COMPLETED]
 
-- [x] Define MR ranking levels (Rank 1 = Stock only, Rank 2 = Stock + Claim Qty, Rank 3 = All reports) with ERP database rank projection and custom admin rank overrides.
+- [x] Define MR ranking levels (Rank 1 = Stock only, Rank 2 = Stock + Claim Qty, Rank 3 = All reports) with ERP database rank projection.
 - [x] Implement strict ranking-based permission presets and automated synchronization.
-- [x] Add Admin UI controls to view and update MR ranking and display active report permissions.
+- [x] Add Admin UI controls to view MR ranking and display active report permissions as read-only status badges.
 - [x] Enforce ranking-based data and report access across server actions, dashboard tabs, and export endpoints.
 - [x] Verify build, permission enforcement, and test across different MR ranks.
+
+## Phase 21: PDF and Report Polishing
+
+- [ ] Audit and refine PDF styling, branding, and typography across all report generators (`Stock`, `Sales`, `Grouped Products`, `Free Scheme`, `Outstanding`).
+- [ ] Fix layout issues, table pagination, column width proportions, and text auto-wrapping for wide data tables.
+- [ ] Align numeric decimal formatting, currency symbols, and total/subtotal summary rows to reference standards.
+- [ ] Ensure consistent metadata headers (Company Name, Division, MR Name, Date Range, Generation Timestamp) and "Page X of Y" footers.
+- [ ] Verify print and download previews across mobile and desktop devices.
 
 
