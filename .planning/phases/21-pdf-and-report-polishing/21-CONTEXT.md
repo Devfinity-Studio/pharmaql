@@ -17,7 +17,14 @@
   - Contacts: `Contact: 9409789800, 9409789700 Mobile: 9409789700 Email: asmeepharma2022@gmail.com`
   - Metadata divider with Year (`2026-27`), dynamic Report Title for Period (`DD/MM/YYYY to DD/MM/YYYY`), and count/summary statistics.
 
-### 2. PDF Download & Report Engines
+### 2. PDF Download & Report Engines (Fixed for ALL Tabs)
+- **All Tabs Coverage**: Ensure flawless, production-ready PDF generation for every single tab:
+  1. `Stock Movement`
+  2. `Party Wise Sales`
+  3. `Product Wise Sales`
+  4. `Sales / Invoice Details`
+  5. `Free Scheme / Claim Qty`
+  6. `Outstanding / Overdue Invoices`
 - **Party Wise PDF**:
   - Currently not generated (was missing dedicated handler and misrouted to Outstanding buttons).
   - Implement dedicated `generatePartyWisePdfReport` in `src/lib/pdf.ts` and wire up in download buttons and API endpoint.
@@ -30,7 +37,20 @@
   - Web view hides items with 0 transactions.
   - Fix PDF generation (`generateStockPdfReport` and `/api/reports/download-stock`) so products with zero movement/transactions are excluded, preventing multi-page elongation.
 
-### 3. UI Issues & Polish
+### 3. Excel Export Overhaul (`.xlsx`)
+- **Proper Column Spacing / Auto-Width (`!cols`)**:
+  - Dynamically calculate the maximum width of cell values per column (plus safety margin) so content, customer names, item names, and batch numbers are never squished or truncated.
+- **Bold Headers & Totals**:
+  - Bold header rows and make them visually distinct.
+  - Style and bold Subtotal rows and Grand Total summary rows.
+- **Number & Currency Formatting**:
+  - Ensure numeric quantities, rates, and amount values are formatted with clean decimal precision rather than raw or unformatted strings.
+- **Applied to All Endpoints**:
+  - `/api/reports/download-stock`
+  - `/api/reports/download-sales` (Sales, Products, Free Schemes, Party)
+  - `/api/reports/download-outstanding`
+
+### 4. UI Issues & Polish
 - **Party Tab PDF Button Color**:
   - The download button was rendering red because `OutstandingDownloadButtons` was used on `activeTab === "party"`.
   - Fix button color to match standard blue/navy/indigo UI theme, and wire up to party sales download.
