@@ -3,6 +3,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import type { ReactNode } from "react";
 import { LogoutButton } from "@/components/logout-button";
+import { CollapsibleSidebar } from "@/components/collapsible-sidebar";
 import { auth } from "@/server/auth";
 
 export default async function MRLayout({ children }: { children: ReactNode }) {
@@ -55,63 +56,11 @@ export default async function MRLayout({ children }: { children: ReactNode }) {
 	return (
 		<div className="relative flex h-screen flex-col overflow-hidden bg-[#F8FAFC] text-[#0B2545] md:flex-row">
 			<div className="pointer-events-none absolute inset-0 z-0 bg-[url('/devfinity.png')] bg-repeat opacity-[0.03] [background-size:120px]"></div>
-			{/* Still/Fixed Sidebar Navigation Layer */}
-			<aside className="relative z-10 flex w-full flex-col border-gray-200 border-r bg-white p-6 md:h-screen md:w-72">
-				<div className="mb-10">
-					<div className="flex items-center gap-2 font-black text-2xl">
-						<Link className="flex gap-2" href="/">
-							<span className="text-[#0B2545]">Asmee</span>
-							<span className="text-[#0071BC]">Pharma</span>
-						</Link>
-					</div>
-					<div className="mt-1.5 font-bold text-gray-400 text-xs uppercase tracking-widest">
-						MR Portal
-					</div>
-				</div>
-
-				<nav className="flex flex-col space-y-2">
-					<Link
-						className="flex items-center gap-3 rounded-lg border-[#0071BC] border-l-4 bg-[#F1F5F9] px-4 py-3 font-bold text-[#0071BC] transition-colors"
-						href="/dashboard"
-					>
-						Reports Overview
-					</Link>
-				</nav>
-
-				{/* Profile Info and Footer */}
-				<div className="mt-auto flex flex-col gap-4 border-gray-200 border-t pt-6">
-					<div>
-						<div className="font-bold text-[#0B2545] text-sm">
-							{session.user.name}
-						</div>
-						<div className="font-semibold text-gray-400 text-xs">
-							{session.user.email}
-						</div>
-					</div>
-					<LogoutButton className="w-full rounded-lg border-2 border-red-200 bg-white px-4 py-2.5 text-center font-bold text-red-600 transition-colors hover:bg-red-50" />
-					<div className="mt-2 text-center text-[10px] text-gray-400">
-						<p>
-							© {new Date().getFullYear()} Asmee Pharma Pvt. Ltd. All rights
-							reserved.
-						</p>
-						<p className="mt-1 flex items-center justify-center gap-1">
-							Made with{" "}
-							<span className="cursor-pointer text-red-500 transition-transform duration-200 hover:scale-125">
-								❤️
-							</span>{" "}
-							by{" "}
-							<a
-								className="inline-block font-bold text-[#0071BC] transition-all hover:scale-105 hover:text-[#0B2545]"
-								href="https://devfinity.net"
-								rel="noopener noreferrer"
-								target="_blank"
-							>
-								Devfinity
-							</a>
-						</p>
-					</div>
-				</div>
-			</aside>
+			<CollapsibleSidebar
+				portal="mr"
+				userEmail={session.user.email}
+				userName={session.user.name}
+			/>
 
 			{/* Independent Scrolling Content Workspace */}
 			<main className="relative z-10 flex-1 overflow-y-auto bg-[#F8FAFC] p-4 md:p-10">

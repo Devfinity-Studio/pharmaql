@@ -1,5 +1,5 @@
-import Image from "next/image";
 import React from "react";
+import { ReportStationeryHeader } from "@/components/report-stationery-header";
 import { getMRInfo } from "@/server/actions/mrInfo";
 import {
 	getPartyCustomerItemSale,
@@ -166,45 +166,12 @@ export async function PartyReportView({
 		return (
 			<div className="mt-4 space-y-4 rounded-xl border border-gray-300 bg-white p-6 font-sans text-gray-900 shadow-sm print:m-0 print:border-none print:p-0 print:shadow-none">
 				{/* REPORT HEADER */}
-				<div className="border-gray-900 border-b-2 pb-2">
-					<div className="flex flex-col items-start justify-between gap-3 md:flex-row">
-						<div className="flex items-start gap-4">
-							<Image
-								alt="Asmee Pharma Logo"
-								className="object-contain pt-0.5"
-								height={45}
-								priority
-								src="/logo.png"
-								width={140}
-							/>
-							<div>
-								<h1 className="font-extrabold text-base text-gray-900 uppercase tracking-tight">
-									ASMEE PHARMA PRIVATE LIMITED
-								</h1>
-								<p className="mt-0.5 text-[11px] text-gray-700 leading-tight">
-									BASEMENT-GF, 11/2 ASHOK HOUSE, B/S SANSTHA VASAHAT GATE,,
-									PRATAP ROAD,
-									<br />
-									RAOPURA, VADODARA - 390001, GUJARAT - 24
-									<br />
-									Contact: 9409789800, 9409789700 Mobile: 9409789700 Email:
-									asmeepharma2022@gmail.com
-								</p>
-							</div>
-						</div>
-					</div>
-
-					<div className="mt-3 flex items-center justify-between border-gray-300 border-t pt-1.5 font-bold text-gray-900 text-xs">
-						<div>Year : 2026-27</div>
-						<div className="text-center font-extrabold text-[#0B2545] text-xs">
-							Partywise/Itemwise Sales for Period of {fromDisplay} to{" "}
-							{toDisplay}
-						</div>
-						<div className="text-right font-medium text-[11px] text-gray-600">
-							Total Parties: {customerGroups.length}
-						</div>
-					</div>
-				</div>
+				<ReportStationeryHeader
+					title="Partywise/Itemwise Sales"
+					fromDisplay={fromDisplay}
+					toDisplay={toDisplay}
+					summaryRight={`Total Parties: ${customerGroups.length}`}
+				/>
 
 				{/* REPORT DATA TABLE */}
 				<div className="w-full overflow-x-auto">
@@ -338,40 +305,12 @@ export async function PartyReportView({
 
 	return (
 		<div className="mt-4 space-y-4 rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
-			<div className="border-gray-900 border-b-2 pb-2">
-				<div className="flex items-start gap-4">
-					<Image
-						alt="Asmee Pharma Logo"
-						className="object-contain"
-						height={45}
-						priority
-						src="/logo.png"
-						width={140}
-					/>
-					<div>
-						<h2 className="font-extrabold text-base text-gray-900 uppercase tracking-tight">
-							ASMEE PHARMA PRIVATE LIMITED
-						</h2>
-						<p className="mt-0.5 text-[11px] text-gray-700 leading-tight">
-							BASEMENT-GF, 11/2 ASHOK HOUSE, B/S SANSTHA VASAHAT GATE,, PRATAP
-							ROAD,
-							<br />
-							RAOPURA, VADODARA - 390001, GUJARAT - 24
-							<br />
-							Contact: 9409789800, 9409789700 Mobile: 9409789700 Email:
-							asmeepharma2022@gmail.com
-						</p>
-					</div>
-				</div>
-
-				<div className="mt-3 flex items-center justify-between border-gray-300 border-t pt-1.5 font-bold text-gray-900 text-xs">
-					<div>Year : 2026-27</div>
-					<div className="text-center font-extrabold text-[#0B2545] text-xs">
-						Partywise/Itemwise Sales for Period of {fromDisplay} to {toDisplay}
-					</div>
-					<div>No records found</div>
-				</div>
-			</div>
+			<ReportStationeryHeader
+				title="Partywise/Itemwise Sales"
+				fromDisplay={fromDisplay}
+				toDisplay={toDisplay}
+				summaryRight="No records found"
+			/>
 
 			<div className="py-12 text-center font-medium text-gray-500 text-sm">
 				No party sales records found for the selected period and division.

@@ -1,9 +1,10 @@
 import { headers } from "next/headers";
 import { NextResponse } from "next/server";
-import * as xlsx from "xlsx";
+import { buildStyledExcelBuffer, type ExcelColumnDef } from "@/lib/excel";
 import { getClaimData } from "@/server/actions/claimData";
 import { getItemCustomerSale } from "@/server/actions/customerItemSale";
 import { getMRInfo } from "@/server/actions/mrInfo";
+import { getPartyCustomerItemSale } from "@/server/actions/partyItemSale";
 import { auth } from "@/server/auth";
 
 export async function GET(request: Request) {
@@ -21,7 +22,7 @@ export async function GET(request: Request) {
 	const from = searchParams.get("from");
 	const to = searchParams.get("to");
 	const format = searchParams.get("format") || "csv"; // csv, excel, json
-	const tab = searchParams.get("tab") || "sales"; // sales, products, party, free-schemes
+	const tab = searchParams.get("tab") || "sales"; // sales, new-sales, products, party, free-schemes
 
 	if (!mrId) {
 		return new NextResponse("Missing mrId", { status: 400 });
@@ -72,7 +73,229 @@ export async function GET(request: Request) {
 	const safeCompany = (company || "All").replace(/[^a-zA-Z0-9]/g, "_");
 	const dateRangeTag = `${defaultFrom}_to_${defaultTo}`;
 
-	// Handle Free Schemes (Claim Qty)
+	// ==========================================
+	// 1. Handle Party Wise Sales
+	// ==========================================
+	if (tab === "party") {
+		const partyResult = await getPartyCustomerItemSale({
+			fromDate: defaultFrom,
+			toDate: defaultTo,
+			compCode: compCodeToQuery,
+			locNo: mrInfo.locNo || "11",
+		});
+
+		const partyRows =
+			partyResult.success && partyResult.data ? partyResult.data : [];
+		const filename = `${safeMrName}_${safeCompany}_Party_Report_${dateRangeTag}`;
+
+		if (format === "json") {
+			const jsonPartyData = partyRows.map((r) => ({
+				"MR Name": mrName,
+				Division: mrInfo.division || mrInfo.company || company || "General",
+				Manufacturer: mrInfo.company || mrInfo.division || company || "General",
+				CustID: r.CustID,
+				CustCode: r.CustCode || "",
+				Customer: r.Customer || "Unknown Party",
+				Address: r.Address || "",
+				Area: r.Area || "",
+				City: r.City || "",
+				InvNo: r.InvNo,
+				"Inv No": r.InvNo,
+				InvDt: r.InvDt ? new Date(r.InvDt).toISOString().split("T")[0] : "-",
+				"Inv Date": r.InvDt
+					? new Date(r.InvDt).toISOString().split("T")[0]
+					: "-",
+				ItemCode: r.ItemCode || "-",
+				"Item Code": r.ItemCode || "-",
+				ItemName: r.ItemName || "-",
+				"Item Name": r.ItemName || "-",
+				Packing: r.Packing || "-",
+				BatchNo: r.BatchNo || "-",
+				"Batch No": r.BatchNo || "-",
+				ExpDt: r.ExpDt ? new Date(r.ExpDt).toISOString().split("T")[0] : "-",
+				Qty: Number(r.Qty || 0),
+				FQty: Number(r.FQty || 0),
+				"Free Qty": Number(r.FQty || 0),
+				Rate: Number(r.Srate || 0),
+				Amount: Number(r.Amt || 0),
+				Series: r.Series || "",
+				Remarks: r.Remarks || "",
+			}));
+			return NextResponse.json(jsonPartyData);
+		}
+
+		let totalQty = 0;
+		let totalFree = 0;
+		let totalAmt = 0;
+
+		const excelRows = partyRows.map((r, idx) => {
+			const qty = Number(r.Qty || 0);
+			const free = Number(r.FQty || 0);
+			const amt = Number(r.Amt || 0);
+			const rate = Number(r.Srate || 0);
+
+			totalQty += qty;
+			totalFree += free;
+			totalAmt += amt;
+
+			return {
+				sno: idx + 1,
+				customer: `${r.Customer}${r.CustCode ? ` [${r.CustCode}]` : ""}`,
+				city: r.City || "",
+				invNo: r.InvNo,
+				invDt: r.InvDt ? new Date(r.InvDt).toLocaleDateString("en-GB") : "-",
+				itemCode: r.ItemCode || "-",
+				itemName: r.ItemName,
+				packing: r.Packing || "-",
+				batchNo: r.BatchNo || "-",
+				expDt: r.ExpDt ? new Date(r.ExpDt).toLocaleDateString("en-GB") : "-",
+				qty,
+				free,
+				rate,
+				amt,
+				series: r.Series || "",
+				remarks: r.Remarks || "",
+			};
+		});
+
+		if (format === "excel") {
+			const columns: ExcelColumnDef[] = [
+				{
+					header: "SNo.",
+					key: "sno",
+					width: 8,
+					alignment: { horizontal: "center" },
+				},
+				{ header: "Party / Customer", key: "customer", width: 28 },
+				{ header: "City", key: "city", width: 14 },
+				{ header: "Inv No", key: "invNo", width: 12 },
+				{ header: "Inv Date", key: "invDt", width: 12 },
+				{ header: "Item Code", key: "itemCode", width: 12 },
+				{ header: "Item Name", key: "itemName", width: 26 },
+				{ header: "Packing", key: "packing", width: 10 },
+				{ header: "Batch No", key: "batchNo", width: 12 },
+				{ header: "Exp Date", key: "expDt", width: 12 },
+				{
+					header: "Qty",
+					key: "qty",
+					width: 10,
+					numFmt: "#,##0",
+					alignment: { horizontal: "right" },
+				},
+				{
+					header: "Free",
+					key: "free",
+					width: 10,
+					numFmt: "#,##0",
+					alignment: { horizontal: "right" },
+				},
+				{
+					header: "Rate (₹)",
+					key: "rate",
+					width: 12,
+					numFmt: "#,##0.00",
+					alignment: { horizontal: "right" },
+				},
+				{
+					header: "Amount (₹)",
+					key: "amt",
+					width: 14,
+					numFmt: "#,##0.00",
+					alignment: { horizontal: "right" },
+				},
+				{ header: "Series", key: "series", width: 10 },
+				{ header: "Remarks", key: "remarks", width: 16 },
+			];
+
+			const buffer = await buildStyledExcelBuffer({
+				sheetName: "Partywise Sales",
+				title: "Partywise / Itemwise Sales Statement",
+				metadata: {
+					mrName,
+					division:
+						company !== "All"
+							? company
+							: mrInfo.division || mrInfo.company || "All Divisions",
+					period: `${defaultFrom} to ${defaultTo}`,
+					year: "2026-27",
+				},
+				columns,
+				data: excelRows,
+				totals: {
+					sno: "",
+					customer: "GRAND TOTAL :",
+					qty: totalQty,
+					free: totalFree,
+					amt: Number(totalAmt.toFixed(2)),
+				},
+			});
+
+			return new NextResponse(new Uint8Array(buffer), {
+				headers: {
+					"Content-Disposition": `attachment; filename="${filename}.xlsx"`,
+					"Content-Type":
+						"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+				},
+			});
+		}
+
+		// CSV for party
+		if (excelRows.length === 0) {
+			return new NextResponse("No data available", { status: 200 });
+		}
+		const csvHeaders = [
+			"SNo",
+			"Customer",
+			"City",
+			"Inv No",
+			"Inv Date",
+			"Item Code",
+			"Item Name",
+			"Packing",
+			"Batch No",
+			"Exp Date",
+			"Qty",
+			"Free",
+			"Rate",
+			"Amount",
+			"Series",
+			"Remarks",
+		];
+		const csvRows = excelRows.map((r) =>
+			[
+				r.sno,
+				`"${r.customer.replace(/"/g, '""')}"`,
+				`"${r.city.replace(/"/g, '""')}"`,
+				r.invNo,
+				r.invDt,
+				r.itemCode,
+				`"${r.itemName.replace(/"/g, '""')}"`,
+				r.packing,
+				r.batchNo,
+				r.expDt,
+				r.qty,
+				r.free,
+				r.rate.toFixed(2),
+				r.amt.toFixed(2),
+				r.series,
+				`"${r.remarks.replace(/"/g, '""')}"`,
+			].join(","),
+		);
+		csvRows.push(
+			`,"GRAND TOTAL :",,,,,,,,,${totalQty},${totalFree},,${totalAmt.toFixed(2)},,`,
+		);
+
+		return new NextResponse([csvHeaders.join(","), ...csvRows].join("\n"), {
+			headers: {
+				"Content-Disposition": `attachment; filename="${filename}.csv"`,
+				"Content-Type": "text/csv; charset=utf-8",
+			},
+		});
+	}
+
+	// ==========================================
+	// 2. Handle Free Schemes (Claim Qty)
+	// ==========================================
 	if (tab === "free-schemes") {
 		const claimResult = await getClaimData({
 			uniqueCode: `claim-${mrId}-${Date.now()}`,
@@ -209,7 +432,7 @@ export async function GET(request: Request) {
 		let totalClaimQty = 0;
 		let totalClaimVal = 0;
 
-		const tabularData = claimRows.map((r) => {
+		const excelClaimRows = claimRows.map((r) => {
 			const ptr = Number(r.PTR || 0);
 			const sRate = Number(r.SRate || 0);
 			const pRate = Number(r.PRate || 0);
@@ -252,62 +475,132 @@ export async function GET(request: Request) {
 			totalClaimVal += claimVal;
 
 			return {
-				"Inv No": r.InvNo,
-				"Inv Date": r.InvDt
-					? new Date(r.InvDt).toISOString().split("T")[0]
-					: "-",
-				Customer: r.Customer || "Unknown Party",
-				"Item Name": r.ItemName,
-				Packing: r.Packing || "-",
-				"Batch No": r.BatchNo || "-",
-				"Sale Qty": qty,
-				"Free Qty": free,
-				"Actual FQty": r.FQty ?? free,
-				Scheme: schemeStr || "-",
-				"Claim Qty": claimQty,
-				MRP: Number(mrp.toFixed(2)),
-				PRate: Number(pRate.toFixed(2)),
-				PTR: Number(ptr.toFixed(2)),
-				"Net Rate": Number(netRate.toFixed(2)),
-				"Inv Rate": Number(sRate.toFixed(2)),
-				"Rate Diff": rateDiff,
-				"Claim Value": Number(claimVal.toFixed(2)),
+				invNo: r.InvNo,
+				invDt: r.InvDt ? new Date(r.InvDt).toLocaleDateString("en-GB") : "-",
+				customer: r.Customer || "Unknown Party",
+				itemName: r.ItemName,
+				packing: r.Packing || "-",
+				batchNo: r.BatchNo || "-",
+				saleQty: qty,
+				freeQty: free,
+				scheme: schemeStr || "-",
+				claimQty,
+				mrp,
+				pRate,
+				ptr,
+				netRate,
+				invRate: sRate,
+				rateDiff: typeof rateDiff === "number" ? rateDiff : "-",
+				claimValue: claimVal,
 			};
 		});
 
-		if (tabularData.length > 0) {
-			tabularData.push({
-				"Inv No": "" as any,
-				"Inv Date": "",
-				Customer: "TOTAL :",
-				"Item Name": "",
-				Packing: "",
-				"Batch No": "",
-				"Sale Qty": totalSaleQty,
-				"Free Qty": totalFreeQty,
-				"Actual FQty": "-" as any,
-				Scheme: "",
-				"Claim Qty": totalClaimQty,
-				MRP: "" as any,
-				PRate: "" as any,
-				PTR: "" as any,
-				"Net Rate": "" as any,
-				"Inv Rate": "" as any,
-				"Rate Diff": "",
-				"Claim Value": Number(totalClaimVal.toFixed(2)),
-			});
-		}
-
 		if (format === "excel") {
-			const worksheet = xlsx.utils.json_to_sheet(tabularData);
-			const workbook = xlsx.utils.book_new();
-			xlsx.utils.book_append_sheet(workbook, worksheet, "Claim Report");
-			const arrayBuf = xlsx.write(workbook, {
-				type: "array",
-				bookType: "xlsx",
+			const columns: ExcelColumnDef[] = [
+				{ header: "Inv No", key: "invNo", width: 12 },
+				{ header: "Inv Date", key: "invDt", width: 12 },
+				{ header: "Customer / Party", key: "customer", width: 28 },
+				{ header: "Item Name", key: "itemName", width: 26 },
+				{ header: "Packing", key: "packing", width: 10 },
+				{ header: "Batch No", key: "batchNo", width: 12 },
+				{
+					header: "Sale Qty",
+					key: "saleQty",
+					width: 10,
+					numFmt: "#,##0",
+					alignment: { horizontal: "right" },
+				},
+				{
+					header: "Free Qty",
+					key: "freeQty",
+					width: 10,
+					numFmt: "#,##0",
+					alignment: { horizontal: "right" },
+				},
+				{ header: "Scheme", key: "scheme", width: 12 },
+				{
+					header: "Claim Qty",
+					key: "claimQty",
+					width: 10,
+					numFmt: "#,##0",
+					alignment: { horizontal: "right" },
+				},
+				{
+					header: "MRP (₹)",
+					key: "mrp",
+					width: 11,
+					numFmt: "#,##0.00",
+					alignment: { horizontal: "right" },
+				},
+				{
+					header: "PRate (₹)",
+					key: "pRate",
+					width: 11,
+					numFmt: "#,##0.00",
+					alignment: { horizontal: "right" },
+				},
+				{
+					header: "PTR (₹)",
+					key: "ptr",
+					width: 11,
+					numFmt: "#,##0.00",
+					alignment: { horizontal: "right" },
+				},
+				{
+					header: "Net Rate (₹)",
+					key: "netRate",
+					width: 12,
+					numFmt: "#,##0.00",
+					alignment: { horizontal: "right" },
+				},
+				{
+					header: "Inv Rate (₹)",
+					key: "invRate",
+					width: 12,
+					numFmt: "#,##0.00",
+					alignment: { horizontal: "right" },
+				},
+				{
+					header: "Rate Diff (₹)",
+					key: "rateDiff",
+					width: 12,
+					alignment: { horizontal: "right" },
+				},
+				{
+					header: "Claim Value (₹)",
+					key: "claimValue",
+					width: 14,
+					numFmt: "#,##0.00",
+					alignment: { horizontal: "right" },
+				},
+			];
+
+			const buffer = await buildStyledExcelBuffer({
+				sheetName: "Claim Report",
+				title: "Scheme Claim / Free Scheme Statement",
+				metadata: {
+					mrName,
+					division:
+						company !== "All"
+							? company
+							: mrInfo.division || mrInfo.company || "All Divisions",
+					period: `${defaultFrom} to ${defaultTo}`,
+					year: "2026-27",
+				},
+				columns,
+				data: excelClaimRows,
+				totals: {
+					invNo: "",
+					invDt: "",
+					customer: "GRAND TOTAL :",
+					saleQty: totalSaleQty,
+					freeQty: totalFreeQty,
+					claimQty: totalClaimQty,
+					claimValue: Number(totalClaimVal.toFixed(2)),
+				},
 			});
 
-			return new NextResponse(new Uint8Array(arrayBuf), {
+			return new NextResponse(new Uint8Array(buffer), {
 				headers: {
 					"Content-Disposition": `attachment; filename="${filename}.xlsx"`,
 					"Content-Type":
@@ -317,26 +610,54 @@ export async function GET(request: Request) {
 		}
 
 		// CSV
-		const firstRow = tabularData[0];
-		if (!firstRow) {
+		if (excelClaimRows.length === 0) {
 			return new NextResponse("No data available", { status: 200 });
 		}
-		const headersKeys = Object.keys(firstRow);
-		const csvContent = [
-			headersKeys.join(","),
-			...tabularData.map((row) =>
-				headersKeys
-					.map((key) => {
-						const val = (row as any)[key];
-						return typeof val === "string"
-							? `"${val.replace(/"/g, '""')}"`
-							: val;
-					})
-					.join(","),
-			),
-		].join("\n");
+		const csvHeaders = [
+			"Inv No",
+			"Inv Date",
+			"Customer",
+			"Item Name",
+			"Packing",
+			"Batch No",
+			"Sale Qty",
+			"Free Qty",
+			"Scheme",
+			"Claim Qty",
+			"MRP",
+			"PRate",
+			"PTR",
+			"Net Rate",
+			"Inv Rate",
+			"Rate Diff",
+			"Claim Value",
+		];
+		const csvRows = excelClaimRows.map((r) =>
+			[
+				r.invNo,
+				r.invDt,
+				`"${r.customer.replace(/"/g, '""')}"`,
+				`"${r.itemName.replace(/"/g, '""')}"`,
+				r.packing,
+				r.batchNo,
+				r.saleQty,
+				r.freeQty,
+				r.scheme,
+				r.claimQty,
+				r.mrp.toFixed(2),
+				r.pRate.toFixed(2),
+				r.ptr.toFixed(2),
+				r.netRate.toFixed(2),
+				r.invRate.toFixed(2),
+				r.rateDiff,
+				r.claimValue.toFixed(2),
+			].join(","),
+		);
+		csvRows.push(
+			`,,"GRAND TOTAL :",,,,${totalSaleQty},${totalFreeQty},,${totalClaimQty},,,,,,,${totalClaimVal.toFixed(2)}`,
+		);
 
-		return new NextResponse(csvContent, {
+		return new NextResponse([csvHeaders.join(","), ...csvRows].join("\n"), {
 			headers: {
 				"Content-Disposition": `attachment; filename="${filename}.csv"`,
 				"Content-Type": "text/csv; charset=utf-8",
@@ -344,7 +665,9 @@ export async function GET(request: Request) {
 		});
 	}
 
-	// Normal Sales or Products Query
+	// ==========================================
+	// 3. Normal Sales or Product Wise Query
+	// ==========================================
 	const salesResult = await getItemCustomerSale({
 		fromDate: defaultFrom,
 		toDate: defaultTo,
@@ -358,45 +681,20 @@ export async function GET(request: Request) {
 	const filename = `${safeMrName}_${safeCompany}_${reportTypeTitle}_${dateRangeTag}`;
 
 	if (format === "json") {
-		if (tab === "products") {
-			// Aggregated by product for Product Wise Statement PDF
-			const productMap = new Map<string, any>();
-			rows.forEach((r) => {
-				const key = r.ItemName || r.ItemCode || "Unknown";
-				if (!productMap.has(key)) {
-					productMap.set(key, {
-						Manufacturer:
-							mrInfo.company || mrInfo.division || company || "General",
-						Division: mrInfo.division || mrInfo.company || company || "General",
-						"Product Name": key,
-						ItemName: key,
-						Packing: r.Packing || "-",
-						"Free Scheme": Number(r.FQty || 0) > 0 ? "Yes" : "No",
-						"Current Stock": "-",
-						"Total Sales Qty": 0,
-						"Total Sales Amt": 0,
-						"MR Name": mrName,
-					});
-				}
-				const existing = productMap.get(key);
-				existing["Total Sales Qty"] += Number(r.Qty || 0);
-				existing["Total Sales Amt"] += Number(r.IAmt || 0);
-			});
-
-			return NextResponse.json(Array.from(productMap.values()));
-		}
-
-		// Full Sales Rows for Sales Statement PDF
+		// Provide comprehensive sales & return rows for both product and sales PDF generators
 		const jsonSalesData = rows.map((r) => ({
 			"MR Name": mrName,
 			Division: mrInfo.division || mrInfo.company || company || "General",
 			Manufacturer: mrInfo.company || mrInfo.division || company || "General",
 			Customer: r.Customer || "Unknown Party",
+			Address: r.Address || "",
+			City: r.City || "",
 			InvNo: r.InvNo,
 			"Inv No": r.InvNo,
-			InvDate: r.InvDt ? new Date(r.InvDt).toISOString().split("T")[0] : "-",
+			InvDt: r.InvDt ? new Date(r.InvDt).toISOString().split("T")[0] : "-",
 			"Inv Date": r.InvDt ? new Date(r.InvDt).toISOString().split("T")[0] : "-",
 			Code: r.ItemCode || "-",
+			ItemCode: r.ItemCode || "-",
 			"Item Code": r.ItemCode || "-",
 			ItemName: r.ItemName,
 			"Item Name": r.ItemName,
@@ -410,9 +708,14 @@ export async function GET(request: Request) {
 			FQty: Number(r.FQty || 0),
 			"Free Qty": Number(r.FQty || 0),
 			Rate: Number(r.Srate || r.PTR || 0),
+			Srate: Number(r.Srate || r.PTR || 0),
 			TaxableAmt: Number(r.IAmt || 0),
 			GSTAmt: 0,
 			Amount: Number(r.IAmt || 0),
+			IAmt: Number(r.IAmt || 0),
+			DocType: r.DocType || "",
+			ReturnType: r.ReturnType || "",
+			Series: r.Series || "",
 		}));
 
 		return NextResponse.json(jsonSalesData);
@@ -423,7 +726,7 @@ export async function GET(request: Request) {
 	let totalFreeQty = 0;
 	let totalAmount = 0;
 
-	const tabularData = rows.map((r) => {
+	const excelSalesRows = rows.map((r) => {
 		const qty = Number(r.Qty || 0);
 		const fQty = Number(r.FQty || 0);
 		const amt = Number(r.IAmt || 0);
@@ -434,49 +737,91 @@ export async function GET(request: Request) {
 		totalAmount += amt;
 
 		return {
-			"Inv No": r.InvNo,
-			"Inv Date": r.InvDt ? new Date(r.InvDt).toISOString().split("T")[0] : "-",
-			Customer: r.Customer || "Unknown Party",
-			"Item Code": r.ItemCode || "-",
-			"Item Name": r.ItemName,
-			Packing: r.Packing || "-",
-			"Batch No": r.BatchNo || "-",
-			Qty: qty,
-			"Free Qty": fQty,
-			Rate: Number(rate.toFixed(2)),
-			Amount: Number(amt.toFixed(2)),
-			Division: mrInfo.division || mrInfo.company || "-",
+			invNo: r.InvNo,
+			invDt: r.InvDt ? new Date(r.InvDt).toLocaleDateString("en-GB") : "-",
+			customer: r.Customer || "Unknown Party",
+			itemCode: r.ItemCode || "-",
+			itemName: r.ItemName,
+			packing: r.Packing || "-",
+			batchNo: r.BatchNo || "-",
+			qty,
+			freeQty: fQty,
+			rate,
+			amount: amt,
+			division: mrInfo.division || mrInfo.company || "-",
 		};
 	});
 
-	if (tabularData.length > 0) {
-		tabularData.push({
-			"Inv No": "" as any,
-			"Inv Date": "",
-			Customer: "TOTAL :",
-			"Item Code": "",
-			"Item Name": "",
-			Packing: "",
-			"Batch No": "",
-			Qty: totalQty,
-			"Free Qty": totalFreeQty,
-			Rate: "" as any,
-			Amount: Number(totalAmount.toFixed(2)),
-			Division: "",
-		});
-	}
-
 	if (format === "excel") {
-		const worksheet = xlsx.utils.json_to_sheet(tabularData);
-		const workbook = xlsx.utils.book_new();
-		xlsx.utils.book_append_sheet(
-			workbook,
-			worksheet,
-			tab === "products" ? "Products" : "Sales",
-		);
-		const arrayBuf = xlsx.write(workbook, { type: "array", bookType: "xlsx" });
+		const isProducts = tab === "products";
+		const sheetTitle = isProducts
+			? "Productwise Sales Statement"
+			: "Sales Statement";
 
-		return new NextResponse(new Uint8Array(arrayBuf), {
+		const columns: ExcelColumnDef[] = [
+			{ header: "Inv No", key: "invNo", width: 12 },
+			{ header: "Inv Date", key: "invDt", width: 12 },
+			{ header: "Customer / Party", key: "customer", width: 28 },
+			{ header: "Item Code", key: "itemCode", width: 12 },
+			{ header: "Item Name", key: "itemName", width: 26 },
+			{ header: "Packing", key: "packing", width: 10 },
+			{ header: "Batch No", key: "batchNo", width: 12 },
+			{
+				header: "Qty",
+				key: "qty",
+				width: 10,
+				numFmt: "#,##0",
+				alignment: { horizontal: "right" },
+			},
+			{
+				header: "Free Qty",
+				key: "freeQty",
+				width: 10,
+				numFmt: "#,##0",
+				alignment: { horizontal: "right" },
+			},
+			{
+				header: "Rate (₹)",
+				key: "rate",
+				width: 12,
+				numFmt: "#,##0.00",
+				alignment: { horizontal: "right" },
+			},
+			{
+				header: "Amount (₹)",
+				key: "amount",
+				width: 14,
+				numFmt: "#,##0.00",
+				alignment: { horizontal: "right" },
+			},
+			{ header: "Division", key: "division", width: 14 },
+		];
+
+		const buffer = await buildStyledExcelBuffer({
+			sheetName: isProducts ? "Product Sales" : "Sales",
+			title: sheetTitle,
+			metadata: {
+				mrName,
+				division:
+					company !== "All"
+						? company
+						: mrInfo.division || mrInfo.company || "All Divisions",
+				period: `${defaultFrom} to ${defaultTo}`,
+				year: "2026-27",
+			},
+			columns,
+			data: excelSalesRows,
+			totals: {
+				invNo: "",
+				invDt: "",
+				customer: "GRAND TOTAL :",
+				qty: totalQty,
+				freeQty: totalFreeQty,
+				amount: Number(totalAmount.toFixed(2)),
+			},
+		});
+
+		return new NextResponse(new Uint8Array(buffer), {
 			headers: {
 				"Content-Disposition": `attachment; filename="${filename}.xlsx"`,
 				"Content-Type":
@@ -486,25 +831,45 @@ export async function GET(request: Request) {
 	}
 
 	// CSV
-	const firstRow = tabularData[0];
-	if (!firstRow) {
+	if (excelSalesRows.length === 0) {
 		return new NextResponse("No data available", { status: 200 });
 	}
 
-	const headersKeys = Object.keys(firstRow);
-	const csvContent = [
-		headersKeys.join(","),
-		...tabularData.map((row) =>
-			headersKeys
-				.map((key) => {
-					const val = (row as any)[key];
-					return typeof val === "string" ? `"${val.replace(/"/g, '""')}"` : val;
-				})
-				.join(","),
-		),
-	].join("\n");
+	const csvHeaders = [
+		"Inv No",
+		"Inv Date",
+		"Customer",
+		"Item Code",
+		"Item Name",
+		"Packing",
+		"Batch No",
+		"Qty",
+		"Free Qty",
+		"Rate",
+		"Amount",
+		"Division",
+	];
+	const csvRows = excelSalesRows.map((r) =>
+		[
+			r.invNo,
+			r.invDt,
+			`"${r.customer.replace(/"/g, '""')}"`,
+			r.itemCode,
+			`"${r.itemName.replace(/"/g, '""')}"`,
+			r.packing,
+			r.batchNo,
+			r.qty,
+			r.freeQty,
+			r.rate.toFixed(2),
+			r.amount.toFixed(2),
+			r.division,
+		].join(","),
+	);
+	csvRows.push(
+		`,,"GRAND TOTAL :",,,,,,${totalQty},${totalFreeQty},,${totalAmount.toFixed(2)},`,
+	);
 
-	return new NextResponse(csvContent, {
+	return new NextResponse([csvHeaders.join(","), ...csvRows].join("\n"), {
 		headers: {
 			"Content-Disposition": `attachment; filename="${filename}.csv"`,
 			"Content-Type": "text/csv; charset=utf-8",

@@ -1,5 +1,5 @@
-import Image from "next/image";
 import React from "react";
+import { ReportStationeryHeader } from "@/components/report-stationery-header";
 import {
 	getItemCustomerSale,
 	type ItemCustomerSaleResult,
@@ -190,39 +190,13 @@ export async function ProductReportView({
 
 		return (
 			<div className="mt-4 space-y-4 rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
-				{/* HEADER */}
-				<div className="border-gray-900 border-b-2 pb-2">
-					<div className="flex items-start gap-4">
-						<Image
-							alt="Asmee Pharma Logo"
-							className="object-contain"
-							height={45}
-							priority
-							src="/logo.png"
-							width={140}
-						/>
-						<div>
-							<h2 className="font-extrabold text-base text-gray-900 uppercase tracking-tight">
-								ASMEE PHARMA PRIVATE LIMITED
-							</h2>
-							<p className="mt-0.5 text-[11px] text-gray-700 leading-tight">
-								BASEMENT-GF, 11/2 ASHOK HOUSE, B/S SANSTHA VASAHAT GATE, PRATAP
-								ROAD,
-								<br />
-								RAOPURA, VADODARA - 390001, GUJARAT - 24
-							</p>
-						</div>
-					</div>
-
-					<div className="mt-3 flex items-center justify-between border-gray-300 border-t pt-1.5 font-bold text-gray-900 text-xs">
-						<div>Year : 2026-27</div>
-						<div className="text-center font-extrabold text-[#0B2545] text-xs">
-							Itemwise/Customerwise Sales for Period of {fromDisplay} to{" "}
-							{toDisplay}
-						</div>
-						<div>Total Items: {productGroups.length}</div>
-					</div>
-				</div>
+				{/* Official Stationery Header */}
+				<ReportStationeryHeader
+					title="Itemwise/Customerwise Sales"
+					fromDisplay={fromDisplay}
+					toDisplay={toDisplay}
+					summaryRight={`Total Items: ${productGroups.length}`}
+				/>
 
 				{/* REPORT TABLE */}
 				<div className="w-full overflow-x-auto border-gray-900 border-t-2 pt-1">
@@ -332,27 +306,10 @@ export async function ProductReportView({
 
 	return (
 		<div className="mt-4 space-y-4 rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
-			<div className="border-gray-900 border-b-2 pb-2">
-				<div className="flex items-start gap-4">
-					<Image
-						alt="Asmee Pharma Logo"
-						className="object-contain"
-						height={45}
-						priority
-						src="/logo.png"
-						width={140}
-					/>
-					<div>
-						<h2 className="font-extrabold text-base text-gray-900 uppercase tracking-tight">
-							ASMEE PHARMA PRIVATE LIMITED
-						</h2>
-						<p className="mt-0.5 text-[11px] text-gray-700 leading-tight">
-							Product Catalog (Legacy Master) - Total Products:{" "}
-							{catalogItems.length}
-						</p>
-					</div>
-				</div>
-			</div>
+			<ReportStationeryHeader
+				title="Product Catalog"
+				summaryRight={`Total Products: ${catalogItems.length}`}
+			/>
 
 			<div className="w-full overflow-x-auto border-gray-300 border-t pt-2">
 				<table className="w-full min-w-[800px] border-collapse text-left font-sans text-xs">

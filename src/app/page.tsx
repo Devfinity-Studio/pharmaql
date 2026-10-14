@@ -44,10 +44,10 @@ export default async function Home() {
 						Welcome to Asmee Pharma
 					</div>
 
-					<h1 className="mt-8 max-w-4xl animate-fade-in-up font-extrabold text-5xl text-white leading-tight tracking-tight md:text-7xl">
+					<h1 className="mt-8 max-w-4xl animate-fade-in-up font-extrabold text-5xl text-white leading-[1.15] tracking-tight md:text-7xl md:leading-[1.12]">
 						Next-Generation
 						<br />
-						<span className="bg-gradient-to-r from-cyan-400 to-blue-600 bg-clip-text text-transparent">
+						<span className="inline-block bg-gradient-to-r from-cyan-400 to-blue-600 bg-clip-text pb-1 text-transparent">
 							Healthcare Logistics
 						</span>
 					</h1>

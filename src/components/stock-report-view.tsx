@@ -1,5 +1,5 @@
-import Image from "next/image";
 import React from "react";
+import { ReportStationeryHeader } from "@/components/report-stationery-header";
 import { getMRInfo } from "@/server/actions/mrInfo";
 import {
 	getStockMovement,
@@ -200,50 +200,18 @@ export async function StockReportView({
 
 	return (
 		<div className="mt-4 space-y-8 overflow-hidden rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
-			{/* Header */}
-			<div className="mb-2 flex flex-col items-start justify-between gap-4 border-[#0B2545] border-b-2 pb-2 md:flex-row">
-				<div className="flex items-center gap-4">
-					<div>
-						<h2 className="font-extrabold text-[#0B2545] text-xl tracking-tight">
-							<Image
-								alt="Asmee Pharma Logo"
-								className="object-contain"
-								height={50}
-								priority
-								src="/logo.png"
-								width={180}
-							/>
-						</h2>
-						<p className="mt-0.5 max-w-sm font-medium text-gray-500 text-xs leading-relaxed">
-							BASEMENT-GF, 11/2 ASHOK HOUSE, B/S SANSTHA VASAHAT GATE, PRATAP
-							ROAD, RAOPURA, VADODARA - 390001, GUJARAT
-							<br />
-							Contact: 9409789800, Mobile: 9409789700
-						</p>
+			{/* Official Stationery Header */}
+			<ReportStationeryHeader
+				title="Stock Movement Statement"
+				fromDisplay={fromDate ? fromDate.split("-").reverse().join("/") : undefined}
+				toDisplay={toDate ? toDate.split("-").reverse().join("/") : undefined}
+				summaryRight={
+					<div className="flex flex-col items-end gap-0.5 text-right">
+						<span>Total Items: {reportData.length}</span>
+						<span className="font-semibold text-gray-500 text-[10px]">Value Calc. on: PRate</span>
 					</div>
-				</div>
-				<div className="flex flex-col justify-center self-stretch rounded-lg border border-gray-100 bg-gray-50 p-2.5 text-right font-medium text-[10px] text-gray-600 leading-normal md:self-auto">
-					<p className="font-bold text-[#0B2545] text-xs">
-						Stock Movement Statement
-					</p>
-					{(searchParams?.from || searchParams?.to) && (
-						<p className="mt-1">
-							For the Period of :{" "}
-							<span className="font-bold">{searchParams?.from || ""}</span> to{" "}
-							<span className="font-bold">{searchParams?.to || ""}</span>
-						</p>
-					)}
-					<p className="mt-0.5">
-						Purc Days :{" "}
-						<span className="font-bold">
-							Difference between last purchase date and today's date
-						</span>
-					</p>
-					<p className="mt-2 text-base">
-						Value Calc. on : <span className="font-extrabold">PRate</span>
-					</p>
-				</div>
-			</div>
+				}
+			/>
 
 			<div className="w-full overflow-x-auto border-[#0B2545] border-t-2 pt-1">
 				<table className="w-full min-w-[1200px] border-collapse text-left font-sans">

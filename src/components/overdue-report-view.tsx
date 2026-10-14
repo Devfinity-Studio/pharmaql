@@ -1,5 +1,5 @@
-import Image from "next/image";
 import React from "react";
+import { ReportStationeryHeader } from "@/components/report-stationery-header";
 import { getCustomerBlockingMap } from "@/server/actions/customerBlocking";
 import { getMRInfo } from "@/server/actions/mrInfo";
 import {
@@ -155,43 +155,13 @@ export async function OverdueReportView({
 
 	return (
 		<div className="mt-4 space-y-8 overflow-hidden rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
-			{/* Header */}
-			<div className="mb-2 flex flex-col items-start justify-between gap-4 border-[#0B2545] border-b-2 pb-2 md:flex-row">
-				<div className="flex items-center gap-4">
-					<div>
-						<h2 className="font-extrabold text-2xl text-[#0B2545] tracking-tight">
-							<Image
-								alt="Asmee Pharma Logo"
-								className="object-contain"
-								height={50}
-								priority
-								src="/logo.png"
-								width={180}
-							/>
-						</h2>
-						<p className="mt-1 font-medium text-[#0B2545] text-sm leading-relaxed">
-							BASEMENT-GF, 11/2 ASHOK HOUSE, B/S SANSTHA VASAHAT GATE, PRATAP
-							ROAD,
-							<br />
-							RAOPURA, VADODARA - 390001, GUJARAT - 24
-							<br />
-							Contact: 9409789800, 9409789700 Mobile: 9409789700 Email:
-							asmeepharma2022@gmail.com
-						</p>
-					</div>
-				</div>
-			</div>
-
-			<div className="mb-4 flex items-end justify-between font-bold text-[#0B2545] text-sm">
-				<div>
-					<p>Year : 2026-27</p>
-					<p className="mt-2 text-base">
-						Overdue (Purchase Days & Outstanding) Statement for {fromDisplay} to{" "}
-						{toDisplay}
-					</p>
-				</div>
-				<div>Total Records: {reportData.length}</div>
-			</div>
+			{/* Official Stationery Header */}
+			<ReportStationeryHeader
+				title="Overdue (Purchase Days & Outstanding) Statement"
+				fromDisplay={fromDisplay}
+				toDisplay={toDisplay}
+				summaryRight={`Total Records: ${reportData.length}`}
+			/>
 
 			<div className="w-full overflow-x-auto border-[#0B2545] border-t-2 pt-1">
 				<table className="w-full min-w-[900px] border-collapse text-left font-sans">

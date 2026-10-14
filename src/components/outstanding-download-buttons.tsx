@@ -1,7 +1,8 @@
 "use client";
 
 import { useSearchParams } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import { generateGroupedPdfReport } from "@/lib/pdf";
 
 export function OutstandingDownloadButtons({ mrId }: { mrId: string }) {
@@ -18,6 +19,11 @@ export function OutstandingDownloadButtons({ mrId }: { mrId: string }) {
 	const [from, setFrom] = useState(defaultFrom);
 	const [to, setTo] = useState(defaultTo);
 	const [isDownloading, setIsDownloading] = useState(false);
+	const [mounted, setMounted] = useState(false);
+
+	useEffect(() => {
+		setMounted(true);
+	}, []);
 
 	const openModal = (fmt: "csv" | "excel" | "pdf" | "print") => {
 		setFormat(fmt);
@@ -128,7 +134,7 @@ export function OutstandingDownloadButtons({ mrId }: { mrId: string }) {
 		<>
 			<div className="flex flex-wrap gap-2">
 				<button
-					className="flex h-[36px] items-center justify-center gap-1.5 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 font-bold text-rose-700 text-xs transition hover:bg-rose-100"
+					className="flex h-[36px] items-center justify-center gap-1.5 rounded-xl border border-[#BAE6FD] bg-[#E0F2FE] px-3 py-2 font-bold text-[#0071BC] text-xs transition hover:bg-[#BAE6FD]"
 					onClick={() => openModal("csv")}
 					title="Download Outstanding Invoices (CSV)"
 				>
@@ -149,7 +155,7 @@ export function OutstandingDownloadButtons({ mrId }: { mrId: string }) {
 					CSV
 				</button>
 				<button
-					className="flex h-[36px] items-center justify-center gap-1.5 rounded-xl border border-rose-700 bg-rose-600 px-3 py-2 font-bold text-white text-xs transition hover:bg-rose-700"
+					className="flex h-[36px] items-center justify-center gap-1.5 rounded-xl bg-[#0071BC] px-3 py-2 font-bold text-white text-xs shadow-sm transition hover:bg-[#134074]"
 					onClick={() => openModal("excel")}
 					title="Download Outstanding Invoices (Excel)"
 				>
@@ -170,7 +176,7 @@ export function OutstandingDownloadButtons({ mrId }: { mrId: string }) {
 					Excel
 				</button>
 				<button
-					className="flex h-[36px] items-center justify-center gap-1.5 rounded-xl border border-red-700 bg-red-600 px-3 py-2 font-bold text-white text-xs transition hover:bg-red-700"
+					className="flex h-[36px] items-center justify-center gap-1.5 rounded-xl bg-[#0B2545] px-3 py-2 font-bold text-white text-xs shadow-sm transition hover:bg-[#1E293B]"
 					onClick={() => openModal("pdf")}
 					title="Download Outstanding Invoices (PDF)"
 				>
@@ -192,7 +198,7 @@ export function OutstandingDownloadButtons({ mrId }: { mrId: string }) {
 				</button>
 
 				<button
-					className="flex h-[36px] items-center justify-center gap-1.5 rounded-xl border border-slate-700 bg-slate-800 px-3 py-2 font-bold text-white text-xs transition hover:bg-slate-900"
+					className="flex h-[36px] items-center justify-center gap-1.5 rounded-xl border border-gray-300 bg-white px-3 py-2 font-bold text-gray-700 text-xs transition hover:bg-gray-50"
 					onClick={() => openModal("print")}
 					title="Print Outstanding Invoices"
 				>
@@ -214,61 +220,72 @@ export function OutstandingDownloadButtons({ mrId }: { mrId: string }) {
 				</button>
 			</div>
 
-			{isOpen && (
-				<div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-4">
-					<div className="fade-in zoom-in-95 w-full max-w-sm animate-in rounded-2xl bg-white p-6 shadow-xl duration-200">
-						<h3 className="mb-2 font-bold text-gray-900 text-xl">
-							Download Outstanding {format.toUpperCase()}
-						</h3>
-						<p className="mb-6 text-gray-500 text-sm">
-							Select the date range for your report. Leave blank to download all
-							available invoices.
-						</p>
+			{/* Prompt Dialog Window via Portal */}
+			{isOpen &&
+				mounted &&
+				createPortal(
+					<div className="fixed inset-0 z-[9999] flex items-center justify-center p-4">
+						{/* Dark Full-Screen Backdrop with Real Blur */}
+						<div
+							className="fixed inset-0 bg-black/60 backdrop-blur-md transition-opacity duration-200"
+							onClick={() => setIsOpen(false)}
+						/>
 
-						<div className="space-y-4">
-							<div>
-								<label className="mb-1 block font-bold text-gray-700 text-sm">
-									From Invoice Date
-								</label>
-								<input
-									className="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-2 outline-none transition focus:border-transparent focus:ring-2 focus:ring-gray-900"
-									onChange={(e) => setFrom(e.target.value)}
-									type="date"
-									value={from}
-								/>
+						{/* Centered Modal Card */}
+						<div className="fade-in zoom-in-95 relative z-10 w-full max-w-sm animate-in rounded-2xl border border-gray-200/80 bg-white p-6 shadow-2xl duration-200">
+							<h3 className="mb-2 font-extrabold text-[#0B2545] text-xl">
+								Download Outstanding {format.toUpperCase()}
+							</h3>
+							<p className="mb-6 font-medium text-gray-500 text-sm">
+								Select the date range for your report. Leave blank to download all
+								available invoices.
+							</p>
+
+							<div className="space-y-4">
+								<div>
+									<label className="mb-2 block font-bold text-[#0B2545] text-sm">
+										From Invoice Date
+									</label>
+									<input
+										className="w-full rounded-xl border-2 border-gray-300 bg-white px-4 py-2.5 font-medium text-[#0B2545] text-base outline-none transition-colors focus:border-[#0071BC]"
+										onChange={(e) => setFrom(e.target.value)}
+										type="date"
+										value={from}
+									/>
+								</div>
+								<div>
+									<label className="mb-2 block font-bold text-[#0B2545] text-sm">
+										To Invoice Date
+									</label>
+									<input
+										className="w-full rounded-xl border-2 border-gray-300 bg-white px-4 py-2.5 font-medium text-[#0B2545] text-base outline-none transition-colors focus:border-[#0071BC]"
+										onChange={(e) => setTo(e.target.value)}
+										type="date"
+										value={to}
+									/>
+								</div>
 							</div>
-							<div>
-								<label className="mb-1 block font-bold text-gray-700 text-sm">
-									To Invoice Date
-								</label>
-								<input
-									className="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-2 outline-none transition focus:border-transparent focus:ring-2 focus:ring-gray-900"
-									onChange={(e) => setTo(e.target.value)}
-									type="date"
-									value={to}
-								/>
+
+							<div className="mt-8 flex gap-3">
+								<button
+									className="flex-1 rounded-xl border-2 border-gray-300 bg-white px-4 py-2.5 font-bold text-gray-700 transition-colors hover:bg-gray-50 disabled:opacity-50"
+									disabled={isDownloading}
+									onClick={() => setIsOpen(false)}
+								>
+									Cancel
+								</button>
+								<button
+									className="flex flex-1 items-center justify-center rounded-xl bg-[#0071BC] px-4 py-2.5 font-bold text-white shadow-sm transition-colors hover:bg-[#134074] disabled:opacity-50"
+									disabled={isDownloading}
+									onClick={handleDownload}
+								>
+									{isDownloading ? "..." : "Confirm"}
+								</button>
 							</div>
 						</div>
-
-						<div className="mt-8 flex gap-3">
-							<button
-								className="flex-1 rounded-xl border border-gray-300 bg-white px-4 py-2.5 font-bold text-gray-700 transition hover:bg-gray-50 disabled:opacity-50"
-								disabled={isDownloading}
-								onClick={() => setIsOpen(false)}
-							>
-								Cancel
-							</button>
-							<button
-								className="flex flex-1 items-center justify-center rounded-xl border border-rose-700 bg-rose-600 px-4 py-2.5 font-bold text-white transition hover:bg-rose-700 disabled:opacity-50"
-								disabled={isDownloading}
-								onClick={handleDownload}
-							>
-								{isDownloading ? "..." : "Confirm"}
-							</button>
-						</div>
-					</div>
-				</div>
-			)}
+					</div>,
+					document.body,
+				)}
 		</>
 	);
 }

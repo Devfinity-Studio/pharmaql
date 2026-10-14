@@ -1,6 +1,7 @@
 import { headers } from "next/headers";
 import { NextResponse } from "next/server";
 import * as xlsx from "xlsx";
+import { buildStyledExcelBuffer } from "@/lib/excel";
 import { getMRInfo } from "@/server/actions/mrInfo";
 import { getMRwisePeriodicalOutstanding } from "@/server/actions/overdueReports";
 import { auth } from "@/server/auth";
@@ -146,6 +147,48 @@ export async function GET(request: Request) {
 		};
 	});
 
+	if (format === "excel") {
+		const columns = [
+			{ header: "Customer / Party", key: "Customer / Party", width: 32 },
+			{ header: "City", key: "City", width: 18 },
+			{ header: "Bill No", key: "Bill No", width: 14 },
+			{ header: "Bill Date", key: "Bill Date", width: 14 },
+			{ header: "Bill Amount", key: "Bill Amount", width: 16, numFmt: "#,##0.00" },
+			{ header: "Adjusted Amount", key: "Adjusted Amount", width: 16, numFmt: "#,##0.00" },
+			{ header: "Balance Amount", key: "Balance Amount", width: 16, numFmt: "#,##0.00" },
+			{ header: "Overdue Days", key: "Overdue Days", width: 14, numFmt: "#,##0" },
+			{ header: "Division", key: "Division", width: 18 },
+		];
+
+		const excelBuf = await buildStyledExcelBuffer({
+			sheetName: "Outstanding",
+			title: "Overdue & Periodical Outstanding Statement",
+			metadata: {
+				mrName,
+				division,
+				period: from && to ? `${from} to ${to}` : "Current",
+				year: "2026-27",
+			},
+			columns,
+			data: tabularData,
+			totals: {
+				"Customer / Party": "GRAND TOTAL",
+				"Bill Amount": Number(totalOriginalAmt.toFixed(2)),
+				"Adjusted Amount": Number(totalAdjAmt.toFixed(2)),
+				"Balance Amount": Number(totalBalanceAmt.toFixed(2)),
+			},
+		});
+
+		return new NextResponse(new Uint8Array(excelBuf), {
+			headers: {
+				"Content-Disposition": `attachment; filename="${filename}.xlsx"`,
+				"Content-Type":
+					"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+			},
+		});
+	}
+
+	// Append grand total row for CSV
 	if (tabularData.length > 0) {
 		tabularData.push({
 			"Customer / Party": "TOTAL :",
@@ -157,21 +200,6 @@ export async function GET(request: Request) {
 			"Balance Amount": Number(totalBalanceAmt.toFixed(2)),
 			"Overdue Days": "" as any,
 			Division: "",
-		});
-	}
-
-	if (format === "excel") {
-		const worksheet = xlsx.utils.json_to_sheet(tabularData);
-		const workbook = xlsx.utils.book_new();
-		xlsx.utils.book_append_sheet(workbook, worksheet, "Outstanding");
-		const arrayBuf = xlsx.write(workbook, { type: "array", bookType: "xlsx" });
-
-		return new NextResponse(new Uint8Array(arrayBuf), {
-			headers: {
-				"Content-Disposition": `attachment; filename="${filename}.xlsx"`,
-				"Content-Type":
-					"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-			},
 		});
 	} else {
 		// CSV

@@ -1,5 +1,5 @@
-import Image from "next/image";
 import React from "react";
+import { ReportStationeryHeader } from "@/components/report-stationery-header";
 import { getClaimData } from "@/server/actions/claimData";
 import { getMRInfo } from "@/server/actions/mrInfo";
 import { getMROverrides } from "@/server/actions/mrs";
@@ -225,58 +225,19 @@ export async function FreeSchemeReportView({
 	const currentYear = new Date().getFullYear();
 
 	return (
-		<div className="mt-4 bg-white p-8 shadow-sm print:p-0 print:shadow-none">
-			<div className="mb-4 flex flex-col justify-between md:flex-row">
-				<div>
-					<h2 className="font-bold text-[#0B2545] text-xl">
-						<Image
-							alt="Asmee Pharma Logo"
-							className="object-contain"
-							height={50}
-							priority
-							src="/logo.png"
-							width={180}
-						/>
-					</h2>
-					<p className="mt-1 text-black text-xs">
-						BASEMENT-GF, 11/2 ASHOK HOUSE, B/S SANSTHA VASAHAT GATE,, PRATAP
-						ROAD,
-						<br />
-						RAOPURA, VADODARA - 390001, GUJARAT - 24
-						<br />
-						Contact: 9409789800,9409789700 Mobile: 9409789700 Email:
-						asmeepharma2022@gmail.com
-					</p>
-				</div>
-				<div className="text-right font-bold text-[10px] text-black">
-					<div className="flex justify-end gap-2">
-						<span className="underline">Qty Claim :</span>
-						<span>Claim Value = PTR x ClaimQty</span>
+		<div className="mt-4 rounded-xl border border-gray-300 bg-white p-6 shadow-sm print:m-0 print:border-none print:p-0 print:shadow-none">
+			{/* Official Stationery Header */}
+			<ReportStationeryHeader
+				title="Claim Quantity Statement"
+				fromDisplay={defaultFrom ? defaultFrom.split("-").reverse().join("/") : undefined}
+				toDisplay={defaultTo ? defaultTo.split("-").reverse().join("/") : undefined}
+				summaryRight={
+					<div className="text-right font-medium text-[10px] text-gray-700">
+						<div><span className="font-bold text-[#0B2545]">Qty Claim:</span> PTR × ClaimQty</div>
+						<div><span className="font-bold text-[#0B2545]">Rate Claim:</span> (NetRate - InvRate) × SaleQty</div>
 					</div>
-					<div className="mt-1 flex justify-end gap-2">
-						<span className="underline">Rate Claim :</span>
-						<span>Claim Value = (NetRate - InvRate) x SaleQty ( Scheme )</span>
-					</div>
-					<div className="mt-1 flex justify-end gap-2">
-						<span className="opacity-0">Rate Claim :</span>
-						<span>Claim Value = (PTR - InvRate) x SaleQty ( No Scheme )</span>
-					</div>
-				</div>
-			</div>
-
-			<div className="mb-1 font-bold text-[11px] text-black">
-				Year : {currentYear}-{String(currentYear + 1).slice(2)}
-			</div>
-			<div className="mb-2 font-bold text-[11px] text-black">
-				Claim Quantity Statement for Period of{" "}
-				{new Date(defaultFrom)
-					.toLocaleDateString("en-GB")
-					.replace(/\//g, "-")}{" "}
-				to{" "}
-				{new Date(defaultTo)
-					.toLocaleDateString("en-GB")
-					.replace(/\//g, "-")}
-			</div>
+				}
+			/>
 
 			<div className="mt-4 w-full overflow-x-auto border-gray-300 border-t border-b">
 				<table className="w-full min-w-[1200px] border-collapse text-left">

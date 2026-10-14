@@ -11,14 +11,17 @@ export default async function Header() {
 		<header className="fixed top-0 z-50 w-full border-white/10 border-b bg-[#020817]/40 backdrop-blur-xl">
 			<div className="mx-auto flex max-w-7xl items-center justify-between px-8 py-5">
 				<div className="font-extrabold text-3xl tracking-tight transition-transform hover:scale-[1.02]">
-					<Link href={"/"}>
+					<Link
+						className="inline-flex items-center rounded-xl border border-white/30 bg-white/95 px-3 py-1.5 shadow-md backdrop-blur-sm transition-all hover:bg-white hover:shadow-cyan-500/20"
+						href={"/"}
+					>
 						<Image
 							alt="Asmee Pharma Logo"
-							className="object-contain"
-							height={40}
+							className="h-8 w-auto object-contain"
+							height={36}
 							priority
 							src="/logo.png"
-							width={160}
+							width={140}
 						/>
 					</Link>
 				</div>
