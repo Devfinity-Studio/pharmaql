@@ -149,10 +149,13 @@
 
 ## Phase 21: PDF and Report Polishing
 
-- [ ] Audit and refine PDF styling, branding, and typography across all report generators (`Stock`, `Sales`, `Grouped Products`, `Free Scheme`, `Outstanding`).
-- [ ] Fix layout issues, table pagination, column width proportions, and text auto-wrapping for wide data tables.
-- [ ] Align numeric decimal formatting, currency symbols, and total/subtotal summary rows to reference standards.
-- [ ] Ensure consistent metadata headers (Company Name, Division, MR Name, Date Range, Generation Timestamp) and "Page X of Y" footers.
-- [ ] Verify print and download previews across mobile and desktop devices.
+- [ ] **Web View Stationery Headers**: Replicate the official stationery header from the Party Wise tab across all report tabs (`Stock`, `Sales`, `Product Wise`, `Free Scheme`, `Overdue`) with Asmee Pharma logo, full address, contact details, year, and dynamic title/subtitle metadata.
+- [ ] **Party Wise PDF Generation & Button Styling**: Fix the red PDF button on Party Wise tab to match standard UI theme, and implement full `generatePartyWisePdfReport` to generate an exact replica of the Party Wise web report.
+- [ ] **Product Wise PDF Generation**: Align Product Wise PDF export structure and data columns with the exact web view table (Item Code, Item Name, Batch, Exp, Qty, Rate, Amount).
+- [ ] **Stock Movement PDF Zero-Transaction Filter**: Filter out zero-movement items (no opening, in, out, or balance transactions) from Stock PDF generation so it matches web view and avoids redundant pages.
+- [ ] **High-Fidelity PDF Replicas**: Standardize typography, font hierarchy, column widths, auto-wrapping, customer/category group headers, and subtotal/grand total styling across all PDFs to mirror web view.
+- [ ] **Sticky Top Header & Targeted Loading States**: Make MR name, division filter, date range picker, download actions, and tab bar sticky/pinned; replace stale data with a clear targeted loader during date or tab transitions.
+- [ ] **Collapsible Sidebar with Icons**: Add intuitive icons to navigation links and implement a smooth collapsible sidebar for MR and Admin layouts.
+- [ ] **Mobile Responsiveness & Home Page Polish**: Improve touch interactability on mobile devices (horizontal scroll indicators, touch targets), fix home page logo contrast with dark background, and eliminate cut-off text.
 
 
