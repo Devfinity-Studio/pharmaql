@@ -197,5 +197,14 @@
 - [x] **Admin Broadcast & Notice Push Dispatch**: Automatically push notifications to field MRs whenever Admins publish new circulars or critical company notices.
 - [x] **In-App Notification Bell & Preference Center**: Add interactive notification bell in MR and Admin top bars showing unread alerts, timestamps, and toggle controls.
 - [x] **Developer Diagnostics & Verification Suite**: Add test push dispatcher in Developer Control Center (`/admin/dev`) and automated verification suite testing subscription lifecycle and payload formatting.
+## Phase 26: Developer Debug Suite & Email Credentials Integration
 
-
+- [ ] **Dedicated Developer Debug Tab & Toolset**: Create a prominent Debug Console within `/admin/dev` featuring one-click testing and diagnostic triggers.
+- [ ] **Interactive Test Notification Dispatcher**: Add a "Send Test Notification" UI button with payload customization (title, message, urgency, target role/user) to trigger instant Web Push and in-app alerts on demand.
+- [ ] **System & Diagnostics Action Buttons**: Add dedicated test buttons for:
+  - Email connectivity & test email dispatch to admins/MRs.
+  - Rate limiter status check & manual client IP reset.
+  - Storage read/write latency test on active data dir (`/tmp` vs local).
+  - Stored procedure latency benchmark test.
+- [ ] **Developer Email Credentials Configuration**: Implement full support for dedicated developer SMTP sending credentials (`DEV_SMTP_USER`, `DEV_SMTP_PASS`, `DEV_EMAIL`) in mailer so system alerts, renewal invoices, and administrative notices originate directly from the developer account to Admins and MRs.
+- [ ] **Verification & Build Validation**: Test all debug actions, verify email dispatch with developer credentials, run typecheck, and ensure clean production builds.
