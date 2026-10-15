@@ -80,6 +80,12 @@ export function getMaskedEnvInspection() {
 		gmailUser: process.env.GMAIL_USER || "info.devolvestudio@gmail.com",
 		gmailPassConfigured: Boolean(process.env.GMAIL_PASS),
 		gmailPassMasked: mask(process.env.GMAIL_PASS),
+		devSmtpUser: process.env.DEV_SMTP_USER || "Not Configured",
+		devSmtpUserConfigured: Boolean(process.env.DEV_SMTP_USER),
+		devSmtpPassConfigured: Boolean(process.env.DEV_SMTP_PASS),
+		devSmtpPassMasked: mask(process.env.DEV_SMTP_PASS),
+		devSmtpHost: process.env.DEV_SMTP_HOST || "Default (Gmail)",
+		devSmtpPort: process.env.DEV_SMTP_PORT || "587",
 		adminAllowedIps: process.env.ADMIN_ALLOWED_IPS || "Any (Unrestricted)",
 	};
 }
