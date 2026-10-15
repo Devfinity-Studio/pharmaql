@@ -122,31 +122,29 @@ export function CollapsibleSidebar({
 					: "border-gray-200 border-b md:border-b-0 md:border-r bg-white text-[#0B2545]"
 			} ${
 				isCollapsed
-					? "w-full md:w-20 p-3 md:p-3"
-					: portal === "mr"
-						? "w-full md:w-72 p-4 md:p-6"
-						: "w-full md:w-64 p-4 md:p-5"
+					? "w-full md:w-20 p-3"
+					: "w-full md:w-72 p-4 md:p-5"
 			} h-auto md:h-screen`}
 		>
 			{/* Top Header & Collapse/Menu Toggles */}
 			<div
-				className={`flex items-center justify-between ${
+				className={`flex items-center justify-between gap-2 ${
 					isCollapsed ? "md:flex-col md:gap-3 md:mb-6" : "mb-0 md:mb-6"
 				}`}
 			>
 				{/* Brand Logo & Name (Expanded Desktop + Mobile) */}
 				{!isCollapsed ? (
-					<div>
-						<div className="flex items-center gap-1.5 font-black text-xl md:text-2xl tracking-tight">
-							<Link className="flex items-center gap-1.5" href="/">
+					<div className="min-w-0 flex-1 truncate pr-1">
+						<div className="flex items-center gap-1.5 font-black text-xl md:text-2xl tracking-tight truncate">
+							<Link className="flex items-center gap-1.5 truncate" href="/">
 								<span className={isDark ? "text-white" : "text-[#0B2545]"}>
 									Asmee
 								</span>
 								<span className="text-[#0071BC]">Pharma</span>
 							</Link>
 						</div>
-						<div className="mt-0.5 md:mt-1 flex items-center gap-1.5 font-bold text-gray-400 text-xs uppercase tracking-widest">
-							<span>
+						<div className="mt-0.5 md:mt-1 flex items-center gap-1.5 font-bold text-gray-400 text-xs uppercase tracking-widest truncate">
+							<span className="truncate">
 								{portal === "mr"
 									? "MR Portal"
 									: userRole === "DEVELOPER"
@@ -154,7 +152,7 @@ export function CollapsibleSidebar({
 										: "Admin Panel"}
 							</span>
 							{userRole === "DEVELOPER" && (
-								<span className="rounded border border-purple-500/40 bg-purple-500/20 px-1 py-0.2 font-mono text-[9px] text-purple-300">
+								<span className="shrink-0 rounded border border-purple-500/40 bg-purple-500/20 px-1 py-0.2 font-mono text-[9px] text-purple-300">
 									DEV
 								</span>
 							)}
@@ -162,7 +160,7 @@ export function CollapsibleSidebar({
 					</div>
 				) : (
 					/* When Collapsed on Desktop: show "A" mark */
-					<div className="hidden md:flex flex-col items-center">
+					<div className="hidden md:flex flex-col items-center justify-center w-full">
 						<Link
 							className="flex h-10 w-10 items-center justify-center rounded-xl font-black text-lg text-white"
 							href="/"
@@ -177,8 +175,8 @@ export function CollapsibleSidebar({
 
 				{/* On mobile when isCollapsed was set on desktop: still show brand name on mobile */}
 				{isCollapsed && (
-					<div className="flex md:hidden items-center gap-1.5 font-black text-xl tracking-tight">
-						<Link className="flex items-center gap-1.5" href="/">
+					<div className="flex md:hidden items-center gap-1.5 font-black text-xl tracking-tight min-w-0 flex-1 truncate">
+						<Link className="flex items-center gap-1.5 truncate" href="/">
 							<span className={isDark ? "text-white" : "text-[#0B2545]"}>
 								Asmee
 							</span>
@@ -189,17 +187,26 @@ export function CollapsibleSidebar({
 
 				{/* Right Side Header Controls */}
 				<div
-					className={`flex items-center gap-2 ${
-						isCollapsed ? "md:flex-col md:gap-3" : ""
+					className={`flex items-center gap-1.5 shrink-0 ${
+						isCollapsed ? "md:flex-col md:gap-2.5 md:w-full md:items-center" : ""
 					}`}
 				>
 					{/* Notification Center */}
-					<NotificationCenter align="auto" isDark={isDark} userRole={userRole} />
+					<NotificationCenter
+						align="auto"
+						buttonClassName={`relative flex h-8 w-8 md:h-8.5 md:w-8.5 items-center justify-center rounded-lg border transition shrink-0 ${
+							isDark
+								? "border-gray-700 bg-gray-800 text-gray-200 hover:bg-gray-700 hover:text-white"
+								: "border-gray-200 bg-white text-gray-700 hover:bg-gray-50 hover:text-[#0B2545]"
+						}`}
+						isDark={isDark}
+						userRole={userRole}
+					/>
 
 					{/* Desktop Collapse / Expand Toggle */}
 					<button
 						aria-label={isCollapsed ? "Expand sidebar" : "Collapse sidebar"}
-						className={`hidden h-8 w-8 items-center justify-center rounded-lg border transition md:flex ${
+						className={`hidden h-8 w-8 md:h-8.5 md:w-8.5 items-center justify-center rounded-lg border transition shrink-0 md:flex ${
 							isDark
 								? "border-gray-700 bg-gray-800 text-gray-300 hover:bg-gray-700 hover:text-white"
 								: "border-gray-200 bg-gray-50 text-gray-500 hover:bg-gray-100 hover:text-[#0B2545]"
@@ -218,7 +225,7 @@ export function CollapsibleSidebar({
 					{/* Mobile Menu Hamburger Toggle */}
 					<button
 						aria-label={isMobileOpen ? "Close menu" : "Open menu"}
-						className={`flex h-9 w-9 items-center justify-center rounded-xl border transition md:hidden ${
+						className={`flex h-8 w-8 md:h-8.5 md:w-8.5 items-center justify-center rounded-lg border transition shrink-0 md:hidden ${
 							isDark
 								? "border-gray-700 bg-gray-800 text-gray-200 hover:bg-gray-700 hover:text-white"
 								: "border-gray-200 bg-gray-50 text-gray-600 hover:bg-gray-100 hover:text-[#0B2545]"
@@ -227,9 +234,9 @@ export function CollapsibleSidebar({
 						type="button"
 					>
 						{isMobileOpen ? (
-							<X className="h-5 w-5" />
+							<X className="h-4 w-4" />
 						) : (
-							<Menu className="h-5 w-5" />
+							<Menu className="h-4 w-4" />
 						)}
 					</button>
 				</div>
