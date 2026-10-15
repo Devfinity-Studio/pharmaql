@@ -30,6 +30,7 @@ interface NotificationCenterProps {
 	className?: string;
 	buttonClassName?: string;
 	isDark?: boolean;
+	align?: "left" | "right" | "auto";
 }
 
 function urlBase64ToUint8Array(base64String: string) {
@@ -52,6 +53,7 @@ export function NotificationCenter({
 	className = "",
 	buttonClassName = "",
 	isDark = false,
+	align = "auto",
 }: NotificationCenterProps) {
 	const router = useRouter();
 	const [isOpen, setIsOpen] = useState(false);
@@ -283,7 +285,13 @@ export function NotificationCenter({
 			{/* Dropdown Popover Drawer */}
 			{isOpen && (
 				<div
-					className={`absolute right-0 mt-2 z-50 w-80 sm:w-96 rounded-2xl border shadow-2xl backdrop-blur-md transition-all ${
+					className={`absolute ${
+						align === "left"
+							? "left-0"
+							: align === "auto"
+								? "right-0 md:left-0 md:right-auto"
+								: "right-0"
+					} mt-2 z-50 w-80 sm:w-96 rounded-2xl border shadow-2xl backdrop-blur-md transition-all ${
 						isDark
 							? "border-gray-800 bg-gray-900/98 text-white"
 							: "border-gray-200 bg-white/98 text-gray-900"
