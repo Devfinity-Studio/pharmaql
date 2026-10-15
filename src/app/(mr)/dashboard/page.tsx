@@ -5,6 +5,7 @@ import { DashboardSkeleton } from "@/components/dashboard-skeleton";
 import { MrDashboardContent } from "@/components/mr-dashboard-content";
 import { NoticeModal } from "@/components/notice-modal";
 import { getActiveNotice } from "@/server/actions/notices";
+import { isFeatureEnabledForRole } from "@/lib/maintenance";
 import { auth } from "@/server/auth";
 
 export const dynamic = "force-dynamic";
@@ -39,7 +40,8 @@ export default async function MRDashboardPage({
 		}
 	}
 
-	const activeNotice = await getActiveNotice();
+	const noticesToggle = await isFeatureEnabledForRole("notices", session.user.role);
+	const activeNotice = noticesToggle.enabled ? await getActiveNotice() : null;
 	const activeNotices = activeNotice
 		? [
 				{

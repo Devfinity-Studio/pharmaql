@@ -18,7 +18,10 @@ export default async function AdminMRsPage({
 		headers: await headers(),
 	});
 
-	if (!session || session.user.role !== "ADMIN") {
+	if (
+		!session ||
+		(session.user.role !== "ADMIN" && session.user.role !== "DEVELOPER")
+	) {
 		redirect("/login");
 	}
 

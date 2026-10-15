@@ -40,10 +40,6 @@ export default async function AdminDashboardPage() {
 					<h1 className="font-extrabold text-3xl text-gray-900">
 						Global ERP Management
 					</h1>
-					<p className="mt-2 font-medium text-gray-500">
-						Live statistics from legacy MySQL ERP (`pdyasvmaster` &
-						`pdyasvtrans`).
-					</p>
 				</div>
 				<div className="flex flex-wrap gap-4">
 					<Link

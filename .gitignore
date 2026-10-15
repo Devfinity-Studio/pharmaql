@@ -53,3 +53,4 @@ api-server/node_modules/
 api-server/dist/
 api-server/.env
 /data/
+/scratch/
