@@ -43,12 +43,20 @@ export function getDeveloperMailer(): Transporter {
 	if (devUser && devPass) {
 		const host = process.env.DEV_SMTP_HOST;
 		const port = process.env.DEV_SMTP_PORT ? Number(process.env.DEV_SMTP_PORT) : undefined;
+		const isZoho =
+			(host && host.includes("zoho")) ||
+			devUser.toLowerCase().includes("@devfinity.net") ||
+			devUser.toLowerCase().includes("zoho");
 
-		if (host) {
+		const resolvedHost = host || (isZoho ? "smtp.zoho.in" : undefined);
+		const resolvedPort = port || (isZoho ? 465 : 587);
+		const resolvedSecure = resolvedPort === 465;
+
+		if (resolvedHost) {
 			cachedDeveloperMailer = nodemailer.createTransport({
-				host,
-				port: port || 587,
-				secure: port === 465,
+				host: resolvedHost,
+				port: resolvedPort,
+				secure: resolvedSecure,
 				auth: {
 					user: devUser,
 					pass: devPass,
