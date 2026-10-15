@@ -2,7 +2,7 @@
 
 **Current Milestone:** Milestone 1 - Production Hardening & Optimization
 **Active Phase:** Phase 25 - Push Notifications & Instant Field Alerts
-**Status:** Planned. Phase 25 implementation plan formulated across 5 execution waves (Web Push & VAPID, Service Worker push/click listeners, In-App Notification Center with multi-MR isolation, automated overdue/notice triggers, and developer diagnostics). Ready for `/gsd-execute-phase`.
+**Status:** Completed. Phase 25 implemented and verified across all 5 waves: Web Push RFC 8292 & VAPID infrastructure, Service Worker push/click listeners, In-App Notification Center with multi-MR privacy fencing & shared device unregistration, automated overdue & circular notice triggers, and developer dispatch console. 6/6 automated test gates passed and production build succeeded.
 
 ## Accumulated Context
 
