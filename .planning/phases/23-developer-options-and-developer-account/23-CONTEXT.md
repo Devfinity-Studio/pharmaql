@@ -1,62 +1,106 @@
 # Phase 23: Developer Options & Developer Account - Context & Requirements
 
 ## Objectives
-Introduce a comprehensive Developer role and Developer Control Center in PharmaQL. Provide engineering diagnostics, system telemetry, safe read-only procedure testing, MR view-as simulation, and runtime rate-limit/cache management—while guaranteeing zero database writes to the read-only ERP database.
+Introduce an enterprise Developer Control Center and full-fledged Developer role in PharmaQL. Provide software subscription/licensing lifecycle management with an emergency killswitch, runtime environment key management, multi-service health monitors, unified user and system log inspection, MR view-as simulation, and stored procedure diagnostics—while guaranteeing zero writes to the legacy ERP database.
 
 ---
 
 ## 1. Developer Role Architecture & Access Control
 - **Role Differentiation**:
-  - `ADMIN`: Business administrator (manages notices, company mappings, unblock overrides, view reports).
-  - `DEVELOPER`: Superuser engineer (all admin capabilities + low-level system diagnostics, runtime cache flushes, MR impersonation, and stored procedure benchmarks).
-- **Layout & Middleware Gates**:
+  - `MR`: Medical Representative (strictly scoped to assigned companies and ranking permissions).
+  - `ADMIN`: Business administrator (manages notices, MR access, customer unblocks).
+  - `DEVELOPER`: Superuser engineer with full administrative authority plus low-level system diagnostic tools, licensing control, environment management, and cache flushes.
+- **Access Gates**:
   - Update `src/app/admin/layout.tsx` to permit both `ADMIN` and `DEVELOPER`.
-  - Display distinct purple/cyan "DEVELOPER" pill badge in header and sidebar.
-  - Route `/admin/dev` (or `/admin/developer-options`) restricted strictly to `session.user.role === "DEVELOPER"`.
+  - Restrict `/admin/dev/*` exclusively to `session.user.role === "DEVELOPER"`.
+  - Distinct purple/cyan "DEVELOPER" badge and role-scoped navigation in `CollapsibleSidebar`.
 
 ---
 
-## 2. Developer Control Center (`/admin/dev`)
-A single command-center screen for developers containing:
-- **System Telemetry & Health Cards**:
-  - Express API Server latency & connectivity.
-  - Database pool status (active connections, idle connections).
-  - Node.js runtime metrics (process uptime, RSS memory, heap usage, Node version).
-  - Environment sanity check (API Secret set, DB host, ERP database name).
-- **Rate Limit & Security Reset Tool**:
-  - View currently tracked IP / account rate limit buckets.
-  - One-click "Flush Rate Limits" action to instantly unban/unlock a locked IP during testing.
-- **Cache Management**:
-  - Flush in-memory master data caches (`m_customer`, `m_item`, `m_mktcompany`).
-  - Reload `mr_overrides.json` and verify sync state.
+## 2. Software Subscription & License Killswitch Management
+- **License Configuration (`data/license.json`)**:
+  - `status`: `"ACTIVE"` | `"EXPIRED"` | `"SUSPENDED"`
+  - `expiresAt`: ISO Date string (e.g., `2027-03-31T23:59:59Z`)
+  - `killswitchActive`: boolean (emergency manual software freeze)
+  - `gracePeriodDays`: number (e.g. 7 days grace)
+  - `organization`: "Asmee Pharma Pvt. Ltd."
+  - `supportEmail`: "support@devfinity.net"
+  - `updatedAt`: ISO Date string
+  - `updatedBy`: Developer email
+- **Global Blocking Mechanism**:
+  - Intercepted in Next.js middleware and layouts:
+    - If `killswitchActive === true` or current date > `expiresAt + gracePeriod`:
+      - All regular traffic (MRs, standard Admins) is redirected to `/license-expired` (or a full-page lock screen).
+      - Renders a clean, high-contrast lock screen: "Software Subscription Ended — Please contact Devfinity to renew your license."
+      - Developers (`DEVELOPER` role) bypass the lockout so they can login and manage/renew the license from `/admin/dev/license`.
+- **Developer License Controls**:
+  - View subscription status, days remaining, expiration date.
+  - Extend expiration date (e.g., +30 days, +1 year, or custom date).
+  - Toggle emergency killswitch to instantly lock/unlock the entire application.
 
 ---
 
-## 3. MR Impersonation & "View-As" Mode
+## 3. Environment & Runtime Configuration Management
+- **Config Storage (`data/runtime_config.json`)**:
+  - Manage dynamic configuration keys without requiring redeployment:
+    - `ADMIN_ALLOWED_IPS`: Comma-separated list of allowed admin IPs/subnets.
+    - `DEBUG_MODE`: Toggle verbose API and SQL query telemetry.
+    - `RATE_LIMIT_STRICT_MODE`: Toggle aggressive vs. lenient rate limiting.
+    - `MR_OVERDUE_GRACE_DAYS`: Default grace period for unblock actions.
+    - `MAINTENANCE_BANNER`: Custom broadcast message displayed globally.
+- **Developer UI**:
+  - Form to update runtime configuration with instant hot-reload.
+  - Read-only inspection of masked environment variables (SMTP user, API Server URL, Database name, Port) to verify active deployments without exposing secrets.
+
+---
+
+## 4. Multi-Service Health & Telemetry Monitor
+- **Health Checks Panel**:
+  - **Next.js Web Frontend**: Uptime, Node.js version (`v26.7.0`), RSS memory, heap usage, CPU load.
+  - **Express API Backend**: Real-time ping check to `/health`, HTTP status, API latency in milliseconds.
+  - **Legacy MySQL ERP Database**: Connection pool status, active query latency, alive check (`SELECT 1`).
+  - **SMTP Mailer Service**: Verification of Gmail SMTP connection and credentials handshake.
+  - **Local Storage & Data Integrity**: File system write/read latency for `data/` directory (`audit_logs.json`, `license.json`, `notices.json`).
+
+---
+
+## 5. Unified Log Inspector (User Audit + System Logs)
+- **User Activity Audit Stream**:
+  - Live stream of logins, failed OTP attempts, password checks, unblock exemptions, and report export downloads.
+- **System & API Server Logs**:
+  - Live system log feed capturing API server HTTP routes, response status codes, execution duration (ms), and internal errors.
+- **Filtering & Search**:
+  - Real-time search by user, IP, error code, or keyword.
+  - Severity level toggles: `ALL`, `INFO`, `WARN`, `ERROR`.
+  - One-click log export (JSON / CSV).
+
+---
+
+## 6. MR Impersonation & "View-As" Simulation Mode
 - **Feature**:
-  - Allow developers to view the platform as any specific MR (e.g. testing MR with Rank 1 Stock only vs. Rank 2 vs. Rank 3, or overdue blocked MR).
-  - Implemented via a temporary preview cookie or developer session switch that does not modify the database or destroy the developer's master session.
-  - Sticky top amber/purple banner: `"Viewing as MR: [MR Name] ([Code]) - [Exit Preview]"`.
-  - One-click exit back to Developer Panel.
+  - Allows Developers to preview the entire application as any registered MR (e.g., test Rank 1 Stock-only vs Rank 2 Claim-enabled vs Rank 3 Full access, or overdue blocked accounts).
+  - Uses an isolated preview session cookie (`pharmaql_impersonate`) that does not overwrite or destroy the developer's master session.
+  - Prominent sticky top bar: `"Simulating MR: [MR Name] ([ID]) — Rank [X] | [Exit Simulation]"`.
+  - One-click exit returning immediately to the Developer Panel.
 
 ---
 
-## 4. Stored Procedure Playground & Benchmark Tool
-- **Sandbox**:
-  - Safe interface to run read-only stored procedures:
-    - `rptStockMovementStatement`
-    - `rptItemCustomerSale`
-    - `rptMRwisePeriodicalOutstanding`
-    - `rptClaimData`
-  - Input custom parameters: `from`, `to`, `mrId`, `companyCode`, `locNo`.
-  - Returns row count, execution duration (ms), column schema, and formatted JSON/table snippet.
-  - Strictly blocked from running `INSERT`, `UPDATE`, `DELETE`, `DROP`, `ALTER`.
+## 7. Stored Procedure Playground & Cache Management
+- **Stored Procedure Sandbox**:
+  - Test bench to execute read-only stored procedures (`rptStockMovementStatement`, `rptItemCustomerSale`, `rptMRwisePeriodicalOutstanding`, `rptClaimData`) with custom date/MR parameters.
+  - Displays row count, query execution time (ms), column schemas, and formatted table preview.
+  - Hardened with safety fences to forbid write operations (`INSERT`, `UPDATE`, `DELETE`, `DROP`).
+- **Cache & Rate Limit Controls**:
+  - View currently tracked IP / user rate limit buckets.
+  - One-click "Flush All Rate Limits" button to clear lockouts.
+  - One-click "Flush Master Data Caches" to force re-fetch of ERP customer, item, and company lists.
 
 ---
 
-## 5. Verification & Quality Gates
-- Verify developer login with `DEV_EMAIL` and `DEV_PASSWORD`.
-- Verify `/admin/dev` access control (denied for MR and pure ADMIN; granted for DEVELOPER).
-- Verify MR "View-As" mode and return to Developer portal.
-- Verify rate limit flush and cache reload.
-- Full TypeScript typecheck and production Next.js build validation.
+## 8. Verification & Quality Gates
+- Verify subscription expiration blocks MRs and Admins while permitting Developers.
+- Verify runtime config editing updates behavior without server restart.
+- Verify service status pinging across Next.js, API server, and MySQL.
+- Verify log inspection streams both user audit and system logs.
+- Verify MR impersonation mode and return to Developer panel.
+- Full TypeScript typecheck and clean production Next.js build validation.
