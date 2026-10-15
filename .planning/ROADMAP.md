@@ -168,4 +168,13 @@
 - [x] **Unblock Exemption Audit Trail**: Formalize and persist admin unblock actions, reasons, timestamps, and operator identities in structured audit logs.
 - [x] **Verification Pass & Security Validation**: Test brute-force mitigation, simulated invalid payloads, security header compliance, and confirm 100% read-only ERP database integrity.
 
+## Phase 23: Developer Options & Developer Account
+
+- [ ] **Developer Role Separation & Layout Alignment**: Fix admin layout authentication gates to permit `DEVELOPER` role alongside `ADMIN`, add distinct developer session indicators, badges, and role-scoped navigation.
+- [ ] **Developer Control Center (`/admin/dev`)**: Build an exclusive Developer Options dashboard with system telemetry, runtime health status, API latency benchmarks, and memory tracking.
+- [ ] **MR Impersonation & "View-As" Mode**: Allow developers to preview the portal and report views as any registered MR to verify ranking permissions, overdue notices, and stationery formatting without credential spoofing.
+- [ ] **Rate Limit & Cache Management Tools**: Provide administrative controls to inspect active rate limit buckets, flush temporary IP lockouts, and clear masterdata memory caches.
+- [ ] **Stored Procedure Playground & Query Diagnostics**: Build a safe, read-only stored procedure execution sandbox for developers to benchmark and test queries with custom parameters.
+- [ ] **Verification & Quality Gates**: Validate developer permissions, impersonation switching, cache operations, and ensure clean production builds.
+
 
