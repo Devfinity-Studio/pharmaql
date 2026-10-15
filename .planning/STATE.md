@@ -2,7 +2,7 @@
 
 **Current Milestone:** Milestone 1 - Production Hardening & Optimization
 **Active Phase:** Phase 25 - Push Notifications & Instant Field Alerts
-**Status:** Planning. Ready to discuss and plan Phase 25 (Web Push, VAPID infrastructure, SW push listeners, automated overdue & notice alerts, notification bell).
+**Status:** Planned. Phase 25 implementation plan formulated across 5 execution waves (Web Push & VAPID, Service Worker push/click listeners, In-App Notification Center with multi-MR isolation, automated overdue/notice triggers, and developer diagnostics). Ready for `/gsd-execute-phase`.
 
 ## Accumulated Context
 
