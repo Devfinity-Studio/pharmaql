@@ -291,7 +291,7 @@ export function NotificationCenter({
 							: align === "auto"
 								? "right-0 md:left-0 md:right-auto"
 								: "right-0"
-					} mt-2 z-50 w-80 sm:w-96 rounded-2xl border shadow-2xl backdrop-blur-md transition-all ${
+					} mt-2 z-[100] w-80 sm:w-96 max-h-[85vh] flex flex-col rounded-2xl border shadow-2xl backdrop-blur-md transition-all ${
 						isDark
 							? "border-gray-800 bg-gray-900/98 text-white"
 							: "border-gray-200 bg-white/98 text-gray-900"

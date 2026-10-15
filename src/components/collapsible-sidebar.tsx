@@ -116,7 +116,7 @@ export function CollapsibleSidebar({
 
 	return (
 		<aside
-			className={`relative z-30 flex flex-col transition-all duration-300 ease-in-out md:shrink-0 ${
+			className={`relative z-50 flex flex-col transition-all duration-300 ease-in-out md:shrink-0 overflow-visible ${
 				isDark
 					? "border-gray-800 border-b md:border-b-0 md:border-r bg-gray-900 text-white"
 					: "border-gray-200 border-b md:border-b-0 md:border-r bg-white text-[#0B2545]"
@@ -126,7 +126,7 @@ export function CollapsibleSidebar({
 					: portal === "mr"
 						? "w-full md:w-72 p-4 md:p-6"
 						: "w-full md:w-64 p-4 md:p-5"
-			} h-auto md:h-screen md:overflow-y-auto md:overflow-x-hidden`}
+			} h-auto md:h-screen`}
 		>
 			{/* Top Header & Collapse/Menu Toggles */}
 			<div
@@ -239,12 +239,12 @@ export function CollapsibleSidebar({
 			<div
 				className={`${
 					isMobileOpen ? "flex" : "hidden"
-				} md:flex flex-col flex-1 overflow-y-auto mt-4 md:mt-0 pt-3 md:pt-0 border-t md:border-t-0 ${
+				} md:flex flex-col flex-1 min-h-0 mt-4 md:mt-0 pt-3 md:pt-0 border-t md:border-t-0 ${
 					isDark ? "border-gray-800" : "border-gray-100"
 				}`}
 			>
 				{/* Navigation Links */}
-				<nav className="flex flex-col space-y-1.5 flex-1 py-1">
+				<nav className="flex flex-col space-y-1.5 flex-1 min-h-0 overflow-y-auto overflow-x-hidden py-1 scrollbar-thin">
 					{navItems.map((item) => {
 						const Icon = item.icon;
 						const isActive =
