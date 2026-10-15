@@ -59,6 +59,20 @@ const config = {
 			},
 		];
 	},
+	redirects: async () => {
+		return [
+			{
+				source: "/dev",
+				destination: "/login",
+				permanent: false,
+			},
+			{
+				source: "/dev-login",
+				destination: "/login",
+				permanent: false,
+			},
+		];
+	},
 };
 
 export default config;

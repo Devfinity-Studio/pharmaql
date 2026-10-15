@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { AlertOctagon, CheckCircle2, Mail, ShieldAlert, ShieldCheck } from "lucide-react";
 import { getLicenseStatus } from "@/lib/license";
+import { DeveloperSecretTrigger } from "./secret-trigger";
 
 export const metadata = {
 	title: "Subscription Status | PharmaQL | Asmee Pharma",
@@ -42,18 +43,9 @@ export default async function LicenseExpiredPage() {
 						>
 							Proceed to Login &rarr;
 						</Link>
-
-						<Link
-							className="rounded-xl border border-gray-800 bg-gray-900/40 px-5 py-2.5 font-semibold text-xs text-gray-400 transition hover:bg-gray-800 hover:text-white"
-							href="/admin/dev"
-						>
-							Developer Control Center &rarr;
-						</Link>
 					</div>
 
-					<div className="mt-8 border-t border-gray-800/80 pt-4 text-center font-mono text-[11px] text-gray-500">
-						PharmaQL Platform &bull; Developed by Devfinity
-					</div>
+					<DeveloperSecretTrigger />
 				</div>
 			</div>
 		);
@@ -96,18 +88,9 @@ export default async function LicenseExpiredPage() {
 						<Mail className="h-4 w-4" />
 						Contact Devfinity Support to Renew
 					</a>
-
-					<Link
-						className="rounded-xl border border-gray-800 bg-gray-900/40 px-5 py-2.5 font-semibold text-xs text-gray-400 transition hover:bg-gray-800 hover:text-white"
-						href="/login"
-					>
-						Developer / System Login Bypass &rarr;
-					</Link>
 				</div>
 
-				<div className="mt-8 border-t border-gray-800/80 pt-4 text-center font-mono text-[11px] text-gray-500">
-					PharmaQL Platform &bull; Developed by Devfinity
-				</div>
+				<DeveloperSecretTrigger />
 			</div>
 		</div>
 	);
