@@ -60,6 +60,14 @@ export default async function AdminDashboardPage() {
 					>
 						Broadcast Notices
 					</Link>
+					{session.user.role === "DEVELOPER" && (
+						<Link
+							className="rounded-xl bg-purple-600 px-4 py-2 font-bold text-white shadow-sm transition hover:bg-purple-700"
+							href="/admin/dev"
+						>
+							Developer Options
+						</Link>
+					)}
 				</div>
 			</div>
 

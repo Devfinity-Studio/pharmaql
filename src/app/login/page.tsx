@@ -10,7 +10,9 @@ export default async function LoginPage() {
 	});
 
 	if (session) {
-		if (session.user.role === "ADMIN") {
+		if (session.user.role === "DEVELOPER") {
+			redirect("/admin/dev");
+		} else if (session.user.role === "ADMIN") {
 			redirect("/admin/dashboard");
 		} else {
 			redirect("/dashboard");

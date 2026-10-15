@@ -96,9 +96,13 @@ export async function secureAdminUnblockMR({
 		};
 	}
 
-	// 4. Validate explicit Admin Password
-	const expectedAdminPass = process.env.ADMIN_PASSWORD || "Admin@PharmaQL2026";
-	if (!adminPassword || adminPassword.trim() !== expectedAdminPass.trim()) {
+	// 4. Validate explicit Admin / Dev Password
+	const expectedAdminPass = process.env.ADMIN_PASSWORD || "Admin123";
+	const expectedDevPass = process.env.DEV_PASSWORD || "Dev@PharmaQL2026";
+	const suppliedPass = (adminPassword || "").trim();
+	const isPassValid = suppliedPass === expectedAdminPass.trim() || suppliedPass === expectedDevPass.trim();
+
+	if (!isPassValid) {
 		const fail = recordAdminUnblockFailure(clientIp);
 
 		await recordAuditEvent({
