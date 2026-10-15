@@ -24,6 +24,7 @@ export default async function AdminNoticesPage() {
 		title: n.title,
 		content: n.content,
 		variant: n.variant,
+		targetAudience: n.targetAudience || "MR",
 		isActive: n.isActive,
 		expiresAt: n.expiresAt ? new Date(n.expiresAt) : null,
 		createdAt: new Date(n.createdAt),
@@ -34,11 +35,10 @@ export default async function AdminNoticesPage() {
 		<div className="mt-4 space-y-8">
 			<div>
 				<h1 className="font-extrabold text-3xl text-gray-900">
-					Notice Board Management
+					Notice Board &amp; Circulars
 				</h1>
 				<p className="mt-2 text-gray-600">
-					Manage notices that appear on MR dashboards. You can set up multiple
-					notices and toggle them on or off.
+					Broadcast announcements and official circulars across the platform. You can target specific audiences (MRs only, Admins only, MRs &amp; Admins, or Everyone) and toggle scheduling.
 				</p>
 			</div>
 

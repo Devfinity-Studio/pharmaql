@@ -41,7 +41,9 @@ export default async function MRDashboardPage({
 	}
 
 	const noticesToggle = await isFeatureEnabledForRole("notices", session.user.role);
-	const activeNotice = noticesToggle.enabled ? await getActiveNotice() : null;
+	const activeNotice = noticesToggle.enabled
+		? await getActiveNotice(session.user.role)
+		: null;
 	const activeNotices = activeNotice
 		? [
 				{

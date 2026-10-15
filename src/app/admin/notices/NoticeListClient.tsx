@@ -28,6 +28,9 @@ export default function NoticeListClient({
 	const [title, setTitle] = useState("");
 	const [content, setContent] = useState("");
 	const [variant, setVariant] = useState("info");
+	const [targetAudience, setTargetAudience] = useState<
+		"MR" | "ADMIN" | "MR_AND_ADMIN" | "DEVELOPER" | "ALL"
+	>("MR");
 	const [isSaving, setIsSaving] = useState(false);
 
 	// Activate Modal
@@ -45,12 +48,14 @@ export default function NoticeListClient({
 			setEditId(notice.id);
 			setTitle(notice.title);
 			setContent(notice.content);
-			setVariant(notice.variant);
+			setVariant(notice.variant || "info");
+			setTargetAudience(notice.targetAudience || "MR");
 		} else {
 			setEditId(null);
 			setTitle("");
 			setContent("");
 			setVariant("info");
+			setTargetAudience("MR");
 		}
 		setIsEditModalOpen(true);
 	};
@@ -62,7 +67,7 @@ export default function NoticeListClient({
 		}
 		setIsSaving(true);
 		try {
-			await saveNotice(editId, title, content, variant);
+			await saveNotice(editId, title, content, variant, targetAudience);
 			window.location.reload();
 		} catch (error) {
 			console.error(error);
@@ -87,7 +92,7 @@ export default function NoticeListClient({
 		if (notice.isActive) {
 			// Deactivate
 			if (
-				confirm("Deactivate this notice? It will no longer be shown to MRs.")
+				confirm("Deactivate this notice? It will no longer be displayed to users.")
 			) {
 				await deactivateNotice(notice.id);
 				window.location.reload();
@@ -163,12 +168,12 @@ export default function NoticeListClient({
 								}`}
 							/>
 
-							<div className="mt-2 flex items-start justify-between">
+							<div className="mt-2 flex items-start justify-between gap-3">
 								<h3 className="font-bold text-gray-800 text-lg">
 									{notice.title}
 								</h3>
 
-								<div className="flex items-center gap-2">
+								<div className="flex items-center gap-2 shrink-0">
 									{isExpired && notice.isActive && (
 										<span className="rounded bg-red-50 px-2 py-1 font-bold text-red-500 text-xs">
 											Expired
@@ -184,11 +189,41 @@ export default function NoticeListClient({
 								</div>
 							</div>
 
-							<p className="mt-1 text-gray-400 text-xs">
-								Variant: <span className="capitalize">{notice.variant}</span>
-								{notice.expiresAt &&
-									` | Expires: ${new Date(notice.expiresAt).toLocaleDateString()}`}
-							</p>
+							<div className="mt-2 flex flex-wrap items-center gap-2">
+								<span className="text-gray-500 text-xs font-medium">
+									Variant: <span className="capitalize font-bold text-gray-800">{notice.variant}</span>
+								</span>
+								<span className="text-gray-300">•</span>
+								{notice.targetAudience === "ADMIN" ? (
+									<span className="rounded-full bg-purple-50 px-2.5 py-0.5 font-bold text-xs text-purple-700 border border-purple-200">
+										Audience: Admins Only
+									</span>
+								) : notice.targetAudience === "MR_AND_ADMIN" ? (
+									<span className="rounded-full bg-emerald-50 px-2.5 py-0.5 font-bold text-xs text-emerald-700 border border-emerald-200">
+										Audience: MRs &amp; Admins
+									</span>
+								) : notice.targetAudience === "DEVELOPER" ? (
+									<span className="rounded-full bg-amber-50 px-2.5 py-0.5 font-bold text-xs text-amber-700 border border-amber-200">
+										Audience: Developers Only
+									</span>
+								) : notice.targetAudience === "ALL" ? (
+									<span className="rounded-full bg-indigo-50 px-2.5 py-0.5 font-bold text-xs text-indigo-700 border border-indigo-200">
+										Audience: Everyone (MRs, Admins, Devs)
+									</span>
+								) : (
+									<span className="rounded-full bg-blue-50 px-2.5 py-0.5 font-bold text-xs text-blue-700 border border-blue-200">
+										Audience: MRs Only
+									</span>
+								)}
+								{notice.expiresAt && (
+									<>
+										<span className="text-gray-300">•</span>
+										<span className="text-gray-500 text-xs font-mono">
+											Expires: {new Date(notice.expiresAt).toLocaleDateString()}
+										</span>
+									</>
+								)}
+							</div>
 
 							<div className="mt-4 line-clamp-3 whitespace-pre-wrap text-gray-700 text-sm">
 								{notice.content}
@@ -235,7 +270,7 @@ export default function NoticeListClient({
 							<input
 								className="w-full rounded-lg border p-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
 								onChange={(e) => setTitle(e.target.value)}
-								placeholder="E.g., System Maintenance"
+								placeholder="E.g., Quarterly Zonal Sales Circular"
 								type="text"
 								value={title}
 							/>
@@ -243,12 +278,32 @@ export default function NoticeListClient({
 
 						<div>
 							<label className="mb-1 block font-bold text-gray-700 text-sm">
-								Message
+								Target Audience
+							</label>
+							<p className="mb-1.5 text-xs text-gray-500">
+								Choose which portals and roles this notice modal and push alert will appear for:
+							</p>
+							<select
+								className="w-full rounded-lg border p-2 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+								onChange={(e) => setTargetAudience(e.target.value as any)}
+								value={targetAudience}
+							>
+								<option value="MR">Medical Representatives Only (MR Field Portal)</option>
+								<option value="ADMIN">Admins Only (Admin Portal)</option>
+								<option value="MR_AND_ADMIN">MRs &amp; Admins (Both Portals)</option>
+								<option value="ALL">Everyone (MRs, Admins &amp; Developers)</option>
+								<option value="DEVELOPER">Developers Only (Developer Portal)</option>
+							</select>
+						</div>
+
+						<div>
+							<label className="mb-1 block font-bold text-gray-700 text-sm">
+								Message Content
 							</label>
 							<textarea
 								className="h-32 w-full rounded-lg border p-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
 								onChange={(e) => setContent(e.target.value)}
-								placeholder="Enter the notice content..."
+								placeholder="Enter the official notice or circular content..."
 								value={content}
 							/>
 						</div>
@@ -258,7 +313,7 @@ export default function NoticeListClient({
 								Visual Variant
 							</label>
 							<select
-								className="w-full rounded-lg border p-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+								className="w-full rounded-lg border p-2 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
 								onChange={(e) => setVariant(e.target.value)}
 								value={variant}
 							>

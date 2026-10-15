@@ -13,11 +13,13 @@ import {
 	Cpu,
 	Database,
 	Download,
+	ExternalLink,
 	Eye,
 	HardDrive,
 	Key,
 	Lock,
 	Mail,
+	Megaphone,
 	Play,
 	Power,
 	RefreshCw,
@@ -92,7 +94,7 @@ export function DevControlCenter({
 }: DevControlCenterProps) {
 	const router = useRouter();
 	const [activeTab, setActiveTab] = useState<
-		"status" | "debug" | "license" | "push" | "toggles" | "impersonate" | "logs" | "query" | "runtime"
+		"status" | "debug" | "license" | "push" | "toggles" | "impersonate" | "logs" | "query" | "runtime" | "notices"
 	>("status");
 
 	// Debug Console states
@@ -646,6 +648,7 @@ export function DevControlCenter({
 					{ id: "logs", label: "Unified Logs", icon: HardDrive },
 					{ id: "query", label: "Procedure Sandbox", icon: Play },
 					{ id: "runtime", label: "Runtime Config", icon: Server },
+					{ id: "notices", label: "Notice Board", icon: Megaphone },
 				].map((tab) => {
 					const Icon = tab.icon;
 					const isActive = activeTab === tab.id;
@@ -2340,6 +2343,139 @@ export function DevControlCenter({
 									<span className="font-bold text-gray-900">{typeof v === "boolean" ? (v ? "TRUE" : "FALSE") : String(v)}</span>
 								</div>
 							))}
+						</div>
+					</div>
+				</div>
+			)}
+
+			{/* TAB: NOTICE BOARD & CIRCULARS */}
+			{activeTab === "notices" && (
+				<div className="space-y-6">
+					{/* Hero / Quick Action Banner */}
+					<div className="relative overflow-hidden rounded-2xl border border-purple-200 bg-linear-to-r from-purple-900 via-indigo-900 to-slate-900 p-6 text-white shadow-md">
+						<div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-4">
+							<div className="space-y-1">
+								<div className="flex items-center gap-2">
+									<div className="flex h-8 w-8 items-center justify-center rounded-lg bg-purple-500/30 border border-purple-400/40 text-purple-300">
+										<Megaphone className="h-4 w-4" />
+									</div>
+									<h2 className="font-black text-xl tracking-tight">Platform Notice Board &amp; Circulars</h2>
+								</div>
+								<p className="text-sm text-purple-200 max-w-2xl">
+									Broadcast real-time announcements, festive greetings, or emergency alerts across the platform with fine-grained target audience segmentation.
+								</p>
+							</div>
+
+							<div className="flex items-center gap-3">
+								<button
+									onClick={() => router.push("/admin/notices")}
+									type="button"
+									className="inline-flex items-center gap-2 rounded-xl bg-purple-500 hover:bg-purple-400 text-white font-bold text-xs px-4 py-2.5 shadow-sm transition-all"
+								>
+									<span>Launch Notice Manager</span>
+									<ExternalLink className="h-3.5 w-3.5" />
+								</button>
+							</div>
+						</div>
+					</div>
+
+					{/* Audience Segmentation Matrix */}
+					<div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-xs space-y-4">
+						<div>
+							<h3 className="font-black text-lg text-gray-900">Target Audience Routing Matrix</h3>
+							<p className="text-xs text-gray-500">
+								When creating or activating a circular, the chosen target audience dictates which users receive the popup modal and automated Web Push notifications.
+							</p>
+						</div>
+
+						<div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+							<div className="rounded-xl border border-emerald-200 bg-emerald-50/50 p-4 space-y-2">
+								<div className="flex items-center justify-between">
+									<span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2.5 py-0.5 text-[11px] font-bold text-emerald-800">
+										MR
+									</span>
+									<span className="text-[11px] font-bold text-emerald-700">MRs Only</span>
+								</div>
+								<h4 className="font-bold text-sm text-gray-900">Medical Representatives</h4>
+								<p className="text-xs text-gray-600">
+									Broadcasts exclusively to field personnel. Renders upon opening the MR Dashboard and sends Web Push notifications to active MR device subscriptions.
+								</p>
+							</div>
+
+							<div className="rounded-xl border border-indigo-200 bg-indigo-50/50 p-4 space-y-2">
+								<div className="flex items-center justify-between">
+									<span className="inline-flex items-center gap-1 rounded-full bg-indigo-100 px-2.5 py-0.5 text-[11px] font-bold text-indigo-800">
+										ADMIN
+									</span>
+									<span className="text-[11px] font-bold text-indigo-700">Admins Only</span>
+								</div>
+								<h4 className="font-bold text-sm text-gray-900">Administrative Portal</h4>
+								<p className="text-xs text-gray-600">
+									Broadcasts to platform administrators. Renders on the Admin dashboard and management screens; bypasses field MR devices.
+								</p>
+							</div>
+
+							<div className="rounded-xl border border-purple-200 bg-purple-50/50 p-4 space-y-2">
+								<div className="flex items-center justify-between">
+									<span className="inline-flex items-center gap-1 rounded-full bg-purple-100 px-2.5 py-0.5 text-[11px] font-bold text-purple-800">
+										MR_AND_ADMIN
+									</span>
+									<span className="text-[11px] font-bold text-purple-700">MRs &amp; Admins</span>
+								</div>
+								<h4 className="font-bold text-sm text-gray-900">Field &amp; Office Synergy</h4>
+								<p className="text-xs text-gray-600">
+									Simultaneously broadcasts to both Field MRs and Administrative users. Does not trigger developer-specific internal workflows.
+								</p>
+							</div>
+
+							<div className="rounded-xl border border-blue-200 bg-blue-50/50 p-4 space-y-2">
+								<div className="flex items-center justify-between">
+									<span className="inline-flex items-center gap-1 rounded-full bg-blue-100 px-2.5 py-0.5 text-[11px] font-bold text-blue-800">
+										ALL
+									</span>
+									<span className="text-[11px] font-bold text-blue-700">Everyone</span>
+								</div>
+								<h4 className="font-bold text-sm text-gray-900">Platform-Wide Universal</h4>
+								<p className="text-xs text-gray-600">
+									Universal circular shown to all active users: MRs, Admins, and Developers. Automatic Web Push dispatched to all registered endpoint categories.
+								</p>
+							</div>
+
+							<div className="rounded-xl border border-amber-200 bg-amber-50/50 p-4 space-y-2">
+								<div className="flex items-center justify-between">
+									<span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2.5 py-0.5 text-[11px] font-bold text-amber-800">
+										DEVELOPER
+									</span>
+									<span className="text-[11px] font-bold text-amber-700">Developers Only</span>
+								</div>
+								<h4 className="font-bold text-sm text-gray-900">Engineering &amp; Dev Team</h4>
+								<p className="text-xs text-gray-600">
+									Internal developer circulars. Visible only when logged in as a Developer. Hidden completely from MRs and standard Admins.
+								</p>
+							</div>
+
+							<div className="rounded-xl border border-gray-200 bg-gray-50/50 p-4 space-y-2 flex flex-col justify-between">
+								<div>
+									<div className="flex items-center justify-between">
+										<span className="inline-flex items-center gap-1 rounded-full bg-gray-200 px-2.5 py-0.5 text-[11px] font-bold text-gray-700">
+											Web Push
+										</span>
+										<span className="text-[11px] font-bold text-gray-500">Auto-Dispatch</span>
+									</div>
+									<h4 className="font-bold text-sm text-gray-900 mt-2">Notification Push Engine</h4>
+									<p className="text-xs text-gray-600">
+										Activating any circular automatically creates notifications and delivers Web Push alerts to active devices in the selected target group.
+									</p>
+								</div>
+								<button
+									onClick={() => router.push("/admin/notices")}
+									type="button"
+									className="mt-3 w-full inline-flex items-center justify-center gap-1.5 rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-xs font-bold text-gray-700 hover:bg-gray-100 transition-colors"
+								>
+									<span>Configure Notices</span>
+									<ExternalLink className="h-3 w-3" />
+								</button>
+							</div>
 						</div>
 					</div>
 				</div>

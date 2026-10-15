@@ -2,8 +2,10 @@ import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import type { ReactNode } from "react";
 import { CollapsibleSidebar } from "@/components/collapsible-sidebar";
+import { NoticeModal } from "@/components/notice-modal";
 import { getLicenseStatus } from "@/lib/license";
-import { isUnderMaintenance } from "@/lib/maintenance";
+import { isFeatureEnabledForRole, isUnderMaintenance } from "@/lib/maintenance";
+import { getActiveNotice } from "@/server/actions/notices";
 import { auth } from "@/server/auth";
 
 export default async function AdminLayout({
@@ -44,9 +46,32 @@ export default async function AdminLayout({
 		);
 	}
 
+	// 3. Active Notice Check for Admin / Developer
+	const noticesToggle = await isFeatureEnabledForRole("notices", session.user.role);
+	const activeNotice = noticesToggle.enabled
+		? await getActiveNotice(session.user.role)
+		: null;
+	const activeNotices = activeNotice
+		? [
+				{
+					id: activeNotice.id,
+					title: activeNotice.title,
+					content: activeNotice.content,
+					variant: activeNotice.variant,
+					isActive: activeNotice.isActive,
+					expiresAt: activeNotice.expiresAt
+						? new Date(activeNotice.expiresAt)
+						: null,
+					createdAt: new Date(activeNotice.createdAt),
+					updatedAt: new Date(activeNotice.updatedAt),
+				},
+			]
+		: [];
+
 	return (
 		<div className="relative flex min-h-screen flex-col bg-gray-50 text-gray-900 md:h-screen md:flex-row md:overflow-hidden">
 			<div className="pointer-events-none absolute inset-0 z-0 bg-[url('/devfinity.png')] bg-repeat opacity-[0.03] [background-size:120px]"></div>
+			<NoticeModal notices={activeNotices as any} />
 			<CollapsibleSidebar
 				portal="admin"
 				userEmail={session.user.email}
