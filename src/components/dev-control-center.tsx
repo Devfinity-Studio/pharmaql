@@ -696,9 +696,11 @@ export function DevControlCenter({
 										Overall System Health: {initialHealth.overallStatus}
 									</h2>
 								</div>
-								<p className="text-xs text-gray-600">
+								<p className="text-xs text-gray-600" suppressHydrationWarning>
 									All background services, connection pools, and database latencies evaluated at{" "}
-									{new Date(initialHealth.timestamp).toLocaleTimeString()}.
+									<span suppressHydrationWarning>
+										{new Date(initialHealth.timestamp).toLocaleTimeString()}
+									</span>.
 								</p>
 							</div>
 						</div>
@@ -760,7 +762,7 @@ export function DevControlCenter({
 												: `${license.daysRemaining} days remaining`}
 										</span>
 									</div>
-									<p className="mt-1 text-xs text-gray-600">
+									<p className="mt-1 text-xs text-gray-600" suppressHydrationWarning>
 										{license.isBlocked
 											? license.reason ||
 												"Platform usage is currently suspended due to subscription renewal requirement. Standard Admins and MRs are locked out."
@@ -2141,8 +2143,10 @@ export function DevControlCenter({
 									<tbody className="divide-y divide-gray-100">
 										{filteredLogs.map((log) => (
 											<tr className="hover:bg-gray-50" key={log.id}>
-												<td className="whitespace-nowrap px-4 py-2.5 text-gray-500">
-													{new Date(log.timestamp).toLocaleTimeString()}
+												<td className="whitespace-nowrap px-4 py-2.5 text-gray-500" suppressHydrationWarning>
+													<span suppressHydrationWarning>
+														{new Date(log.timestamp).toLocaleTimeString()}
+													</span>
 												</td>
 												<td className="px-4 py-2.5">
 													<span

@@ -141,8 +141,8 @@ export function OfflineReportViewer({
 					<div className="flex items-center gap-2">
 						<HardDrive className="h-4 w-4 text-gray-500" />
 						{snapshot ? (
-							<span className="font-medium text-gray-700">
-								Cached Snapshot: <strong className="text-gray-900">{formattedTime}</strong> ({rows.length} records available offline)
+							<span className="font-medium text-gray-700" suppressHydrationWarning>
+								Cached Snapshot: <strong className="text-gray-900" suppressHydrationWarning>{formattedTime}</strong> ({rows.length} records available offline)
 							</span>
 						) : (
 							<span className="text-gray-500">No offline snapshot saved yet for this report.</span>
