@@ -20,9 +20,9 @@ const DEFAULT_LICENSE: LicenseConfig = {
 	gracePeriodDays: 7,
 	killswitchActive: false,
 	organization: "Asmee Pharma Pvt. Ltd.",
-	developerEmail: process.env.DEV_EMAIL || "dev@asmeepharma.com",
+	developerEmail: process.env.DEV_EMAIL || "info@devfinity.net",
 	supportEmail: "support@devfinity.net",
-	adminEmails: [process.env.DEV_EMAIL || "dev@asmeepharma.com"],
+	adminEmails: [process.env.ADMIN_EMAIL || "asmeepharma2022@gmail.com"],
 	updatedAt: new Date().toISOString(),
 	updatedBy: "system",
 };
@@ -35,13 +35,14 @@ export async function getLicenseConfig(): Promise<LicenseConfig> {
 	const data = await readServerJson<Partial<LicenseConfig>>("license.json", DEFAULT_LICENSE);
 	const config: LicenseConfig = { ...DEFAULT_LICENSE, ...data };
 
-	// Sanitize adminEmails: replace dummy admin@admin.com with developer email
+	// Sanitize adminEmails: replace dummy admin@admin.com with admin email from env
+	const defaultAdminEmail = process.env.ADMIN_EMAIL || "asmeepharma2022@gmail.com";
 	if (
 		!config.adminEmails ||
 		config.adminEmails.length === 0 ||
-		(config.adminEmails.length === 1 && config.adminEmails[0] === "admin@admin.com")
+		(config.adminEmails.length === 1 && (config.adminEmails[0] === "admin@admin.com" || config.adminEmails[0] === "dev@asmeepharma.com"))
 	) {
-		config.adminEmails = [config.developerEmail || process.env.DEV_EMAIL || "dev@asmeepharma.com"];
+		config.adminEmails = [defaultAdminEmail];
 	}
 	return config;
 }
@@ -178,20 +179,21 @@ export async function updateLicenseConfig(
 }
 
 /**
- * Dispatch subscription renewal reminder & invoice email to developer or configured recipients.
- * Guarantees that emails sent from the developer portal target the developer email, not dummy admin@admin.com.
+ * Dispatch subscription renewal reminder & invoice email to client admin or configured recipients.
+ * Dispatched from developer systems (Zoho Mail) directly to the Admin Email (from env/license).
  */
 export async function sendSubscriptionReminderEmails(
 	customNote?: string,
 	targetEmails?: string[],
 ) {
 	const status = await getLicenseStatus();
-	const devEmail = process.env.DEV_EMAIL || status.developerEmail || "dev@asmeepharma.com";
+	const defaultAdminEmail = process.env.ADMIN_EMAIL || (status.adminEmails && status.adminEmails[0]) || "asmeepharma2022@gmail.com";
+	const devEmail = status.developerEmail || process.env.DEV_EMAIL || "info@devfinity.net";
 
 	// Determine recipients:
 	// 1. Explicitly provided targetEmails
 	// 2. Filter status.adminEmails to remove dummy "admin@admin.com"
-	// 3. Fallback to developer email
+	// 3. Fallback to admin email
 	let recipients: string[] = [];
 	if (targetEmails && targetEmails.length > 0) {
 		recipients = targetEmails.map((e) => e.trim()).filter(Boolean);
@@ -202,7 +204,7 @@ export async function sendSubscriptionReminderEmails(
 	}
 
 	if (recipients.length === 0) {
-		recipients = [devEmail];
+		recipients = [defaultAdminEmail];
 	}
 
 	const expiryFormatted = new Date(status.expiresAt).toLocaleDateString("en-IN", {
