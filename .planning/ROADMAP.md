@@ -180,13 +180,13 @@
 - [x] **Stored Procedure Playground & Cache Controls**: Build a safe, read-only stored procedure execution sandbox for developers to benchmark queries with custom parameters, alongside one-click cache flushes and rate-limit resets.
 - [x] **Verification & Quality Gates**: Validate subscription blocking, email dispatch, feature toggles, maintenance mode, env hot-reloading, service health checks, and ensure clean production builds.
 
-## Phase 24: Mobile PWA & Offline Access for Medical Representatives
+## Phase 24: Mobile PWA & Offline Access for Medical Representatives [COMPLETED]
 
-- [ ] **PWA Manifest, Icons & App Shell Installation**: Create web app manifest (`manifest.json` / Next.js `manifest.ts`), touch icons (192x192, 512x512, maskable icons), theme colors (`#0071BC`, `#0B2545`), and an in-app "Install PharmaQL" prompt for Android/iOS mobile devices.
-- [ ] **Service Worker & Offline Asset Caching**: Register service worker to cache application shell, critical fonts, static assets, and core CSS for instant loading even without internet connectivity.
-- [ ] **Offline Report Data Snapshot & Storage**: Implement browser client cache (IndexedDB / CacheStorage) storing recent report queries (Stock Movement, Sales, Product catalog, Outstanding) so MRs can inspect data during offline clinic/chemist visits.
-- [ ] **Network Status Detection & Offline Banner**: Add real-time online/offline connection state listener (`navigator.onLine`) displaying a subtle status pill / banner indicating live vs offline snapshot view.
-- [ ] **Mobile Touch UX & Viewport Polish**: Optimize bottom navigation bars, swipe/touch targets, pull-to-refresh gestures, and safe-area insets for modern mobile screens and standalone PWA display mode.
-- [ ] **Verification & PWA Quality Gates**: Validate Lighthouse PWA compliance, offline test simulations, asset caching, and ensure zero regression on desktop and Admin/Developer portals.
+- [x] **PWA Manifest, Icons & App Shell Installation**: Create web app manifest (`manifest.json` / Next.js `manifest.ts`), touch icons (192x192, 512x512, maskable icons), theme colors (`#0071BC`, `#0B2545`), and an in-app "Install PharmaQL" prompt for Android/iOS mobile devices.
+- [x] **Service Worker & Offline Asset Caching**: Register service worker to cache application shell, critical fonts, static assets, and core CSS for instant loading even without internet connectivity.
+- [x] **Offline Report Data Snapshot & Storage**: Implement browser client cache (IndexedDB / CacheStorage) storing recent report queries (Stock Movement, Sales, Product catalog, Outstanding) so MRs can inspect data during offline clinic/chemist visits.
+- [x] **Network Status Detection & Offline Banner**: Add real-time online/offline connection state listener (`navigator.onLine`) displaying a subtle status pill / banner indicating live vs offline snapshot view.
+- [x] **Mobile Touch UX & Viewport Polish**: Optimize bottom navigation bars, swipe/touch targets, pull-to-refresh gestures, and safe-area insets for modern mobile screens and standalone PWA display mode.
+- [x] **Verification & PWA Quality Gates**: Validate Lighthouse PWA compliance, offline test simulations, asset caching, and ensure zero regression on desktop and Admin/Developer portals.
 
 

@@ -1,5 +1,6 @@
 import React from "react";
 import { ReportStationeryHeader } from "@/components/report-stationery-header";
+import { OfflineReportSync } from "@/components/offline-report-sync";
 import { getCustomerBlockingMap } from "@/server/actions/customerBlocking";
 import { getMRInfo } from "@/server/actions/mrInfo";
 import {
@@ -155,6 +156,12 @@ export async function OverdueReportView({
 
 	return (
 		<div className="mt-4 space-y-8 overflow-hidden rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
+			<OfflineReportSync
+				data={reportData}
+				mrId={mrId}
+				params={searchParams}
+				tab="overdue"
+			/>
 			{/* Official Stationery Header */}
 			<ReportStationeryHeader
 				title="Overdue (Purchase Days & Outstanding) Statement"

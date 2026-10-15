@@ -5,6 +5,9 @@ import type { ReactNode } from "react";
 import { LogoutButton } from "@/components/logout-button";
 import { CollapsibleSidebar } from "@/components/collapsible-sidebar";
 import { ImpersonationBanner } from "@/components/impersonation-banner";
+import { OfflineIndicator } from "@/components/offline-indicator";
+import { PwaInstallPrompt } from "@/components/pwa-install-prompt";
+import { MrMobileNav } from "@/components/mr-mobile-nav";
 import { getLicenseStatus } from "@/lib/license";
 import { isUnderMaintenance } from "@/lib/maintenance";
 import { auth } from "@/server/auth";
@@ -82,6 +85,8 @@ export default async function MRLayout({ children }: { children: ReactNode }) {
 
 	return (
 		<div className="relative flex flex-col h-screen overflow-hidden bg-[#F8FAFC] text-[#0B2545]">
+			<OfflineIndicator mrId={session.user.id} mrName={session.user.name} />
+			<PwaInstallPrompt />
 			{isImpersonating && (
 				<ImpersonationBanner
 					mrId={session.user.id}
@@ -89,7 +94,7 @@ export default async function MRLayout({ children }: { children: ReactNode }) {
 					rank={session.user.rank}
 				/>
 			)}
-			<div className="relative flex flex-1 overflow-hidden flex-col md:flex-row">
+			<div className="relative flex flex-1 overflow-hidden flex-col md:flex-row pb-16 md:pb-0">
 				<div className="pointer-events-none absolute inset-0 z-0 bg-[url('/devfinity.png')] bg-repeat opacity-[0.03] [background-size:120px]"></div>
 				<CollapsibleSidebar
 					portal="mr"
@@ -103,6 +108,7 @@ export default async function MRLayout({ children }: { children: ReactNode }) {
 					{children}
 				</main>
 			</div>
+			<MrMobileNav mrId={session.user.id} mrName={session.user.name} />
 		</div>
 	);
 }

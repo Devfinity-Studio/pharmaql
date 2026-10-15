@@ -1,5 +1,6 @@
 import React from "react";
 import { ReportStationeryHeader } from "@/components/report-stationery-header";
+import { OfflineReportSync } from "@/components/offline-report-sync";
 import {
 	getItemCustomerSale,
 	type ItemCustomerSaleResult,
@@ -190,6 +191,12 @@ export async function ProductReportView({
 
 		return (
 			<div className="mt-4 space-y-4 rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
+				<OfflineReportSync
+					data={productGroups}
+					mrId={mrId}
+					params={searchParams}
+					tab="products"
+				/>
 				{/* Official Stationery Header */}
 				<ReportStationeryHeader
 					title="Itemwise/Customerwise Sales"

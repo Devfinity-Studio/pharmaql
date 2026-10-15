@@ -11,6 +11,7 @@ import { ProductReportView } from "@/components/product-report-view";
 import { ReportDownloadButtons } from "@/components/report-download-buttons";
 import { ReportTableSkeleton } from "@/components/report-table-skeleton";
 import { StockReportView } from "@/components/stock-report-view";
+import { OfflineReportSync } from "@/components/offline-report-sync";
 import { getItemCustomerSale } from "@/server/actions/customerItemSale";
 import { getMRInfo } from "@/server/actions/mrInfo";
 import {
@@ -618,6 +619,17 @@ export async function MrDashboardContent({
 					/>
 				) : (
 					<div className="space-y-6">
+					<OfflineReportSync
+						data={{
+							totalSales,
+							totalInvoicesAmt,
+							totalOutstandingAmt,
+							monthlyReports,
+						}}
+						mrId={mrId}
+						params={searchParams}
+						tab="overview"
+					/>
 					{/* Refined Metric Cards Family */}
 					<div className="grid grid-cols-1 gap-6 md:grid-cols-3">
 						<div className="rounded-xl bg-[#0071BC] p-6 text-white shadow-sm">

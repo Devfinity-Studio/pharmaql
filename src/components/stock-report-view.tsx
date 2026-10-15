@@ -1,5 +1,6 @@
 import React from "react";
 import { ReportStationeryHeader } from "@/components/report-stationery-header";
+import { OfflineReportSync } from "@/components/offline-report-sync";
 import { getMRInfo } from "@/server/actions/mrInfo";
 import {
 	getStockMovement,
@@ -200,6 +201,12 @@ export async function StockReportView({
 
 	return (
 		<div className="mt-4 space-y-8 overflow-hidden rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
+			<OfflineReportSync
+				data={reportData}
+				mrId={mrId}
+				params={{ fromDate, toDate, company }}
+				tab="stock"
+			/>
 			{/* Official Stationery Header */}
 			<ReportStationeryHeader
 				title="Stock Movement Statement"
