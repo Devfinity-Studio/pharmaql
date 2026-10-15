@@ -55,23 +55,29 @@ Transform PharmaQL into an installable, high-performance Progressive Web Applica
 
 ---
 
-### Task 4: Offline Report Data Cache & Storage Engine
+### Task 4: Sanitized Offline Report Storage & Multi-MR Isolation Engine
 - **Create**: `src/lib/offline-store.ts`
-  - Client-side IndexedDB / local storage wrapper for MR reports:
-    - Store methods: `saveReportSnapshot(mrId, reportKey, data, params)`
-    - Retrieve methods: `getReportSnapshot(mrId, reportKey)`
-    - Clear methods: `clearReportSnapshots(mrId)`
+  - Client-side IndexedDB / Web Storage engine with **strict per-MR cryptographic namespace fencing**:
+    - Prefix: `pharmaql_offline_mr_${sanitizeId(mrId)}`
+    - Store methods:
+      - `saveReportSnapshot(mrId, reportKey, data, params)`: Sanitizes report data (strips session keys, internal tokens, administrative metadata) and persists payload with TTL and MR owner signature.
+      - `getReportSnapshot(mrId, reportKey)`: Validates that data strictly belongs to the requesting `mrId`. Rejects and purges if identity mismatch is detected.
+      - `enforceDeviceMrIsolation(currentMrId)`: Checks device's previous cache owner. If a different MR was previously logged in on the device, unconditionally nukes all prior cache data before initialization.
+      - `purgeAllOfflineData()`: Thorough purge of all IndexedDB databases, CacheStorage keys, and offline local storage artifacts.
+  - **Shared Device Security & Logout Purge**:
+    - Update `src/components/logout-button.tsx` to call `purgeAllOfflineData()` before session invalidation, leaving zero traces of proprietary sales, stock, or party records on shared devices.
+    - On MR login, call `enforceDeviceMrIsolation(user.id)` to guarantee no cross-MR data contamination.
   - Stores:
-    - Stock Movement Statement
-    - Sales & Invoicing Details
+    - Stock Movement Statement (MR-assigned items only)
+    - Sales & Invoicing Details (MR-assigned customers only)
     - Product Wise Sales
     - Party Wise Sales
     - Periodical Outstanding
 - **UI Integration in MR Reports & Dashboard**:
   - In `src/components/mr-dashboard-content.tsx`:
-    - Automatically cache fetched report data upon successful load.
-    - If a network error occurs or user is offline, seamlessly load the latest cached report snapshot.
-    - Display snapshot timestamp badge: *"Viewing offline snapshot from 14 Oct, 04:30 PM"*.
+    - Cache fetched report data upon successful load (sanitized per active MR).
+    - If network error occurs or user is offline, load the cached snapshot strictly matching current MR ID.
+    - Display snapshot timestamp badge: *"Viewing offline snapshot from 14 Oct, 04:30 PM (MR: [Name])"*.
 
 ---
 
