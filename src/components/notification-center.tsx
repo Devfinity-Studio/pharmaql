@@ -244,13 +244,53 @@ export function NotificationCenter({
 	const getCategoryIcon = (category: string) => {
 		switch (category) {
 			case "OVERDUE":
-				return <AlertTriangle className="h-4 w-4 text-amber-500 shrink-0" />;
+				return (
+					<span
+						className={`flex h-6 w-6 items-center justify-center rounded-lg shrink-0 ${
+							isDark
+								? "bg-rose-500/20 text-rose-300 border border-rose-500/40"
+								: "bg-rose-100 text-rose-700 border border-rose-200"
+						}`}
+					>
+						<AlertTriangle className="h-3.5 w-3.5" />
+					</span>
+				);
 			case "NOTICE":
-				return <Megaphone className="h-4 w-4 text-blue-500 shrink-0" />;
+				return (
+					<span
+						className={`flex h-6 w-6 items-center justify-center rounded-lg shrink-0 ${
+							isDark
+								? "bg-blue-500/20 text-blue-300 border border-blue-500/40"
+								: "bg-blue-100 text-blue-700 border border-blue-200"
+						}`}
+					>
+						<Megaphone className="h-3.5 w-3.5" />
+					</span>
+				);
 			case "SUBSCRIPTION":
-				return <ShieldAlert className="h-4 w-4 text-purple-500 shrink-0" />;
+				return (
+					<span
+						className={`flex h-6 w-6 items-center justify-center rounded-lg shrink-0 ${
+							isDark
+								? "bg-purple-500/20 text-purple-300 border border-purple-500/40"
+								: "bg-purple-100 text-purple-700 border border-purple-200"
+						}`}
+					>
+						<ShieldAlert className="h-3.5 w-3.5" />
+					</span>
+				);
 			default:
-				return <Info className="h-4 w-4 text-sky-500 shrink-0" />;
+				return (
+					<span
+						className={`flex h-6 w-6 items-center justify-center rounded-lg shrink-0 ${
+							isDark
+								? "bg-sky-500/20 text-sky-300 border border-sky-500/40"
+								: "bg-sky-100 text-sky-700 border border-sky-200"
+						}`}
+					>
+						<Info className="h-3.5 w-3.5" />
+					</span>
+				);
 		}
 	};
 
@@ -261,7 +301,7 @@ export function NotificationCenter({
 				aria-label="View notifications and alerts"
 				className={
 					buttonClassName ||
-					`relative flex h-9 w-9 items-center justify-center rounded-xl border transition ${
+					`relative flex h-8.5 w-8.5 items-center justify-center rounded-lg border transition ${
 						isDark
 							? "border-gray-700 bg-gray-800 text-gray-200 hover:bg-gray-700 hover:text-white"
 							: "border-gray-200 bg-white text-gray-700 hover:bg-gray-50 hover:text-[#0B2545]"
@@ -276,7 +316,7 @@ export function NotificationCenter({
 			>
 				<Bell className="h-4 w-4" />
 				{unreadCount > 0 && (
-					<span className="absolute -top-1 -right-1 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-rose-600 px-1 font-mono text-[9px] font-black text-white shadow-xs animate-pulse">
+					<span className="absolute -top-1 -right-1 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-rose-600 px-1 font-mono text-[9px] font-black text-white shadow-xs animate-pulse ring-2 ring-white dark:ring-gray-900">
 						{unreadCount > 9 ? "9+" : unreadCount}
 					</span>
 				)}
@@ -291,42 +331,62 @@ export function NotificationCenter({
 							: align === "auto"
 								? "right-0 md:left-0 md:right-auto"
 								: "right-0"
-					} mt-2 z-[100] w-80 sm:w-96 max-h-[85vh] flex flex-col rounded-2xl border shadow-2xl backdrop-blur-md transition-all ${
+					} mt-2 z-[100] w-[calc(100vw-2rem)] sm:w-96 max-w-sm sm:max-w-md max-h-[85vh] flex flex-col rounded-2xl border shadow-2xl backdrop-blur-xl transition-all ${
 						isDark
-							? "border-gray-800 bg-gray-900/98 text-white"
-							: "border-gray-200 bg-white/98 text-gray-900"
+							? "border-gray-700 bg-gray-900 text-white shadow-black/60"
+							: "border-gray-200 bg-white text-gray-900 shadow-slate-900/10"
 					}`}
 				>
 					{/* Popover Header */}
 					<div
-						className={`flex items-center justify-between border-b p-4 ${
-							isDark ? "border-gray-800" : "border-gray-100"
+						className={`flex items-center justify-between border-b px-4 py-3.5 ${
+							isDark ? "border-gray-800 bg-gray-950/60" : "border-gray-100 bg-gray-50/70"
 						}`}
 					>
 						<div className="flex items-center gap-2">
-							<h3 className="font-extrabold text-sm tracking-tight">Alerts & Notices</h3>
+							<h3
+								className={`font-black text-sm tracking-tight ${
+									isDark ? "text-white" : "text-[#0B2545]"
+								}`}
+							>
+								Alerts &amp; Notices
+							</h3>
 							{unreadCount > 0 && (
-								<span className="rounded-full bg-rose-500/10 px-2 py-0.5 font-bold text-[10px] text-rose-500 border border-rose-500/20">
-									{unreadCount} unread
+								<span
+									className={`rounded-full px-2 py-0.5 font-bold text-[10px] ${
+										isDark
+											? "border border-blue-500/40 bg-blue-500/20 text-blue-300"
+											: "border border-rose-500/20 bg-rose-50 text-rose-600"
+									}`}
+								>
+									{unreadCount} new
 								</span>
 							)}
 						</div>
 						<div className="flex items-center gap-1.5">
 							{unreadCount > 0 && (
 								<button
-									className="flex items-center gap-1 rounded-lg px-2 py-1 text-[11px] font-bold text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/30 transition"
+									className={`flex items-center gap-1 rounded-lg px-2.5 py-1 text-[11px] font-bold transition ${
+										isDark
+											? "border border-gray-700 bg-gray-800 text-gray-200 hover:bg-gray-700 hover:text-white"
+											: "border border-gray-200 bg-white text-gray-700 hover:bg-gray-100 hover:text-[#0B2545]"
+									}`}
 									disabled={isPending}
 									onClick={handleMarkAllRead}
 									title="Mark all as read"
 									type="button"
 								>
-									<CheckCheck className="h-3.5 w-3.5" />
+									<CheckCheck className="h-3.5 w-3.5 text-blue-400" />
 									<span>Read All</span>
 								</button>
 							)}
 							<button
 								aria-label="Close notification panel"
-								className="rounded-lg p-1 text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 transition"
+								className={`rounded-lg p-1.5 transition ${
+									isDark
+										? "text-gray-400 hover:bg-gray-800 hover:text-white"
+										: "text-gray-400 hover:bg-gray-100 hover:text-gray-700"
+								}`}
 								onClick={() => setIsOpen(false)}
 								type="button"
 							>
@@ -337,7 +397,13 @@ export function NotificationCenter({
 
 					{/* Feedback Banner */}
 					{statusFeedback && (
-						<div className="border-b border-blue-100 bg-blue-50/80 px-4 py-2 text-xs font-semibold text-blue-800 dark:border-blue-900/40 dark:bg-blue-950/50 dark:text-blue-300">
+						<div
+							className={`border-b px-4 py-2 text-xs font-semibold ${
+								isDark
+									? "border-blue-900/50 bg-blue-950/70 text-blue-200"
+									: "border-blue-200 bg-blue-50 text-blue-900"
+							}`}
+						>
 							{statusFeedback}
 						</div>
 					)}
@@ -345,19 +411,30 @@ export function NotificationCenter({
 					{/* Push Notification Permission Card */}
 					<div
 						className={`border-b p-3.5 ${
-							isDark ? "border-gray-800 bg-gray-950/40" : "border-gray-100 bg-gray-50/70"
+							isDark ? "border-gray-800 bg-gray-950/40" : "border-gray-100 bg-gray-50/50"
 						}`}
 					>
 						{pushPermission === "granted" && isSubscribed ? (
-							<div className="flex items-center justify-between">
+							<div className="flex items-center justify-between gap-2">
 								<div className="flex items-center gap-2">
-									<span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse"></span>
-									<span className="text-xs font-bold text-emerald-700 dark:text-emerald-400">
-										Push Active on Device
+									<span className="relative flex h-2 w-2">
+										<span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+										<span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+									</span>
+									<span
+										className={`text-xs font-bold ${
+											isDark ? "text-emerald-400" : "text-emerald-700"
+										}`}
+									>
+										Device Push Active
 									</span>
 								</div>
 								<button
-									className="rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 px-2.5 py-1 text-[11px] font-bold text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition"
+									className={`rounded-lg border px-2.5 py-1 text-[11px] font-bold transition ${
+										isDark
+											? "border-gray-700 bg-gray-800 text-gray-200 hover:bg-gray-700 hover:text-white"
+											: "border-gray-300 bg-white text-gray-700 hover:bg-gray-50 hover:text-gray-900"
+									}`}
 									disabled={isPending}
 									onClick={handleSendTestPush}
 									type="button"
@@ -366,19 +443,27 @@ export function NotificationCenter({
 								</button>
 							</div>
 						) : pushPermission === "denied" ? (
-							<div className="flex items-center gap-2 text-xs text-amber-700 dark:text-amber-400 font-semibold">
+							<div
+								className={`flex items-center gap-2 text-xs font-semibold ${
+									isDark ? "text-amber-300" : "text-amber-800"
+								}`}
+							>
 								<AlertTriangle className="h-4 w-4 shrink-0 text-amber-500" />
-								<span>Push blocked in browser settings. Enable permissions to receive instant alerts.</span>
+								<span>Push notifications blocked in browser settings.</span>
 							</div>
 						) : pushPermission === "unsupported" ? (
-							<div className="text-xs text-gray-500">
-								Web push notifications are not supported on this browser.
+							<div className={`text-xs ${isDark ? "text-gray-400" : "text-gray-500"}`}>
+								Web push is not supported on this browser.
 							</div>
 						) : (
 							<div className="flex flex-col gap-2">
 								<div className="flex items-start gap-2">
-									<Sparkles className="h-4 w-4 text-purple-600 shrink-0 mt-0.5" />
-									<p className="text-xs text-gray-600 dark:text-gray-300 font-medium leading-relaxed">
+									<Sparkles className="h-4 w-4 text-purple-400 shrink-0 mt-0.5" />
+									<p
+										className={`text-xs font-medium leading-relaxed ${
+											isDark ? "text-gray-200" : "text-gray-700"
+										}`}
+									>
 										Enable instant push alerts for 80-90d overdue warnings and official notices.
 									</p>
 								</div>
@@ -396,14 +481,34 @@ export function NotificationCenter({
 					</div>
 
 					{/* Notification Scrollable List */}
-					<div className="max-h-80 overflow-y-auto divide-y divide-gray-100 dark:divide-gray-800/60">
+					<div
+						className={`max-h-80 overflow-y-auto divide-y ${
+							isDark ? "divide-gray-800/80" : "divide-gray-100"
+						}`}
+					>
 						{notifications.length === 0 ? (
 							<div className="flex flex-col items-center justify-center py-10 px-4 text-center">
-								<div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-blue-50 dark:bg-gray-800 text-blue-600 mb-3">
-									<Bell className="h-6 w-6 opacity-60" />
+								<div
+									className={`flex h-12 w-12 items-center justify-center rounded-2xl mb-3 ${
+										isDark ? "bg-gray-800 text-blue-400" : "bg-blue-50 text-blue-600"
+									}`}
+								>
+									<Bell className="h-6 w-6 opacity-70" />
 								</div>
-								<p className="font-bold text-sm text-gray-800 dark:text-gray-200">You're all caught up!</p>
-								<p className="text-xs text-gray-400 mt-1">No unread notifications or field alerts.</p>
+								<p
+									className={`font-bold text-sm ${
+										isDark ? "text-white" : "text-[#0B2545]"
+									}`}
+								>
+									You're all caught up!
+								</p>
+								<p
+									className={`text-xs mt-1 ${
+										isDark ? "text-gray-400" : "text-gray-500"
+									}`}
+								>
+									No unread notifications or field alerts.
+								</p>
 							</div>
 						) : (
 							notifications.map((item) => {
@@ -413,43 +518,70 @@ export function NotificationCenter({
 										className={`group flex items-start gap-3 p-3.5 transition cursor-pointer ${
 											isRead
 												? isDark
-													? "bg-transparent hover:bg-gray-800/40 opacity-75"
-													: "bg-transparent hover:bg-gray-50/80 opacity-75"
+													? "bg-transparent hover:bg-gray-800/50"
+													: "bg-transparent hover:bg-gray-50/80"
 												: isDark
-													? "bg-blue-950/20 hover:bg-blue-950/40"
-													: "bg-blue-50/50 hover:bg-blue-50/90"
+													? "bg-blue-950/40 hover:bg-blue-950/60 border-l-4 border-l-[#38BDF8]"
+													: "bg-blue-50/60 hover:bg-blue-50/90 border-l-4 border-l-[#0071BC]"
 										}`}
 										key={item.id}
 										onClick={() => handleNotificationClick(item)}
 									>
-										<div className="mt-0.5">{getCategoryIcon(item.category)}</div>
+										<div className="mt-0.5 shrink-0">{getCategoryIcon(item.category)}</div>
 										<div className="flex-1 min-w-0">
 											<div className="flex items-center justify-between gap-1">
 												<h4
 													className={`text-xs truncate ${
 														isRead
-															? "font-semibold text-gray-800 dark:text-gray-300"
-															: "font-black text-gray-900 dark:text-white"
+															? isDark
+																? "font-semibold text-gray-300"
+																: "font-semibold text-gray-800"
+															: isDark
+																? "font-bold text-white"
+																: "font-black text-[#0B2545]"
 													}`}
 												>
 													{item.title}
 												</h4>
-												<span className="text-[10px] text-gray-400 shrink-0 font-mono">
+												<span
+													className={`text-[10px] shrink-0 font-mono ${
+														isDark ? "text-gray-400" : "text-gray-500"
+													}`}
+												>
 													{formatRelativeTime(item.createdAt)}
 												</span>
 											</div>
-											<p className="text-xs text-gray-600 dark:text-gray-400 line-clamp-2 mt-0.5 leading-snug">
+											<p
+												className={`text-xs line-clamp-2 mt-0.5 leading-snug ${
+													isRead
+														? isDark
+															? "text-gray-400"
+															: "text-gray-500"
+														: isDark
+															? "text-gray-200"
+															: "text-gray-700"
+												}`}
+											>
 												{item.body}
 											</p>
 											{item.url && (
-												<div className="mt-1 flex items-center gap-1 font-bold text-[10px] text-blue-600 dark:text-blue-400">
+												<div
+													className={`mt-1.5 flex items-center gap-1 font-bold text-[10px] ${
+														isDark
+															? "text-[#38BDF8] hover:text-white"
+															: "text-[#0071BC] hover:text-[#005a96]"
+													}`}
+												>
 													<span>View details</span>
 													<ExternalLink className="h-2.5 w-2.5" />
 												</div>
 											)}
 										</div>
 										{!isRead && (
-											<span className="h-2 w-2 rounded-full bg-blue-600 shrink-0 mt-1.5" title="Unread"></span>
+											<span
+												className="h-2 w-2 rounded-full bg-[#38BDF8] shadow-[0_0_8px_#38BDF8] shrink-0 mt-1.5"
+												title="Unread"
+											></span>
 										)}
 									</div>
 								);
@@ -459,13 +591,19 @@ export function NotificationCenter({
 
 					{/* Popover Footer */}
 					<div
-						className={`flex items-center justify-between border-t p-3 text-[11px] text-gray-500 ${
-							isDark ? "border-gray-800 bg-gray-950/40" : "border-gray-100 bg-gray-50/60"
+						className={`flex items-center justify-between border-t px-4 py-3 text-[11px] ${
+							isDark
+								? "border-gray-800 bg-gray-950/80 text-gray-400"
+								: "border-gray-100 bg-gray-50/70 text-gray-600"
 						}`}
 					>
-						<span>PharmaQL Instant Field Alerts</span>
+						<span className="font-medium">PharmaQL Field Telemetry</span>
 						<button
-							className="flex items-center gap-1 font-bold text-blue-600 hover:underline"
+							className={`flex items-center gap-1 font-bold transition ${
+								isDark
+									? "text-blue-400 hover:text-blue-300"
+									: "text-[#0071BC] hover:text-[#005a96]"
+							}`}
 							disabled={isPending}
 							onClick={loadNotifications}
 							type="button"
