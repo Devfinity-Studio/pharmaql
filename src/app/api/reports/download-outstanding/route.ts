@@ -5,14 +5,43 @@ import { buildStyledExcelBuffer } from "@/lib/excel";
 import { getMRInfo } from "@/server/actions/mrInfo";
 import { getMRwisePeriodicalOutstanding } from "@/server/actions/overdueReports";
 import { auth } from "@/server/auth";
+import { getClientIp, getClientUserAgent } from "@/lib/security";
+import { rateLimitReportDownload } from "@/lib/rate-limit";
+import { recordAuditEvent } from "@/lib/audit-logger";
 
 export async function GET(request: Request) {
+	const reqHeaders = await headers();
 	const session = await auth.api.getSession({
-		headers: await headers(),
+		headers: reqHeaders,
 	});
 
 	if (!session || !session.user) {
 		return new NextResponse("Unauthorized", { status: 401 });
+	}
+
+	const clientIp = getClientIp(reqHeaders);
+	const userAgent = getClientUserAgent(reqHeaders);
+
+	// Rate Limiting: Max 30 exports per 5 minutes per user/IP
+	const rateCheck = rateLimitReportDownload(clientIp, session.user.id);
+	if (!rateCheck.allowed) {
+		await recordAuditEvent({
+			event: "RATE_LIMIT_EXCEEDED",
+			userId: session.user.id,
+			userEmail: session.user.email,
+			role: session.user.role,
+			ip: clientIp,
+			userAgent,
+			details: {
+				endpoint: "/api/reports/download-outstanding",
+				reason: rateCheck.message,
+			},
+		});
+
+		return new NextResponse(rateCheck.message, {
+			status: 429,
+			headers: { "Retry-After": String(rateCheck.resetInSeconds) },
+		});
 	}
 
 	const { searchParams } = new URL(request.url);

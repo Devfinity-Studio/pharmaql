@@ -159,13 +159,13 @@
 - [x] **Collapsible Sidebar with Icons**: Add intuitive icons to navigation links and implement a smooth collapsible sidebar for MR and Admin layouts.
 - [x] **Mobile Responsiveness & Home Page Polish**: Improve touch interactability on mobile devices (horizontal scroll indicators, touch targets), fix home page logo contrast with dark background, and eliminate cut-off text.
 
-## Phase 22: Audit & Security Hardening
+## Phase 22: Audit & Security Hardening [COMPLETED]
 
-- [ ] **Rate Limiting Engine**: Implement sliding window / token bucket rate limiting on sensitive API endpoints (OTP generation, credential login, password-protected unblock actions, and heavy report downloads).
-- [ ] **Security Headers & Middleware**: Configure comprehensive HTTP security headers via Next.js middleware / headers config (`Content-Security-Policy`, `Strict-Transport-Security`, `X-Content-Type-Options`, `X-Frame-Options: DENY`, `Referrer-Policy: strict-origin-when-cross-origin`, `Permissions-Policy`).
-- [ ] **Enhanced Session Tracking & Access Logging**: Capture client IP, user-agent, timestamp, and authentication lifecycle events (successful logins, failed OTP attempts, token expirations) with isolated audit storage.
-- [ ] **Admin Route Protection & IP Allowlisting**: Provide configurable IP restriction/allowlist checks for sensitive administrative actions and debug endpoints.
-- [ ] **Unblock Exemption Audit Trail**: Formalize and persist admin unblock actions, reasons, timestamps, and operator identities in structured audit logs.
-- [ ] **Verification Pass & Security Validation**: Test brute-force mitigation, simulated invalid payloads, security header compliance, and confirm 100% read-only ERP database integrity.
+- [x] **Rate Limiting Engine**: Implement sliding window / token bucket rate limiting on sensitive API endpoints (OTP generation, credential login, password-protected unblock actions, and heavy report downloads).
+- [x] **Security Headers & Middleware**: Configure comprehensive HTTP security headers via Next.js middleware / headers config (`Content-Security-Policy`, `Strict-Transport-Security`, `X-Content-Type-Options`, `X-Frame-Options: DENY`, `Referrer-Policy: strict-origin-when-cross-origin`, `Permissions-Policy`).
+- [x] **Enhanced Session Tracking & Access Logging**: Capture client IP, user-agent, timestamp, and authentication lifecycle events (successful logins, failed OTP attempts, token expirations) with isolated audit storage.
+- [x] **Admin Route Protection & IP Allowlisting**: Provide configurable IP restriction/allowlist checks for sensitive administrative actions and debug endpoints.
+- [x] **Unblock Exemption Audit Trail**: Formalize and persist admin unblock actions, reasons, timestamps, and operator identities in structured audit logs.
+- [x] **Verification Pass & Security Validation**: Test brute-force mitigation, simulated invalid payloads, security header compliance, and confirm 100% read-only ERP database integrity.
 
 

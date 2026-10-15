@@ -1,16 +1,26 @@
 "use server";
 
-import { cookies } from "next/headers";
+import { cookies, headers } from "next/headers";
 import { apiPost } from "@/lib/api-client";
+import { recordAuditEvent } from "@/lib/audit-logger";
 import { type SessionUser, signSessionToken } from "@/lib/jwt";
 import { sendOtpEmail } from "@/lib/mailer";
 import { getPermissionsForRank } from "@/lib/permissions";
+import {
+	checkLoginAllowed,
+	checkOtpVerifyAllowed,
+	rateLimitOtpRequest,
+	recordLoginFailure,
+	recordLoginSuccess,
+	recordOtpVerifyFailure,
+	recordOtpVerifySuccess,
+} from "@/lib/rate-limit";
+import { getClientIp, getClientUserAgent } from "@/lib/security";
 import { getMRInfo } from "@/server/actions/mrInfo";
 import { recordMRLastLogin } from "@/server/actions/mrs";
-import { AUTH_COOKIE_NAME } from "@/server/auth";
+import { AUTH_COOKIE_NAME, getSession } from "@/server/auth";
 
-// Temporary in-memory OTP storage: email -> { otp, expiresAt }
-// In production, server memory handles this seamlessly for standard verification cycles
+// Temporary in-memory OTP storage: email -> { otp, expiresAt, mrUser }
 const otpStore = new Map<
 	string,
 	{ otp: string; expiresAt: number; mrUser: SessionUser }
@@ -18,15 +28,39 @@ const otpStore = new Map<
 
 /**
  * 1. Request OTP for Medical Representative (MR)
- * Looks up MR via API Server by Email or Mobile
+ * Looks up MR via API Server by Email or Mobile with sliding-window rate limiting & audit logs
  */
 export async function requestMrOtp(emailOrPhone: string) {
+	const reqHeaders = await headers();
+	const clientIp = getClientIp(reqHeaders);
+	const userAgent = getClientUserAgent(reqHeaders);
+
 	try {
 		const cleanInput = emailOrPhone.trim();
 		if (!cleanInput) {
 			return {
 				success: false,
 				error: "Please enter your registered email address.",
+			};
+		}
+
+		// 1. Enforce Sliding-Window Rate Limiting (5 requests per 10 mins per IP & Identifier)
+		const rateCheck = rateLimitOtpRequest(clientIp, cleanInput);
+		if (!rateCheck.allowed) {
+			await recordAuditEvent({
+				event: "RATE_LIMIT_EXCEEDED",
+				ip: clientIp,
+				userAgent,
+				details: {
+					action: "requestMrOtp",
+					identifier: cleanInput,
+					reason: rateCheck.message,
+				},
+			});
+
+			return {
+				success: false,
+				error: rateCheck.message,
 			};
 		}
 
@@ -44,6 +78,17 @@ export async function requestMrOtp(emailOrPhone: string) {
 		} | null>("/api/auth/mr-lookup", { emailOrPhone: cleanInput });
 
 		if (!res.success || !res.data) {
+			await recordAuditEvent({
+				event: "AUTH_LOGIN_FAILURE",
+				ip: clientIp,
+				userAgent,
+				details: {
+					action: "requestMrOtp",
+					identifier: cleanInput,
+					reason: "Account not found",
+				},
+			});
+
 			return {
 				success: false,
 				error:
@@ -53,6 +98,18 @@ export async function requestMrOtp(emailOrPhone: string) {
 
 		const mr = res.data;
 		if (mr.isBlocked) {
+			await recordAuditEvent({
+				event: "AUTH_LOGIN_FAILURE",
+				userId: mr.id,
+				userEmail: mr.email,
+				ip: clientIp,
+				userAgent,
+				details: {
+					action: "requestMrOtp",
+					reason: "Account marked inactive",
+				},
+			});
+
 			return {
 				success: false,
 				error: "Your account is marked as inactive. Please contact support.",
@@ -63,6 +120,19 @@ export async function requestMrOtp(emailOrPhone: string) {
 		const { evaluateMROverdueStatus } = await import("./overdueEngine");
 		const overdueStatus = await evaluateMROverdueStatus(mr.id);
 		if (overdueStatus.isBlocked) {
+			await recordAuditEvent({
+				event: "AUTH_LOGIN_FAILURE",
+				userId: mr.id,
+				userEmail: mr.email,
+				ip: clientIp,
+				userAgent,
+				details: {
+					action: "requestMrOtp",
+					reason: "Account blocked by overdue engine",
+					overdueDetails: overdueStatus,
+				},
+			});
+
 			return {
 				success: false,
 				error:
@@ -117,6 +187,20 @@ export async function requestMrOtp(emailOrPhone: string) {
 		// Send email using Gmail SMTP
 		await sendOtpEmail(targetEmail, otp, mr.name);
 
+		// Record successful OTP dispatch
+		await recordAuditEvent({
+			event: "OTP_REQUEST",
+			userId: mr.id,
+			userEmail: targetEmail,
+			role: "MR",
+			ip: clientIp,
+			userAgent,
+			details: {
+				action: "requestMrOtp",
+				mrName: mr.name,
+			},
+		});
+
 		return {
 			success: true,
 			email: targetEmail,
@@ -133,11 +217,36 @@ export async function requestMrOtp(emailOrPhone: string) {
 
 /**
  * 2. Verify OTP for Medical Representative (MR)
+ * Protected with brute-force lockout and structured audit logging
  */
 export async function verifyMrOtp(email: string, otp: string) {
+	const reqHeaders = await headers();
+	const clientIp = getClientIp(reqHeaders);
+	const userAgent = getClientUserAgent(reqHeaders);
+
 	try {
 		const cleanEmail = email.trim().toLowerCase();
 		const cleanOtp = otp.trim();
+
+		// 1. Check if account or IP is locked due to repeated bad attempts
+		const lockCheck = checkOtpVerifyAllowed(clientIp, cleanEmail);
+		if (!lockCheck.allowed) {
+			await recordAuditEvent({
+				event: "RATE_LIMIT_EXCEEDED",
+				userEmail: cleanEmail,
+				ip: clientIp,
+				userAgent,
+				details: {
+					action: "verifyMrOtp",
+					reason: lockCheck.message,
+				},
+			});
+
+			return {
+				success: false,
+				error: lockCheck.message,
+			};
+		}
 
 		const record = otpStore.get(cleanEmail);
 		if (!record) {
@@ -155,10 +264,26 @@ export async function verifyMrOtp(email: string, otp: string) {
 			};
 		}
 
+		// Check OTP code validity
 		if (record.otp !== cleanOtp) {
+			const failMsg = recordOtpVerifyFailure(clientIp, cleanEmail);
+
+			await recordAuditEvent({
+				event: "OTP_VERIFY_FAILURE",
+				userId: record.mrUser.id,
+				userEmail: cleanEmail,
+				role: "MR",
+				ip: clientIp,
+				userAgent,
+				details: {
+					action: "verifyMrOtp",
+					reason: "Incorrect code",
+				},
+			});
+
 			return {
 				success: false,
-				error: "Invalid OTP code. Please enter the correct 6-digit code.",
+				error: failMsg,
 			};
 		}
 
@@ -175,11 +300,35 @@ export async function verifyMrOtp(email: string, otp: string) {
 			};
 		}
 
-		// OTP Valid! Clean up used OTP
+		// OTP Valid! Reset brute force counters & clean up active OTP
+		recordOtpVerifySuccess(clientIp, cleanEmail);
 		otpStore.delete(cleanEmail);
 
 		// Record Last Login timestamp for MR
 		await recordMRLastLogin(record.mrUser.id);
+
+		// Record Audit Events
+		await recordAuditEvent({
+			event: "OTP_VERIFY_SUCCESS",
+			userId: record.mrUser.id,
+			userEmail: cleanEmail,
+			role: "MR",
+			ip: clientIp,
+			userAgent,
+		});
+
+		await recordAuditEvent({
+			event: "AUTH_LOGIN_SUCCESS",
+			userId: record.mrUser.id,
+			userEmail: cleanEmail,
+			role: "MR",
+			ip: clientIp,
+			userAgent,
+			details: {
+				method: "OTP",
+				rank: record.mrUser.rank,
+			},
+		});
 
 		// Issue Stateless JWT Session Cookie
 		const token = await signSessionToken(record.mrUser, "7d");
@@ -201,11 +350,36 @@ export async function verifyMrOtp(email: string, otp: string) {
 
 /**
  * 3. Explicit Admin & Developer Password Login
+ * Protected with lockout per IP and persistent audit logging
  */
 export async function loginAdminOrDev(email: string, pass: string) {
+	const reqHeaders = await headers();
+	const clientIp = getClientIp(reqHeaders);
+	const userAgent = getClientUserAgent(reqHeaders);
+
 	try {
 		const cleanEmail = email.trim().toLowerCase();
 		const cleanPass = pass.trim();
+
+		// 1. Check IP lockout for brute-force prevention
+		const lockCheck = checkLoginAllowed(clientIp);
+		if (!lockCheck.allowed) {
+			await recordAuditEvent({
+				event: "RATE_LIMIT_EXCEEDED",
+				userEmail: cleanEmail,
+				ip: clientIp,
+				userAgent,
+				details: {
+					action: "loginAdminOrDev",
+					reason: lockCheck.message,
+				},
+			});
+
+			return {
+				success: false,
+				error: lockCheck.message,
+			};
+		}
 
 		const adminEmail = (
 			process.env.ADMIN_EMAIL || "admin@asmeepharma.com"
@@ -248,11 +422,40 @@ export async function loginAdminOrDev(email: string, pass: string) {
 		}
 
 		if (!sessionUser) {
+			const failMsg = recordLoginFailure(clientIp);
+
+			await recordAuditEvent({
+				event: "AUTH_LOGIN_FAILURE",
+				userEmail: cleanEmail,
+				ip: clientIp,
+				userAgent,
+				details: {
+					action: "loginAdminOrDev",
+					attemptedEmail: cleanEmail,
+				},
+			});
+
 			return {
 				success: false,
-				error: "Invalid credentials. Please verify email and password.",
+				error: failMsg,
 			};
 		}
+
+		// Reset brute-force counter on successful login
+		recordLoginSuccess(clientIp);
+
+		// Record Audit Event
+		await recordAuditEvent({
+			event: "AUTH_LOGIN_SUCCESS",
+			userId: sessionUser.id,
+			userEmail: sessionUser.email,
+			role: sessionUser.role,
+			ip: clientIp,
+			userAgent,
+			details: {
+				method: "PASSWORD",
+			},
+		});
 
 		// Issue Stateless JWT Session Cookie
 		const token = await signSessionToken(sessionUser, "7d");
@@ -276,7 +479,30 @@ export async function loginAdminOrDev(email: string, pass: string) {
  * 4. Universal Logout Action
  */
 export async function logoutUser() {
-	const cookieStore = await cookies();
-	cookieStore.delete(AUTH_COOKIE_NAME);
-	return { success: true };
+	try {
+		const reqHeaders = await headers();
+		const clientIp = getClientIp(reqHeaders);
+		const userAgent = getClientUserAgent(reqHeaders);
+		const session = await getSession({ headers: reqHeaders });
+
+		if (session) {
+			await recordAuditEvent({
+				event: "AUTH_LOGOUT",
+				userId: session.user.id,
+				userEmail: session.user.email,
+				role: session.user.role,
+				ip: clientIp,
+				userAgent,
+			});
+		}
+
+		const cookieStore = await cookies();
+		cookieStore.delete(AUTH_COOKIE_NAME);
+		return { success: true };
+	} catch (error: any) {
+		console.error("[Auth] Error logging out:", error);
+		const cookieStore = await cookies();
+		cookieStore.delete(AUTH_COOKIE_NAME);
+		return { success: true };
+	}
 }
