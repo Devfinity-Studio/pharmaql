@@ -4,11 +4,11 @@
   "gracePeriodDays": 7,
   "killswitchActive": false,
   "organization": "Asmee Pharma Pvt. Ltd.",
-  "developerEmail": "dev@asmeepharma.com",
+  "developerEmail": "info@devfinity.net",
   "supportEmail": "support@devfinity.net",
   "adminEmails": [
-    "dev@asmeepharma.com"
+    "info@devfinity.net"
   ],
-  "updatedAt": "2026-10-15T15:42:02.412Z",
-  "updatedBy": "dev@asmeepharma.com"
+  "updatedAt": "2026-10-15T18:59:00.000Z",
+  "updatedBy": "info@devfinity.net"
 }
