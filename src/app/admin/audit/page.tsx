@@ -16,11 +16,8 @@ export default async function AdminAuditPage() {
 		headers: await headers(),
 	});
 
-	if (
-		!session ||
-		(session.user.role !== "ADMIN" && session.user.role !== "DEVELOPER")
-	) {
-		redirect("/login");
+	if (!session || session.user.role !== "DEVELOPER") {
+		redirect("/admin/dashboard");
 	}
 
 	const initialLogs = await getRecentAuditLogs({ limit: 500 });
