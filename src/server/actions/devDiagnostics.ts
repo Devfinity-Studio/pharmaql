@@ -440,9 +440,9 @@ export async function restorePlatformUsageAction() {
 /**
  * 7. Dispatch Renewal Reminders Server Action
  */
-export async function triggerSubscriptionReminderEmails(customNote?: string) {
+export async function triggerSubscriptionReminderEmails(customNote?: string, targetEmails?: string[]) {
 	const session = await assertDeveloperSession();
-	const result = await sendSubscriptionReminderEmails(customNote);
+	const result = await sendSubscriptionReminderEmails(customNote, targetEmails);
 	await recordAuditEvent({
 		event: "SECURITY_WARNING",
 		userId: session.user.id,
@@ -452,6 +452,7 @@ export async function triggerSubscriptionReminderEmails(customNote?: string) {
 		details: {
 			action: "triggerSubscriptionReminderEmails",
 			sentCount: result.sentCount,
+			recipients: targetEmails,
 			success: result.success,
 		},
 	});
