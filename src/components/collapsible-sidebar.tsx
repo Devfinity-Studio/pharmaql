@@ -13,6 +13,7 @@ import {
 	LayoutDashboard,
 	LogOut,
 	Shield,
+	Terminal,
 	Users,
 } from "lucide-react";
 import { LogoutButton } from "@/components/logout-button";
@@ -21,12 +22,14 @@ interface CollapsibleSidebarProps {
 	portal: "mr" | "admin";
 	userName?: string;
 	userEmail?: string;
+	userRole?: string;
 }
 
 export function CollapsibleSidebar({
 	portal,
 	userName,
 	userEmail,
+	userRole,
 }: CollapsibleSidebarProps) {
 	const [isCollapsed, setIsCollapsed] = useState(false);
 	const pathname = usePathname();
@@ -39,7 +42,7 @@ export function CollapsibleSidebar({
 		},
 	];
 
-	const adminNavItems = [
+	const baseAdminNavItems = [
 		{
 			label: "Global Dashboard",
 			href: "/admin/dashboard",
@@ -65,6 +68,19 @@ export function CollapsibleSidebar({
 			href: "/admin/audit",
 			icon: Shield,
 		},
+	];
+
+	const adminNavItems = [
+		...baseAdminNavItems,
+		...(userRole === "DEVELOPER"
+			? [
+					{
+						label: "Developer Options",
+						href: "/admin/dev",
+						icon: Terminal,
+					},
+				]
+			: []),
 	];
 
 	const navItems = portal === "mr" ? mrNavItems : adminNavItems;
@@ -96,8 +112,19 @@ export function CollapsibleSidebar({
 								<span className="text-[#0071BC]">Pharma</span>
 							</Link>
 						</div>
-						<div className="mt-1 font-bold text-gray-400 text-xs uppercase tracking-widest">
-							{portal === "mr" ? "MR Portal" : "Admin Panel"}
+						<div className="mt-1 flex items-center gap-1.5 font-bold text-gray-400 text-xs uppercase tracking-widest">
+							<span>
+								{portal === "mr"
+									? "MR Portal"
+									: userRole === "DEVELOPER"
+										? "Developer Panel"
+										: "Admin Panel"}
+							</span>
+							{userRole === "DEVELOPER" && (
+								<span className="rounded border border-purple-500/40 bg-purple-500/20 px-1 py-0.2 font-mono text-[9px] text-purple-300">
+									DEV
+								</span>
+							)}
 						</div>
 					</div>
 				)}

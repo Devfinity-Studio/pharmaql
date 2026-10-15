@@ -4,6 +4,9 @@ import { redirect } from "next/navigation";
 import type { ReactNode } from "react";
 import { LogoutButton } from "@/components/logout-button";
 import { CollapsibleSidebar } from "@/components/collapsible-sidebar";
+import { ImpersonationBanner } from "@/components/impersonation-banner";
+import { getLicenseStatus } from "@/lib/license";
+import { isUnderMaintenance } from "@/lib/maintenance";
 import { auth } from "@/server/auth";
 
 export default async function MRLayout({ children }: { children: ReactNode }) {
@@ -13,6 +16,28 @@ export default async function MRLayout({ children }: { children: ReactNode }) {
 
 	if (!session || session.user.role !== "MR") {
 		redirect("/login");
+	}
+
+	// 1. License Check: If expired/killswitch active, redirect to /license-expired
+	const license = await getLicenseStatus();
+	if (license.isBlocked && !(session.user as any).originalDeveloper) {
+		redirect("/license-expired");
+	}
+
+	// 2. Global Maintenance Check: If active for MRs, render maintenance screen
+	const maintenance = await isUnderMaintenance(session.user.role);
+	if (maintenance.inMaintenance && !(session.user as any).originalDeveloper) {
+		return (
+			<div className="flex min-h-screen items-center justify-center bg-gray-900 p-4 text-white">
+				<div className="w-full max-w-md space-y-4 rounded-2xl border border-amber-500/30 bg-gray-950 p-8 text-center shadow-xl">
+					<h2 className="font-extrabold text-2xl text-amber-400">Scheduled Maintenance</h2>
+					<p className="text-sm text-gray-300">{maintenance.message}</p>
+					{maintenance.estimatedEndTime && (
+						<p className="font-mono text-xs text-amber-200">Estimated Completion: {maintenance.estimatedEndTime}</p>
+					)}
+				</div>
+			</div>
+		);
 	}
 
 	if ((session.user as any).isBlocked) {
@@ -53,19 +78,31 @@ export default async function MRLayout({ children }: { children: ReactNode }) {
 		);
 	}
 
-	return (
-		<div className="relative flex h-screen flex-col overflow-hidden bg-[#F8FAFC] text-[#0B2545] md:flex-row">
-			<div className="pointer-events-none absolute inset-0 z-0 bg-[url('/devfinity.png')] bg-repeat opacity-[0.03] [background-size:120px]"></div>
-			<CollapsibleSidebar
-				portal="mr"
-				userEmail={session.user.email}
-				userName={session.user.name}
-			/>
+	const isImpersonating = Boolean((session.user as any).isImpersonating);
 
-			{/* Independent Scrolling Content Workspace */}
-			<main className="relative z-10 flex-1 overflow-y-auto bg-[#F8FAFC] p-4 md:p-10">
-				{children}
-			</main>
+	return (
+		<div className="relative flex flex-col h-screen overflow-hidden bg-[#F8FAFC] text-[#0B2545]">
+			{isImpersonating && (
+				<ImpersonationBanner
+					mrId={session.user.id}
+					mrName={session.user.name}
+					rank={session.user.rank}
+				/>
+			)}
+			<div className="relative flex flex-1 overflow-hidden flex-col md:flex-row">
+				<div className="pointer-events-none absolute inset-0 z-0 bg-[url('/devfinity.png')] bg-repeat opacity-[0.03] [background-size:120px]"></div>
+				<CollapsibleSidebar
+					portal="mr"
+					userEmail={session.user.email}
+					userName={session.user.name}
+					userRole={session.user.role}
+				/>
+
+				{/* Independent Scrolling Content Workspace */}
+				<main className="relative z-10 flex-1 overflow-y-auto bg-[#F8FAFC] p-4 md:p-10">
+					{children}
+				</main>
+			</div>
 		</div>
 	);
 }

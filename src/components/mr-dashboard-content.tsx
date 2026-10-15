@@ -17,6 +17,40 @@ import {
 	getMRwisePeriodicalOutstanding,
 	type OverduePeriodicalOutstandingRow,
 } from "@/server/actions/overdueReports";
+import { isFeatureEnabledForRole } from "@/lib/maintenance";
+
+function ServiceMaintenanceNotice({
+	title,
+	message,
+}: {
+	title: string;
+	message?: string;
+}) {
+	return (
+		<div className="my-6 flex flex-col items-center justify-center rounded-2xl border border-amber-200 bg-amber-50/70 p-12 text-center">
+			<div className="mb-3 rounded-full bg-amber-100 p-3 text-amber-600">
+				<svg
+					className="h-8 w-8"
+					fill="none"
+					stroke="currentColor"
+					viewBox="0 0 24 24"
+				>
+					<path
+						d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
+						strokeLinecap="round"
+						strokeLinejoin="round"
+						strokeWidth={2}
+					/>
+				</svg>
+			</div>
+			<h3 className="font-bold text-gray-900 text-lg">{title}</h3>
+			<p className="mt-1 max-w-md text-gray-600 text-sm">
+				{message ||
+					"This service is temporarily undergoing scheduled maintenance. Please check back shortly."}
+			</p>
+		</div>
+	);
+}
 
 export async function MrDashboardContent({
 	mrId,
@@ -184,6 +218,26 @@ export async function MrDashboardContent({
 	if (canViewProductWise) allowedTabs.push("products");
 	if (canViewFreeScheme) allowedTabs.push("free-schemes");
 	allowedTabs.push("overdue");
+
+	// Evaluate feature switchboard toggles for current viewer role
+	const viewerRole = isAdminView ? "ADMIN" : "MR";
+	const [
+		salesFeature,
+		stockFeature,
+		partyFeature,
+		productsFeature,
+		claimFeature,
+		overdueFeature,
+		exportFeature,
+	] = await Promise.all([
+		isFeatureEnabledForRole("sales", viewerRole),
+		isFeatureEnabledForRole("stock", viewerRole),
+		isFeatureEnabledForRole("party", viewerRole),
+		isFeatureEnabledForRole("products", viewerRole),
+		isFeatureEnabledForRole("claim", viewerRole),
+		isFeatureEnabledForRole("overdue", viewerRole),
+		isFeatureEnabledForRole("export", viewerRole),
+	]);
 
 	const activeTab =
 		searchParams?.tab && allowedTabs.includes(searchParams.tab)
@@ -436,14 +490,22 @@ export async function MrDashboardContent({
 						<DateRangePicker />
 					</div>
 					{/* RENDER THE CORRECT DOWNLOAD BUTTON CONDITIONALLY AT THE TOP FILTER BAR */}
-					{(activeTab === "products" ||
-						activeTab === "free-schemes" ||
-						activeTab === "stock" ||
-						activeTab === "party") && (
-						<ReportDownloadButtons mrId={mrId} />
-					)}
-					{activeTab === "overdue" && (
-						<OutstandingDownloadButtons mrId={mrId} />
+					{exportFeature.enabled ? (
+						<>
+							{(activeTab === "products" ||
+								activeTab === "free-schemes" ||
+								activeTab === "stock" ||
+								activeTab === "party") && (
+								<ReportDownloadButtons mrId={mrId} />
+							)}
+							{activeTab === "overdue" && (
+								<OutstandingDownloadButtons mrId={mrId} />
+							)}
+						</>
+					) : (
+						<div className="flex items-center gap-1.5 rounded-lg border border-amber-200 bg-amber-50 px-3 py-1.5 text-xs text-amber-800">
+							<span className="font-semibold">Export Paused (Maintenance)</span>
+						</div>
 					)}
 				</div>
 
@@ -549,7 +611,13 @@ export async function MrDashboardContent({
 
 			{/* OVERVIEW TAB */}
 			{canViewSales && activeTab === "overview" && (
-				<div className="space-y-6">
+				!salesFeature.enabled ? (
+					<ServiceMaintenanceNotice
+						title="Sales Analytics Temporarily Unavailable"
+						message={salesFeature.message}
+					/>
+				) : (
+					<div className="space-y-6">
 					{/* Refined Metric Cards Family */}
 					<div className="grid grid-cols-1 gap-6 md:grid-cols-3">
 						<div className="rounded-xl bg-[#0071BC] p-6 text-white shadow-sm">
@@ -701,61 +769,97 @@ export async function MrDashboardContent({
 						</div>
 					</div>
 				</div>
+			)
 			)}
 
 			{/* DYNAMIC REPORTS */}
 			{activeTab === "products" && canViewProductWise && (
-				<div>
-					<div className="mb-4 flex items-center justify-between">
-						<form
-							action={baseUrl}
-							className="flex w-full max-w-sm gap-2"
-							method="GET"
-						>
-							{Object.entries(searchParams || {}).map(([k, v]) => {
-								if (k === "q") return null;
-								return (
-									<input key={k} name={k} type="hidden" value={v as string} />
-								);
-							})}
-							<input
-								className="flex-1 rounded-xl border border-gray-300 px-3 py-2"
-								defaultValue={searchParams?.q || ""}
-								name="q"
-								placeholder="Search product..."
-							/>
-							<button
-								className="rounded-xl bg-[#0071BC] px-4 py-2 font-bold text-white"
-								type="submit"
+				!productsFeature.enabled ? (
+					<ServiceMaintenanceNotice
+						title="Product Wise Report Temporarily Unavailable"
+						message={productsFeature.message}
+					/>
+				) : (
+					<div>
+						<div className="mb-4 flex items-center justify-between">
+							<form
+								action={baseUrl}
+								className="flex w-full max-w-sm gap-2"
+								method="GET"
 							>
-								Search
-							</button>
-						</form>
+								{Object.entries(searchParams || {}).map(([k, v]) => {
+									if (k === "q") return null;
+									return (
+										<input key={k} name={k} type="hidden" value={v as string} />
+									);
+								})}
+								<input
+									className="flex-1 rounded-xl border border-gray-300 px-3 py-2"
+									defaultValue={searchParams?.q || ""}
+									name="q"
+									placeholder="Search product..."
+								/>
+								<button
+									className="rounded-xl bg-[#0071BC] px-4 py-2 font-bold text-white"
+									type="submit"
+								>
+									Search
+								</button>
+							</form>
+						</div>
+						<ProductReportView mrId={mrId} searchParams={searchParams} />
 					</div>
-					<ProductReportView mrId={mrId} searchParams={searchParams} />
-				</div>
+				)
 			)}
 
 			{activeTab === "party" && canViewPartyWise && (
-				<div>
-					<div className="mb-4 flex items-center justify-between"></div>
-					<PartyReportView mrId={mrId} searchParams={searchParams} />
-				</div>
+				!partyFeature.enabled ? (
+					<ServiceMaintenanceNotice
+						title="Party Wise Report Temporarily Unavailable"
+						message={partyFeature.message}
+					/>
+				) : (
+					<div>
+						<div className="mb-4 flex items-center justify-between"></div>
+						<PartyReportView mrId={mrId} searchParams={searchParams} />
+					</div>
+				)
 			)}
 
 			{/* FREE SCHEME REPORTS TAB */}
 			{activeTab === "free-schemes" && canViewFreeScheme && (
-				<FreeSchemeReportView mrId={mrId} searchParams={searchParams} />
+				!claimFeature.enabled ? (
+					<ServiceMaintenanceNotice
+						title="Claim Quantity Report Temporarily Unavailable"
+						message={claimFeature.message}
+					/>
+				) : (
+					<FreeSchemeReportView mrId={mrId} searchParams={searchParams} />
+				)
 			)}
 
 			{/* OVERDUE TAB */}
 			{activeTab === "overdue" && (
-				<OverdueReportView mrId={mrId} searchParams={searchParams} />
+				!overdueFeature.enabled ? (
+					<ServiceMaintenanceNotice
+						title="Overdue Report Temporarily Unavailable"
+						message={overdueFeature.message}
+					/>
+				) : (
+					<OverdueReportView mrId={mrId} searchParams={searchParams} />
+				)
 			)}
 
 			{/* STOCK REPORTS TAB */}
 			{activeTab === "stock" && canViewStock && (
-				<StockReportView mrId={mrId} searchParams={searchParams} />
+				!stockFeature.enabled ? (
+					<ServiceMaintenanceNotice
+						title="Stock Report Temporarily Unavailable"
+						message={stockFeature.message}
+					/>
+				) : (
+					<StockReportView mrId={mrId} searchParams={searchParams} />
+				)
 			)}
 				</Suspense>
 			</div>

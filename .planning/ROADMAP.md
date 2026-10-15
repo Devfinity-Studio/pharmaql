@@ -168,16 +168,16 @@
 - [x] **Unblock Exemption Audit Trail**: Formalize and persist admin unblock actions, reasons, timestamps, and operator identities in structured audit logs.
 - [x] **Verification Pass & Security Validation**: Test brute-force mitigation, simulated invalid payloads, security header compliance, and confirm 100% read-only ERP database integrity.
 
-## Phase 23: Developer Options & Developer Account
+## Phase 23: Developer Options & Developer Account [COMPLETED]
 
-- [ ] **Developer Role Separation & Layout Alignment**: Fix admin layout authentication gates to permit `DEVELOPER` role alongside `ADMIN`, add distinct developer session indicators, badges, and role-scoped navigation.
-- [ ] **Software Subscription Lifecycle, Killswitch & Admin Reminder Emails**: Implement subscription status management (`data/license.json`) with automated system-wide blocking upon expiration/killswitch for MRs and Admins, countdown tracking, and automated renewal reminder email dispatch from developer email to admin emails.
-- [ ] **Granular Feature Switchboard & Global Maintenance Mode**: Build controls to selectively take down individual services (Stock, Sales, Product, Party, Claim, Overdue, Exports, Notices) for MRs, for Admins, or for both, plus a global maintenance mode with branded screens and custom completion estimates.
-- [ ] **Environment & Runtime Config Management**: Build developer interface to view, manage, and hot-reload dynamic runtime environment keys (`ADMIN_ALLOWED_IPS`, debug toggles, rate limits, grace periods) with masked secret inspection.
-- [ ] **Multi-Service Health & Telemetry Monitor**: Implement real-time service health monitors tracking Next.js frontend (uptime, memory, Node v26), Express API server (`/health` ping), MySQL ERP connection pool, SMTP mailer handshake, and disk storage.
-- [ ] **Unified Log Inspector (User Audit + System Logs)**: Create developer log stream inspecting both user activity audit logs (logins, OTPs, exports, unblocks) and system API logs (HTTP routes, status codes, query duration, errors) with search and severity filters.
-- [ ] **MR Impersonation & "View-As" Mode**: Allow developers to preview the portal and report views as any registered MR to verify ranking permissions, overdue notices, and stationery formatting without credential spoofing.
-- [ ] **Stored Procedure Playground & Cache Controls**: Build a safe, read-only stored procedure execution sandbox for developers to benchmark queries with custom parameters, alongside one-click cache flushes and rate-limit resets.
-- [ ] **Verification & Quality Gates**: Validate subscription blocking, email dispatch, feature toggles, maintenance mode, env hot-reloading, service health checks, and ensure clean production builds.
+- [x] **Developer Role Separation & Layout Alignment**: Fix admin layout authentication gates to permit `DEVELOPER` role alongside `ADMIN`, add distinct developer session indicators, badges, and role-scoped navigation.
+- [x] **Software Subscription Lifecycle, Killswitch & Admin Reminder Emails**: Implement subscription status management (`data/license.json`) with automated system-wide blocking upon expiration/killswitch for MRs and Admins, countdown tracking, and automated renewal reminder email dispatch from developer email to admin emails.
+- [x] **Granular Feature Switchboard & Global Maintenance Mode**: Build controls to selectively take down individual services (Stock, Sales, Product, Party, Claim, Overdue, Exports, Notices) for MRs, for Admins, or for both, plus a global maintenance mode with branded screens and custom completion estimates.
+- [x] **Environment & Runtime Config Management**: Build developer interface to view, manage, and hot-reload dynamic runtime environment keys (`ADMIN_ALLOWED_IPS`, debug toggles, rate limits, grace periods) with masked secret inspection.
+- [x] **Multi-Service Health & Telemetry Monitor**: Implement real-time service health monitors tracking Next.js frontend (uptime, memory, Node v26), Express API server (`/health` ping), MySQL ERP connection pool, SMTP mailer handshake, and disk storage.
+- [x] **Unified Log Inspector (User Audit + System Logs)**: Create developer log stream inspecting both user activity audit logs (logins, OTPs, exports, unblocks) and system API logs (HTTP routes, status codes, query duration, errors) with search and severity filters.
+- [x] **MR Impersonation & "View-As" Mode**: Allow developers to preview the portal and report views as any registered MR to verify ranking permissions, overdue notices, and stationery formatting without credential spoofing.
+- [x] **Stored Procedure Playground & Cache Controls**: Build a safe, read-only stored procedure execution sandbox for developers to benchmark queries with custom parameters, alongside one-click cache flushes and rate-limit resets.
+- [x] **Verification & Quality Gates**: Validate subscription blocking, email dispatch, feature toggles, maintenance mode, env hot-reloading, service health checks, and ensure clean production builds.
 
 

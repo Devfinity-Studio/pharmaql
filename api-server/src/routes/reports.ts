@@ -329,3 +329,110 @@ reportsRouter.post("/claim-data", async (req: Request, res: Response) => {
     if (conn) conn.release();
   }
 });
+
+/**
+ * 5. Developer Read-Only Procedure Sandbox & Benchmark
+ */
+reportsRouter.post("/dev-procedure-sandbox", async (req: Request, res: Response) => {
+  let conn;
+  const start = Date.now();
+  try {
+    const { procedureName, params = {} } = req.body || {};
+    const allowedProcedures = [
+      "rptStockMovementStatement",
+      "rptItemCustomerSale",
+      "rptMRwisePeriodicalOutstanding",
+    ];
+
+    if (!allowedProcedures.includes(procedureName)) {
+      res.status(400).json({
+        success: false,
+        error: `Procedure not allowed. Allowed procedures: ${allowedProcedures.join(", ")}`,
+      });
+      return;
+    }
+
+    conn = await dbPool.getConnection();
+    await conn.query("SET sql_mode = ''");
+
+    let sql = "";
+    const compCodeParam = formatCompanyCodeParam(params.companyCode || "");
+    const odbcFrom = formatDateToOdbc(params.fromDate || "2026-04-01");
+    const odbcTo = formatDateToOdbc(params.toDate || new Date().toISOString().slice(0, 10));
+    const locParam = params.locNo ? `('${params.locNo}')` : "('11')";
+
+    if (procedureName === "rptStockMovementStatement") {
+      const formattedParams = [
+        params.compNo ?? 11,
+        `'${locParam.replace(/'/g, "''")}'`,
+        202627,
+        formatDateToOdbc("2026-04-01"),
+        odbcFrom,
+        odbcTo,
+        `'${compCodeParam.replace(/'/g, "''")}'`,
+        "''",
+        "''",
+        "'PRate'",
+      ].join(", ");
+      sql = `CALL \`pdyasvtrans\`.\`rptStockMovementStatement\`(${formattedParams})`;
+    } else if (procedureName === "rptItemCustomerSale") {
+      const formattedParams = [
+        "1",
+        odbcFrom,
+        odbcTo,
+        params.compNo ?? 11,
+        params.locNo ?? 11,
+        202627,
+        `'${compCodeParam.replace(/'/g, "''")}'`,
+        "''",
+        "''",
+        "''",
+        "'SRate'",
+        "''",
+        "'N'",
+        "'N'",
+      ].join(", ");
+      sql = `CALL \`pdyasvtrans\`.\`rptItemCustomerSale\`(${formattedParams})`;
+    } else if (procedureName === "rptMRwisePeriodicalOutstanding") {
+      const formattedParams = [
+        params.compNo ?? 11,
+        params.locNo ?? 11,
+        202627,
+        odbcFrom,
+        odbcTo,
+        `'${compCodeParam.replace(/'/g, "''")}'`,
+        "''",
+        "''",
+        "''",
+        "1",
+      ].join(", ");
+      sql = `CALL \`pdyasvtrans\`.\`rptMRwisePeriodicalOutstanding\`(${formattedParams})`;
+    }
+
+    const [rows, fields] = await conn.query(sql);
+    const durationMs = Date.now() - start;
+    const resultRows = Array.isArray(rows) && Array.isArray((rows as any)[0]) ? (rows as any)[0] : (rows as any) || [];
+    const columns = Array.isArray(resultRows) && resultRows.length > 0 ? Object.keys(resultRows[0]) : [];
+
+    res.json({
+      success: true,
+      procedureName,
+      durationMs,
+      rowCount: resultRows.length,
+      columns,
+      sampleRows: resultRows.slice(0, 50),
+      debugSql: sql,
+    });
+  } catch (error: any) {
+    const durationMs = Date.now() - start;
+    console.error("[Reports API Sandbox Error]:", error);
+    res.status(500).json({
+      success: false,
+      error: error.message || "Procedure execution failed",
+      durationMs,
+    });
+  } finally {
+    if (conn) conn.release();
+  }
+});
+

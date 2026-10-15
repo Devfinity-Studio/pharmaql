@@ -2,6 +2,8 @@ import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import type { ReactNode } from "react";
 import { CollapsibleSidebar } from "@/components/collapsible-sidebar";
+import { getLicenseStatus } from "@/lib/license";
+import { isUnderMaintenance } from "@/lib/maintenance";
 import { auth } from "@/server/auth";
 
 export default async function AdminLayout({
@@ -13,8 +15,33 @@ export default async function AdminLayout({
 		headers: await headers(),
 	});
 
-	if (!session || session.user.role !== "ADMIN") {
+	if (
+		!session ||
+		(session.user.role !== "ADMIN" && session.user.role !== "DEVELOPER")
+	) {
 		redirect("/login");
+	}
+
+	// 1. License Check: If expired/killswitch active, permit DEVELOPER, redirect ADMIN to /license-expired
+	const license = await getLicenseStatus();
+	if (license.isBlocked && session.user.role !== "DEVELOPER") {
+		redirect("/license-expired");
+	}
+
+	// 2. Global Maintenance Check: If active for Admins, render maintenance screen
+	const maintenance = await isUnderMaintenance(session.user.role);
+	if (maintenance.inMaintenance && session.user.role !== "DEVELOPER") {
+		return (
+			<div className="flex min-h-screen items-center justify-center bg-gray-900 p-4 text-white">
+				<div className="w-full max-w-md space-y-4 rounded-2xl border border-amber-500/30 bg-gray-950 p-8 text-center shadow-xl">
+					<h2 className="font-extrabold text-2xl text-amber-400">Scheduled Maintenance</h2>
+					<p className="text-sm text-gray-300">{maintenance.message}</p>
+					{maintenance.estimatedEndTime && (
+						<p className="font-mono text-xs text-amber-200">Estimated Completion: {maintenance.estimatedEndTime}</p>
+					)}
+				</div>
+			</div>
+		);
 	}
 
 	return (
@@ -24,6 +51,7 @@ export default async function AdminLayout({
 				portal="admin"
 				userEmail={session.user.email}
 				userName={session.user.name}
+				userRole={session.user.role}
 			/>
 			<main className="relative z-10 flex-1 p-4 md:overflow-y-auto md:p-8">
 				{children}
