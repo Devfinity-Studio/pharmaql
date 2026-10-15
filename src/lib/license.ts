@@ -74,14 +74,14 @@ export async function getLicenseStatus(): Promise<LicenseStatusResult> {
 	const diffMs = expiryTime - now;
 	const daysRemaining = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
 
-	if (config.killswitchActive) {
+	if (config.killswitchActive || config.status === "SUSPENDED") {
 		return {
 			status: "SUSPENDED",
 			isBlocked: true,
 			daysRemaining,
 			expiresAt: config.expiresAt,
 			killswitchActive: true,
-			reason: "Software access has been suspended by system administration.",
+			reason: "Software access has been suspended due to subscription renewal requirement.",
 			organization: config.organization,
 			supportEmail: config.supportEmail,
 			developerEmail: config.developerEmail,
@@ -90,9 +90,9 @@ export async function getLicenseStatus(): Promise<LicenseStatusResult> {
 		};
 	}
 
-	if (daysRemaining < 0) {
-		const daysOverdue = Math.abs(daysRemaining);
-		if (daysOverdue > config.gracePeriodDays) {
+	if (config.status === "EXPIRED" || daysRemaining < 0) {
+		const daysOverdue = Math.max(0, Math.abs(daysRemaining));
+		if (config.status === "EXPIRED" || daysOverdue > config.gracePeriodDays) {
 			return {
 				status: "EXPIRED",
 				isBlocked: true,
@@ -280,5 +280,51 @@ export async function extendSubscriptionDays(
 	const baseTime = currentExpiry > Date.now() ? currentExpiry : Date.now();
 	const newExpiry = new Date(baseTime + days * 24 * 60 * 60 * 1000).toISOString();
 	return updateLicenseConfig({ expiresAt: newExpiry }, updatedBy);
+}
+
+/**
+ * Immediately suspend software usage due to subscription expiration or payment hold.
+ * Blocks all MRs and standard Admins instantly platform-wide.
+ */
+export async function suspendUsageImmediately(
+	updatedBy: string,
+): Promise<LicenseConfig> {
+	return updateLicenseConfig(
+		{ status: "SUSPENDED", killswitchActive: true },
+		updatedBy,
+	);
+}
+
+/**
+ * Force subscription into an expired state immediately (for testing or billing lock).
+ */
+export async function forceExpireImmediately(
+	updatedBy: string,
+): Promise<LicenseConfig> {
+	const expiredPastDate = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
+	return updateLicenseConfig(
+		{ status: "EXPIRED", killswitchActive: false, expiresAt: expiredPastDate },
+		updatedBy,
+	);
+}
+
+/**
+ * Restore active subscription usage and unblock platform access immediately.
+ */
+export async function restoreActiveUsage(
+	updatedBy: string,
+): Promise<LicenseConfig> {
+	const current = await getLicenseConfig();
+	const currentExpiryTime = new Date(current.expiresAt).getTime();
+	// If expiry date was expired or in the past, guarantee at least 1-year extension from now
+	const expiresAt =
+		currentExpiryTime <= Date.now()
+			? new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString()
+			: current.expiresAt;
+
+	return updateLicenseConfig(
+		{ status: "ACTIVE", killswitchActive: false, expiresAt },
+		updatedBy,
+	);
 }
 

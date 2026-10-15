@@ -1,15 +1,63 @@
 import Link from "next/link";
-import { AlertOctagon, Mail, ShieldAlert } from "lucide-react";
+import { AlertOctagon, CheckCircle2, Mail, ShieldAlert, ShieldCheck } from "lucide-react";
 import { getLicenseStatus } from "@/lib/license";
 
 export const metadata = {
-	title: "Subscription Required | PharmaQL | Asmee Pharma",
+	title: "Subscription Status | PharmaQL | Asmee Pharma",
 };
 
 export const dynamic = "force-dynamic";
 
 export default async function LicenseExpiredPage() {
 	const status = await getLicenseStatus();
+
+	// If license is active / unblocked, render active confirmation screen
+	if (!status.isBlocked) {
+		return (
+			<div className="flex min-h-screen flex-col items-center justify-center bg-gray-900 p-4 text-white">
+				<div className="pointer-events-none absolute inset-0 z-0 bg-[url('/devfinity.png')] bg-repeat opacity-[0.04] [background-size:120px]"></div>
+
+				<div className="relative z-10 w-full max-w-lg rounded-2xl border border-emerald-500/30 bg-gray-950/80 p-8 text-center shadow-2xl backdrop-blur-xl">
+					<div className="mx-auto mb-6 flex h-20 w-20 items-center justify-center rounded-2xl border border-emerald-500/20 bg-emerald-500/10 text-emerald-400 shadow-inner">
+						<ShieldCheck className="h-10 w-10" />
+					</div>
+
+					<div className="mb-2 inline-flex items-center gap-1.5 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-3 py-1 text-xs font-semibold uppercase tracking-wider text-emerald-400">
+						<CheckCircle2 className="h-3.5 w-3.5" />
+						<span>Subscription Active & Operational</span>
+					</div>
+
+					<h1 className="mt-3 font-black text-2xl tracking-tight text-white md:text-3xl">
+						Platform Access Restored
+					</h1>
+
+					<p className="mt-3 text-sm leading-relaxed text-gray-400">
+						The software license for <strong className="text-gray-200">{status.organization}</strong> is active. All services and features are fully accessible.
+					</p>
+
+					<div className="mt-6 flex flex-col gap-3">
+						<Link
+							className="flex items-center justify-center gap-2 rounded-xl bg-emerald-600 px-5 py-3 font-bold text-sm text-white shadow-lg transition-all hover:bg-emerald-700 hover:shadow-emerald-600/20"
+							href="/login"
+						>
+							Proceed to Login &rarr;
+						</Link>
+
+						<Link
+							className="rounded-xl border border-gray-800 bg-gray-900/40 px-5 py-2.5 font-semibold text-xs text-gray-400 transition hover:bg-gray-800 hover:text-white"
+							href="/admin/dev"
+						>
+							Developer Control Center &rarr;
+						</Link>
+					</div>
+
+					<div className="mt-8 border-t border-gray-800/80 pt-4 text-center font-mono text-[11px] text-gray-500">
+						PharmaQL Platform &bull; Developed by Devfinity
+					</div>
+				</div>
+			</div>
+		);
+	}
 
 	return (
 		<div className="flex min-h-screen flex-col items-center justify-center bg-gray-900 p-4 text-white">
@@ -23,7 +71,7 @@ export default async function LicenseExpiredPage() {
 
 				<div className="mb-2 inline-flex items-center gap-1.5 rounded-full border border-rose-500/30 bg-rose-500/10 px-3 py-1 text-xs font-semibold uppercase tracking-wider text-rose-400">
 					<ShieldAlert className="h-3.5 w-3.5" />
-					<span>License Inactive</span>
+					<span>License Inactive &bull; Usage Suspended</span>
 				</div>
 
 				<h1 className="mt-3 font-black text-2xl tracking-tight text-white md:text-3xl">
@@ -31,7 +79,7 @@ export default async function LicenseExpiredPage() {
 				</h1>
 
 				<p className="mt-3 text-sm leading-relaxed text-gray-400">
-					The software subscription for <strong className="text-gray-200">{status.organization}</strong> has ended or access has been temporarily placed on hold.
+					The software subscription for <strong className="text-gray-200">{status.organization}</strong> has ended or access has been placed on hold due to subscription renewal requirement.
 				</p>
 
 				{status.reason && (

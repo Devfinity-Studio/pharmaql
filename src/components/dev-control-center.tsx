@@ -41,6 +41,9 @@ import {
 	flushAllRateLimits,
 	flushMasterDataCaches,
 	saveLicenseConfigAction,
+	suspendPlatformUsageAction,
+	forceExpireSubscriptionAction,
+	restorePlatformUsageAction,
 	triggerSubscriptionReminderEmails,
 	saveFeatureToggleAction,
 	saveMaintenanceConfigAction,
@@ -161,6 +164,82 @@ export function DevControlCenter({
 			await saveLicenseConfigAction({ killswitchActive: nextState });
 			setLicense((prev) => ({ ...prev, killswitchActive: nextState, isBlocked: nextState }));
 			showFeedback(nextState ? "error" : "success", nextState ? "Emergency killswitch ACTIVATED. Platform access frozen." : "Emergency killswitch deactivated. Platform access restored.");
+			router.refresh();
+		});
+	};
+
+	const handleSuspendUsageImmediately = () => {
+		if (
+			!confirm(
+				"SUSPEND PLATFORM USAGE NOW?\n\nThis will immediately place software usage on hold due to subscription renewal requirement.\nStandard Admins and MRs will be blocked instantly platform-wide.\n\nContinue?",
+			)
+		) {
+			return;
+		}
+		startTransition(async () => {
+			const updated = await suspendPlatformUsageAction();
+			setLicense((prev) => ({
+				...prev,
+				status: "SUSPENDED",
+				killswitchActive: true,
+				isBlocked: true,
+				reason: "Software access has been suspended due to subscription renewal requirement.",
+			}));
+			showFeedback(
+				"error",
+				"Platform usage has been SUSPENDED immediately due to subscription. MRs and standard Admins are blocked.",
+			);
+			router.refresh();
+		});
+	};
+
+	const handleForceExpireSubscription = () => {
+		if (
+			!confirm(
+				"FORCE SUBSCRIPTION EXPIRED?\n\nThis will set the subscription date into the past and mark it EXPIRED, testing lockout enforcement for all standard users.\n\nContinue?",
+			)
+		) {
+			return;
+		}
+		startTransition(async () => {
+			const updated = await forceExpireSubscriptionAction();
+			setLicense((prev) => ({
+				...prev,
+				status: "EXPIRED",
+				killswitchActive: false,
+				expiresAt: updated.expiresAt,
+				daysRemaining: -30,
+				isBlocked: true,
+				reason: "Software subscription expired. Grace period elapsed.",
+			}));
+			showFeedback(
+				"error",
+				"Subscription status set to EXPIRED. Platform lock screen activated.",
+			);
+			router.refresh();
+		});
+	};
+
+	const handleRestoreActiveAccess = () => {
+		startTransition(async () => {
+			const updated = await restorePlatformUsageAction();
+			const daysRemaining = Math.ceil(
+				(new Date(updated.expiresAt).getTime() - Date.now()) /
+					(1000 * 60 * 60 * 24),
+			);
+			setLicense((prev) => ({
+				...prev,
+				status: "ACTIVE",
+				killswitchActive: false,
+				expiresAt: updated.expiresAt,
+				daysRemaining,
+				isBlocked: false,
+				reason: undefined,
+			}));
+			showFeedback(
+				"success",
+				"Platform access RESTORED! Subscription is now ACTIVE and all users are unblocked.",
+			);
 			router.refresh();
 		});
 	};
@@ -435,6 +514,106 @@ export function DevControlCenter({
 						</button>
 					</div>
 
+					{/* Subscription Status & Immediate Suspension Control Banner */}
+					<div
+						className={`rounded-2xl border p-5 shadow-xs transition-all ${
+							license.isBlocked
+								? "border-rose-300 bg-rose-50/70"
+								: "border-purple-200 bg-white"
+						}`}
+					>
+						<div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+							<div className="flex items-start gap-3">
+								<div
+									className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl font-bold ${
+										license.isBlocked
+											? "bg-rose-600 text-white shadow-rose-200"
+											: "bg-purple-600 text-white shadow-purple-200"
+									}`}
+								>
+									{license.isBlocked ? (
+										<AlertOctagon className="h-6 w-6 animate-pulse" />
+									) : (
+										<Shield className="h-6 w-6" />
+									)}
+								</div>
+								<div>
+									<div className="flex items-center gap-2">
+										<h3 className="font-extrabold text-base text-gray-900">
+											Subscription & Platform Access:{" "}
+											<span
+												className={
+													license.isBlocked
+														? "text-rose-600 font-black"
+														: "text-emerald-700 font-black"
+												}
+											>
+												{license.status}
+											</span>
+										</h3>
+										<span
+											className={`rounded-full px-2.5 py-0.5 font-mono text-[11px] font-bold ${
+												license.isBlocked
+													? "bg-rose-100 text-rose-800"
+													: "bg-emerald-100 text-emerald-800"
+											}`}
+										>
+											{license.isBlocked
+												? "LOCKOUT ACTIVE (MRs & Admins Blocked)"
+												: `${license.daysRemaining} days remaining`}
+										</span>
+									</div>
+									<p className="mt-1 text-xs text-gray-600">
+										{license.isBlocked
+											? license.reason ||
+												"Platform usage is currently suspended due to subscription renewal requirement. Standard Admins and MRs are locked out."
+											: `Software license for ${license.organization} is valid and operational. Expiration date: ${new Date(
+													license.expiresAt,
+												).toLocaleDateString("en-IN", {
+													day: "numeric",
+													month: "short",
+													year: "numeric",
+												})}.`}
+									</p>
+								</div>
+							</div>
+
+							<div className="flex flex-wrap items-center gap-2 sm:self-center">
+								{license.isBlocked ? (
+									<button
+										className="inline-flex items-center gap-1.5 rounded-xl bg-emerald-600 px-4 py-2 font-bold text-xs text-white shadow-sm transition hover:bg-emerald-700 hover:shadow-emerald-200"
+										disabled={isPending}
+										onClick={handleRestoreActiveAccess}
+										type="button"
+									>
+										<CheckCircle2 className="h-4 w-4" />
+										Restore Platform Access (Unblock All)
+									</button>
+								) : (
+									<button
+										className="inline-flex items-center gap-1.5 rounded-xl bg-rose-600 px-4 py-2 font-bold text-xs text-white shadow-sm transition hover:bg-rose-700 hover:shadow-rose-200"
+										disabled={isPending}
+										onClick={handleSuspendUsageImmediately}
+										type="button"
+									>
+										<AlertOctagon className="h-4 w-4" />
+										Suspend Usage Due to Subscription Right Now
+									</button>
+								)}
+
+								<a
+									className="inline-flex items-center gap-1 rounded-xl border border-gray-300 bg-white px-3 py-2 font-bold text-xs text-gray-700 shadow-xs hover:bg-gray-50"
+									href="/license-expired"
+									rel="noreferrer"
+									target="_blank"
+								>
+									<Eye className="h-3.5 w-3.5 text-gray-500" />
+									Preview Lock Screen
+								</a>
+							</div>
+						</div>
+					</div>
+
 					{/* 5 Component Health Cards */}
 					<div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
 						{/* Frontend Card */}
@@ -608,18 +787,68 @@ export function DevControlCenter({
 								<p className="mt-1 text-xs text-gray-500 font-mono" suppressHydrationWarning>
 									Expiration Date: {new Date(license.expiresAt).toLocaleDateString("en-IN", { day: "numeric", month: "long", year: "numeric" })} &bull; Grace Period: {license.gracePeriodDays} days
 								</p>
+								{license.reason && (
+									<p className="mt-1.5 font-mono text-xs font-semibold text-rose-600">
+										Reason: {license.reason}
+									</p>
+								)}
 							</div>
 
-							<button
-								className={`rounded-xl px-4 py-2 font-bold text-xs text-white shadow-xs transition ${
-									license.killswitchActive ? "bg-emerald-600 hover:bg-emerald-700" : "bg-rose-600 hover:bg-rose-700"
-								}`}
-								disabled={isPending}
-								onClick={handleToggleKillswitch}
-								type="button"
-							>
-								{license.killswitchActive ? "Deactivate Killswitch (Unblock Software)" : "Activate Emergency Killswitch"}
-							</button>
+							<div className="flex flex-wrap items-center gap-2">
+								{license.isBlocked ? (
+									<button
+										className="inline-flex items-center gap-1.5 rounded-xl bg-emerald-600 px-4 py-2 font-bold text-xs text-white shadow-xs transition hover:bg-emerald-700"
+										disabled={isPending}
+										onClick={handleRestoreActiveAccess}
+										type="button"
+									>
+										<CheckCircle2 className="h-4 w-4" />
+										Restore Platform Access (Unblock All)
+									</button>
+								) : (
+									<>
+										<button
+											className="inline-flex items-center gap-1.5 rounded-xl bg-rose-600 px-4 py-2 font-bold text-xs text-white shadow-xs transition hover:bg-rose-700"
+											disabled={isPending}
+											onClick={handleSuspendUsageImmediately}
+											type="button"
+										>
+											<AlertOctagon className="h-4 w-4" />
+											Suspend Usage Right Now
+										</button>
+
+										<button
+											className="inline-flex items-center gap-1.5 rounded-xl border border-amber-300 bg-amber-50 px-3.5 py-2 font-bold text-xs text-amber-900 transition hover:bg-amber-100"
+											disabled={isPending}
+											onClick={handleForceExpireSubscription}
+											type="button"
+										>
+											<Clock className="h-4 w-4 text-amber-600" />
+											Force Expire
+										</button>
+									</>
+								)}
+
+								<button
+									className={`rounded-xl px-3.5 py-2 font-bold text-xs text-white shadow-xs transition ${
+										license.killswitchActive ? "bg-emerald-600 hover:bg-emerald-700" : "bg-gray-800 hover:bg-gray-900"
+									}`}
+									disabled={isPending}
+									onClick={handleToggleKillswitch}
+									type="button"
+								>
+									{license.killswitchActive ? "Clear Killswitch" : "Killswitch"}
+								</button>
+
+								<a
+									className="rounded-xl border border-gray-300 bg-white px-3 py-2 font-bold text-xs text-gray-700 shadow-xs hover:bg-gray-50"
+									href="/license-expired"
+									rel="noreferrer"
+									target="_blank"
+								>
+									Preview Lock
+								</a>
+							</div>
 						</div>
 
 						{/* Quick Extend Buttons */}
