@@ -1,5 +1,4 @@
-import fs from "fs/promises";
-import path from "path";
+import { readServerJson, writeServerJson } from "./server-storage";
 
 export type FeatureKey =
 	| "stock"
@@ -26,9 +25,6 @@ export interface MaintenanceConfig {
 	updatedBy: string;
 }
 
-const FEATURE_TOGGLES_FILE = path.join(process.cwd(), "data", "feature_toggles.json");
-const MAINTENANCE_FILE = path.join(process.cwd(), "data", "maintenance.json");
-
 const DEFAULT_TOGGLES: Record<FeatureKey, FeatureScope> = {
 	stock: "ACTIVE",
 	sales: "ACTIVE",
@@ -50,21 +46,14 @@ const DEFAULT_MAINTENANCE: MaintenanceConfig = {
 };
 
 /**
- * Retrieve current feature toggles from data/feature_toggles.json.
+ * Retrieve current feature toggles from server storage safely.
  */
 export async function getFeatureToggles(): Promise<Record<FeatureKey, FeatureScope>> {
-	try {
-		const raw = await fs.readFile(FEATURE_TOGGLES_FILE, "utf-8");
-		return { ...DEFAULT_TOGGLES, ...JSON.parse(raw) };
-	} catch {
-		await fs.mkdir(path.dirname(FEATURE_TOGGLES_FILE), { recursive: true });
-		await fs.writeFile(
-			FEATURE_TOGGLES_FILE,
-			JSON.stringify(DEFAULT_TOGGLES, null, 2),
-			"utf-8",
-		);
-		return DEFAULT_TOGGLES;
-	}
+	const data = await readServerJson<Record<FeatureKey, FeatureScope>>(
+		"feature_toggles.json",
+		DEFAULT_TOGGLES,
+	);
+	return { ...DEFAULT_TOGGLES, ...data };
 }
 
 /**
@@ -77,8 +66,7 @@ export async function updateFeatureToggle(
 ): Promise<Record<FeatureKey, FeatureScope>> {
 	const current = await getFeatureToggles();
 	current[key] = scope;
-	await fs.mkdir(path.dirname(FEATURE_TOGGLES_FILE), { recursive: true });
-	await fs.writeFile(FEATURE_TOGGLES_FILE, JSON.stringify(current, null, 2), "utf-8");
+	await writeServerJson("feature_toggles.json", current);
 	return current;
 }
 
@@ -125,18 +113,11 @@ export async function isFeatureEnabledForRole(
  * Retrieve global maintenance mode status.
  */
 export async function getMaintenanceConfig(): Promise<MaintenanceConfig> {
-	try {
-		const raw = await fs.readFile(MAINTENANCE_FILE, "utf-8");
-		return { ...DEFAULT_MAINTENANCE, ...JSON.parse(raw) };
-	} catch {
-		await fs.mkdir(path.dirname(MAINTENANCE_FILE), { recursive: true });
-		await fs.writeFile(
-			MAINTENANCE_FILE,
-			JSON.stringify(DEFAULT_MAINTENANCE, null, 2),
-			"utf-8",
-		);
-		return DEFAULT_MAINTENANCE;
-	}
+	const data = await readServerJson<MaintenanceConfig>(
+		"maintenance.json",
+		DEFAULT_MAINTENANCE,
+	);
+	return { ...DEFAULT_MAINTENANCE, ...data };
 }
 
 /**
@@ -153,8 +134,7 @@ export async function updateMaintenanceConfig(
 		updatedAt: new Date().toISOString(),
 		updatedBy,
 	};
-	await fs.mkdir(path.dirname(MAINTENANCE_FILE), { recursive: true });
-	await fs.writeFile(MAINTENANCE_FILE, JSON.stringify(next, null, 2), "utf-8");
+	await writeServerJson("maintenance.json", next);
 	return next;
 }
 

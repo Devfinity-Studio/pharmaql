@@ -1,6 +1,5 @@
-import fs from "fs/promises";
-import path from "path";
 import webpush from "web-push";
+import { readServerJson, writeServerJson } from "./server-storage";
 
 export interface VapidKeys {
 	publicKey: string;
@@ -45,11 +44,6 @@ export interface PushNotificationPayload {
 	badge?: string;
 }
 
-const DATA_DIR = path.join(process.cwd(), "data");
-const VAPID_FILE = path.join(DATA_DIR, "vapid_keys.json");
-const SUBSCRIPTIONS_FILE = path.join(DATA_DIR, "push_subscriptions.json");
-const NOTIFICATIONS_FILE = path.join(DATA_DIR, "notifications.json");
-
 let vapidConfigured = false;
 let cachedVapidKeys: VapidKeys | null = null;
 
@@ -71,17 +65,11 @@ export async function getVapidKeys(): Promise<VapidKeys> {
 		return cachedVapidKeys;
 	}
 
-	try {
-		await fs.mkdir(DATA_DIR, { recursive: true });
-		const raw = await fs.readFile(VAPID_FILE, "utf-8");
-		const keys = JSON.parse(raw) as VapidKeys;
-		if (keys.publicKey && keys.privateKey) {
-			cachedVapidKeys = keys;
-			ensureVapidConfigured(cachedVapidKeys);
-			return cachedVapidKeys;
-		}
-	} catch {
-		// Keys do not exist yet, generate new RFC 8292 pair
+	const stored = await readServerJson<VapidKeys | null>("vapid_keys.json", null);
+	if (stored && stored.publicKey && stored.privateKey) {
+		cachedVapidKeys = stored;
+		ensureVapidConfigured(cachedVapidKeys);
+		return cachedVapidKeys;
 	}
 
 	const generated = webpush.generateVAPIDKeys();
@@ -90,17 +78,7 @@ export async function getVapidKeys(): Promise<VapidKeys> {
 		privateKey: generated.privateKey,
 	};
 
-	try {
-		await fs.mkdir(DATA_DIR, { recursive: true });
-		await fs.writeFile(
-			VAPID_FILE,
-			JSON.stringify(cachedVapidKeys, null, 2),
-			"utf-8",
-		);
-	} catch (err) {
-		console.warn("[WebPush] Failed to persist generated VAPID keys:", err);
-	}
-
+	await writeServerJson("vapid_keys.json", cachedVapidKeys);
 	ensureVapidConfigured(cachedVapidKeys);
 	return cachedVapidKeys;
 }
@@ -132,12 +110,8 @@ export async function getVapidPublicKey(): Promise<string> {
  * 3. Subscription Persistence Helpers
  */
 export async function getStoredSubscriptions(): Promise<StoredPushSubscription[]> {
-	try {
-		const raw = await fs.readFile(SUBSCRIPTIONS_FILE, "utf-8");
-		return JSON.parse(raw);
-	} catch {
-		return [];
-	}
+	const subs = await readServerJson<StoredPushSubscription[]>("push_subscriptions.json", []);
+	return Array.isArray(subs) ? subs : [];
 }
 
 export async function savePushSubscription(
@@ -187,8 +161,7 @@ export async function savePushSubscription(
 		subscriptions.push(record);
 	}
 
-	await fs.mkdir(DATA_DIR, { recursive: true });
-	await fs.writeFile(SUBSCRIPTIONS_FILE, JSON.stringify(subscriptions, null, 2), "utf-8");
+	await writeServerJson("push_subscriptions.json", subscriptions);
 	return record;
 }
 
@@ -196,8 +169,7 @@ export async function removePushSubscription(endpoint: string): Promise<boolean>
 	const subscriptions = await getStoredSubscriptions();
 	const filtered = subscriptions.filter((s) => s.endpoint !== endpoint);
 	if (filtered.length !== subscriptions.length) {
-		await fs.mkdir(DATA_DIR, { recursive: true });
-		await fs.writeFile(SUBSCRIPTIONS_FILE, JSON.stringify(filtered, null, 2), "utf-8");
+		await writeServerJson("push_subscriptions.json", filtered);
 		return true;
 	}
 	return false;
@@ -212,8 +184,7 @@ export async function removeUserPushSubscriptions(userId: string): Promise<numbe
 	const filtered = subscriptions.filter((s) => s.userId !== userId);
 	const removedCount = subscriptions.length - filtered.length;
 	if (removedCount > 0) {
-		await fs.mkdir(DATA_DIR, { recursive: true });
-		await fs.writeFile(SUBSCRIPTIONS_FILE, JSON.stringify(filtered, null, 2), "utf-8");
+		await writeServerJson("push_subscriptions.json", filtered);
 	}
 	return removedCount;
 }
@@ -222,12 +193,8 @@ export async function removeUserPushSubscriptions(userId: string): Promise<numbe
  * 4. In-App Notification Store Helpers
  */
 export async function getInAppNotifications(): Promise<InAppNotification[]> {
-	try {
-		const raw = await fs.readFile(NOTIFICATIONS_FILE, "utf-8");
-		return JSON.parse(raw);
-	} catch {
-		return [];
-	}
+	const notifs = await readServerJson<InAppNotification[]>("notifications.json", []);
+	return Array.isArray(notifs) ? notifs : [];
 }
 
 export async function addInAppNotification(
@@ -243,8 +210,7 @@ export async function addInAppNotification(
 
 	// Keep last 150 notifications max to prevent file bloat
 	const updated = [item, ...all].slice(0, 150);
-	await fs.mkdir(DATA_DIR, { recursive: true });
-	await fs.writeFile(NOTIFICATIONS_FILE, JSON.stringify(updated, null, 2), "utf-8");
+	await writeServerJson("notifications.json", updated);
 	return item;
 }
 
@@ -291,8 +257,7 @@ export async function markInAppNotificationAsRead(
 	}
 
 	if (updated) {
-		await fs.mkdir(DATA_DIR, { recursive: true });
-		await fs.writeFile(NOTIFICATIONS_FILE, JSON.stringify(all, null, 2), "utf-8");
+		await writeServerJson("notifications.json", all);
 	}
 	return updated;
 }
@@ -318,8 +283,7 @@ export async function markAllInAppNotificationsAsRead(
 	}
 
 	if (count > 0) {
-		await fs.mkdir(DATA_DIR, { recursive: true });
-		await fs.writeFile(NOTIFICATIONS_FILE, JSON.stringify(all, null, 2), "utf-8");
+		await writeServerJson("notifications.json", all);
 	}
 	return count;
 }

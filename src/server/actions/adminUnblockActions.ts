@@ -1,9 +1,7 @@
 "use server";
 
-import fs from "fs/promises";
 import { revalidatePath } from "next/cache";
 import { headers } from "next/headers";
-import path from "path";
 import { recordAuditEvent } from "@/lib/audit-logger";
 import {
 	checkAdminUnblockAllowed,
@@ -12,8 +10,7 @@ import {
 } from "@/lib/rate-limit";
 import { getClientIp, getClientUserAgent, isIpAllowedForAdmin } from "@/lib/security";
 import { auth } from "@/server/auth";
-
-const OVERRIDES_FILE = path.join(process.cwd(), "data", "mr_overrides.json");
+import { readServerJson, writeServerJson } from "@/lib/server-storage";
 
 interface UnblockHistoryEntry {
 	unblockedAt: string;
@@ -134,13 +131,7 @@ export async function secureAdminUnblockMR({
 	recordAdminUnblockSuccess(clientIp);
 
 	try {
-		let allOverrides: Record<string, any> = {};
-		try {
-			const raw = await fs.readFile(OVERRIDES_FILE, "utf-8");
-			allOverrides = JSON.parse(raw);
-		} catch {
-			allOverrides = {};
-		}
+		const allOverrides = await readServerJson<Record<string, any>>("mr_overrides.json", {});
 
 		const current = allOverrides[mrId] || {};
 		const unblockedUntil = new Date(
@@ -165,12 +156,7 @@ export async function secureAdminUnblockMR({
 			unblockHistory: history,
 		};
 
-		await fs.mkdir(path.dirname(OVERRIDES_FILE), { recursive: true });
-		await fs.writeFile(
-			OVERRIDES_FILE,
-			JSON.stringify(allOverrides, null, 2),
-			"utf-8",
-		);
+		await writeServerJson("mr_overrides.json", allOverrides);
 
 		// Record persistent audit log event
 		await recordAuditEvent({

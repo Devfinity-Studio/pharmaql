@@ -1,27 +1,19 @@
 "use server";
 
-import fs from "fs/promises";
 import { revalidatePath } from "next/cache";
 import { headers } from "next/headers";
-import path from "path";
 import { type MROverride } from "@/lib/permissions";
 import { getMRInfo } from "@/server/actions/mrInfo";
 import { auth } from "@/server/auth";
-
-const OVERRIDES_FILE = path.join(process.cwd(), "data", "mr_overrides.json");
+import { readServerJson, writeServerJson } from "@/lib/server-storage";
 
 export async function getMROverrides(): Promise<Record<string, MROverride>> {
-	try {
-		const raw = await fs.readFile(OVERRIDES_FILE, "utf-8");
-		return JSON.parse(raw);
-	} catch {
-		return {};
-	}
+	const data = await readServerJson<Record<string, MROverride>>("mr_overrides.json", {});
+	return data && typeof data === "object" ? data : {};
 }
 
 async function saveMROverrides(data: Record<string, MROverride>) {
-	await fs.mkdir(path.dirname(OVERRIDES_FILE), { recursive: true });
-	await fs.writeFile(OVERRIDES_FILE, JSON.stringify(data, null, 2), "utf-8");
+	await writeServerJson("mr_overrides.json", data);
 }
 
 export async function assignManufacturer(

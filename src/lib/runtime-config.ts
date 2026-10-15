@@ -1,5 +1,4 @@
-import fs from "fs/promises";
-import path from "path";
+import { readServerJson, writeServerJson } from "./server-storage";
 
 export interface RuntimeConfig {
 	adminAllowedIps: string;
@@ -11,8 +10,6 @@ export interface RuntimeConfig {
 	updatedAt: string;
 	updatedBy: string;
 }
-
-const RUNTIME_CONFIG_FILE = path.join(process.cwd(), "data", "runtime_config.json");
 
 const DEFAULT_RUNTIME_CONFIG: RuntimeConfig = {
 	adminAllowedIps: process.env.ADMIN_ALLOWED_IPS || "",
@@ -26,25 +23,18 @@ const DEFAULT_RUNTIME_CONFIG: RuntimeConfig = {
 };
 
 /**
- * Retrieve dynamic runtime configuration.
+ * Retrieve dynamic runtime configuration safely from server storage.
  */
 export async function getRuntimeConfig(): Promise<RuntimeConfig> {
-	try {
-		const raw = await fs.readFile(RUNTIME_CONFIG_FILE, "utf-8");
-		const config: RuntimeConfig = { ...DEFAULT_RUNTIME_CONFIG, ...JSON.parse(raw) };
-		if (config.adminAllowedIps !== undefined && config.adminAllowedIps !== "") {
-			process.env.ADMIN_ALLOWED_IPS = config.adminAllowedIps;
-		}
-		return config;
-	} catch {
-		await fs.mkdir(path.dirname(RUNTIME_CONFIG_FILE), { recursive: true });
-		await fs.writeFile(
-			RUNTIME_CONFIG_FILE,
-			JSON.stringify(DEFAULT_RUNTIME_CONFIG, null, 2),
-			"utf-8",
-		);
-		return DEFAULT_RUNTIME_CONFIG;
+	const raw = await readServerJson<Partial<RuntimeConfig>>(
+		"runtime_config.json",
+		DEFAULT_RUNTIME_CONFIG,
+	);
+	const config: RuntimeConfig = { ...DEFAULT_RUNTIME_CONFIG, ...raw };
+	if (config.adminAllowedIps !== undefined && config.adminAllowedIps !== "") {
+		process.env.ADMIN_ALLOWED_IPS = config.adminAllowedIps;
 	}
+	return config;
 }
 
 /**
@@ -64,8 +54,7 @@ export async function updateRuntimeConfig(
 	if (next.adminAllowedIps !== undefined) {
 		process.env.ADMIN_ALLOWED_IPS = next.adminAllowedIps;
 	}
-	await fs.mkdir(path.dirname(RUNTIME_CONFIG_FILE), { recursive: true });
-	await fs.writeFile(RUNTIME_CONFIG_FILE, JSON.stringify(next, null, 2), "utf-8");
+	await writeServerJson("runtime_config.json", next);
 	return next;
 }
 

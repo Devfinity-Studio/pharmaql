@@ -1,6 +1,5 @@
-import fs from "fs/promises";
-import path from "path";
 import crypto from "crypto";
+import { readServerJson, writeServerJson } from "./server-storage";
 
 export type AuditEventType =
 	| "AUTH_LOGIN_SUCCESS"
@@ -26,7 +25,6 @@ export interface AuditLogEntry {
 	details?: Record<string, any>;
 }
 
-const AUDIT_LOG_FILE = path.join(process.cwd(), "data", "audit_logs.json");
 const MAX_AUDIT_ENTRIES = 1000;
 
 // Internal queue to prevent concurrent read/write race conditions
@@ -48,26 +46,16 @@ export async function recordAuditEvent(
 	writeQueue = writeQueue
 		.then(async () => {
 			try {
-				let logs: AuditLogEntry[] = [];
-				try {
-					const data = await fs.readFile(AUDIT_LOG_FILE, "utf-8");
-					logs = JSON.parse(data);
-					if (!Array.isArray(logs)) logs = [];
-				} catch {
-					logs = [];
-				}
+				let logs = await readServerJson<AuditLogEntry[]>("audit_logs.json", []);
+				if (!Array.isArray(logs)) logs = [];
 
 				logs.unshift(logItem);
+
 				if (logs.length > MAX_AUDIT_ENTRIES) {
 					logs = logs.slice(0, MAX_AUDIT_ENTRIES);
 				}
 
-				await fs.mkdir(path.dirname(AUDIT_LOG_FILE), { recursive: true });
-				await fs.writeFile(
-					AUDIT_LOG_FILE,
-					JSON.stringify(logs, null, 2),
-					"utf-8",
-				);
+				await writeServerJson("audit_logs.json", logs);
 			} catch (err) {
 				console.error("[AuditLogger] Failed to write audit event:", err);
 			}
@@ -88,8 +76,7 @@ export async function getRecentAuditLogs(options?: {
 	event?: string;
 }): Promise<AuditLogEntry[]> {
 	try {
-		const data = await fs.readFile(AUDIT_LOG_FILE, "utf-8");
-		let logs: AuditLogEntry[] = JSON.parse(data);
+		let logs = await readServerJson<AuditLogEntry[]>("audit_logs.json", []);
 		if (!Array.isArray(logs)) return [];
 
 		if (options?.event) {

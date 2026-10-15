@@ -1,0 +1,10 @@
+{
+  "stock": "ACTIVE",
+  "sales": "ACTIVE",
+  "products": "ACTIVE",
+  "party": "ACTIVE",
+  "claim": "ACTIVE",
+  "overdue": "ACTIVE",
+  "export": "ACTIVE",
+  "notices": "ACTIVE"
+}

@@ -1,10 +1,9 @@
 "use server";
 
-import fs from "fs/promises";
 import { revalidatePath } from "next/cache";
 import { headers } from "next/headers";
-import path from "path";
 import { auth } from "@/server/auth";
+import { readServerJson, writeServerJson } from "@/lib/server-storage";
 
 export interface NoticeItem {
 	id: string;
@@ -17,24 +16,13 @@ export interface NoticeItem {
 	updatedAt: string;
 }
 
-const NOTICES_FILE = path.join(process.cwd(), "data", "notices.json");
-
 async function ensureNoticesFile(): Promise<NoticeItem[]> {
-	try {
-		const dir = path.dirname(NOTICES_FILE);
-		await fs.mkdir(dir, { recursive: true });
-		const data = await fs.readFile(NOTICES_FILE, "utf-8");
-		return JSON.parse(data);
-	} catch {
-		await fs.writeFile(NOTICES_FILE, "[]", "utf-8");
-		return [];
-	}
+	const data = await readServerJson<NoticeItem[]>("notices.json", []);
+	return Array.isArray(data) ? data : [];
 }
 
 async function writeNoticesFile(notices: NoticeItem[]) {
-	const dir = path.dirname(NOTICES_FILE);
-	await fs.mkdir(dir, { recursive: true });
-	await fs.writeFile(NOTICES_FILE, JSON.stringify(notices, null, 2), "utf-8");
+	await writeServerJson("notices.json", notices);
 }
 
 export async function getNotices(): Promise<NoticeItem[]> {
