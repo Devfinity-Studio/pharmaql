@@ -10,6 +10,9 @@ import { rateLimiter } from "@/lib/rate-limit";
 import {
 	updateLicenseConfig,
 	sendSubscriptionReminderEmails,
+	suspendUsageImmediately,
+	forceExpireImmediately,
+	restoreActiveUsage,
 	type LicenseConfig,
 } from "@/lib/license";
 import {
@@ -363,6 +366,72 @@ export async function saveLicenseConfigAction(update: Partial<LicenseConfig>) {
 		details: {
 			action: "saveLicenseConfigAction",
 			update,
+		},
+	});
+	return result;
+}
+
+/**
+ * Suspend platform usage immediately due to subscription hold or payment expiration.
+ */
+export async function suspendPlatformUsageAction() {
+	const session = await assertDeveloperSession();
+	const result = await suspendUsageImmediately(session.user.email);
+	await recordAuditEvent({
+		event: "SECURITY_WARNING",
+		userId: session.user.id,
+		userEmail: session.user.email,
+		role: "DEVELOPER",
+		ip: "127.0.0.1",
+		details: {
+			action: "suspendPlatformUsageAction",
+			message: "Platform usage suspended immediately due to subscription hold.",
+			status: result.status,
+			killswitchActive: result.killswitchActive,
+		},
+	});
+	return result;
+}
+
+/**
+ * Force subscription into an expired state immediately (for testing or billing lock).
+ */
+export async function forceExpireSubscriptionAction() {
+	const session = await assertDeveloperSession();
+	const result = await forceExpireImmediately(session.user.email);
+	await recordAuditEvent({
+		event: "SECURITY_WARNING",
+		userId: session.user.id,
+		userEmail: session.user.email,
+		role: "DEVELOPER",
+		ip: "127.0.0.1",
+		details: {
+			action: "forceExpireSubscriptionAction",
+			message: "Subscription forced into expired state immediately.",
+			status: result.status,
+			expiresAt: result.expiresAt,
+		},
+	});
+	return result;
+}
+
+/**
+ * Restore active subscription usage and unblock platform access immediately.
+ */
+export async function restorePlatformUsageAction() {
+	const session = await assertDeveloperSession();
+	const result = await restoreActiveUsage(session.user.email);
+	await recordAuditEvent({
+		event: "SECURITY_WARNING",
+		userId: session.user.id,
+		userEmail: session.user.email,
+		role: "DEVELOPER",
+		ip: "127.0.0.1",
+		details: {
+			action: "restorePlatformUsageAction",
+			message: "Platform usage restored to active and unblocked.",
+			status: result.status,
+			expiresAt: result.expiresAt,
 		},
 	});
 	return result;
