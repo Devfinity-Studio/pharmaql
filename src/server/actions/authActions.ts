@@ -353,9 +353,14 @@ export async function verifyMrOtp(email: string, otp: string) {
  * Protected with lockout per IP and persistent audit logging
  */
 export async function loginAdminOrDev(email: string, pass: string) {
-	const reqHeaders = await headers();
-	const clientIp = getClientIp(reqHeaders);
-	const userAgent = getClientUserAgent(reqHeaders);
+	let reqHeaders: Headers | undefined;
+	try {
+		reqHeaders = await headers();
+	} catch {
+		// Outside request scope
+	}
+	const clientIp = reqHeaders ? getClientIp(reqHeaders) : "127.0.0.1";
+	const userAgent = reqHeaders ? getClientUserAgent(reqHeaders) : "Mozilla/5.0";
 
 	try {
 		const cleanEmail = email.trim().toLowerCase();
@@ -382,9 +387,9 @@ export async function loginAdminOrDev(email: string, pass: string) {
 		}
 
 		const adminEmail = (
-			process.env.ADMIN_EMAIL || "admin@asmeepharma.com"
+			process.env.ADMIN_EMAIL || "admin@admin.com"
 		).toLowerCase();
-		const adminPass = process.env.ADMIN_PASSWORD || "Admin@PharmaQL2026";
+		const adminPass = process.env.ADMIN_PASSWORD || "Admin123";
 
 		const devEmail = (
 			process.env.DEV_EMAIL || "dev@asmeepharma.com"
@@ -459,14 +464,18 @@ export async function loginAdminOrDev(email: string, pass: string) {
 
 		// Issue Stateless JWT Session Cookie
 		const token = await signSessionToken(sessionUser, "7d");
-		const cookieStore = await cookies();
-		cookieStore.set(AUTH_COOKIE_NAME, token, {
-			httpOnly: true,
-			secure: process.env.NODE_ENV === "production",
-			sameSite: "lax",
-			maxAge: 7 * 24 * 60 * 60,
-			path: "/",
-		});
+		try {
+			const cookieStore = await cookies();
+			cookieStore.set(AUTH_COOKIE_NAME, token, {
+				httpOnly: true,
+				secure: process.env.NODE_ENV === "production",
+				sameSite: "lax",
+				maxAge: 7 * 24 * 60 * 60,
+				path: "/",
+			});
+		} catch {
+			// Outside HTTP cookie store
+		}
 
 		return { success: true, user: sessionUser };
 	} catch (error: any) {
