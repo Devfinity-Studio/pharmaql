@@ -49,6 +49,12 @@ import {
 	saveFeatureToggleAction,
 	saveMaintenanceConfigAction,
 	saveRuntimeConfigAction,
+	sendTestEmailAction,
+	verifyMailerCredentialsAction,
+	probeStorageLatencyAction,
+	probeDatabaseLatencyAction,
+	getClientRateLimitStatusAction,
+	resetClientIpRateLimitAction,
 } from "@/server/actions/devDiagnostics";
 import { startMrImpersonation } from "@/server/actions/impersonation";
 import {
@@ -86,8 +92,27 @@ export function DevControlCenter({
 }: DevControlCenterProps) {
 	const router = useRouter();
 	const [activeTab, setActiveTab] = useState<
-		"status" | "license" | "toggles" | "impersonate" | "logs" | "query" | "runtime" | "push"
+		"status" | "debug" | "license" | "push" | "toggles" | "impersonate" | "logs" | "query" | "runtime"
 	>("status");
+
+	// Debug Console states
+	const [debugEmailRecipient, setDebugEmailRecipient] = useState(initialLicense.developerEmail || "dev@asmeepharma.com");
+	const [debugEmailTemplate, setDebugEmailTemplate] = useState<
+		"CUSTOM" | "OTP_PREVIEW" | "SUBSCRIPTION_PREVIEW" | "SYSTEM_ALERT_PREVIEW"
+	>("OTP_PREVIEW");
+	const [debugEmailUseDevCredentials, setDebugEmailUseDevCredentials] = useState(
+		Boolean(maskedEnv.devSmtpUserConfigured),
+	);
+	const [debugEmailCustomSubject, setDebugEmailCustomSubject] = useState("");
+	const [debugEmailCustomMessage, setDebugEmailCustomMessage] = useState("");
+	const [debugEmailResult, setDebugEmailResult] = useState<any>(null);
+
+	const [adminVerifyResult, setAdminVerifyResult] = useState<any>(null);
+	const [devVerifyResult, setDevVerifyResult] = useState<any>(null);
+
+	const [storageBenchmarkResult, setStorageBenchmarkResult] = useState<any>(null);
+	const [dbBenchmarkResult, setDbBenchmarkResult] = useState<any>(null);
+	const [clientRateLimitResult, setClientRateLimitResult] = useState<any>(null);
 
 	const [isPending, startTransition] = useTransition();
 	const [feedbackMsg, setFeedbackMsg] = useState<{ type: "success" | "error"; text: string } | null>(null);
@@ -419,6 +444,93 @@ export function DevControlCenter({
 		});
 	};
 
+	// 8. Debug Console Handlers
+	const handleSendDebugEmail = () => {
+		startTransition(async () => {
+			try {
+				const res = await sendTestEmailAction({
+					recipient: debugEmailRecipient,
+					template: debugEmailTemplate,
+					useDeveloperCredentials: debugEmailUseDevCredentials,
+					customSubject: debugEmailCustomSubject || undefined,
+					customMessage: debugEmailCustomMessage || undefined,
+				});
+				setDebugEmailResult(res);
+				showFeedback(res.success ? "success" : "error", res.message);
+			} catch (err: any) {
+				showFeedback("error", `Email dispatch failed: ${err.message}`);
+			}
+		});
+	};
+
+	const handleVerifyAdminMailer = () => {
+		startTransition(async () => {
+			const res = await verifyMailerCredentialsAction("ADMIN");
+			setAdminVerifyResult(res);
+			showFeedback(
+				res.success ? "success" : "error",
+				res.success
+					? `Admin SMTP handshake verified (${res.latencyMs}ms)`
+					: res.error || "Admin SMTP handshake failed",
+			);
+		});
+	};
+
+	const handleVerifyDevMailer = () => {
+		startTransition(async () => {
+			const res = await verifyMailerCredentialsAction("DEVELOPER");
+			setDevVerifyResult(res);
+			showFeedback(
+				res.success ? "success" : "error",
+				res.success
+					? `Developer SMTP handshake verified (${res.latencyMs}ms)`
+					: res.error || "Developer SMTP handshake failed",
+			);
+		});
+	};
+
+	const handleRunStorageBenchmark = () => {
+		startTransition(async () => {
+			const res = await probeStorageLatencyAction();
+			setStorageBenchmarkResult(res);
+			showFeedback(
+				res.success ? "success" : "error",
+				res.success
+					? `Storage benchmark passed (Write: ${res.writeLatencyMs}ms, Read: ${res.readLatencyMs}ms)`
+					: res.error || "Storage probe failed",
+			);
+		});
+	};
+
+	const handleRunDbBenchmark = () => {
+		startTransition(async () => {
+			const res = await probeDatabaseLatencyAction();
+			setDbBenchmarkResult(res);
+			showFeedback(
+				res.success ? "success" : "error",
+				res.success
+					? `Database gateway responded in ${res.latencyMs}ms`
+					: res.error || "Database ping failed",
+			);
+		});
+	};
+
+	const handleCheckClientRateLimit = () => {
+		startTransition(async () => {
+			const res = await getClientRateLimitStatusAction();
+			setClientRateLimitResult(res);
+			showFeedback("success", `Resolved client IP: ${res.ip}`);
+		});
+	};
+
+	const handleResetClientRateLimit = () => {
+		startTransition(async () => {
+			const res = await resetClientIpRateLimitAction();
+			setClientRateLimitResult((prev: any) => ({ ...prev, isLocked: false }));
+			showFeedback("success", res.message);
+		});
+	};
+
 	// Filter MRs
 	const filteredMRs = mrList.filter((m) => {
 		if (!mrSearch.trim()) return true;
@@ -526,6 +638,7 @@ export function DevControlCenter({
 			<div className="flex overflow-x-auto border-b border-gray-200 pb-px">
 				{[
 					{ id: "status", label: "Services Status", icon: Activity },
+					{ id: "debug", label: "Debug Console", icon: Terminal },
 					{ id: "license", label: "Subscription & License", icon: Key },
 					{ id: "push", label: "Push & Field Alerts", icon: Bell },
 					{ id: "toggles", label: "Feature Switchboard", icon: Wrench },
@@ -842,6 +955,543 @@ export function DevControlCenter({
 									<span className="font-bold text-gray-900">data/</span>
 								</div>
 							</div>
+						</div>
+					</div>
+				</div>
+			)}
+
+			{/* TAB: DEBUG & DIAGNOSTICS CONSOLE */}
+			{activeTab === "debug" && (
+				<div className="space-y-6">
+					{/* Developer SMTP Credentials Guidance Banner */}
+					<div
+						className={`rounded-2xl border p-5 shadow-xs ${
+							maskedEnv.devSmtpUserConfigured
+								? "border-emerald-200 bg-emerald-50/70"
+								: "border-amber-200 bg-amber-50/80"
+						}`}
+					>
+						<div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+							<div className="flex items-start gap-3">
+								<div
+									className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${
+										maskedEnv.devSmtpUserConfigured
+											? "bg-emerald-600/10 text-emerald-700"
+											: "bg-amber-600/10 text-amber-700"
+									}`}
+								>
+									<Mail className="h-5 w-5" />
+								</div>
+								<div>
+									<div className="flex items-center gap-2">
+										<h3 className="font-bold text-sm text-gray-900">
+											Developer Email Sending Credentials
+										</h3>
+										<span
+											className={`rounded-full px-2.5 py-0.5 text-[10px] font-black uppercase tracking-wider ${
+												maskedEnv.devSmtpUserConfigured
+													? "bg-emerald-100 text-emerald-800"
+													: "bg-amber-100 text-amber-800"
+											}`}
+										>
+											{maskedEnv.devSmtpUserConfigured
+												? "Configured & Active"
+												: "Defaulting to Admin Mailer"}
+										</span>
+									</div>
+									<p className="mt-1 text-xs text-gray-600 leading-relaxed">
+										{maskedEnv.devSmtpUserConfigured
+											? `Configured sender: ${maskedEnv.devSmtpUser} (Port: ${maskedEnv.devSmtpPort || "587"}). Automated renewal invoices and technical alerts to Admins originate directly from developer credentials.`
+											: "Developer email credentials (DEV_SMTP_USER / DEV_SMTP_PASS) are not configured. Renewal reminder invoices and alerts sent from the developer portal will fall back to the standard admin mailer until set in environment variables."}
+									</p>
+								</div>
+							</div>
+
+							<div className="flex shrink-0 items-center gap-2">
+								<button
+									className="inline-flex items-center gap-1.5 rounded-xl border border-gray-300 bg-white px-3.5 py-2 text-xs font-bold text-gray-700 shadow-xs transition hover:bg-gray-50"
+									disabled={isPending}
+									onClick={handleVerifyDevMailer}
+									type="button"
+								>
+									<CheckCircle2 className="h-3.5 w-3.5 text-purple-600" />
+									Verify Developer SMTP
+								</button>
+								<button
+									className="inline-flex items-center gap-1.5 rounded-xl border border-gray-300 bg-white px-3.5 py-2 text-xs font-bold text-gray-700 shadow-xs transition hover:bg-gray-50"
+									disabled={isPending}
+									onClick={handleVerifyAdminMailer}
+									type="button"
+								>
+									<CheckCircle2 className="h-3.5 w-3.5 text-blue-600" />
+									Verify Admin SMTP
+								</button>
+							</div>
+						</div>
+
+						{/* Handshake Result Banners */}
+						{(adminVerifyResult || devVerifyResult) && (
+							<div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2 pt-3 border-t border-gray-200/60 font-mono text-xs">
+								{devVerifyResult && (
+									<div
+										className={`p-3 rounded-xl border ${
+											devVerifyResult.success
+												? "border-emerald-200 bg-white text-emerald-900"
+												: "border-rose-200 bg-white text-rose-900"
+										}`}
+									>
+										<div className="font-bold flex items-center justify-between">
+											<span>Developer SMTP Handshake:</span>
+											<span>{devVerifyResult.success ? `SUCCESS (${devVerifyResult.latencyMs}ms)` : "FAILED"}</span>
+										</div>
+										<div className="text-[11px] text-gray-500 mt-1 truncate">User: {devVerifyResult.user}</div>
+										{devVerifyResult.error && (
+											<div className="text-[11px] text-rose-600 mt-1">{devVerifyResult.error}</div>
+										)}
+									</div>
+								)}
+								{adminVerifyResult && (
+									<div
+										className={`p-3 rounded-xl border ${
+											adminVerifyResult.success
+												? "border-emerald-200 bg-white text-emerald-900"
+												: "border-rose-200 bg-white text-rose-900"
+										}`}
+									>
+										<div className="font-bold flex items-center justify-between">
+											<span>Admin SMTP Handshake:</span>
+											<span>{adminVerifyResult.success ? `SUCCESS (${adminVerifyResult.latencyMs}ms)` : "FAILED"}</span>
+										</div>
+										<div className="text-[11px] text-gray-500 mt-1 truncate">User: {adminVerifyResult.user}</div>
+										{adminVerifyResult.error && (
+											<div className="text-[11px] text-rose-600 mt-1">{adminVerifyResult.error}</div>
+										)}
+									</div>
+								)}
+							</div>
+						)}
+					</div>
+
+					{/* 2-Column Grid: Notification Dispatcher + Email Dispatcher */}
+					<div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+						{/* 1. Test Notification Dispatcher */}
+						<div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-xs">
+							<div className="flex items-center justify-between border-b border-gray-100 pb-4">
+								<div className="flex items-center gap-2.5">
+									<div className="flex h-9 w-9 items-center justify-center rounded-xl bg-purple-600/10 text-purple-600">
+										<Bell className="h-5 w-5" />
+									</div>
+									<div>
+										<h3 className="font-bold text-sm text-gray-900">Send Test Notification</h3>
+										<p className="text-[11px] text-gray-500">Dispatch live Web Push & in-app alerts</p>
+									</div>
+								</div>
+								<span className="rounded-full bg-purple-100 px-2.5 py-0.5 text-[10px] font-bold text-purple-800">
+									Web Push & In-App
+								</span>
+							</div>
+
+							<div className="mt-4 space-y-4">
+								<div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+									<div>
+										<label className="block text-xs font-bold text-gray-700">Audience Target</label>
+										<select
+											className="mt-1 w-full rounded-xl border border-gray-300 bg-white p-2.5 text-xs font-bold text-gray-900"
+											onChange={(e) => setPushTargetType(e.target.value as any)}
+											value={pushTargetType}
+										>
+											<option value="CURRENT_USER">My Active Browser (Self-Test)</option>
+											<option value="MR">Broadcast to All Active MRs</option>
+											<option value="ADMIN">Broadcast to All Administrators</option>
+											<option value="ALL">Platform-Wide Broadcast (All Users)</option>
+											<option value="SPECIFIC_MR">Target Specific MR by ID</option>
+										</select>
+									</div>
+
+									{pushTargetType === "SPECIFIC_MR" ? (
+										<div>
+											<label className="block text-xs font-bold text-gray-700">Target MR</label>
+											<select
+												className="mt-1 w-full rounded-xl border border-gray-300 bg-white p-2.5 text-xs font-mono text-gray-900"
+												onChange={(e) => setPushTargetMrId(e.target.value)}
+												value={pushTargetMrId}
+											>
+												{mrList.slice(0, 50).map((m) => (
+													<option key={m.id} value={m.id}>
+														{m.name} ({m.id})
+													</option>
+												))}
+											</select>
+										</div>
+									) : (
+										<div>
+											<label className="block text-xs font-bold text-gray-700">Deep Link Action</label>
+											<select
+												className="mt-1 w-full rounded-xl border border-gray-300 bg-white p-2.5 text-xs font-mono text-gray-900"
+												onChange={(e) => setPushDeepLink(e.target.value)}
+												value={pushDeepLink}
+											>
+												<option value="/dashboard?tab=overdue">/dashboard?tab=overdue</option>
+												<option value="/dashboard?tab=notices">/dashboard?tab=notices</option>
+												<option value="/dashboard?tab=stock">/dashboard?tab=stock</option>
+												<option value="/dashboard?tab=sales">/dashboard?tab=sales</option>
+												<option value="/admin/dev">/admin/dev</option>
+											</select>
+										</div>
+									)}
+								</div>
+
+								<div>
+									<label className="block text-xs font-bold text-gray-700">Notification Title</label>
+									<input
+										className="mt-1 w-full rounded-xl border border-gray-300 p-2.5 text-xs font-bold text-gray-900"
+										onChange={(e) => setPushTitle(e.target.value)}
+										type="text"
+										value={pushTitle}
+									/>
+								</div>
+
+								<div>
+									<label className="block text-xs font-bold text-gray-700">Message Body</label>
+									<textarea
+										className="mt-1 w-full rounded-xl border border-gray-300 p-2.5 text-xs text-gray-900"
+										onChange={(e) => setPushBody(e.target.value)}
+										rows={2}
+										value={pushBody}
+									/>
+								</div>
+
+								<div className="flex items-center justify-between pt-2">
+									<span className="text-[11px] text-gray-500">Service worker vibration & sound enabled</span>
+									<button
+										className="inline-flex items-center gap-1.5 rounded-xl bg-purple-600 px-4 py-2.5 font-bold text-xs text-white shadow-xs transition hover:bg-purple-700"
+										disabled={isPending}
+										onClick={handleDispatchPush}
+										type="button"
+									>
+										<Bell className="h-3.5 w-3.5" />
+										{isPending ? "Dispatching..." : "Send Test Notification"}
+									</button>
+								</div>
+
+								{/* Push Result output */}
+								{pushResult && (
+									<div
+										className={`rounded-xl border p-3.5 font-mono text-xs ${
+											pushResult.success
+												? "border-emerald-200 bg-emerald-50 text-emerald-900"
+												: "border-amber-200 bg-amber-50 text-amber-900"
+										}`}
+									>
+										<div className="flex items-center gap-1.5 font-bold">
+											{pushResult.success ? (
+												<CheckCircle2 className="h-4 w-4 text-emerald-600" />
+											) : (
+												<AlertTriangle className="h-4 w-4 text-amber-600" />
+											)}
+											<span>{pushResult.message}</span>
+										</div>
+										<div className="mt-2 grid grid-cols-2 gap-2 text-[11px] text-gray-600">
+											<div>Delivered Endpoints: <span className="font-bold text-gray-900">{pushResult.sentCount ?? 0}</span></div>
+											<div>Pruned Endpoints: <span className="font-bold text-gray-900">{pushResult.prunedCount ?? 0}</span></div>
+										</div>
+									</div>
+								)}
+							</div>
+						</div>
+
+						{/* 2. Test Email Dispatcher */}
+						<div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-xs">
+							<div className="flex items-center justify-between border-b border-gray-100 pb-4">
+								<div className="flex items-center gap-2.5">
+									<div className="flex h-9 w-9 items-center justify-center rounded-xl bg-blue-600/10 text-blue-600">
+										<Mail className="h-5 w-5" />
+									</div>
+									<div>
+										<h3 className="font-bold text-sm text-gray-900">Send Test Email</h3>
+										<p className="text-[11px] text-gray-500">Verify SMTP gateway & templates</p>
+									</div>
+								</div>
+								<span className="rounded-full bg-blue-100 px-2.5 py-0.5 text-[10px] font-bold text-blue-800">
+									SMTP Dispatcher
+								</span>
+							</div>
+
+							<div className="mt-4 space-y-4">
+								<div>
+									<label className="block text-xs font-bold text-gray-700">Recipient Email Address</label>
+									<input
+										className="mt-1 w-full rounded-xl border border-gray-300 p-2.5 text-xs font-mono text-gray-900"
+										onChange={(e) => setDebugEmailRecipient(e.target.value)}
+										placeholder="admin@asmeepharma.com"
+										type="email"
+										value={debugEmailRecipient}
+									/>
+								</div>
+
+								<div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+									<div>
+										<label className="block text-xs font-bold text-gray-700">Email Template</label>
+										<select
+											className="mt-1 w-full rounded-xl border border-gray-300 bg-white p-2.5 text-xs font-bold text-gray-900"
+											onChange={(e) => setDebugEmailTemplate(e.target.value as any)}
+											value={debugEmailTemplate}
+										>
+											<option value="OTP_PREVIEW">MR Login OTP (Preview)</option>
+											<option value="SUBSCRIPTION_PREVIEW">License Renewal Reminder</option>
+											<option value="SYSTEM_ALERT_PREVIEW">Service Health Notice</option>
+											<option value="CUSTOM">Custom Diagnostic Note</option>
+										</select>
+									</div>
+
+									<div>
+										<label className="block text-xs font-bold text-gray-700">Sender Gateway</label>
+										<select
+											className="mt-1 w-full rounded-xl border border-gray-300 bg-white p-2.5 text-xs font-bold text-gray-900"
+											onChange={(e) => setDebugEmailUseDevCredentials(e.target.value === "true")}
+											value={debugEmailUseDevCredentials ? "true" : "false"}
+										>
+											<option value="true">Developer SMTP Credentials</option>
+											<option value="false">Standard Admin Mailer (Gmail)</option>
+										</select>
+									</div>
+								</div>
+
+								{debugEmailTemplate === "CUSTOM" && (
+									<>
+										<div>
+											<label className="block text-xs font-bold text-gray-700">Subject Line</label>
+											<input
+												className="mt-1 w-full rounded-xl border border-gray-300 p-2.5 text-xs font-bold text-gray-900"
+												onChange={(e) => setDebugEmailCustomSubject(e.target.value)}
+												placeholder="Diagnostics probe subject..."
+												type="text"
+												value={debugEmailCustomSubject}
+											/>
+										</div>
+										<div>
+											<label className="block text-xs font-bold text-gray-700">Custom Message</label>
+											<textarea
+												className="mt-1 w-full rounded-xl border border-gray-300 p-2.5 text-xs text-gray-900"
+												onChange={(e) => setDebugEmailCustomMessage(e.target.value)}
+												placeholder="Enter test note..."
+												rows={2}
+												value={debugEmailCustomMessage}
+											/>
+										</div>
+									</>
+								)}
+
+								<div className="flex items-center justify-between pt-2">
+									<span className="text-[11px] text-gray-500">
+										Sender: {debugEmailUseDevCredentials ? (maskedEnv.devSmtpUser || "Developer") : "Admin System"}
+									</span>
+									<button
+										className="inline-flex items-center gap-1.5 rounded-xl bg-blue-600 px-4 py-2.5 font-bold text-xs text-white shadow-xs transition hover:bg-blue-700"
+										disabled={isPending}
+										onClick={handleSendDebugEmail}
+										type="button"
+									>
+										<Mail className="h-3.5 w-3.5" />
+										{isPending ? "Sending Email..." : "Send Test Email"}
+									</button>
+								</div>
+
+								{/* Email Result Output */}
+								{debugEmailResult && (
+									<div
+										className={`rounded-xl border p-3.5 font-mono text-xs ${
+											debugEmailResult.success
+												? "border-emerald-200 bg-emerald-50 text-emerald-900"
+												: "border-rose-200 bg-rose-50 text-rose-900"
+										}`}
+									>
+										<div className="flex items-center gap-1.5 font-bold">
+											{debugEmailResult.success ? (
+												<CheckCircle2 className="h-4 w-4 text-emerald-600" />
+											) : (
+												<AlertOctagon className="h-4 w-4 text-rose-600" />
+											)}
+											<span>{debugEmailResult.message}</span>
+										</div>
+										{debugEmailResult.messageId && (
+											<div className="mt-1 text-[11px] text-gray-500 truncate">
+												Message-ID: {debugEmailResult.messageId}
+											</div>
+										)}
+									</div>
+								)}
+							</div>
+						</div>
+					</div>
+
+					{/* 3 Diagnostic Cards: Storage Engine + Rate Limiter + DB Latency */}
+					<div className="grid grid-cols-1 gap-6 md:grid-cols-3">
+						{/* Active Storage Benchmark */}
+						<div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-xs flex flex-col justify-between">
+							<div>
+								<div className="flex items-center justify-between border-b border-gray-100 pb-3">
+									<div className="flex items-center gap-2">
+										<HardDrive className="h-4 w-4 text-amber-600" />
+										<h4 className="font-bold text-xs uppercase tracking-wider text-gray-800">
+											Server Storage Latency
+										</h4>
+									</div>
+									<span className="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-bold text-amber-800">
+										Zero-Crash FS
+									</span>
+								</div>
+
+								<div className="mt-3 space-y-2 text-xs">
+									<div className="flex justify-between">
+										<span className="text-gray-500">Active Storage Dir:</span>
+										<span className="font-mono font-bold text-gray-900 truncate max-w-[140px]">
+											{storageBenchmarkResult?.activeDir || (maskedEnv.nodeEnv === "production" ? "/tmp/pharmaql-data" : "data/")}
+										</span>
+									</div>
+									<div className="flex justify-between">
+										<span className="text-gray-500">Serverless Temp Routing:</span>
+										<span className="font-bold text-gray-900">
+											{storageBenchmarkResult?.isServerless ? "Active (Vercel / Lambda)" : "Local Storage"}
+										</span>
+									</div>
+									{storageBenchmarkResult && (
+										<div className="mt-2 rounded-xl bg-gray-50 p-2.5 font-mono text-[11px] space-y-1">
+											<div className="flex justify-between">
+												<span>Write Latency:</span>
+												<span className="font-bold text-emerald-700">{storageBenchmarkResult.writeLatencyMs}ms</span>
+											</div>
+											<div className="flex justify-between">
+												<span>Read Latency:</span>
+												<span className="font-bold text-emerald-700">{storageBenchmarkResult.readLatencyMs}ms</span>
+											</div>
+											<div className="flex justify-between border-t border-gray-200 pt-1 font-bold">
+												<span>Total Roundtrip:</span>
+												<span className="text-purple-700">{storageBenchmarkResult.totalLatencyMs}ms</span>
+											</div>
+										</div>
+									)}
+								</div>
+							</div>
+
+							<button
+								className="mt-4 w-full rounded-xl border border-gray-300 bg-white py-2 text-xs font-bold text-gray-700 shadow-xs transition hover:bg-gray-50"
+								disabled={isPending}
+								onClick={handleRunStorageBenchmark}
+								type="button"
+							>
+								{isPending ? "Testing Storage..." : "Run Storage Benchmark"}
+							</button>
+						</div>
+
+						{/* Client IP & Rate Limiter Inspection */}
+						<div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-xs flex flex-col justify-between">
+							<div>
+								<div className="flex items-center justify-between border-b border-gray-100 pb-3">
+									<div className="flex items-center gap-2">
+										<Shield className="h-4 w-4 text-emerald-600" />
+										<h4 className="font-bold text-xs uppercase tracking-wider text-gray-800">
+											Rate Limit Inspection
+										</h4>
+									</div>
+									<span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-bold text-emerald-800">
+										Security Engine
+									</span>
+								</div>
+
+								<div className="mt-3 space-y-2 text-xs">
+									<div className="flex justify-between">
+										<span className="text-gray-500">Detected Client IP:</span>
+										<span className="font-mono font-bold text-gray-900">
+											{clientRateLimitResult?.ip || "Inspect below"}
+										</span>
+									</div>
+									<div className="flex justify-between">
+										<span className="text-gray-500">Bucket Lock Status:</span>
+										<span className="font-bold">
+											{clientRateLimitResult?.isLocked ? (
+												<span className="text-rose-600">LOCKED ({clientRateLimitResult.retryAfterSeconds}s)</span>
+											) : (
+												<span className="text-emerald-600">Clean / Unrestricted</span>
+											)}
+										</span>
+									</div>
+									<div className="text-[11px] text-gray-500 pt-1">
+										Resets sliding buckets for login attempts, password-protected unblocks, and export floods.
+									</div>
+								</div>
+							</div>
+
+							<div className="mt-4 flex gap-2">
+								<button
+									className="flex-1 rounded-xl border border-gray-300 bg-white py-2 text-xs font-bold text-gray-700 shadow-xs transition hover:bg-gray-50"
+									disabled={isPending}
+									onClick={handleCheckClientRateLimit}
+									type="button"
+								>
+									Inspect IP
+								</button>
+								<button
+									className="flex-1 rounded-xl bg-emerald-600 py-2 text-xs font-bold text-white shadow-xs transition hover:bg-emerald-700"
+									disabled={isPending}
+									onClick={handleResetClientRateLimit}
+									type="button"
+								>
+									Reset My IP
+								</button>
+							</div>
+						</div>
+
+						{/* Express API & Database Benchmark */}
+						<div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-xs flex flex-col justify-between">
+							<div>
+								<div className="flex items-center justify-between border-b border-gray-100 pb-3">
+									<div className="flex items-center gap-2">
+										<Database className="h-4 w-4 text-purple-600" />
+										<h4 className="font-bold text-xs uppercase tracking-wider text-gray-800">
+											Database & API Probe
+										</h4>
+									</div>
+									<span className="rounded-full bg-purple-100 px-2 py-0.5 text-[10px] font-bold text-purple-800">
+										MySQL Gateway
+									</span>
+								</div>
+
+								<div className="mt-3 space-y-2 text-xs">
+									<div className="flex justify-between">
+										<span className="text-gray-500">Gateway URL:</span>
+										<span className="font-mono text-gray-900 truncate max-w-[140px]">
+											{maskedEnv.apiServerUrl}
+										</span>
+									</div>
+									<div className="flex justify-between">
+										<span className="text-gray-500">Status Response:</span>
+										<span className="font-bold">
+											{dbBenchmarkResult ? (
+												<span className={dbBenchmarkResult.success ? "text-emerald-600" : "text-rose-600"}>
+													{dbBenchmarkResult.status} ({dbBenchmarkResult.latencyMs}ms)
+												</span>
+											) : (
+												<span className="text-gray-400">Not probed</span>
+											)}
+										</span>
+									</div>
+									{dbBenchmarkResult && (
+										<div className="mt-2 rounded-xl bg-gray-50 p-2 font-mono text-[11px] text-gray-600 truncate">
+											Response: {JSON.stringify(dbBenchmarkResult.data?.data || dbBenchmarkResult.status)}
+										</div>
+									)}
+								</div>
+							</div>
+
+							<button
+								className="mt-4 w-full rounded-xl border border-gray-300 bg-white py-2 text-xs font-bold text-gray-700 shadow-xs transition hover:bg-gray-50"
+								disabled={isPending}
+								onClick={handleRunDbBenchmark}
+								type="button"
+							>
+								{isPending ? "Pinging..." : "Ping API Gateway"}
+							</button>
 						</div>
 					</div>
 				</div>

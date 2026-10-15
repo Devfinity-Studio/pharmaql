@@ -53,6 +53,7 @@ api-server/node_modules/
 api-server/dist/
 api-server/.env
 /data/.healthcheck
+/data/.probe*
 /data/audit_logs.json
 /data/vapid_keys.json
 /data/notifications.json

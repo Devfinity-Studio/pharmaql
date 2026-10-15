@@ -1,4 +1,4 @@
-import { mailer } from "@/lib/mailer";
+import { sendDeveloperEmail } from "./mailer";
 import { readServerJson, writeServerJson } from "./server-storage";
 
 export interface LicenseConfig {
@@ -275,9 +275,8 @@ export async function sendSubscriptionReminderEmails(
 	let sentCount = 0;
 	for (const recipient of recipients) {
 		try {
-			await mailer.sendMail({
-				from: `"PharmaQL Developer Systems" <${devEmail}>`,
-				replyTo: devEmail,
+			await sendDeveloperEmail({
+				senderName: "PharmaQL Developer Systems",
 				to: recipient,
 				subject,
 				html,
