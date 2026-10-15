@@ -189,4 +189,13 @@
 - [x] **Mobile Touch UX & Viewport Polish**: Optimize bottom navigation bars, swipe/touch targets, pull-to-refresh gestures, and safe-area insets for modern mobile screens and standalone PWA display mode.
 - [x] **Verification & PWA Quality Gates**: Validate Lighthouse PWA compliance, offline test simulations, asset caching, and ensure zero regression on desktop and Admin/Developer portals.
 
+## Phase 25: Push Notifications & Instant Field Alerts
+
+- [ ] **Web Push & VAPID Key Infrastructure**: Setup VAPID keys, backend subscription storage (`data/push_subscriptions.json`), and client subscription manager (`src/lib/push-notifications.ts`).
+- [ ] **Service Worker Push & Action Handlers**: Implement `push` and `notificationclick` listeners in `public/sw.js` with deep-linking to relevant tabs (`/dashboard?tab=overdue`, `/dashboard?tab=notices`).
+- [ ] **Automated Overdue & Blocking Field Alerts**: Trigger automated web push alerts when party accounts reach 80–90 day warning thresholds or get blocked by ERP overdue calculations.
+- [ ] **Admin Broadcast & Notice Push Dispatch**: Automatically push notifications to field MRs whenever Admins publish new circulars or critical company notices.
+- [ ] **In-App Notification Bell & Preference Center**: Add interactive notification bell in MR and Admin top bars showing unread alerts, timestamps, and toggle controls.
+- [ ] **Developer Diagnostics & Verification Suite**: Add test push dispatcher in Developer Control Center (`/admin/dev`) and automated verification suite testing subscription lifecycle and payload formatting.
+
 
