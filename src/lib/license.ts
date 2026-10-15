@@ -25,7 +25,7 @@ const DEFAULT_LICENSE: LicenseConfig = {
 	organization: "Asmee Pharma Pvt. Ltd.",
 	developerEmail: process.env.DEV_EMAIL || "dev@asmeepharma.com",
 	supportEmail: "support@devfinity.net",
-	adminEmails: [process.env.ADMIN_EMAIL || "admin@asmeepharma.com"],
+	adminEmails: [process.env.DEV_EMAIL || "dev@asmeepharma.com"],
 	updatedAt: new Date().toISOString(),
 	updatedBy: "system",
 };
@@ -37,7 +37,16 @@ export async function getLicenseConfig(): Promise<LicenseConfig> {
 	try {
 		const raw = await fs.readFile(LICENSE_FILE, "utf-8");
 		const data = JSON.parse(raw);
-		return { ...DEFAULT_LICENSE, ...data };
+		const config = { ...DEFAULT_LICENSE, ...data };
+		// Sanitize adminEmails: replace dummy admin@admin.com with developer email
+		if (
+			!config.adminEmails ||
+			config.adminEmails.length === 0 ||
+			(config.adminEmails.length === 1 && config.adminEmails[0] === "admin@admin.com")
+		) {
+			config.adminEmails = [config.developerEmail || process.env.DEV_EMAIL || "dev@asmeepharma.com"];
+		}
+		return config;
 	} catch {
 		// Initialize default file if not exists
 		await fs.mkdir(path.dirname(LICENSE_FILE), { recursive: true });
@@ -159,18 +168,31 @@ export async function updateLicenseConfig(
 }
 
 /**
- * Dispatch subscription renewal reminder & invoice email to all configured Admins.
+ * Dispatch subscription renewal reminder & invoice email to developer or configured recipients.
+ * Guarantees that emails sent from the developer portal target the developer email, not dummy admin@admin.com.
  */
-export async function sendSubscriptionReminderEmails(customNote?: string) {
+export async function sendSubscriptionReminderEmails(
+	customNote?: string,
+	targetEmails?: string[],
+) {
 	const status = await getLicenseStatus();
-	const recipients = status.adminEmails.filter(Boolean);
+	const devEmail = process.env.DEV_EMAIL || status.developerEmail || "dev@asmeepharma.com";
+
+	// Determine recipients:
+	// 1. Explicitly provided targetEmails
+	// 2. Filter status.adminEmails to remove dummy "admin@admin.com"
+	// 3. Fallback to developer email
+	let recipients: string[] = [];
+	if (targetEmails && targetEmails.length > 0) {
+		recipients = targetEmails.map((e) => e.trim()).filter(Boolean);
+	} else {
+		recipients = (status.adminEmails || [])
+			.map((e) => e.trim())
+			.filter((e) => Boolean(e) && e.toLowerCase() !== "admin@admin.com");
+	}
 
 	if (recipients.length === 0) {
-		return {
-			success: false,
-			sentCount: 0,
-			message: "No admin notification emails configured in license settings.",
-		};
+		recipients = [devEmail];
 	}
 
 	const expiryFormatted = new Date(status.expiresAt).toLocaleDateString("en-IN", {
@@ -188,7 +210,7 @@ export async function sendSubscriptionReminderEmails(customNote?: string) {
 				<p style="color: #0071BC; font-weight: bold; margin: 4px 0 0 0; font-size: 14px;">PharmaQL ERP Portal Software License</p>
 			</div>
 
-			<p style="color: #334155; font-size: 15px;">Dear Administrator,</p>
+			<p style="color: #334155; font-size: 15px;">Dear Team,</p>
 			<p style="color: #334155; font-size: 14px; line-height: 1.6;">
 				This is an official notice regarding the software license and maintenance subscription for <strong>${status.organization}</strong>.
 			</p>
@@ -208,6 +230,10 @@ export async function sendSubscriptionReminderEmails(customNote?: string) {
 					<tr>
 						<td style="padding: 6px 0; color: #64748b;">Grace Period:</td>
 						<td style="padding: 6px 0; font-weight: bold; color: #0B2545;">${status.gracePeriodDays} Days</td>
+					</tr>
+					<tr>
+						<td style="padding: 6px 0; color: #64748b;">Developer Email:</td>
+						<td style="padding: 6px 0; font-weight: bold; color: #0071BC;">${devEmail}</td>
 					</tr>
 				</table>
 			</div>
@@ -231,7 +257,7 @@ export async function sendSubscriptionReminderEmails(customNote?: string) {
 			</div>
 
 			<div style="border-top: 1px solid #e2e8f0; padding-top: 16px; margin-top: 24px; font-size: 12px; color: #64748b; text-align: center;">
-				<p style="margin: 0;">Sent by PharmaQL Developer Systems &bull; Support: <a href="mailto:${status.supportEmail}" style="color: #0071BC;">${status.supportEmail}</a></p>
+				<p style="margin: 0;">Sent by PharmaQL Developer Systems &bull; Developer: <a href="mailto:${devEmail}" style="color: #0071BC;">${devEmail}</a> &bull; Support: <a href="mailto:${status.supportEmail}" style="color: #0071BC;">${status.supportEmail}</a></p>
 			</div>
 		</div>
 	`;
@@ -240,7 +266,8 @@ export async function sendSubscriptionReminderEmails(customNote?: string) {
 	for (const recipient of recipients) {
 		try {
 			await mailer.sendMail({
-				from: `"PharmaQL License Systems" <${process.env.GMAIL_USER || "info.devolvestudio@gmail.com"}>`,
+				from: `"PharmaQL Developer Systems" <${devEmail}>`,
+				replyTo: devEmail,
 				to: recipient,
 				subject,
 				html,
@@ -254,7 +281,7 @@ export async function sendSubscriptionReminderEmails(customNote?: string) {
 	return {
 		success: sentCount > 0,
 		sentCount,
-		message: `Successfully dispatched renewal notice to ${sentCount} administrator(s).`,
+		message: `Successfully dispatched renewal notice to ${sentCount} recipient(s) (${recipients.join(", ")}).`,
 	};
 }
 
