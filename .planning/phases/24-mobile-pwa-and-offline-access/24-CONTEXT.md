@@ -25,14 +25,21 @@ Transform PharmaQL into an installable, high-performance Progressive Web Applica
 
 ---
 
-## 2. Offline Data Caching & Local Storage
-- **Browser-Side Offline Cache (IndexedDB / CacheStorage)**:
-  - Cache recently loaded report datasets (Stock Movement Statement, Sales Details, Product Master, Customer Outstanding).
-  - Keyed by MR ID and date filters to prevent cross-account contamination.
+## 2. Sanitized Offline Data Caching & Strict Multi-Tenant MR Isolation
+- **Strict Per-MR Namespace Fencing**:
+  - All cached datasets in client storage (IndexedDB / CacheStorage) MUST be cryptographically or namespace-fenced strictly to the active authenticated `mrId` (e.g. `pharmaql_offline_mr_${mrId}`).
+  - Under no circumstances shall data belonging to one MR be accessible to, queryable by, or retained on device for any other MR.
+- **Shared Device Protection & Automatic Multi-MR Purge**:
+  - **On Logout**: The logout flow (`LogoutButton` / session termination) must immediately trigger a full purge of all client-side offline stores (`clearAllOfflineStores()`).
+  - **On Login / Session Handshake**: When an MR logs in, the client verifies `activeOfflineMrId`. If the device has cached data from a previous MR (`storedMrId !== currentMrId`), the system immediately nukes the prior MR's cache before writing or reading any new data.
+- **Data Minimization & Sanitization**:
+  - Filter and sanitize cached payloads to only include data strictly needed for that specific MR's rank permissions and assigned company codes.
+  - Strip out system tokens, internal API keys, server IP addresses, or administrative audit metadata before storing locally.
+  - Enforce a strict TTL (Time-To-Live, max 48 hours) with automatic garbage collection of stale snapshots.
 - **Offline Snapshot Rendering**:
   - When connection is unavailable, render the cached snapshot with a clear visual badge:
-    `"Viewing offline snapshot as of [Time/Date]"`.
-  - Disallow destructive actions (like live unblocks) while offline, but keep read-only reports fully interactive.
+    `"Viewing offline snapshot as of [Time/Date]"` with MR identity validation.
+  - Disallow destructive actions (like live unblocks or credential changes) while offline, but keep read-only reports fully interactive.
 
 ---
 
