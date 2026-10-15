@@ -1,5 +1,6 @@
 import React from "react";
 import { ReportStationeryHeader } from "@/components/report-stationery-header";
+import { OfflineReportSync } from "@/components/offline-report-sync";
 import { getClaimData } from "@/server/actions/claimData";
 import { getMRInfo } from "@/server/actions/mrInfo";
 import { getMROverrides } from "@/server/actions/mrs";
@@ -226,6 +227,12 @@ export async function FreeSchemeReportView({
 
 	return (
 		<div className="mt-4 rounded-xl border border-gray-300 bg-white p-6 shadow-sm print:m-0 print:border-none print:p-0 print:shadow-none">
+			<OfflineReportSync
+				data={reportData}
+				mrId={mrId}
+				params={searchParams}
+				tab="free-schemes"
+			/>
 			{/* Official Stationery Header */}
 			<ReportStationeryHeader
 				title="Claim Quantity Statement"

@@ -1,5 +1,6 @@
 import React from "react";
 import { ReportStationeryHeader } from "@/components/report-stationery-header";
+import { OfflineReportSync } from "@/components/offline-report-sync";
 import { getMRInfo } from "@/server/actions/mrInfo";
 import {
 	getPartyCustomerItemSale,
@@ -165,6 +166,12 @@ export async function PartyReportView({
 
 		return (
 			<div className="mt-4 space-y-4 rounded-xl border border-gray-300 bg-white p-6 font-sans text-gray-900 shadow-sm print:m-0 print:border-none print:p-0 print:shadow-none">
+				<OfflineReportSync
+					data={customerGroups}
+					mrId={mrId}
+					params={searchParams}
+					tab="party"
+				/>
 				{/* REPORT HEADER */}
 				<ReportStationeryHeader
 					title="Partywise/Itemwise Sales"
