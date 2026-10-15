@@ -12,6 +12,7 @@ import {
 	FileSpreadsheet,
 	LayoutDashboard,
 	LogOut,
+	Shield,
 	Users,
 } from "lucide-react";
 import { LogoutButton } from "@/components/logout-button";
@@ -58,6 +59,11 @@ export function CollapsibleSidebar({
 			label: "Notice Board",
 			href: "/admin/notices",
 			icon: Bell,
+		},
+		{
+			label: "Security & Audit",
+			href: "/admin/audit",
+			icon: Shield,
 		},
 	];
 

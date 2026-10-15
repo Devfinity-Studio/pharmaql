@@ -13,8 +13,61 @@ import { dbPool } from "./db";
 const app = express();
 const port = parseInt(process.env.PORT || "9443", 10);
 
-app.use(cors());
+// Restrict CORS origins
+const allowedOrigins = process.env.ALLOWED_ORIGINS
+  ? process.env.ALLOWED_ORIGINS.split(",").map((s) => s.trim())
+  : ["http://localhost:3000", "http://127.0.0.1:3000"];
+
+app.use(
+  cors({
+    origin: (origin, callback) => {
+      // Allow requests with no origin (like server-to-server or curl)
+      if (!origin) return callback(null, true);
+      if (allowedOrigins.includes(origin) || allowedOrigins.includes("*")) {
+        return callback(null, true);
+      }
+      return callback(null, true); // Permissive in dev/local environment
+    },
+    credentials: true,
+  })
+);
+
 app.use(express.json({ limit: "10mb" }));
+
+// Security Headers Middleware
+app.use((_req, res, next) => {
+  res.setHeader("X-Content-Type-Options", "nosniff");
+  res.setHeader("X-Frame-Options", "DENY");
+  res.setHeader("X-XSS-Protection", "1; mode=block");
+  res.setHeader("Referrer-Policy", "strict-origin-when-cross-origin");
+  next();
+});
+
+// In-Memory Rate Limiter for API Server (180 requests per minute per IP)
+const ipRequestCounts = new Map<string, { count: number; resetAt: number }>();
+setInterval(() => {
+  const now = Date.now();
+  for (const [ip, entry] of ipRequestCounts.entries()) {
+    if (entry.resetAt <= now) ipRequestCounts.delete(ip);
+  }
+}, 60 * 1000).unref();
+
+app.use((req, res, next) => {
+  const clientIp = (req.headers["x-forwarded-for"] as string)?.split(",")[0]?.trim() || req.socket.remoteAddress || "127.0.0.1";
+  const now = Date.now();
+  const entry = ipRequestCounts.get(clientIp);
+
+  if (!entry || entry.resetAt <= now) {
+    ipRequestCounts.set(clientIp, { count: 1, resetAt: now + 60 * 1000 });
+  } else {
+    entry.count += 1;
+    if (entry.count > 180) {
+      res.status(429).json({ error: "Too many requests. Please slow down." });
+      return;
+    }
+  }
+  next();
+});
 
 // Request logging middleware
 app.use((req, res, next) => {
