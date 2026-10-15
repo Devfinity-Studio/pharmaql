@@ -1,0 +1,10 @@
+{
+  "adminAllowedIps": "",
+  "debugMode": false,
+  "rateLimitStrictMode": true,
+  "mrOverdueGraceDays": 7,
+  "maintenanceBanner": "",
+  "sessionMaxAgeDays": 7,
+  "updatedAt": "2026-10-15T15:41:59.439Z",
+  "updatedBy": "dev-test"
+}

@@ -3,6 +3,7 @@
 import fs from "fs/promises";
 import path from "path";
 import { headers } from "next/headers";
+import { getServerDataFilePath } from "@/lib/server-storage";
 import { apiGet, apiPost } from "@/lib/api-client";
 import { getRecentAuditLogs, recordAuditEvent, type AuditLogEntry } from "@/lib/audit-logger";
 import { mailer } from "@/lib/mailer";
@@ -159,9 +160,10 @@ export async function getServiceHealthTelemetry(): Promise<ServiceHealthReport> 
 	// 3. Data Directory Storage Check
 	let storageStatus: "HEALTHY" | "DEGRADED" | "DOWN" = "HEALTHY";
 	let writeLatencyMs = 0;
-	const healthFilePath = path.join(process.cwd(), "data", ".healthcheck");
+	const healthFilePath = getServerDataFilePath(".healthcheck");
 	const startStorage = Date.now();
 	try {
+		await fs.mkdir(path.dirname(healthFilePath), { recursive: true });
 		await fs.writeFile(healthFilePath, `check-${Date.now()}`, "utf-8");
 		await fs.readFile(healthFilePath, "utf-8");
 		writeLatencyMs = Date.now() - startStorage;

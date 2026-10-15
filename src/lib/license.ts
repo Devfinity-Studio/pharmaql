@@ -1,6 +1,5 @@
-import fs from "fs/promises";
-import path from "path";
 import { mailer } from "@/lib/mailer";
+import { readServerJson, writeServerJson } from "./server-storage";
 
 export interface LicenseConfig {
 	status: "ACTIVE" | "EXPIRED" | "SUSPENDED";
@@ -14,8 +13,6 @@ export interface LicenseConfig {
 	updatedAt: string;
 	updatedBy: string;
 }
-
-const LICENSE_FILE = path.join(process.cwd(), "data", "license.json");
 
 const DEFAULT_LICENSE: LicenseConfig = {
 	status: "ACTIVE",
@@ -31,32 +28,22 @@ const DEFAULT_LICENSE: LicenseConfig = {
 };
 
 /**
- * Retrieve current raw license configuration from data/license.json.
+ * Retrieve current raw license configuration safely from server storage.
+ * Resilient against Vercel/serverless read-only filesystems.
  */
 export async function getLicenseConfig(): Promise<LicenseConfig> {
-	try {
-		const raw = await fs.readFile(LICENSE_FILE, "utf-8");
-		const data = JSON.parse(raw);
-		const config = { ...DEFAULT_LICENSE, ...data };
-		// Sanitize adminEmails: replace dummy admin@admin.com with developer email
-		if (
-			!config.adminEmails ||
-			config.adminEmails.length === 0 ||
-			(config.adminEmails.length === 1 && config.adminEmails[0] === "admin@admin.com")
-		) {
-			config.adminEmails = [config.developerEmail || process.env.DEV_EMAIL || "dev@asmeepharma.com"];
-		}
-		return config;
-	} catch {
-		// Initialize default file if not exists
-		await fs.mkdir(path.dirname(LICENSE_FILE), { recursive: true });
-		await fs.writeFile(
-			LICENSE_FILE,
-			JSON.stringify(DEFAULT_LICENSE, null, 2),
-			"utf-8",
-		);
-		return DEFAULT_LICENSE;
+	const data = await readServerJson<Partial<LicenseConfig>>("license.json", DEFAULT_LICENSE);
+	const config: LicenseConfig = { ...DEFAULT_LICENSE, ...data };
+
+	// Sanitize adminEmails: replace dummy admin@admin.com with developer email
+	if (
+		!config.adminEmails ||
+		config.adminEmails.length === 0 ||
+		(config.adminEmails.length === 1 && config.adminEmails[0] === "admin@admin.com")
+	) {
+		config.adminEmails = [config.developerEmail || process.env.DEV_EMAIL || "dev@asmeepharma.com"];
 	}
+	return config;
 }
 
 export interface LicenseStatusResult {
@@ -186,8 +173,7 @@ export async function updateLicenseConfig(
 		updatedBy,
 	};
 
-	await fs.mkdir(path.dirname(LICENSE_FILE), { recursive: true });
-	await fs.writeFile(LICENSE_FILE, JSON.stringify(next, null, 2), "utf-8");
+	await writeServerJson("license.json", next);
 	return next;
 }
 

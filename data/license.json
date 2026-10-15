@@ -1,0 +1,14 @@
+{
+  "status": "ACTIVE",
+  "expiresAt": "2027-11-14T15:41:35.001Z",
+  "gracePeriodDays": 7,
+  "killswitchActive": false,
+  "organization": "Asmee Pharma Pvt. Ltd.",
+  "developerEmail": "dev@asmeepharma.com",
+  "supportEmail": "support@devfinity.net",
+  "adminEmails": [
+    "dev@asmeepharma.com"
+  ],
+  "updatedAt": "2026-10-15T15:42:02.412Z",
+  "updatedBy": "dev@asmeepharma.com"
+}
