@@ -121,12 +121,12 @@ export function DevControlCenter({
 	const [license, setLicense] = useState(initialLicense);
 	const [extensionDays, setExtensionDays] = useState<number>(365);
 	const [customExpiry, setCustomExpiry] = useState<string>(initialLicense.expiresAt.slice(0, 10));
-	const defaultDevEmail = initialLicense.developerEmail || "dev@asmeepharma.com";
+	const defaultAdminEmail = (initialLicense.adminEmails && initialLicense.adminEmails[0]) || "asmeepharma2022@gmail.com";
 	const initialRecipients = (initialLicense.adminEmails || [])
 		.map((e) => e.trim())
 		.filter((e) => Boolean(e) && e.toLowerCase() !== "admin@admin.com");
 	const [adminEmailsStr, setAdminEmailsStr] = useState<string>(
-		initialRecipients.length > 0 ? initialRecipients.join(", ") : defaultDevEmail,
+		initialRecipients.length > 0 ? initialRecipients.join(", ") : defaultAdminEmail,
 	);
 	const [customRenewalNote, setCustomRenewalNote] = useState<string>("");
 
@@ -306,7 +306,7 @@ export function DevControlCenter({
 				.split(",")
 				.map((e) => e.trim())
 				.filter((e) => Boolean(e) && e.toLowerCase() !== "admin@admin.com");
-			const targets = emails.length > 0 ? emails : [license.developerEmail || "dev@asmeepharma.com"];
+			const targets = emails.length > 0 ? emails : [(license.adminEmails && license.adminEmails[0]) || "asmeepharma2022@gmail.com"];
 			await saveLicenseConfigAction({ adminEmails: targets });
 			setLicense((prev) => ({ ...prev, adminEmails: targets }));
 			showFeedback("success", `Notification recipient(s) saved: ${targets.join(", ")}`);
@@ -319,7 +319,7 @@ export function DevControlCenter({
 				.split(",")
 				.map((e) => e.trim())
 				.filter((e) => Boolean(e) && e.toLowerCase() !== "admin@admin.com");
-			const targets = emails.length > 0 ? emails : [license.developerEmail || "dev@asmeepharma.com"];
+			const targets = emails.length > 0 ? emails : [(license.adminEmails && license.adminEmails[0]) || "asmeepharma2022@gmail.com"];
 			const res = await triggerSubscriptionReminderEmails(customRenewalNote, targets);
 			if (res.success) {
 				showFeedback("success", res.message);
@@ -1641,21 +1641,21 @@ export function DevControlCenter({
 							<span>Dispatch Subscription Notice Email</span>
 						</div>
 						<p className="text-xs text-gray-500">
-							Send an official license status notice from developer systems directly to the Developer Email (<span className="font-mono text-purple-700 font-bold">{license.developerEmail || "dev@asmeepharma.com"}</span>) or designated contact inbox.
+							Send an official license status notice from developer systems directly to the Admin Email (<span className="font-mono text-purple-700 font-bold">{adminEmailsStr.split(",")[0]?.trim() || (license.adminEmails && license.adminEmails[0]) || "asmeepharma2022@gmail.com"}</span>) or designated contact inbox.
 						</p>
 
 						<div>
 							<div className="flex items-center justify-between mb-1">
 								<label className="block text-xs font-bold text-gray-700">Notification Recipient Email(s)</label>
 								<span className="text-[11px] font-mono text-purple-700 font-semibold bg-purple-50 px-2 py-0.5 rounded-full border border-purple-200">
-									Developer Email: {license.developerEmail || "dev@asmeepharma.com"}
+									Admin Email: {adminEmailsStr.split(",")[0]?.trim() || (license.adminEmails && license.adminEmails[0]) || "asmeepharma2022@gmail.com"}
 								</span>
 							</div>
 							<div className="flex gap-2">
 								<input
 									className="flex-1 rounded-xl border border-gray-300 px-3 py-2 text-xs font-mono text-gray-900"
 									onChange={(e) => setAdminEmailsStr(e.target.value)}
-									placeholder={license.developerEmail || "dev@asmeepharma.com"}
+									placeholder={(license.adminEmails && license.adminEmails[0]) || "asmeepharma2022@gmail.com"}
 									type="text"
 									value={adminEmailsStr}
 								/>
@@ -1669,7 +1669,7 @@ export function DevControlCenter({
 								</button>
 							</div>
 							<p className="mt-1 text-[11px] text-gray-500">
-								Emails sent from this dev console are dispatched directly to the Developer Email, replacing any dummy admin address.
+								Emails sent from this dev console are dispatched directly from developer systems (Zoho Mail) to the Admin Email.
 							</p>
 						</div>
 
@@ -1690,7 +1690,7 @@ export function DevControlCenter({
 							onClick={handleSendRenewalEmails}
 							type="button"
 						>
-							{isPending ? "Sending Notice..." : `Send Notice Email to Developer (${adminEmailsStr.split(",")[0]?.trim() || license.developerEmail || "dev@asmeepharma.com"})`}
+							{isPending ? "Sending Notice..." : `Send Notice Email to Admin (${adminEmailsStr.split(",")[0]?.trim() || (license.adminEmails && license.adminEmails[0]) || "asmeepharma2022@gmail.com"})`}
 						</button>
 					</div>
 				</div>
