@@ -5,11 +5,19 @@ import { headers } from "next/headers";
 import { auth } from "@/server/auth";
 import { readServerJson, writeServerJson } from "@/lib/server-storage";
 
+export type NoticeTargetAudience =
+	| "MR"
+	| "ADMIN"
+	| "MR_AND_ADMIN"
+	| "DEVELOPER"
+	| "ALL";
+
 export interface NoticeItem {
 	id: string;
 	title: string;
 	content: string;
 	variant: string;
+	targetAudience?: NoticeTargetAudience;
 	isActive: boolean;
 	expiresAt: string | null;
 	createdAt: string;
@@ -29,7 +37,7 @@ export async function getNotices(): Promise<NoticeItem[]> {
 	return await ensureNoticesFile();
 }
 
-export async function getActiveNotice(): Promise<NoticeItem | null> {
+export async function getActiveNotice(role?: string): Promise<NoticeItem | null> {
 	const list = await ensureNoticesFile();
 	const now = new Date();
 	const active = list.find((n) => {
@@ -37,6 +45,25 @@ export async function getActiveNotice(): Promise<NoticeItem | null> {
 		if (n.expiresAt) {
 			const exp = new Date(n.expiresAt);
 			if (exp < now) return false;
+		}
+		if (role) {
+			const target: NoticeTargetAudience = n.targetAudience || "MR";
+			if (role === "MR") {
+				return target === "MR" || target === "MR_AND_ADMIN" || target === "ALL";
+			}
+			if (role === "ADMIN") {
+				return (
+					target === "ADMIN" || target === "MR_AND_ADMIN" || target === "ALL"
+				);
+			}
+			if (role === "DEVELOPER") {
+				return (
+					target === "DEVELOPER" ||
+					target === "ALL" ||
+					target === "ADMIN" ||
+					target === "MR_AND_ADMIN"
+				);
+			}
 		}
 		return true;
 	});
@@ -48,6 +75,7 @@ export async function saveNotice(
 	title: string,
 	content: string,
 	variant: string,
+	targetAudience: NoticeTargetAudience = "MR",
 ) {
 	const session = await auth.api.getSession({
 		headers: await headers(),
@@ -72,6 +100,7 @@ export async function saveNotice(
 				title,
 				content,
 				variant,
+				targetAudience,
 				updatedAt: nowStr,
 			};
 		}
@@ -81,6 +110,7 @@ export async function saveNotice(
 			title,
 			content,
 			variant,
+			targetAudience,
 			isActive: false,
 			expiresAt: null,
 			createdAt: nowStr,
@@ -90,6 +120,8 @@ export async function saveNotice(
 
 	await writeNoticesFile(list);
 	revalidatePath("/admin/notices");
+	revalidatePath("/admin/dashboard");
+	revalidatePath("/admin/dev");
 	revalidatePath("/dashboard");
 	return { success: true };
 }
@@ -124,24 +156,37 @@ export async function activateNotice(id: string, expiresAt: Date | null) {
 
 	await writeNoticesFile(list);
 
-	// Automatically dispatch real-time Web Push notification to all MRs
+	// Automatically dispatch real-time Web Push notification to targeted roles
 	if (activatedNotice) {
 		try {
 			const { sendPushToRole } = await import("@/lib/push-notifications");
 			const cleanContent = activatedNotice.content.replace(/<[^>]*>/g, "").trim();
-			await sendPushToRole("MR", {
+			const payload = {
 				title: `📢 New Circular: ${activatedNotice.title}`,
 				body: cleanContent.slice(0, 120) || "Official announcement published. Tap to read.",
 				url: "/dashboard",
-				category: "NOTICE",
-				urgency: "HIGH",
-			});
+				category: "NOTICE" as const,
+				urgency: "HIGH" as const,
+			};
+
+			const target = activatedNotice.targetAudience || "MR";
+			if (target === "MR" || target === "MR_AND_ADMIN" || target === "ALL") {
+				await sendPushToRole("MR", payload);
+			}
+			if (target === "ADMIN" || target === "MR_AND_ADMIN" || target === "ALL") {
+				await sendPushToRole("ADMIN", { ...payload, url: "/admin/dashboard" });
+			}
+			if (target === "DEVELOPER" || target === "ALL") {
+				await sendPushToRole("DEVELOPER", { ...payload, url: "/admin/dev" });
+			}
 		} catch (err) {
 			console.warn("[NoticePush] Push notification dispatch partial error:", err);
 		}
 	}
 
 	revalidatePath("/admin/notices");
+	revalidatePath("/admin/dashboard");
+	revalidatePath("/admin/dev");
 	revalidatePath("/dashboard");
 	return { success: true };
 }

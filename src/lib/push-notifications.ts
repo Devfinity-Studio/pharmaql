@@ -23,7 +23,7 @@ export interface StoredPushSubscription {
 export interface InAppNotification {
 	id: string;
 	recipientUserId?: string; // Specific user ID; if undefined, broadcast to recipientRole
-	recipientRole?: "MR" | "ADMIN" | "ALL";
+	recipientRole?: "MR" | "ADMIN" | "DEVELOPER" | "ALL";
 	title: string;
 	body: string;
 	category: "OVERDUE" | "NOTICE" | "SUBSCRIPTION" | "SYSTEM";
@@ -237,6 +237,9 @@ export async function getUserInAppNotifications(
 		) {
 			return true;
 		}
+		if (n.recipientRole === "DEVELOPER" && role === "DEVELOPER") {
+			return true;
+		}
 		return false;
 	});
 }
@@ -378,7 +381,7 @@ export async function sendPushToUser(
  * Also archives in-app notification.
  */
 export async function sendPushToRole(
-	role: "MR" | "ADMIN",
+	role: "MR" | "ADMIN" | "DEVELOPER",
 	payload: PushNotificationPayload,
 ): Promise<{ sentCount: number; prunedCount: number; inAppCreated: boolean }> {
 	await addInAppNotification({
@@ -394,6 +397,9 @@ export async function sendPushToRole(
 	const roleSubs = subscriptions.filter((s) => {
 		if (role === "ADMIN") {
 			return s.role === "ADMIN" || s.role === "DEVELOPER";
+		}
+		if (role === "DEVELOPER") {
+			return s.role === "DEVELOPER";
 		}
 		return s.role === role;
 	});
