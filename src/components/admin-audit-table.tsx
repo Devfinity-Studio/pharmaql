@@ -48,6 +48,28 @@ export function AdminAuditTable({ initialLogs }: AdminAuditTableProps) {
 	const rateLimits = initialLogs.filter((l) => l.event === "RATE_LIMIT_EXCEEDED").length;
 	const unblocks = initialLogs.filter((l) => l.event === "ADMIN_UNBLOCK").length;
 
+	const formatTimestampDeterministic = (isoString: string) => {
+		try {
+			const d = new Date(isoString);
+			if (isNaN(d.getTime())) {
+				return { dateStr: isoString, timeStr: "" };
+			}
+			const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+			const month = months[d.getUTCMonth()] || "Oct";
+			const day = String(d.getUTCDate()).padStart(2, "0");
+			const year = d.getUTCFullYear();
+			const hours = String(d.getUTCHours()).padStart(2, "0");
+			const minutes = String(d.getUTCMinutes()).padStart(2, "0");
+			const seconds = String(d.getUTCSeconds()).padStart(2, "0");
+			return {
+				dateStr: `${month} ${day}, ${year}`,
+				timeStr: `${hours}:${minutes}:${seconds} UTC`,
+			};
+		} catch {
+			return { dateStr: isoString, timeStr: "" };
+		}
+	};
+
 	const getEventBadge = (event: AuditEventType) => {
 		switch (event) {
 			case "AUTH_LOGIN_SUCCESS":
@@ -196,26 +218,22 @@ export function AdminAuditTable({ initialLogs }: AdminAuditTableProps) {
 								</tr>
 							) : (
 								filteredLogs.map((log) => {
-									const date = new Date(log.timestamp);
-									const formattedTime = date.toLocaleTimeString([], {
-										hour: "2-digit",
-										minute: "2-digit",
-										second: "2-digit",
-									});
-									const formattedDate = date.toLocaleDateString([], {
-										month: "short",
-										day: "numeric",
-										year: "numeric",
-									});
+									const { dateStr, timeStr } = formatTimestampDeterministic(log.timestamp);
 
 									return (
 										<tr className="hover:bg-gray-50/50 transition-colors" key={log.id}>
 											<td className="whitespace-nowrap px-4 py-3">
-												<div className="font-semibold text-gray-900 text-xs">
-													{formattedDate}
+												<div
+													className="font-semibold text-gray-900 text-xs"
+													suppressHydrationWarning
+												>
+													{dateStr}
 												</div>
-												<div className="text-[11px] text-gray-500 font-mono">
-													{formattedTime}
+												<div
+													className="text-[11px] text-gray-500 font-mono"
+													suppressHydrationWarning
+												>
+													{timeStr}
 												</div>
 											</td>
 											<td className="px-4 py-3">{getEventBadge(log.event)}</td>

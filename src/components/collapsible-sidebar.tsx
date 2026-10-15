@@ -63,17 +63,17 @@ export function CollapsibleSidebar({
 			href: "/admin/notices",
 			icon: Bell,
 		},
-		{
-			label: "Security & Audit",
-			href: "/admin/audit",
-			icon: Shield,
-		},
 	];
 
 	const adminNavItems = [
 		...baseAdminNavItems,
 		...(userRole === "DEVELOPER"
 			? [
+					{
+						label: "Security & Audit",
+						href: "/admin/audit",
+						icon: Shield,
+					},
 					{
 						label: "Developer Options",
 						href: "/admin/dev",

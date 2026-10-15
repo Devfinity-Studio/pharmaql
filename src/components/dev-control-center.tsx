@@ -605,7 +605,7 @@ export function DevControlCenter({
 										{license.status} {license.isBlocked ? "(BLOCKED)" : `(${license.daysRemaining} days left)`}
 									</span>
 								</div>
-								<p className="mt-1 text-xs text-gray-500 font-mono">
+								<p className="mt-1 text-xs text-gray-500 font-mono" suppressHydrationWarning>
 									Expiration Date: {new Date(license.expiresAt).toLocaleDateString("en-IN", { day: "numeric", month: "long", year: "numeric" })} &bull; Grace Period: {license.gracePeriodDays} days
 								</p>
 							</div>
