@@ -94,7 +94,7 @@ export default async function MRLayout({ children }: { children: ReactNode }) {
 					rank={session.user.rank}
 				/>
 			)}
-			<div className="relative flex flex-1 overflow-hidden flex-col md:flex-row pb-16 md:pb-0">
+			<div className="relative flex flex-1 overflow-y-auto md:overflow-hidden flex-col md:flex-row pb-16 md:pb-0">
 				<div className="pointer-events-none absolute inset-0 z-0 bg-[url('/devfinity.png')] bg-repeat opacity-[0.03] [background-size:120px]"></div>
 				<CollapsibleSidebar
 					portal="mr"

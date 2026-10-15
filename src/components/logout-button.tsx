@@ -4,7 +4,13 @@ import { usePathname, useRouter } from "next/navigation";
 import { purgeAllOfflineData } from "@/lib/offline-store";
 import { logoutUser } from "@/server/actions/authActions";
 
-export function LogoutButton({ className }: { className?: string }) {
+interface LogoutButtonProps {
+	className?: string;
+	children?: React.ReactNode;
+	title?: string;
+}
+
+export function LogoutButton({ className, children, title }: LogoutButtonProps) {
 	const router = useRouter();
 	const pathname = usePathname();
 
@@ -14,6 +20,7 @@ export function LogoutButton({ className }: { className?: string }) {
 				className ||
 				"rounded-full bg-red-600 px-6 py-2 font-bold text-white shadow-sm transition hover:bg-red-700"
 			}
+			title={title}
 			onClick={async () => {
 				// 1. Purge all offline IndexedDB snapshots & cached credentials
 				await purgeAllOfflineData();
@@ -42,7 +49,7 @@ export function LogoutButton({ className }: { className?: string }) {
 			}}
 			type="button"
 		>
-			Logout
+			{children || "Logout"}
 		</button>
 	);
 }

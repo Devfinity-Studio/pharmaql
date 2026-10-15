@@ -132,7 +132,7 @@ export function LoginForm() {
 					type="button"
 				>
 					<ShieldCheck className="h-4 w-4" />
-					Admin / Developer
+					Admin
 				</button>
 			</div>
 
@@ -221,13 +221,12 @@ export function LoginForm() {
 				<form className="space-y-5" onSubmit={handleAdminLogin}>
 					<div>
 						<label className="block font-semibold text-gray-700 text-sm">
-							Admin / Developer Email
+							Admin Email
 						</label>
 						<div className="mt-1.5">
 							<input
 								className="block w-full rounded-lg border border-gray-300 px-3.5 py-2.5 text-gray-900 shadow-sm focus:border-[#0B2545] focus:ring-[#0B2545] sm:text-sm"
 								onChange={(e) => setEmail(e.target.value)}
-								placeholder="admin@admin.com or dev@asmeepharma.com"
 								required
 								type="email"
 								value={email}
