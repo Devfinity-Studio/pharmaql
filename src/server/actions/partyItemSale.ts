@@ -76,4 +76,6 @@ export async function getCompanyCustomerItemwiseSales(params: {
 	};
 }
 
-export const getPartyCustomerItemSale = getCompanyCustomerItemwiseSales;
+export async function getPartyCustomerItemSale(payload: Parameters<typeof getCompanyCustomerItemwiseSales>[0]) {
+	return getCompanyCustomerItemwiseSales(payload);
+}

@@ -3,7 +3,7 @@
 import { cookies } from "next/headers";
 import { auth } from "@/server/auth";
 
-export const IMPERSONATE_COOKIE_NAME = "pharmaql_impersonate";
+const IMPERSONATE_COOKIE_NAME = "pharmaql_impersonate";
 
 /**
  * Start simulating / viewing-as an MR.
