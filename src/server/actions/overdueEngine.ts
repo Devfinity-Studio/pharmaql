@@ -175,6 +175,29 @@ export async function evaluateMROverdueStatus(
 			const worst = blockingInvoices.sort(
 				(a, b) => b.overDays - a.overDays,
 			)[0]!;
+
+			// Asynchronously dispatch block alert to assigned MR (throttled to 1/24h)
+			(async () => {
+				try {
+					const { sendPushToUser, getUserInAppNotifications } = await import("@/lib/push-notifications");
+					const recents = await getUserInAppNotifications(mrId, "MR");
+					const recentlyAlerted = recents.some(
+						(a) => a.category === "OVERDUE" && a.urgency === "HIGH" && Date.now() - new Date(a.createdAt).getTime() < 24 * 60 * 60 * 1000,
+					);
+					if (!recentlyAlerted) {
+						await sendPushToUser(mrId, {
+							title: `🚫 Account Suspended: Overdue Payment`,
+							body: `Customer ${worst.customer} has an invoice ${worst.invoiceNo} (₹${worst.amount.toFixed(0)}) overdue by ${worst.overDays} days. Orders on hold.`,
+							url: "/dashboard?tab=overdue",
+							category: "OVERDUE",
+							urgency: "HIGH",
+						});
+					}
+				} catch (err) {
+					console.warn("[OverduePush] Block push alert error:", err);
+				}
+			})();
+
 			return {
 				mrId,
 				mrName: mrInfo.name,
@@ -194,6 +217,29 @@ export async function evaluateMROverdueStatus(
 	// If warning applies (80–90 days)
 	if (warningInvoices.length > 0) {
 		const worst = warningInvoices.sort((a, b) => b.overDays - a.overDays)[0]!;
+
+		// Asynchronously dispatch impending block warning push to assigned MR (throttled to 1/24h)
+		(async () => {
+			try {
+				const { sendPushToUser, getUserInAppNotifications } = await import("@/lib/push-notifications");
+				const recents = await getUserInAppNotifications(mrId, "MR");
+				const recentlyAlerted = recents.some(
+					(a) => a.category === "OVERDUE" && Date.now() - new Date(a.createdAt).getTime() < 24 * 60 * 60 * 1000,
+				);
+				if (!recentlyAlerted) {
+					await sendPushToUser(mrId, {
+						title: `⚠️ Impending Block: ${worst.customer}`,
+						body: `Invoice ${worst.invoiceNo} (₹${worst.amount.toFixed(0)}) is ${worst.overDays} days overdue. Follow up before ${worst.autoBlockDate} to prevent suspension.`,
+						url: "/dashboard?tab=overdue",
+						category: "OVERDUE",
+						urgency: "HIGH",
+					});
+				}
+			} catch (err) {
+				console.warn("[OverduePush] Warning push alert error:", err);
+			}
+		})();
+
 		return {
 			mrId,
 			mrName: mrInfo.name,

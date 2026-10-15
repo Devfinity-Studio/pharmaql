@@ -17,6 +17,7 @@ import {
 	Users,
 } from "lucide-react";
 import { LogoutButton } from "@/components/logout-button";
+import { NotificationCenter } from "@/components/notification-center";
 
 interface CollapsibleSidebarProps {
 	portal: "mr" | "admin";
@@ -141,23 +142,26 @@ export function CollapsibleSidebar({
 					</Link>
 				)}
 
-				<button
-					aria-label={isCollapsed ? "Expand sidebar" : "Collapse sidebar"}
-					className={`hidden h-8 w-8 items-center justify-center rounded-lg border transition md:flex ${
-						isDark
-							? "border-gray-700 bg-gray-800 text-gray-300 hover:bg-gray-700 hover:text-white"
-							: "border-gray-200 bg-gray-50 text-gray-500 hover:bg-gray-100 hover:text-[#0B2545]"
-					} ${isCollapsed ? "mx-auto mt-2" : ""}`}
-					onClick={() => setIsCollapsed(!isCollapsed)}
-					title={isCollapsed ? "Expand sidebar" : "Collapse sidebar"}
-					type="button"
-				>
-					{isCollapsed ? (
-						<ChevronRight className="h-4 w-4" />
-					) : (
-						<ChevronLeft className="h-4 w-4" />
-					)}
-				</button>
+				<div className={`flex items-center gap-1.5 ${isCollapsed ? "flex-col mt-2" : ""}`}>
+					<NotificationCenter isDark={isDark} userRole={userRole} />
+					<button
+						aria-label={isCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+						className={`hidden h-8 w-8 items-center justify-center rounded-lg border transition md:flex ${
+							isDark
+								? "border-gray-700 bg-gray-800 text-gray-300 hover:bg-gray-700 hover:text-white"
+								: "border-gray-200 bg-gray-50 text-gray-500 hover:bg-gray-100 hover:text-[#0B2545]"
+						} ${isCollapsed ? "mx-auto" : ""}`}
+						onClick={() => setIsCollapsed(!isCollapsed)}
+						title={isCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+						type="button"
+					>
+						{isCollapsed ? (
+							<ChevronRight className="h-4 w-4" />
+						) : (
+							<ChevronLeft className="h-4 w-4" />
+						)}
+					</button>
+				</div>
 			</div>
 
 			{/* Navigation Links */}

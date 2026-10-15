@@ -144,3 +144,74 @@ self.addEventListener("fetch", (event) => {
 		fetch(request).catch(() => caches.match(request)),
 	);
 });
+
+// =========================================================================
+// Web Push Notifications & Deep-Link Handlers
+// =========================================================================
+
+// 4. Push Event: Render native mobile/desktop system notification
+self.addEventListener("push", (event) => {
+	let payload = {
+		title: "PharmaQL Field Alert",
+		body: "You have a new notification from PharmaQL.",
+		icon: "/favicons/android-chrome-192x192.png",
+		badge: "/favicons/android-chrome-192x192.png",
+		tag: "pharmaql-alert",
+		data: { url: "/dashboard" },
+	};
+
+	if (event.data) {
+		try {
+			const json = event.data.json();
+			payload = {
+				title: json.title || payload.title,
+				body: json.body || payload.body,
+				icon: json.icon || payload.icon,
+				badge: json.badge || payload.badge,
+				tag: json.tag || payload.tag,
+				data: json.data || { url: "/dashboard" },
+			};
+		} catch {
+			payload.body = event.data.text() || payload.body;
+		}
+	}
+
+	const options = {
+		body: payload.body,
+		icon: payload.icon,
+		badge: payload.badge,
+		vibrate: [200, 100, 200],
+		tag: payload.tag,
+		renotify: true,
+		data: payload.data,
+	};
+
+	event.waitUntil(self.registration.showNotification(payload.title, options));
+});
+
+// 5. Notification Click Event: Deep-link to target dashboard tab or circulars
+self.addEventListener("notificationclick", (event) => {
+	event.notification.close();
+
+	const targetUrl = (event.notification.data && event.notification.data.url)
+		? event.notification.data.url
+		: "/dashboard";
+
+	event.waitUntil(
+		clients.matchAll({ type: "window", includeUncontrolled: true }).then((clientList) => {
+				// Focus existing open tab if available
+				for (const client of clientList) {
+					if (client.url.includes(self.location.origin) && "focus" in client) {
+						if ("navigate" in client && client.url !== targetUrl) {
+							return client.navigate(targetUrl).then((c) => (c ? c.focus() : client.focus()));
+						}
+						return client.focus();
+					}
+				}
+				// Otherwise open new window
+				if (clients.openWindow) {
+					return clients.openWindow(targetUrl);
+				}
+			}),
+	);
+});

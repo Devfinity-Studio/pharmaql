@@ -122,17 +122,37 @@ export async function activateNotice(id: string, expiresAt: Date | null) {
 	const nowStr = new Date().toISOString();
 	const expStr = expiresAt ? expiresAt.toISOString() : null;
 
+	let activatedNotice: NoticeItem | undefined;
 	list.forEach((n) => {
 		if (n.id === id) {
 			n.isActive = true;
 			n.expiresAt = expStr;
 			n.updatedAt = nowStr;
+			activatedNotice = n;
 		} else {
 			n.isActive = false;
 		}
 	});
 
 	await writeNoticesFile(list);
+
+	// Automatically dispatch real-time Web Push notification to all MRs
+	if (activatedNotice) {
+		try {
+			const { sendPushToRole } = await import("@/lib/push-notifications");
+			const cleanContent = activatedNotice.content.replace(/<[^>]*>/g, "").trim();
+			await sendPushToRole("MR", {
+				title: `📢 New Circular: ${activatedNotice.title}`,
+				body: cleanContent.slice(0, 120) || "Official announcement published. Tap to read.",
+				url: "/dashboard",
+				category: "NOTICE",
+				urgency: "HIGH",
+			});
+		} catch (err) {
+			console.warn("[NoticePush] Push notification dispatch partial error:", err);
+		}
+	}
+
 	revalidatePath("/admin/notices");
 	revalidatePath("/dashboard");
 	return { success: true };

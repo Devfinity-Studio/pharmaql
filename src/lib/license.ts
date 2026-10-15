@@ -133,6 +133,30 @@ export async function getLicenseStatus(): Promise<LicenseStatusResult> {
 		};
 	}
 
+	// Dispatch automated subscription milestone alert to Admins/Developers if within 14 days (throttled to 1/24h)
+	if (daysRemaining <= 14 && daysRemaining > 0) {
+		(async () => {
+			try {
+				const { sendPushToRole, getInAppNotifications } = await import("@/lib/push-notifications");
+				const notifs = await getInAppNotifications();
+				const recentlyAlerted = notifs.some(
+					(n) => n.category === "SUBSCRIPTION" && Date.now() - new Date(n.createdAt).getTime() < 24 * 60 * 60 * 1000,
+				);
+				if (!recentlyAlerted) {
+					await sendPushToRole("ADMIN", {
+						title: "⚠️ Subscription Renewal Milestone",
+						body: `PharmaQL license expires in ${daysRemaining} days (${new Date(config.expiresAt).toLocaleDateString()}). Please renew to ensure uninterrupted operation.`,
+						url: "/admin/dev",
+						category: "SUBSCRIPTION",
+						urgency: "HIGH",
+					});
+				}
+			} catch (err) {
+				console.warn("[LicensePush] Renewal push alert error:", err);
+			}
+		})();
+	}
+
 	return {
 		status: "ACTIVE",
 		isBlocked: false,

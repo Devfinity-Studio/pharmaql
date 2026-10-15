@@ -6,6 +6,7 @@ import {
 	Activity,
 	AlertOctagon,
 	AlertTriangle,
+	Bell,
 	Calendar,
 	CheckCircle2,
 	Clock,
@@ -50,6 +51,10 @@ import {
 	saveRuntimeConfigAction,
 } from "@/server/actions/devDiagnostics";
 import { startMrImpersonation } from "@/server/actions/impersonation";
+import {
+	getPushDiagnosticsAction,
+	sendTestPushAction,
+} from "@/server/actions/pushActions";
 
 interface DevControlCenterProps {
 	healthReport: ServiceHealthReport;
@@ -81,7 +86,7 @@ export function DevControlCenter({
 }: DevControlCenterProps) {
 	const router = useRouter();
 	const [activeTab, setActiveTab] = useState<
-		"status" | "license" | "toggles" | "impersonate" | "logs" | "query" | "runtime"
+		"status" | "license" | "toggles" | "impersonate" | "logs" | "query" | "runtime" | "push"
 	>("status");
 
 	const [isPending, startTransition] = useTransition();
@@ -121,6 +126,26 @@ export function DevControlCenter({
 	const [logs, setLogs] = useState(initialLogs);
 	const [logQuery, setLogQuery] = useState("");
 	const [logLevel, setLogLevel] = useState("ALL");
+
+	// Push dispatcher state
+	const [pushSummary, setPushSummary] = useState<{
+		totalSubscriptions: number;
+		mrCount: number;
+		adminCount: number;
+		devCount: number;
+		totalInAppNotifications: number;
+		vapidConfigured: boolean;
+	} | null>(null);
+	const [pushTargetType, setPushTargetType] = useState<
+		"CURRENT_USER" | "MR" | "ADMIN" | "ALL" | "SPECIFIC_MR"
+	>("CURRENT_USER");
+	const [pushTargetMrId, setPushTargetMrId] = useState("");
+	const [pushTitle, setPushTitle] = useState("⚠️ Field Alert: Impending Block");
+	const [pushBody, setPushBody] = useState(
+		"Customer account has invoices nearing 90-day overdue threshold. Please follow up.",
+	);
+	const [pushDeepLink, setPushDeepLink] = useState("/dashboard?tab=overdue");
+	const [pushResult, setPushResult] = useState<any>(null);
 
 	const showFeedback = (type: "success" | "error", text: string) => {
 		setFeedbackMsg({ type, text });
@@ -351,6 +376,49 @@ export function DevControlCenter({
 		});
 	};
 
+	// 7. Push Dispatcher Handlers
+	const loadPushDiagnostics = async () => {
+		try {
+			const data = await getPushDiagnosticsAction();
+			setPushSummary(data);
+		} catch (err: any) {
+			console.warn("Push diagnostics error:", err);
+		}
+	};
+
+	const handleDispatchPush = () => {
+		startTransition(async () => {
+			try {
+				let targetUserId: string | undefined;
+				let targetRole: "MR" | "ADMIN" | "ALL" | undefined;
+
+				if (pushTargetType === "SPECIFIC_MR") {
+					targetUserId = pushTargetMrId || (mrList[0]?.id || "2001");
+				} else if (
+					pushTargetType === "MR" ||
+					pushTargetType === "ADMIN" ||
+					pushTargetType === "ALL"
+				) {
+					targetRole = pushTargetType;
+				}
+
+				const res = await sendTestPushAction({
+					targetUserId,
+					targetRole,
+					title: pushTitle,
+					body: pushBody,
+					url: pushDeepLink,
+				});
+
+				setPushResult(res);
+				showFeedback(res.success ? "success" : "error", res.message);
+				await loadPushDiagnostics();
+			} catch (err: any) {
+				showFeedback("error", `Push dispatch failed: ${err.message}`);
+			}
+		});
+	};
+
 	// Filter MRs
 	const filteredMRs = mrList.filter((m) => {
 		if (!mrSearch.trim()) return true;
@@ -459,6 +527,7 @@ export function DevControlCenter({
 				{[
 					{ id: "status", label: "Services Status", icon: Activity },
 					{ id: "license", label: "Subscription & License", icon: Key },
+					{ id: "push", label: "Push & Field Alerts", icon: Bell },
 					{ id: "toggles", label: "Feature Switchboard", icon: Wrench },
 					{ id: "impersonate", label: "MR Impersonation", icon: Users },
 					{ id: "logs", label: "Unified Logs", icon: HardDrive },
@@ -973,6 +1042,209 @@ export function DevControlCenter({
 						>
 							{isPending ? "Sending Notice..." : `Send Notice Email to Developer (${adminEmailsStr.split(",")[0]?.trim() || license.developerEmail || "dev@asmeepharma.com"})`}
 						</button>
+					</div>
+				</div>
+			)}
+
+			{/* TAB: PUSH NOTIFICATIONS & FIELD ALERTS */}
+			{activeTab === "push" && (
+				<div className="space-y-6">
+					{/* Telemetry & Device Counters */}
+					<div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+						<div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-xs">
+							<div className="flex items-center justify-between">
+								<span className="font-bold text-xs uppercase tracking-wider text-gray-500">
+									Active Devices
+								</span>
+								<Bell className="h-4 w-4 text-purple-600" />
+							</div>
+							<div className="mt-2 flex items-baseline gap-2">
+								<span className="font-black text-2xl text-gray-900">
+									{pushSummary?.totalSubscriptions ?? "—"}
+								</span>
+								<span className="text-xs text-gray-500 font-medium">Registered Endpoints</span>
+							</div>
+						</div>
+
+						<div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-xs">
+							<div className="flex items-center justify-between">
+								<span className="font-bold text-xs uppercase tracking-wider text-gray-500">
+									Field MR Devices
+								</span>
+								<Users className="h-4 w-4 text-blue-600" />
+							</div>
+							<div className="mt-2 flex items-baseline gap-2">
+								<span className="font-black text-2xl text-blue-700">
+									{pushSummary?.mrCount ?? "—"}
+								</span>
+								<span className="text-xs text-gray-500 font-medium">MR Push Channels</span>
+							</div>
+						</div>
+
+						<div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-xs">
+							<div className="flex items-center justify-between">
+								<span className="font-bold text-xs uppercase tracking-wider text-gray-500">
+									Admin / Dev Devices
+								</span>
+								<Shield className="h-4 w-4 text-emerald-600" />
+							</div>
+							<div className="mt-2 flex items-baseline gap-2">
+								<span className="font-black text-2xl text-emerald-700">
+									{(pushSummary?.adminCount ?? 0) + (pushSummary?.devCount ?? 0)}
+								</span>
+								<span className="text-xs text-gray-500 font-medium">Management Channels</span>
+							</div>
+						</div>
+
+						<div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-xs">
+							<div className="flex items-center justify-between">
+								<span className="font-bold text-xs uppercase tracking-wider text-gray-500">
+									In-App Alerts
+								</span>
+								<AlertTriangle className="h-4 w-4 text-amber-600" />
+							</div>
+							<div className="mt-2 flex items-baseline gap-2">
+								<span className="font-black text-2xl text-amber-700">
+									{pushSummary?.totalInAppNotifications ?? "—"}
+								</span>
+								<span className="text-xs text-gray-500 font-medium">Archived Alerts</span>
+							</div>
+						</div>
+					</div>
+
+					{/* Push Notification Dispatch Bench */}
+					<div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-xs space-y-5">
+						<div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between border-b border-gray-100 pb-4">
+							<div className="flex items-center gap-2">
+								<div className="flex h-9 w-9 items-center justify-center rounded-xl bg-purple-50 text-purple-600">
+									<Bell className="h-5 w-5" />
+								</div>
+								<div>
+									<h2 className="font-black text-base text-gray-900">
+										Interactive Push Notification Dispatch Bench
+									</h2>
+									<p className="text-xs text-gray-500">
+										Send encrypted RFC 8292 Web Push notifications with vibration and system badges.
+									</p>
+								</div>
+							</div>
+
+							<button
+								className="rounded-xl border border-gray-300 bg-gray-50 px-3 py-1.5 text-xs font-bold text-gray-700 hover:bg-gray-100"
+								onClick={loadPushDiagnostics}
+								type="button"
+							>
+								Refresh Telemetry
+							</button>
+						</div>
+
+						<div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+							<div>
+								<label className="block text-xs font-bold text-gray-700">Dispatch Target Audience</label>
+								<select
+									className="mt-1 w-full rounded-xl border border-gray-300 bg-white p-2.5 text-xs font-bold text-gray-900"
+									onChange={(e) => setPushTargetType(e.target.value as any)}
+									value={pushTargetType}
+								>
+									<option value="CURRENT_USER">My Active Browser (Self-Test)</option>
+									<option value="MR">Broadcast to All Active MRs</option>
+									<option value="ADMIN">Broadcast to All Administrators</option>
+									<option value="ALL">Platform-Wide Broadcast (All Users)</option>
+									<option value="SPECIFIC_MR">Target Specific MR by ID</option>
+								</select>
+							</div>
+
+							{pushTargetType === "SPECIFIC_MR" ? (
+								<div>
+									<label className="block text-xs font-bold text-gray-700">Select Target MR</label>
+									<select
+										className="mt-1 w-full rounded-xl border border-gray-300 bg-white p-2.5 text-xs font-mono text-gray-900"
+										onChange={(e) => setPushTargetMrId(e.target.value)}
+										value={pushTargetMrId}
+									>
+										{mrList.slice(0, 50).map((m) => (
+											<option key={m.id} value={m.id}>
+												{m.name} ({m.id}) {m.division ? `- ${m.division}` : ""}
+											</option>
+										))}
+									</select>
+								</div>
+							) : (
+								<div>
+									<label className="block text-xs font-bold text-gray-700">Target Deep Link</label>
+									<select
+										className="mt-1 w-full rounded-xl border border-gray-300 bg-white p-2.5 text-xs font-mono text-gray-900"
+										onChange={(e) => setPushDeepLink(e.target.value)}
+										value={pushDeepLink}
+									>
+										<option value="/dashboard?tab=overdue">/dashboard?tab=overdue (Outstanding & Overdue)</option>
+										<option value="/dashboard?tab=notices">/dashboard?tab=notices (Circulars & Notices)</option>
+										<option value="/dashboard?tab=stock">/dashboard?tab=stock (Stock Movement)</option>
+										<option value="/dashboard?tab=sales">/dashboard?tab=sales (Sales Statement)</option>
+										<option value="/admin/dev">/admin/dev (Developer Control Center)</option>
+									</select>
+								</div>
+							)}
+						</div>
+
+						<div>
+							<label className="block text-xs font-bold text-gray-700">Push Notification Title</label>
+							<input
+								className="mt-1 w-full rounded-xl border border-gray-300 p-2.5 text-xs font-bold text-gray-900"
+								onChange={(e) => setPushTitle(e.target.value)}
+								type="text"
+								value={pushTitle}
+							/>
+						</div>
+
+						<div>
+							<label className="block text-xs font-bold text-gray-700">Notification Message Body</label>
+							<textarea
+								className="mt-1 w-full rounded-xl border border-gray-300 p-2.5 text-xs text-gray-900"
+								onChange={(e) => setPushBody(e.target.value)}
+								rows={2}
+								value={pushBody}
+							/>
+						</div>
+
+						<div className="flex flex-wrap items-center justify-between gap-3 pt-2">
+							<p className="text-[11px] text-gray-500">
+								Notifications are delivered via the browser Service Worker with vibration pattern [200, 100, 200] and click deep-linking.
+							</p>
+
+							<button
+								className="rounded-xl bg-purple-600 px-5 py-2.5 font-bold text-xs text-white shadow-xs transition hover:bg-purple-700"
+								disabled={isPending}
+								onClick={handleDispatchPush}
+								type="button"
+							>
+								{isPending ? "Dispatching Push..." : "Dispatch Web Push Notification"}
+							</button>
+						</div>
+
+						{/* Result Output Card */}
+						{pushResult && (
+							<div
+								className={`rounded-xl border p-4 text-xs font-mono ${
+									pushResult.success
+										? "border-emerald-200 bg-emerald-50 text-emerald-900"
+										: "border-amber-200 bg-amber-50 text-amber-900"
+								}`}
+							>
+								<div className="font-bold flex items-center gap-1.5">
+									{pushResult.success ? (
+										<CheckCircle2 className="h-4 w-4 text-emerald-600" />
+									) : (
+										<AlertTriangle className="h-4 w-4 text-amber-600" />
+									)}
+									<span>{pushResult.message}</span>
+								</div>
+								<div className="mt-2 grid grid-cols-2 gap-2 text-[11px] text-gray-600">
+									<div>Delivered Devices: <span className="font-bold text-gray-900">{pushResult.sentCount ?? 0}</span></div>
+									<div>Pruned Dead Endpoints: <span className="font-bold text-gray-900">{pushResult.prunedCount ?? 0}</span></div>
+								</div>
+							</div>
+						)}
 					</div>
 				</div>
 			)}
