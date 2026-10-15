@@ -171,10 +171,12 @@
 ## Phase 23: Developer Options & Developer Account
 
 - [ ] **Developer Role Separation & Layout Alignment**: Fix admin layout authentication gates to permit `DEVELOPER` role alongside `ADMIN`, add distinct developer session indicators, badges, and role-scoped navigation.
-- [ ] **Developer Control Center (`/admin/dev`)**: Build an exclusive Developer Options dashboard with system telemetry, runtime health status, API latency benchmarks, and memory tracking.
+- [ ] **Software Subscription Lifecycle & Killswitch**: Implement subscription status management (`data/license.json`) with automated system-wide blocking upon expiration/killswitch activation for MRs and Admins, while retaining Developer access for renewals.
+- [ ] **Environment & Runtime Config Management**: Build developer interface to view, manage, and hot-reload dynamic runtime environment keys (`ADMIN_ALLOWED_IPS`, debug toggles, rate limits, grace periods) with masked secret inspection.
+- [ ] **Multi-Service Health & Telemetry Monitor**: Implement real-time service health monitors tracking Next.js frontend (uptime, memory, Node v26), Express API server (`/health` ping), MySQL ERP connection pool, SMTP mailer handshake, and disk storage.
+- [ ] **Unified Log Inspector (User Audit + System Logs)**: Create developer log stream inspecting both user activity audit logs (logins, OTPs, exports, unblocks) and system API logs (HTTP routes, status codes, query duration, errors) with search and severity filters.
 - [ ] **MR Impersonation & "View-As" Mode**: Allow developers to preview the portal and report views as any registered MR to verify ranking permissions, overdue notices, and stationery formatting without credential spoofing.
-- [ ] **Rate Limit & Cache Management Tools**: Provide administrative controls to inspect active rate limit buckets, flush temporary IP lockouts, and clear masterdata memory caches.
-- [ ] **Stored Procedure Playground & Query Diagnostics**: Build a safe, read-only stored procedure execution sandbox for developers to benchmark and test queries with custom parameters.
-- [ ] **Verification & Quality Gates**: Validate developer permissions, impersonation switching, cache operations, and ensure clean production builds.
+- [ ] **Stored Procedure Playground & Cache Controls**: Build a safe, read-only stored procedure execution sandbox for developers to benchmark queries with custom parameters, alongside one-click cache flushes and rate-limit resets.
+- [ ] **Verification & Quality Gates**: Validate subscription blocking, env key hot-reloading, service health checks, log inspection, MR impersonation, and ensure clean production builds.
 
 
