@@ -37,10 +37,10 @@ export async function getNotices(): Promise<NoticeItem[]> {
 	return await ensureNoticesFile();
 }
 
-export async function getActiveNotice(role?: string): Promise<NoticeItem | null> {
+export async function getActiveNotices(role?: string): Promise<NoticeItem[]> {
 	const list = await ensureNoticesFile();
 	const now = new Date();
-	const active = list.find((n) => {
+	const activeList = list.filter((n) => {
 		if (!n.isActive) return false;
 		if (n.expiresAt) {
 			const exp = new Date(n.expiresAt);
@@ -67,7 +67,23 @@ export async function getActiveNotice(role?: string): Promise<NoticeItem | null>
 		}
 		return true;
 	});
-	return active || null;
+
+	// Sort notices: Developer-targeted notices are placed BEFORE admin notices
+	activeList.sort((a, b) => {
+		const aIsDev = a.targetAudience === "DEVELOPER" ? 1 : 0;
+		const bIsDev = b.targetAudience === "DEVELOPER" ? 1 : 0;
+		if (aIsDev !== bIsDev) {
+			return bIsDev - aIsDev; // Dev notices first
+		}
+		return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+	});
+
+	return activeList;
+}
+
+export async function getActiveNotice(role?: string): Promise<NoticeItem | null> {
+	const active = await getActiveNotices(role);
+	return active[0] || null;
 }
 
 export async function saveNotice(
@@ -86,6 +102,11 @@ export async function saveNotice(
 		(session.user.role !== "ADMIN" && session.user.role !== "DEVELOPER")
 	) {
 		throw new Error("Unauthorized");
+	}
+
+	// Admins cannot send notices to developers
+	if (session.user.role === "ADMIN" && (targetAudience === "DEVELOPER" || targetAudience === "ALL")) {
+		throw new Error("Admins are not permitted to send notices to developers.");
 	}
 
 	const list = await ensureNoticesFile();
@@ -139,8 +160,19 @@ export async function activateNotice(id: string, expiresAt: Date | null) {
 	}
 
 	const list = await ensureNoticesFile();
+	const targetNotice = list.find((n) => n.id === id);
+	if (!targetNotice) {
+		throw new Error("Notice not found");
+	}
+
+	// Admins cannot activate notices targeted to developers
+	if (session.user.role === "ADMIN" && (targetNotice.targetAudience === "DEVELOPER" || targetNotice.targetAudience === "ALL")) {
+		throw new Error("Admins are not permitted to send notices to developers.");
+	}
+
 	const nowStr = new Date().toISOString();
 	const expStr = expiresAt ? expiresAt.toISOString() : null;
+	const isDevNotice = targetNotice.targetAudience === "DEVELOPER";
 
 	let activatedNotice: NoticeItem | undefined;
 	list.forEach((n) => {
@@ -150,7 +182,12 @@ export async function activateNotice(id: string, expiresAt: Date | null) {
 			n.updatedAt = nowStr;
 			activatedNotice = n;
 		} else {
-			n.isActive = false;
+			const nIsDev = n.targetAudience === "DEVELOPER";
+			// Notices for DEVS do NOT deactivate active admin notices!
+			// Admin notices do NOT deactivate active dev notices!
+			if (isDevNotice === nIsDev) {
+				n.isActive = false;
+			}
 		}
 	});
 
@@ -170,13 +207,16 @@ export async function activateNotice(id: string, expiresAt: Date | null) {
 			};
 
 			const target = activatedNotice.targetAudience || "MR";
+			const isSenderAdmin = session.user.role === "ADMIN";
+
 			if (target === "MR" || target === "MR_AND_ADMIN" || target === "ALL") {
 				await sendPushToRole("MR", payload);
 			}
 			if (target === "ADMIN" || target === "MR_AND_ADMIN" || target === "ALL") {
 				await sendPushToRole("ADMIN", { ...payload, url: "/admin/dashboard" });
 			}
-			if (target === "DEVELOPER" || target === "ALL") {
+			// Admins cannot push notices to developers
+			if (!isSenderAdmin && (target === "DEVELOPER" || target === "ALL")) {
 				await sendPushToRole("DEVELOPER", { ...payload, url: "/admin/dev" });
 			}
 		} catch (err) {

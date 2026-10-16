@@ -131,6 +131,7 @@ export function DevControlCenter({
 		initialRecipients.length > 0 ? initialRecipients.join(", ") : defaultAdminEmail,
 	);
 	const [customRenewalNote, setCustomRenewalNote] = useState<string>("");
+	const [renewalSenderGateway, setRenewalSenderGateway] = useState<"DEVELOPER" | "ADMIN">("DEVELOPER");
 
 	// Maintenance state
 	const [maintenance, setMaintenance] = useState(initialMaintenance);
@@ -322,7 +323,7 @@ export function DevControlCenter({
 				.map((e) => e.trim())
 				.filter((e) => Boolean(e) && e.toLowerCase() !== "admin@admin.com");
 			const targets = emails.length > 0 ? emails : [(license.adminEmails && license.adminEmails[0]) || "asmeepharma2022@gmail.com"];
-			const res = await triggerSubscriptionReminderEmails(customRenewalNote, targets);
+			const res = await triggerSubscriptionReminderEmails(customRenewalNote, targets, renewalSenderGateway);
 			if (res.success) {
 				showFeedback("success", res.message);
 				setCustomRenewalNote("");
@@ -1224,7 +1225,25 @@ export function DevControlCenter({
 
 							<div className="mt-4 space-y-4">
 								<div>
-									<label className="block text-xs font-bold text-gray-700">Recipient Email Address</label>
+									<div className="flex items-center justify-between mb-1">
+										<label className="block text-xs font-bold text-gray-700">Recipient Email Address</label>
+										<div className="flex items-center gap-1.5">
+											<button
+												type="button"
+												onClick={() => setDebugEmailRecipient((license.adminEmails && license.adminEmails[0]) || "asmeepharma2022@gmail.com")}
+												className="rounded-md border border-purple-200 bg-purple-50 px-2 py-0.5 text-[10px] font-bold text-purple-700 hover:bg-purple-100 transition-colors"
+											>
+												Admin Email
+											</button>
+											<button
+												type="button"
+												onClick={() => setDebugEmailRecipient(license.developerEmail || "info@devfinity.net")}
+												className="rounded-md border border-blue-200 bg-blue-50 px-2 py-0.5 text-[10px] font-bold text-blue-700 hover:bg-blue-100 transition-colors"
+											>
+												Dev Email
+											</button>
+										</div>
+									</div>
 									<input
 										className="mt-1 w-full rounded-xl border border-gray-300 p-2.5 text-xs font-mono text-gray-900"
 										onChange={(e) => setDebugEmailRecipient(e.target.value)}
@@ -1250,14 +1269,14 @@ export function DevControlCenter({
 									</div>
 
 									<div>
-										<label className="block text-xs font-bold text-gray-700">Sender Gateway</label>
+										<label className="block text-xs font-bold text-gray-700">Sender Email Gateway</label>
 										<select
 											className="mt-1 w-full rounded-xl border border-gray-300 bg-white p-2.5 text-xs font-bold text-gray-900"
 											onChange={(e) => setDebugEmailUseDevCredentials(e.target.value === "true")}
 											value={debugEmailUseDevCredentials ? "true" : "false"}
 										>
-											<option value="true">Developer SMTP Credentials</option>
-											<option value="false">Standard Admin Mailer (Gmail)</option>
+											<option value="false">Admin Email (Gmail: {maskedEnv.gmailUser || "info.devolvestudio@gmail.com"})</option>
+											<option value="true">Developer Email (Zoho: {license.developerEmail || "info@devfinity.net"})</option>
 										</select>
 									</div>
 								</div>
@@ -1679,6 +1698,57 @@ export function DevControlCenter({
 						</div>
 
 						<div>
+							<label className="block text-xs font-bold text-gray-700 mb-1.5">Dispatch Sender Email Gateway</label>
+							<div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+								<label
+									className={`flex items-center gap-2.5 p-3 rounded-xl border text-xs cursor-pointer transition ${
+										renewalSenderGateway === "ADMIN"
+											? "border-[#0071BC] bg-blue-50/70 text-[#0B2545] font-bold"
+											: "border-gray-200 bg-gray-50 text-gray-700 hover:bg-gray-100"
+									}`}
+								>
+									<input
+										type="radio"
+										name="renewalSenderGateway"
+										value="ADMIN"
+										checked={renewalSenderGateway === "ADMIN"}
+										onChange={() => setRenewalSenderGateway("ADMIN")}
+										className="text-[#0071BC] focus:ring-[#0071BC]"
+									/>
+									<div>
+										<div>Admin Email (Gmail)</div>
+										<div className="font-mono text-[11px] text-gray-500 font-normal">
+											{maskedEnv.gmailUser || "info.devolvestudio@gmail.com"}
+										</div>
+									</div>
+								</label>
+
+								<label
+									className={`flex items-center gap-2.5 p-3 rounded-xl border text-xs cursor-pointer transition ${
+										renewalSenderGateway === "DEVELOPER"
+											? "border-purple-600 bg-purple-50/70 text-purple-950 font-bold"
+											: "border-gray-200 bg-gray-50 text-gray-700 hover:bg-gray-100"
+									}`}
+								>
+									<input
+										type="radio"
+										name="renewalSenderGateway"
+										value="DEVELOPER"
+										checked={renewalSenderGateway === "DEVELOPER"}
+										onChange={() => setRenewalSenderGateway("DEVELOPER")}
+										className="text-purple-600 focus:ring-purple-500"
+									/>
+									<div>
+										<div>Developer Email (Zoho SMTP)</div>
+										<div className="font-mono text-[11px] text-gray-500 font-normal">
+											{license.developerEmail || "info@devfinity.net"}
+										</div>
+									</div>
+								</label>
+							</div>
+						</div>
+
+						<div>
 							<label className="block text-xs font-bold text-gray-700">Optional Custom Note in Email</label>
 							<textarea
 								className="mt-1 w-full rounded-xl border border-gray-300 p-2.5 text-xs text-gray-900 placeholder:text-gray-400"
@@ -1690,12 +1760,18 @@ export function DevControlCenter({
 						</div>
 
 						<button
-							className="rounded-xl bg-purple-600 px-5 py-2.5 font-bold text-xs text-white shadow-xs transition hover:bg-purple-700"
+							className={`rounded-xl px-5 py-2.5 font-bold text-xs text-white shadow-xs transition ${
+								renewalSenderGateway === "ADMIN"
+									? "bg-[#0071BC] hover:bg-[#005a96]"
+									: "bg-purple-600 hover:bg-purple-700"
+							}`}
 							disabled={isPending}
 							onClick={handleSendRenewalEmails}
 							type="button"
 						>
-							{isPending ? "Sending Notice..." : `Send Notice Email to Admin (${adminEmailsStr.split(",")[0]?.trim() || (license.adminEmails && license.adminEmails[0]) || "asmeepharma2022@gmail.com"})`}
+							{isPending
+								? "Sending Notice..."
+								: `Send Notice Email via ${renewalSenderGateway === "ADMIN" ? "Admin Email" : "Developer Email"} to (${adminEmailsStr.split(",")[0]?.trim() || (license.adminEmails && license.adminEmails[0]) || "asmeepharma2022@gmail.com"})`}
 						</button>
 					</div>
 				</div>
