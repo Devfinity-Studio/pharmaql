@@ -9,6 +9,7 @@ import { auth } from "@/server/auth";
 import { getClientIp, getClientUserAgent } from "@/lib/security";
 import { rateLimitReportDownload } from "@/lib/rate-limit";
 import { recordAuditEvent } from "@/lib/audit-logger";
+import { getDefaultTMinus1MonthRange } from "@/lib/dateUtils";
 
 export async function GET(request: Request) {
 	const reqHeaders = await headers();
@@ -95,8 +96,9 @@ export async function GET(request: Request) {
 				? mrInfo.companyCode
 				: company;
 
-	const defaultFrom = from || "2026-04-01";
-	const defaultTo = to || "2026-09-30";
+	const defaultT1 = getDefaultTMinus1MonthRange();
+	const defaultFrom = from || defaultT1.from;
+	const defaultTo = to || defaultT1.to;
 	const mrName = mrInfo.name || "Unknown";
 	const safeMrName = mrName.replace(/[^a-zA-Z0-9]/g, "_");
 	const safeCompany = (company || "All").replace(/[^a-zA-Z0-9]/g, "_");
