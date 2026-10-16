@@ -243,6 +243,7 @@ export async function GET(request: Request) {
 				title: "Partywise / Itemwise Sales Statement",
 				metadata: {
 					mrName,
+					company: mrInfo.company || (company !== "All" ? company : "All Companies"),
 					division:
 						company !== "All"
 							? company
@@ -410,6 +411,12 @@ export async function GET(request: Request) {
 				const rateDiff = rawDiff > 0 ? rawDiff : "-";
 
 				return {
+					Company:
+						row.Company ||
+						mrInfo.company ||
+						row.Division ||
+						mrInfo.division ||
+						(company !== "All" ? company : "All"),
 					Manufacturer:
 						row.Company ||
 						row.Division ||
@@ -611,6 +618,7 @@ export async function GET(request: Request) {
 				title: "Scheme Claim / Free Scheme Statement",
 				metadata: {
 					mrName,
+					company: mrInfo.company || (company !== "All" ? company : "All Companies"),
 					division:
 						company !== "All"
 							? company
@@ -833,6 +841,7 @@ export async function GET(request: Request) {
 			title: sheetTitle,
 			metadata: {
 				mrName,
+				company: mrInfo.company || (company !== "All" ? company : "All Companies"),
 				division:
 					company !== "All"
 						? company

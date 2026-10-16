@@ -290,6 +290,12 @@ export async function StockReportView({
 					<tbody className="font-medium text-sm">
 						{divisions.map((div) => {
 							const divData = reportData.filter((d) => d.Division === div);
+							const compName = (
+								divData[0]?.Manufacturer ||
+								divData[0]?.Division ||
+								div
+							).toUpperCase();
+							const divName = div.toUpperCase();
 							let divOpeningValue = 0;
 							let divPurchaseValue = 0;
 							let divSalesValue = 0;
@@ -303,7 +309,7 @@ export async function StockReportView({
 											className="border-gray-200 border-b bg-gray-50/50 px-2 py-2 font-bold text-[#000080]"
 											colSpan={13}
 										>
-											Division : {div.toUpperCase()}
+											Company:{compName} - {divName}
 										</td>
 									</tr>
 									{/* Items */}
