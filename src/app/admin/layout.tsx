@@ -5,7 +5,7 @@ import { CollapsibleSidebar } from "@/components/collapsible-sidebar";
 import { NoticeModal } from "@/components/notice-modal";
 import { getLicenseStatus } from "@/lib/license";
 import { isFeatureEnabledForRole, isUnderMaintenance } from "@/lib/maintenance";
-import { getActiveNotice } from "@/server/actions/notices";
+import { getActiveNotices } from "@/server/actions/notices";
 import { auth } from "@/server/auth";
 
 export default async function AdminLayout({
@@ -48,25 +48,22 @@ export default async function AdminLayout({
 
 	// 3. Active Notice Check for Admin / Developer
 	const noticesToggle = await isFeatureEnabledForRole("notices", session.user.role);
-	const activeNotice = noticesToggle.enabled
-		? await getActiveNotice(session.user.role)
-		: null;
-	const activeNotices = activeNotice
-		? [
-				{
-					id: activeNotice.id,
-					title: activeNotice.title,
-					content: activeNotice.content,
-					variant: activeNotice.variant,
-					isActive: activeNotice.isActive,
-					expiresAt: activeNotice.expiresAt
-						? new Date(activeNotice.expiresAt)
-						: null,
-					createdAt: new Date(activeNotice.createdAt),
-					updatedAt: new Date(activeNotice.updatedAt),
-				},
-			]
+	const activeNoticesList = noticesToggle.enabled
+		? await getActiveNotices(session.user.role)
 		: [];
+	const activeNotices = activeNoticesList.map((notice) => ({
+		id: notice.id,
+		title: notice.title,
+		content: notice.content,
+		variant: notice.variant,
+		targetAudience: notice.targetAudience,
+		isActive: notice.isActive,
+		expiresAt: notice.expiresAt
+			? new Date(notice.expiresAt)
+			: null,
+		createdAt: new Date(notice.createdAt),
+		updatedAt: new Date(notice.updatedAt),
+	}));
 
 	return (
 		<div className="relative flex min-h-screen flex-col bg-gray-50 text-gray-900 md:h-screen md:flex-row md:overflow-hidden">

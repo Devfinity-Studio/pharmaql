@@ -42,7 +42,7 @@ export default async function AdminNoticesPage() {
 				</p>
 			</div>
 
-			<NoticeListClient initialNotices={allNotices as any} />
+			<NoticeListClient initialNotices={allNotices as any} userRole={session.user.role} />
 		</div>
 	);
 }

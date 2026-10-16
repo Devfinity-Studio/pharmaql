@@ -16,6 +16,12 @@ import {
 	Check,
 } from "lucide-react";
 import {
+	Dialog,
+	DialogContent,
+	DialogHeader,
+	DialogTitle,
+} from "@/components/ui/dialog";
+import {
 	getVapidPublicKeyAction,
 	savePushSubscriptionAction,
 	getUserNotificationsAction,
@@ -61,9 +67,13 @@ export function NotificationCenter({
 	const [unreadCount, setUnreadCount] = useState(0);
 	const [pushPermission, setPushPermission] = useState<NotificationPermission | "unsupported">("default");
 	const [isSubscribed, setIsSubscribed] = useState(false);
+	const [selectedNotification, setSelectedNotification] = useState<InAppNotification | null>(null);
+	const [popupToast, setPopupToast] = useState<InAppNotification | null>(null);
 	const [isPending, startTransition] = useTransition();
 	const [statusFeedback, setStatusFeedback] = useState<string | null>(null);
 	const popoverRef = useRef<HTMLDivElement>(null);
+	const initialLoadRef = useRef(true);
+	const lastPoppedIdRef = useRef<string | null>(null);
 
 	// 1. Initial Load & Permission Detection
 	useEffect(() => {
@@ -75,8 +85,8 @@ export function NotificationCenter({
 		}
 		loadNotifications();
 
-		// Refresh alerts periodically (every 60s) and when window gains focus
-		const interval = setInterval(loadNotifications, 60000);
+		// Refresh alerts periodically (every 30s) and when window gains focus
+		const interval = setInterval(loadNotifications, 30000);
 		const onFocus = () => loadNotifications();
 		window.addEventListener("focus", onFocus);
 
@@ -103,12 +113,44 @@ export function NotificationCenter({
 
 	async function checkExistingSubscription() {
 		try {
-			if ("serviceWorker" in navigator) {
-				const reg = await navigator.serviceWorker.ready;
-				const sub = await reg.pushManager.getSubscription();
-				setIsSubscribed(Boolean(sub));
+			if ("serviceWorker" in navigator && "PushManager" in window) {
+				const reg = await navigator.serviceWorker.register("/sw.js", { scope: "/" });
+				await navigator.serviceWorker.ready;
+				let sub = await reg.pushManager.getSubscription();
+
+				// If user already granted permission, ensure they are registered with the backend
+				if (!sub && typeof window !== "undefined" && "Notification" in window && Notification.permission === "granted") {
+					const publicKey = await getVapidPublicKeyAction();
+					if (publicKey) {
+						const convertedVapidKey = urlBase64ToUint8Array(publicKey);
+						sub = await reg.pushManager.subscribe({
+							userVisibleOnly: true,
+							applicationServerKey: convertedVapidKey,
+						});
+					}
+				}
+
+				if (sub) {
+					const subJson = sub.toJSON();
+					if (subJson.endpoint && subJson.keys?.p256dh && subJson.keys?.auth) {
+						await savePushSubscriptionAction(
+							{
+								endpoint: subJson.endpoint,
+								keys: {
+									p256dh: subJson.keys.p256dh,
+									auth: subJson.keys.auth,
+								},
+							},
+							navigator.userAgent,
+						);
+					}
+					setIsSubscribed(true);
+				} else {
+					setIsSubscribed(false);
+				}
 			}
-		} catch {
+		} catch (e) {
+			console.warn("[Push] Subscription check error:", e);
 			setIsSubscribed(false);
 		}
 	}
@@ -118,6 +160,60 @@ export function NotificationCenter({
 			const res = await getUserNotificationsAction();
 			setNotifications(res.notifications);
 			setUnreadCount(res.unreadCount);
+
+			// Detect new unread alert to pop up on screen
+			const unreadList = res.notifications.filter(
+				(n) => !n.readBy.includes("self") && n.readBy.length === 0,
+			);
+			const newest = unreadList[0];
+			if (newest) {
+				const dismissedKey = `dismissed_toast_${newest.id}`;
+				const isDismissed =
+					typeof window !== "undefined" &&
+					sessionStorage.getItem(dismissedKey) === "true";
+
+				if (!isDismissed && newest.id !== lastPoppedIdRef.current) {
+					lastPoppedIdRef.current = newest.id;
+					setPopupToast(newest);
+
+					// Trigger native browser notification via ServiceWorker or Notification API
+					if (
+						typeof window !== "undefined" &&
+						"Notification" in window &&
+						Notification.permission === "granted"
+					) {
+						if ("serviceWorker" in navigator) {
+							navigator.serviceWorker.ready
+								.then((reg) => {
+									reg.showNotification(newest.title, {
+										body: newest.body,
+										icon: "/favicons/android-chrome-192x192.png",
+										badge: "/favicons/android-chrome-192x192.png",
+										tag: newest.id,
+										data: { url: newest.url || "/dashboard" },
+									});
+								})
+								.catch(() => {
+									try {
+										new Notification(newest.title, {
+											body: newest.body,
+											icon: "/favicons/android-chrome-192x192.png",
+											tag: newest.id,
+										});
+									} catch {}
+								});
+						} else {
+							try {
+								new Notification(newest.title, {
+									body: newest.body,
+									icon: "/favicons/android-chrome-192x192.png",
+									tag: newest.id,
+								});
+							} catch {}
+						}
+					}
+				}
+			}
 		} catch (err) {
 			// Non-fatal if offline or unauthenticated
 		}
@@ -198,18 +294,20 @@ export function NotificationCenter({
 		});
 	};
 
-	// 4. Mark Single as Read & Navigate
-	const handleNotificationClick = (item: InAppNotification) => {
+	// 4. Mark Single as Read & Open Detail Modal
+	const handleNotificationClick = (item: InAppNotification, e?: React.MouseEvent) => {
+		if (e) {
+			e.preventDefault();
+			e.stopPropagation();
+		}
+		setIsOpen(false);
+		setSelectedNotification(item);
 		startTransition(async () => {
 			await markNotificationReadAction(item.id);
 			setNotifications((prev) =>
 				prev.map((n) => (n.id === item.id ? { ...n, readBy: [...n.readBy, "self"] } : n)),
 			);
 			setUnreadCount((c) => Math.max(0, c - 1));
-			if (item.url) {
-				setIsOpen(false);
-				router.push(item.url);
-			}
 		});
 	};
 
@@ -564,18 +662,18 @@ export function NotificationCenter({
 											>
 												{item.body}
 											</p>
-											{item.url && (
-												<div
-													className={`mt-1.5 flex items-center gap-1 font-bold text-[10px] ${
-														isDark
-															? "text-[#38BDF8] hover:text-white"
-															: "text-[#0071BC] hover:text-[#005a96]"
-													}`}
-												>
-													<span>View details</span>
-													<ExternalLink className="h-2.5 w-2.5" />
-												</div>
-											)}
+											<button
+												type="button"
+												className={`mt-2 inline-flex items-center gap-1.5 font-bold text-[11px] px-2.5 py-1 rounded-lg transition-all ${
+													isDark
+														? "bg-sky-500/10 text-[#38BDF8] hover:bg-sky-500/20 border border-sky-500/30"
+														: "bg-blue-50 text-[#0071BC] hover:bg-blue-100 border border-blue-200"
+												}`}
+												onClick={(e) => handleNotificationClick(item, e)}
+											>
+												<span>View details</span>
+												<ExternalLink className="h-3 w-3" />
+											</button>
 										</div>
 										{!isRead && (
 											<span
@@ -614,6 +712,116 @@ export function NotificationCenter({
 					</div>
 				</div>
 			)}
+
+			{/* Floating On-Screen Notification Popup */}
+			{popupToast && (
+				<div className="fixed bottom-5 right-5 z-50 max-w-sm w-full bg-white border-2 border-[#0071BC] rounded-2xl p-4 shadow-2xl animate-in fade-in slide-in-from-bottom-5">
+					<div className="flex items-start gap-3">
+						<div className="mt-0.5 shrink-0">{getCategoryIcon(popupToast.category)}</div>
+						<div className="flex-1 min-w-0">
+							<div className="flex items-center justify-between gap-1">
+								<span className="text-[10px] uppercase font-bold text-[#0071BC]">New Notification</span>
+								<button
+									onClick={() => {
+										if (popupToast) {
+											sessionStorage.setItem(`dismissed_toast_${popupToast.id}`, "true");
+										}
+										setPopupToast(null);
+									}}
+									className="text-gray-400 hover:text-gray-600 p-1"
+									type="button"
+								>
+									<X className="h-4 w-4" />
+								</button>
+							</div>
+							<h4 className="font-bold text-sm text-gray-900 mt-0.5 truncate">{popupToast.title}</h4>
+							<p className="text-xs text-gray-600 line-clamp-2 mt-1">{popupToast.body}</p>
+							<div className="mt-3 flex items-center gap-2">
+								<button
+									onClick={() => {
+										const target = popupToast;
+										sessionStorage.setItem(`dismissed_toast_${target.id}`, "true");
+										setPopupToast(null);
+										handleNotificationClick(target);
+									}}
+									className="rounded-lg bg-[#0071BC] px-3 py-1.5 text-xs font-bold text-white hover:bg-[#005a96] shadow-xs transition"
+									type="button"
+								>
+									View details
+								</button>
+								<button
+									onClick={() => {
+										if (popupToast) {
+											sessionStorage.setItem(`dismissed_toast_${popupToast.id}`, "true");
+										}
+										setPopupToast(null);
+									}}
+									className="rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-50 transition"
+									type="button"
+								>
+									Dismiss
+								</button>
+							</div>
+						</div>
+					</div>
+				</div>
+			)}
+
+			{/* Notification Details Modal */}
+			<Dialog
+				open={Boolean(selectedNotification)}
+				onOpenChange={(open) => !open && setSelectedNotification(null)}
+			>
+				<DialogContent className="max-w-md rounded-2xl p-6 bg-white border border-gray-200 shadow-xl">
+					<DialogHeader>
+						<div className="flex items-center gap-2 mb-1">
+							{selectedNotification && getCategoryIcon(selectedNotification.category)}
+							<span className="text-xs uppercase font-extrabold tracking-wider text-gray-500">
+								{selectedNotification?.category || "NOTIFICATION"}
+							</span>
+							<span className="text-gray-300">•</span>
+							<span className="text-xs text-gray-400 font-mono">
+								{selectedNotification && formatRelativeTime(selectedNotification.createdAt)}
+							</span>
+						</div>
+						<DialogTitle className="text-lg font-black text-[#0B2545] leading-snug">
+							{selectedNotification?.title}
+						</DialogTitle>
+					</DialogHeader>
+
+					<div className="my-4 max-h-[300px] overflow-y-auto whitespace-pre-wrap rounded-xl border border-gray-100 bg-gray-50 p-4 text-sm text-gray-800 leading-relaxed font-sans">
+						{selectedNotification?.body}
+					</div>
+
+					<div className="flex items-center justify-end gap-2.5 pt-2 border-t border-gray-100">
+						{selectedNotification?.url && (
+							<button
+								type="button"
+								className="inline-flex items-center gap-1.5 rounded-xl bg-[#0071BC] px-4 py-2 font-bold text-xs text-white shadow-xs hover:bg-[#005a96] transition"
+								onClick={() => {
+									const url = selectedNotification.url!;
+									setSelectedNotification(null);
+									setIsOpen(false);
+									router.push(url);
+									if (typeof window !== "undefined" && url.includes("tab=")) {
+										window.location.href = url;
+									}
+								}}
+							>
+								<span>Open Related Page</span>
+								<ExternalLink className="h-3 w-3" />
+							</button>
+						)}
+						<button
+							type="button"
+							className="rounded-xl border border-gray-300 px-4 py-2 font-bold text-xs text-gray-700 hover:bg-gray-100 transition"
+							onClick={() => setSelectedNotification(null)}
+						>
+							Close
+						</button>
+					</div>
+				</DialogContent>
+			</Dialog>
 		</div>
 	);
 }

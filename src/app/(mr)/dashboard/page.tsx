@@ -4,7 +4,7 @@ import { Suspense } from "react";
 import { DashboardSkeleton } from "@/components/dashboard-skeleton";
 import { MrDashboardContent } from "@/components/mr-dashboard-content";
 import { NoticeModal } from "@/components/notice-modal";
-import { getActiveNotice } from "@/server/actions/notices";
+import { getActiveNotices } from "@/server/actions/notices";
 import { isFeatureEnabledForRole } from "@/lib/maintenance";
 import { auth } from "@/server/auth";
 
@@ -41,25 +41,22 @@ export default async function MRDashboardPage({
 	}
 
 	const noticesToggle = await isFeatureEnabledForRole("notices", session.user.role);
-	const activeNotice = noticesToggle.enabled
-		? await getActiveNotice(session.user.role)
-		: null;
-	const activeNotices = activeNotice
-		? [
-				{
-					id: activeNotice.id,
-					title: activeNotice.title,
-					content: activeNotice.content,
-					variant: activeNotice.variant,
-					isActive: activeNotice.isActive,
-					expiresAt: activeNotice.expiresAt
-						? new Date(activeNotice.expiresAt)
-						: null,
-					createdAt: new Date(activeNotice.createdAt),
-					updatedAt: new Date(activeNotice.updatedAt),
-				},
-			]
+	const activeNoticesList = noticesToggle.enabled
+		? await getActiveNotices(session.user.role)
 		: [];
+	const activeNotices = activeNoticesList.map((notice) => ({
+		id: notice.id,
+		title: notice.title,
+		content: notice.content,
+		variant: notice.variant,
+		targetAudience: notice.targetAudience,
+		isActive: notice.isActive,
+		expiresAt: notice.expiresAt
+			? new Date(notice.expiresAt)
+			: null,
+		createdAt: new Date(notice.createdAt),
+		updatedAt: new Date(notice.updatedAt),
+	}));
 
 	return (
 		<>

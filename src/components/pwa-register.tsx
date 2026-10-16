@@ -12,9 +12,9 @@ export function PwaRegister() {
 			"serviceWorker" in navigator &&
 			window.location.protocol.startsWith("http")
 		) {
-			window.addEventListener("load", () => {
+			const registerWorker = () => {
 				navigator.serviceWorker
-					.register("/sw.js")
+					.register("/sw.js", { scope: "/" })
 					.then((registration) => {
 						// Listen for updates
 						registration.addEventListener("updatefound", () => {
@@ -36,7 +36,14 @@ export function PwaRegister() {
 					.catch((error) => {
 						console.warn("[PWA] Service Worker registration failed:", error);
 					});
-			});
+			};
+
+			if (document.readyState === "complete") {
+				registerWorker();
+			} else {
+				window.addEventListener("load", registerWorker);
+				return () => window.removeEventListener("load", registerWorker);
+			}
 		}
 	}, []);
 

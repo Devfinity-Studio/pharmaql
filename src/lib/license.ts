@@ -1,4 +1,4 @@
-import { sendDeveloperEmail } from "./mailer";
+import { mailer, sendDeveloperEmail } from "./mailer";
 import { readServerJson, writeServerJson } from "./server-storage";
 
 export interface LicenseConfig {
@@ -185,6 +185,7 @@ export async function updateLicenseConfig(
 export async function sendSubscriptionReminderEmails(
 	customNote?: string,
 	targetEmails?: string[],
+	senderGateway: "DEVELOPER" | "ADMIN" = "DEVELOPER",
 ) {
 	const status = await getLicenseStatus();
 	const defaultAdminEmail = process.env.ADMIN_EMAIL || (status.adminEmails && status.adminEmails[0]) || "asmeepharma2022@gmail.com";
@@ -269,7 +270,7 @@ export async function sendSubscriptionReminderEmails(
 			</div>
 
 			<div style="border-top: 1px solid #e2e8f0; padding-top: 16px; margin-top: 24px; font-size: 12px; color: #64748b; text-align: center;">
-				<p style="margin: 0;">Sent by PharmaQL Developer Systems &bull; Developer: <a href="mailto:${devEmail}" style="color: #0071BC;">${devEmail}</a> &bull; Support: <a href="mailto:${status.supportEmail}" style="color: #0071BC;">${status.supportEmail}</a></p>
+				<p style="margin: 0;">Sent via ${senderGateway === "ADMIN" ? "Admin Gateway" : "Developer Gateway"} &bull; Developer: <a href="mailto:${devEmail}" style="color: #0071BC;">${devEmail}</a> &bull; Support: <a href="mailto:${status.supportEmail}" style="color: #0071BC;">${status.supportEmail}</a></p>
 			</div>
 		</div>
 	`;
@@ -277,12 +278,21 @@ export async function sendSubscriptionReminderEmails(
 	let sentCount = 0;
 	for (const recipient of recipients) {
 		try {
-			await sendDeveloperEmail({
-				senderName: "PharmaQL Developer Systems",
-				to: recipient,
-				subject,
-				html,
-			});
+			if (senderGateway === "ADMIN") {
+				await mailer.sendMail({
+					from: `"PharmaQL Admin System" <${process.env.GMAIL_USER || "info.devolvestudio@gmail.com"}>`,
+					to: recipient,
+					subject,
+					html,
+				});
+			} else {
+				await sendDeveloperEmail({
+					senderName: "PharmaQL Developer Systems",
+					to: recipient,
+					subject,
+					html,
+				});
+			}
 			sentCount += 1;
 		} catch (err) {
 			console.error(`[LicenseMailer] Failed to send email to ${recipient}:`, err);
@@ -292,7 +302,7 @@ export async function sendSubscriptionReminderEmails(
 	return {
 		success: sentCount > 0,
 		sentCount,
-		message: `Successfully dispatched renewal notice to ${sentCount} recipient(s) (${recipients.join(", ")}).`,
+		message: `Successfully dispatched renewal notice to ${sentCount} recipient(s) (${recipients.join(", ")}) via ${senderGateway === "ADMIN" ? "Admin Mailer (Gmail)" : "Developer Mailer (Zoho)"}.`,
 	};
 }
 

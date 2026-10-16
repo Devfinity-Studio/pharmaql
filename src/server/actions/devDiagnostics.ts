@@ -454,9 +454,13 @@ export async function restorePlatformUsageAction() {
 /**
  * 7. Dispatch Renewal Reminders Server Action
  */
-export async function triggerSubscriptionReminderEmails(customNote?: string, targetEmails?: string[]) {
+export async function triggerSubscriptionReminderEmails(
+	customNote?: string,
+	targetEmails?: string[],
+	senderGateway: "DEVELOPER" | "ADMIN" = "DEVELOPER",
+) {
 	const session = await assertDeveloperSession();
-	const result = await sendSubscriptionReminderEmails(customNote, targetEmails);
+	const result = await sendSubscriptionReminderEmails(customNote, targetEmails, senderGateway);
 	await recordAuditEvent({
 		event: "SECURITY_WARNING",
 		userId: session.user.id,
@@ -465,6 +469,7 @@ export async function triggerSubscriptionReminderEmails(customNote?: string, tar
 		ip: "127.0.0.1",
 		details: {
 			action: "triggerSubscriptionReminderEmails",
+			senderGateway,
 			sentCount: result.sentCount,
 			recipients: targetEmails,
 			success: result.success,
@@ -615,7 +620,7 @@ export async function sendTestEmailAction({
 			});
 		} else {
 			info = await mailer.sendMail({
-				from: `"PharmaQL System" <${process.env.GMAIL_USER || "info.devolvestudio@gmail.com"}>`,
+				from: `"PharmaQL Admin System" <${process.env.GMAIL_USER || "info.devolvestudio@gmail.com"}>`,
 				to: cleanRecipient,
 				subject,
 				html,

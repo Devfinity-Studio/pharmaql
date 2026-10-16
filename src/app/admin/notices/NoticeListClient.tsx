@@ -17,8 +17,10 @@ import {
 
 export default function NoticeListClient({
 	initialNotices,
+	userRole = "ADMIN",
 }: {
 	initialNotices: any[];
+	userRole?: string;
 }) {
 	const [notices, setNotices] = useState(initialNotices);
 
@@ -291,8 +293,12 @@ export default function NoticeListClient({
 								<option value="MR">Medical Representatives Only (MR Field Portal)</option>
 								<option value="ADMIN">Admins Only (Admin Portal)</option>
 								<option value="MR_AND_ADMIN">MRs &amp; Admins (Both Portals)</option>
-								<option value="ALL">Everyone (MRs, Admins &amp; Developers)</option>
-								<option value="DEVELOPER">Developers Only (Developer Portal)</option>
+								{userRole === "DEVELOPER" && (
+									<>
+										<option value="ALL">Everyone (MRs, Admins &amp; Developers)</option>
+										<option value="DEVELOPER">Developers Only (Developer Portal)</option>
+									</>
+								)}
 							</select>
 						</div>
 
