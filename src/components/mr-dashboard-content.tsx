@@ -399,8 +399,8 @@ export async function MrDashboardContent({
 					</div>
 				</div>
 			)}
-			{/* STICKY TOP CONTROLS & NAVIGATION BAR */}
-			<div className="sticky top-0 z-30 -mx-6 bg-[#F8FAFC]/95 px-6 pt-3 pb-1 backdrop-blur-md shadow-xs border-b border-gray-200/80 space-y-4">
+			{/* TOP CONTROLS & NAVIGATION BAR (SCROLLABLE WITH REPORT) */}
+			<div className="space-y-4">
 				<div className="flex flex-col justify-between gap-3 md:flex-row md:items-center">
 					<div>
 						<h1 className="font-extrabold text-2xl text-[#0B2545] tracking-tight md:text-3xl">
