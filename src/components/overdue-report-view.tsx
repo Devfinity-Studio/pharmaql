@@ -132,6 +132,8 @@ export async function OverdueReportView({
 		const amountDue = originalAmt - adjAmt;
 
 		return {
+			Company: row.CompCode || row.Division || "Unknown",
+			Division: row.Division || row.CompCode || "General",
 			Manufacturer: row.Division || row.CompCode || "Unknown",
 			"Doctor / Party": row.Customer || "Unknown",
 			City: row.City || "Unknown",
@@ -217,6 +219,9 @@ export async function OverdueReportView({
 									...new Set(mfgData.map((d) => d["Doctor / Party"])),
 								].sort();
 
+								const compName = (mfgData[0]?.Company || mfg).toUpperCase();
+								const divName = (mfgData[0]?.Division || mfg).toUpperCase();
+
 								return (
 									<React.Fragment key={idx}>
 										{/* Company Header Row */}
@@ -225,7 +230,7 @@ export async function OverdueReportView({
 												className="border-gray-200 border-b bg-gray-50/50 px-2 py-2 font-bold text-[#000080]"
 												colSpan={7}
 											>
-												Company : {mfg.toUpperCase()}
+												Company:{compName} - {divName}
 											</td>
 										</tr>
 

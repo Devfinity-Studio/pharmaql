@@ -151,6 +151,10 @@ export async function FreeSchemeReportView({
 			const rateDiff = rawDiff > 0 ? rawDiff : "-";
 
 			reportData.push({
+				Company:
+					row.Company || mrInfo.company || (company !== "All" ? company : "All"),
+				Division:
+					row.Division || mrInfo.division || (company !== "All" ? company : "General"),
 				Manufacturer:
 					row.Company || row.Division || (company !== "All" ? company : "All"),
 				SchemeType: schemeType,
@@ -274,6 +278,15 @@ export async function FreeSchemeReportView({
 					<tbody className="border-gray-300 border-t">
 						{manufacturers.map((mfg) => {
 							const mfgData = reportData.filter((d) => d.Manufacturer === mfg);
+							const compName = (
+								mfgData[0]?.Company ||
+								mfgData[0]?.Manufacturer ||
+								mfg
+							).toUpperCase();
+							const divName = (
+								mfgData[0]?.Division ||
+								mfg
+							).toUpperCase();
 							const claimTypes = [
 								...new Set(mfgData.map((d) => d.SchemeType)),
 							].sort();
@@ -285,7 +298,7 @@ export async function FreeSchemeReportView({
 											className="px-2 pt-4 pb-2 font-bold text-[#0071BC] text-sm uppercase"
 											colSpan={19}
 										>
-											{mfg} - {mfg}
+											Company:{compName} - {divName}
 										</td>
 									</tr>
 									{claimTypes.map((cType) => {

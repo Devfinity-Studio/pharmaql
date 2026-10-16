@@ -142,6 +142,7 @@ export async function GET(request: Request) {
 				"Overdue Days": Number(row.OverDays || 0),
 				Division: row.Division || division,
 				"Company Code": row.CompCode || compCodeToQuery,
+				Company: row.CompCode || compCodeToQuery || row.Division || division,
 				Manufacturer: row.CompCode || row.Division || division,
 				"Generated At": timestampStr,
 			};
@@ -196,7 +197,8 @@ export async function GET(request: Request) {
 			title: "Overdue & Periodical Outstanding Statement",
 			metadata: {
 				mrName,
-				division,
+				company: mrInfo.company || division,
+				division: mrInfo.division || division,
 				period: from && to ? `${from} to ${to}` : "Current",
 				year: "2026-27",
 			},

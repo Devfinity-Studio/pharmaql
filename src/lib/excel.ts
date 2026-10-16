@@ -17,6 +17,7 @@ export async function buildStyledExcelBuffer(options: {
 	totals?: Record<string, any>;
 	metadata?: {
 		mrName?: string;
+		company?: string;
 		division?: string;
 		period?: string;
 		year?: string;
@@ -69,7 +70,10 @@ export async function buildStyledExcelBuffer(options: {
 		const parts: string[] = [];
 		if (metadata?.year) parts.push(`Year: ${metadata.year}`);
 		if (metadata?.period) parts.push(`Period: ${metadata.period}`);
-		if (metadata?.division) parts.push(`Division: ${metadata.division}`);
+		if (metadata?.division) {
+			const comp = metadata.company || metadata.division;
+			parts.push(`Company:${comp} - ${metadata.division}`);
+		}
 		if (metadata?.mrName) parts.push(`MR: ${metadata.mrName}`);
 		if (subtitle) parts.push(subtitle);
 

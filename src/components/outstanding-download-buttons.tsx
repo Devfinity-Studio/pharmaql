@@ -79,6 +79,17 @@ export function OutstandingDownloadButtons({ mrId }: { mrId: string }) {
 				// Format data for the PDF
 				const cleanDataForPdf = filteredData.map((row: any) => {
 					return {
+						Company:
+							row["Company"] ||
+							row["Company Code"] ||
+							row["Division"] ||
+							division ||
+							"Unknown",
+						Division:
+							row["Division"] ||
+							row["Company Code"] ||
+							division ||
+							"General",
 						Manufacturer:
 							row["Company Code"] || row["Division"] || division || "Unknown",
 						"Doctor / Party":

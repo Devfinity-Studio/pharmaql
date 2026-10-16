@@ -272,7 +272,8 @@ export async function GET(request: Request) {
 			title: "Stock Movement Statement",
 			metadata: {
 				mrName,
-				division: company,
+				company: mrInfo?.company || company,
+				division: mrInfo?.division || company,
 				period: from && to ? `${from} to ${to}` : "Current",
 				year: "2026-27",
 			},

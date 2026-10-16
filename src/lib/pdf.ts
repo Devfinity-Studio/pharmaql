@@ -289,10 +289,19 @@ export async function generateStockPdfReport(
 		let divSalesValue = 0;
 		let divStockValue = 0;
 
+		const compName = (
+			divData[0]?.Manufacturer ||
+			divData[0]?.Company ||
+			div
+		)
+			.toString()
+			.toUpperCase();
+		const divName = div.toUpperCase();
+
 		// Division Header Banner Row
 		tableBody.push([
 			{
-				content: `Division : ${div.toUpperCase()}`,
+				content: `Company:${compName} - ${divName}`,
 				colSpan: 13,
 				styles: {
 					fillColor: [238, 246, 252],
@@ -741,10 +750,24 @@ export async function generateFreeSchemePdfReport(
 				(d.Manufacturer || d.Company || d.Division || "General") === mfg,
 		);
 
+		const compName = (
+			mfgData[0]?.Company ||
+			mfgData[0]?.Manufacturer ||
+			mfg
+		)
+			.toString()
+			.toUpperCase();
+		const divName = (
+			mfgData[0]?.Division ||
+			mfg
+		)
+			.toString()
+			.toUpperCase();
+
 		// Manufacturer Banner Row
 		tableBody.push([
 			{
-				content: `${mfg} - ${mfg}`,
+				content: `Company:${compName} - ${divName}`,
 				colSpan: 19,
 				styles: {
 					fillColor: [238, 246, 252],
@@ -2233,13 +2256,27 @@ export async function generateGroupedPdfReport(
 			(item) => (item.Manufacturer || "UNKNOWN") === mfg,
 		);
 
+		const compName = (
+			mfgData[0]?.Company ||
+			mfgData[0]?.CompCode ||
+			mfg
+		)
+			.toString()
+			.toUpperCase();
+		const divName = (
+			mfgData[0]?.Division ||
+			mfg
+		)
+			.toString()
+			.toUpperCase();
+
 		let mfgAmount = 0;
 		let mfgQty = 0;
 
 		// Company Header Row Banner
 		tableBody.push([
 			{
-				content: `Company : ${mfg.toUpperCase()}`,
+				content: `Company:${compName} - ${divName}`,
 				colSpan: columns.length,
 				styles: {
 					fillColor: [238, 246, 252],
