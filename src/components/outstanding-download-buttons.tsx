@@ -3,6 +3,7 @@
 import { useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
+import { getDefaultTMinus1MonthRange } from "@/lib/dateUtils";
 import { generateGroupedPdfReport } from "@/lib/pdf";
 
 export function OutstandingDownloadButtons({ mrId }: { mrId: string }) {
@@ -27,8 +28,16 @@ export function OutstandingDownloadButtons({ mrId }: { mrId: string }) {
 
 	const openModal = (fmt: "csv" | "excel" | "pdf" | "print") => {
 		setFormat(fmt);
-		setFrom(defaultFrom);
-		setTo(defaultTo);
+		const currentUrlFrom = searchParams.get("from");
+		const currentUrlTo = searchParams.get("to");
+		if (fmt === "pdf" || fmt === "print") {
+			const t1 = getDefaultTMinus1MonthRange();
+			setFrom(currentUrlFrom || t1.from);
+			setTo(currentUrlTo || t1.to);
+		} else {
+			setFrom(currentUrlFrom || defaultFrom);
+			setTo(currentUrlTo || defaultTo);
+		}
 		setIsOpen(true);
 	};
 

@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import * as xlsx from "xlsx";
 import { getItemCustomerSale } from "@/server/actions/customerItemSale";
 import { getMRInfo } from "@/server/actions/mrInfo";
+import { getDefaultTMinus1MonthRange } from "@/lib/dateUtils";
 import { auth } from "@/server/auth";
 
 export async function GET(request: Request) {
@@ -48,8 +49,9 @@ export async function GET(request: Request) {
 				? mrInfo.companyCode
 				: company;
 
-	const defaultFrom = from || "2026-04-01";
-	const defaultTo = to || "2026-09-30";
+	const defaultT1 = getDefaultTMinus1MonthRange();
+	const defaultFrom = from || defaultT1.from;
+	const defaultTo = to || defaultT1.to;
 
 	const salesResult = await getItemCustomerSale({
 		fromDate: defaultFrom,

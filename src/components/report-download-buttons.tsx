@@ -3,6 +3,7 @@
 import { useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
+import { getDefaultTMinus1MonthRange } from "@/lib/dateUtils";
 import {
 	generateFreeSchemePdfReport,
 	generatePartyWisePdfReport,
@@ -14,9 +15,9 @@ import {
 export function ReportDownloadButtons({ mrId }: { mrId: string }) {
 	const searchParams = useSearchParams();
 	const division = searchParams.get("division") || "All";
-	const defaultFrom = searchParams.get("from") || "2026-04-01";
-	const defaultTo =
-		searchParams.get("to") || new Date().toISOString().split("T")[0];
+	const tMinus1 = getDefaultTMinus1MonthRange();
+	const defaultFrom = searchParams.get("from") || tMinus1.from;
+	const defaultTo = searchParams.get("to") || tMinus1.to;
 	const product = searchParams.get("product") || "";
 	const currentTab = searchParams.get("tab");
 
@@ -36,8 +37,16 @@ export function ReportDownloadButtons({ mrId }: { mrId: string }) {
 
 	const openModal = (fmt: "csv" | "excel" | "pdf" | "print") => {
 		setFormat(fmt);
-		setFrom(searchParams.get("from") || defaultFrom);
-		setTo(searchParams.get("to") || defaultTo);
+		const currentUrlFrom = searchParams.get("from");
+		const currentUrlTo = searchParams.get("to");
+		if (fmt === "pdf" || fmt === "print") {
+			const t1 = getDefaultTMinus1MonthRange();
+			setFrom(currentUrlFrom || t1.from);
+			setTo(currentUrlTo || t1.to);
+		} else {
+			setFrom(currentUrlFrom || defaultFrom);
+			setTo(currentUrlTo || defaultTo);
+		}
 		setIsOpen(true);
 	};
 

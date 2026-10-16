@@ -117,8 +117,8 @@ function drawReportStationeryHeader(
 
 	let textX = 14;
 	if (logoDataUrl) {
-		doc.addImage(logoDataUrl, "PNG", 14, currentY - 5, 42, 14);
-		textX = 60;
+		doc.addImage(logoDataUrl, "PNG", 14, currentY - 5, 24, 14);
+		textX = 40;
 	}
 
 	doc.text("ASMEE PHARMA PRIVATE LIMITED", textX, currentY);
@@ -128,12 +128,12 @@ function drawReportStationeryHeader(
 	doc.setFont("helvetica", "normal");
 	doc.setTextColor(75, 85, 99); // text-gray-600
 	doc.text(
-		"BASEMENT-GF, 11/2 ASHOK HOUSE, B/S SANSTHA VASAHAT GATE,, PRATAP ROAD,",
+		"BASEMENT-GF, 11/2 ASHOK HOUSE, B/S SANSTHA VASAHAT GATE,",
 		textX,
 		currentY,
 	);
 	currentY += 3.2;
-	doc.text("RAOPURA, VADODARA - 390001, GUJARAT - 24", textX, currentY);
+	doc.text("PRATAP ROAD, RAOPURA, VADODARA - 390001, GUJARAT - 390024", textX, currentY);
 	currentY += 3.2;
 	doc.text(
 		"Contact: 9409789800, 9409789700 Mobile: 9409789700 Email: asmeepharma2022@gmail.com",
@@ -1035,6 +1035,104 @@ export async function generateFreeSchemePdfReport(
 			grandClaimQty += typeClaimQty;
 			grandClaimValue += typeClaimValue;
 		}
+
+		// Manufacturer Total Row
+		const mfgSaleQty = mfgData.reduce((acc, curr) => acc + (Number(curr["Sale Qty"] ?? curr.Qty ?? 0) || 0), 0);
+		const mfgFreeQty = mfgData.reduce((acc, curr) => acc + (Number(curr["Free Qty"] ?? curr.Free ?? curr.FQty ?? 0) || 0), 0);
+		const mfgActualFQty = mfgData.reduce((acc, curr) => acc + (Number(curr["Actual FQty"] ?? curr.FQty ?? 0) || 0), 0);
+		const mfgClaimQty = mfgData.reduce((acc, curr) => acc + (Number(curr["Claim Qty"] ?? curr.Free ?? curr.FQty ?? 0) || 0), 0);
+		const mfgClaimValue = mfgData.reduce((acc, curr) => acc + (Number(curr["Claim Value"] ?? curr.FreeIAmt ?? 0) || 0), 0);
+
+		tableBody.push([
+			{
+				content: `Total of ${mfg} :`,
+				colSpan: 11,
+				styles: {
+					fontStyle: "bold",
+					halign: "right",
+					fontSize: 7.5,
+					fillColor: [238, 246, 252],
+					textColor: [0, 113, 188],
+					lineWidth: { top: 0.5, bottom: 0.5 },
+					lineColor: [184, 215, 245],
+				},
+			},
+			{
+				content: mfgSaleQty > 0 ? String(mfgSaleQty) : "-",
+				styles: {
+					halign: "right",
+					fontStyle: "bold",
+					fontSize: 7.5,
+					fillColor: [238, 246, 252],
+					lineWidth: { top: 0.5, bottom: 0.5 },
+					lineColor: [184, 215, 245],
+				},
+			},
+			{
+				content: mfgFreeQty > 0 ? String(mfgFreeQty) : "-",
+				styles: {
+					halign: "right",
+					fontStyle: "bold",
+					fontSize: 7.5,
+					fillColor: [238, 246, 252],
+					lineWidth: { top: 0.5, bottom: 0.5 },
+					lineColor: [184, 215, 245],
+				},
+			},
+			{
+				content: mfgActualFQty > 0 ? String(mfgActualFQty) : "-",
+				styles: {
+					halign: "right",
+					fontStyle: "bold",
+					fontSize: 7.5,
+					fillColor: [238, 246, 252],
+					lineWidth: { top: 0.5, bottom: 0.5 },
+					lineColor: [184, 215, 245],
+				},
+			},
+			{
+				content: mfgClaimQty > 0 ? String(mfgClaimQty) : "-",
+				styles: {
+					halign: "right",
+					fontStyle: "bold",
+					fontSize: 7.5,
+					fillColor: [238, 246, 252],
+					lineWidth: { top: 0.5, bottom: 0.5 },
+					lineColor: [184, 215, 245],
+				},
+			},
+			{
+				content: "-",
+				styles: {
+					halign: "right",
+					fontSize: 7.5,
+					fillColor: [238, 246, 252],
+					lineWidth: { top: 0.5, bottom: 0.5 },
+					lineColor: [184, 215, 245],
+				},
+			},
+			{
+				content: mfgClaimValue > 0 ? mfgClaimValue.toFixed(2) : "-",
+				styles: {
+					halign: "right",
+					fontStyle: "bold",
+					fontSize: 7.5,
+					fillColor: [238, 246, 252],
+					textColor: [30, 64, 175],
+					lineWidth: { top: 0.5, bottom: 0.5 },
+					lineColor: [184, 215, 245],
+				},
+			},
+			{
+				content: "",
+				colSpan: 2,
+				styles: {
+					fillColor: [238, 246, 252],
+					lineWidth: { top: 0.5, bottom: 0.5 },
+					lineColor: [184, 215, 245],
+				},
+			},
+		]);
 	}
 
 	// Grand Total Row
@@ -1191,6 +1289,226 @@ export async function generateFreeSchemePdfReport(
 			16: { cellWidth: 15, halign: "right" },
 			17: { cellWidth: 16, halign: "center" },
 			18: { cellWidth: 16, halign: "center" },
+		},
+		margin: { top: 14, left: 14, right: 14, bottom: 14 },
+	});
+
+	// ---------------------------------------------------------------------------
+	// Summary Table by Product Name (Identical to web view Claim Summary)
+	// ---------------------------------------------------------------------------
+	const summaryMap = new Map<
+		string,
+		{
+			ItemName: string;
+			Packing: string;
+			SaleQty: number;
+			FreeQty: number;
+			ActualFQty: number;
+			ClaimQty: number;
+			ClaimValue: number;
+		}
+	>();
+
+	data.forEach((item) => {
+		const key = item["Product Name"] || item.ItemName || "Unknown Item";
+		if (!summaryMap.has(key)) {
+			summaryMap.set(key, {
+				ItemName: key,
+				Packing: item.Packing || "-",
+				SaleQty: 0,
+				FreeQty: 0,
+				ActualFQty: 0,
+				ClaimQty: 0,
+				ClaimValue: 0,
+			});
+		}
+		const agg = summaryMap.get(key)!;
+		agg.SaleQty += Number(item["Sale Qty"] ?? item.Qty ?? 0) || 0;
+		agg.FreeQty += Number(item["Free Qty"] ?? item.Free ?? item.FQty ?? 0) || 0;
+		agg.ActualFQty += Number(item["Actual FQty"] ?? item.FQty ?? 0) || 0;
+		agg.ClaimQty += Number(item["Claim Qty"] ?? item.Free ?? item.FQty ?? 0) || 0;
+		agg.ClaimValue += Number(item["Claim Value"] ?? item.FreeIAmt ?? 0) || 0;
+	});
+
+	const summaries = Array.from(summaryMap.values());
+	const summaryTotals = summaries.reduce(
+		(acc, curr) => {
+			acc.SaleQty += curr.SaleQty;
+			acc.FreeQty += curr.FreeQty;
+			acc.ActualFQty += curr.ActualFQty;
+			acc.ClaimQty += curr.ClaimQty;
+			acc.ClaimValue += curr.ClaimValue;
+			return acc;
+		},
+		{ SaleQty: 0, FreeQty: 0, ActualFQty: 0, ClaimQty: 0, ClaimValue: 0 },
+	);
+
+	const summaryBody: any[] = summaries.map((s) => [
+		s.ItemName,
+		{ content: s.Packing, styles: { halign: "center" } },
+		{
+			content: s.SaleQty > 0 ? String(s.SaleQty) : "-",
+			styles: { halign: "right" },
+		},
+		{
+			content: s.FreeQty > 0 ? String(s.FreeQty) : "-",
+			styles: { halign: "right" },
+		},
+		{
+			content: s.ActualFQty > 0 ? String(s.ActualFQty) : "-",
+			styles: { halign: "right" },
+		},
+		{
+			content: s.ClaimQty > 0 ? String(s.ClaimQty) : "-",
+			styles: { halign: "right", fontStyle: "bold" },
+		},
+		{
+			content: s.ClaimValue > 0 ? s.ClaimValue.toFixed(2) : "-",
+			styles: {
+				halign: "right",
+				fontStyle: "bold",
+				textColor: [30, 64, 175],
+			},
+		},
+	]);
+
+	summaryBody.push([
+		{
+			content: "Total :",
+			colSpan: 2,
+			styles: {
+				fontStyle: "bold",
+				halign: "right",
+				fontSize: 7.5,
+				fillColor: [243, 244, 246],
+				lineWidth: { top: 0.6, bottom: 0.6 },
+				lineColor: [17, 24, 39],
+			},
+		},
+		{
+			content: summaryTotals.SaleQty > 0 ? String(summaryTotals.SaleQty) : "-",
+			styles: {
+				halign: "right",
+				fontStyle: "bold",
+				fontSize: 7.5,
+				fillColor: [243, 244, 246],
+				lineWidth: { top: 0.6, bottom: 0.6 },
+				lineColor: [17, 24, 39],
+			},
+		},
+		{
+			content: summaryTotals.FreeQty > 0 ? String(summaryTotals.FreeQty) : "-",
+			styles: {
+				halign: "right",
+				fontStyle: "bold",
+				fontSize: 7.5,
+				fillColor: [243, 244, 246],
+				lineWidth: { top: 0.6, bottom: 0.6 },
+				lineColor: [17, 24, 39],
+			},
+		},
+		{
+			content:
+				summaryTotals.ActualFQty > 0 ? String(summaryTotals.ActualFQty) : "-",
+			styles: {
+				halign: "right",
+				fontStyle: "bold",
+				fontSize: 7.5,
+				fillColor: [243, 244, 246],
+				lineWidth: { top: 0.6, bottom: 0.6 },
+				lineColor: [17, 24, 39],
+			},
+		},
+		{
+			content:
+				summaryTotals.ClaimQty > 0 ? String(summaryTotals.ClaimQty) : "-",
+			styles: {
+				halign: "right",
+				fontStyle: "bold",
+				fontSize: 7.5,
+				fillColor: [243, 244, 246],
+				lineWidth: { top: 0.6, bottom: 0.6 },
+				lineColor: [17, 24, 39],
+			},
+		},
+		{
+			content:
+				summaryTotals.ClaimValue > 0
+					? summaryTotals.ClaimValue.toFixed(2)
+					: "-",
+			styles: {
+				halign: "right",
+				fontStyle: "bold",
+				fontSize: 7.5,
+				fillColor: [243, 244, 246],
+				textColor: [30, 64, 175],
+				lineWidth: { top: 0.6, bottom: 0.6 },
+				lineColor: [17, 24, 39],
+			},
+		},
+	]);
+
+	const finalY = (doc as any).lastAutoTable
+		? (doc as any).lastAutoTable.finalY
+		: startY;
+	const pageHeight = doc.internal.pageSize.getHeight();
+	const remainingHeight = pageHeight - finalY - 20;
+	let summaryStartY = finalY + 12;
+	if (remainingHeight < 55) {
+		doc.addPage();
+		summaryStartY = 20;
+	}
+
+	doc.setFont("helvetica", "bold");
+	doc.setFontSize(8.5);
+	doc.setTextColor(11, 37, 69);
+	doc.text("Summary :", 14, summaryStartY - 3);
+
+	autoTable(doc, {
+		startY: summaryStartY,
+		head: [
+			[
+				"ItemName",
+				"Packing",
+				"Sale Qty",
+				"Free Qty",
+				"Actual FQty",
+				"Claim Qty",
+				"Claim Value",
+			],
+		],
+		body: summaryBody,
+		theme: "plain",
+		styles: {
+			fontSize: 7,
+			cellPadding: 1.2,
+			textColor: [31, 41, 55],
+			lineColor: [243, 244, 246],
+			lineWidth: { bottom: 0.1 },
+		},
+		headStyles: {
+			fillColor: [249, 250, 251],
+			textColor: [17, 24, 39],
+			fontStyle: "bold",
+			fontSize: 7,
+			halign: "right",
+			lineWidth: { top: 0.6, bottom: 0.6 },
+			lineColor: [17, 24, 39],
+		},
+		didParseCell: (hookData) => {
+			if (hookData.section === "head") {
+				if (hookData.column.index === 0) hookData.cell.styles.halign = "left";
+				if (hookData.column.index === 1) hookData.cell.styles.halign = "center";
+			}
+		},
+		columnStyles: {
+			0: { cellWidth: 85, halign: "left" },
+			1: { cellWidth: 26, halign: "center" },
+			2: { cellWidth: 26, halign: "right" },
+			3: { cellWidth: 26, halign: "right" },
+			4: { cellWidth: 26, halign: "right" },
+			5: { cellWidth: 26, halign: "right" },
+			6: { cellWidth: 35, halign: "right" },
 		},
 		margin: { top: 14, left: 14, right: 14, bottom: 14 },
 	});
