@@ -379,49 +379,55 @@ reportsRouter.post("/dev-procedure-sandbox", async (req: Request, res: Response)
       sql = `CALL \`pdyasvtrans\`.\`rptStockMovementStatement\`(${formattedParams})`;
     } else if (procedureName === "rptItemCustomerSale") {
       const formattedParams = [
-        "1",
         odbcFrom,
         odbcTo,
         params.compNo ?? 11,
-        params.locNo ?? 11,
+        `'${locParam.replace(/'/g, "''")}'`,
         202627,
+        "''",
+        "''",
+        "''",
         `'${compCodeParam.replace(/'/g, "''")}'`,
         "''",
+        "'Y'",
         "''",
         "''",
-        "'SRate'",
+        `'${locParam.replace(/'/g, "''")}'`,
+        "'SalesEntry'",
         "''",
-        "'N'",
-        "'N'",
       ].join(", ");
       sql = `CALL \`pdyasvtrans\`.\`rptItemCustomerSale\`(${formattedParams})`;
     } else if (procedureName === "rptMRwisePeriodicalOutstanding") {
       const formattedParams = [
         params.compNo ?? 11,
-        params.locNo ?? 11,
-        202627,
-        odbcFrom,
-        odbcTo,
-        `'${compCodeParam.replace(/'/g, "''")}'`,
-        "''",
-        "''",
-        "''",
-        "1",
-      ].join(", ");
-      sql = `CALL \`pdyasvtrans\`.\`rptMRwisePeriodicalOutstanding\`(${formattedParams})`;
-    } else if (procedureName === "rptCompanyCustomerItemwiseSales") {
-      const formattedParams = [
-        params.compNo ?? 11,
-        params.locNo ?? 11,
+        Number(params.locNo) || 11,
         202627,
         formatDateToOdbc("2026-04-01"),
         odbcFrom,
         odbcTo,
         "''",
+        "''",
+        "'All'",
+        "''",
+        "''",
         `'${compCodeParam.replace(/'/g, "''")}'`,
         "''",
         "''",
         "''",
+      ].join(", ");
+      sql = `CALL \`rptMRwisePeriodicalOutstanding\`(${formattedParams})`;
+    } else if (procedureName === "rptCompanyCustomerItemwiseSales") {
+      const formattedParams = [
+        params.compNo ?? 11,
+        `'${locParam.replace(/'/g, "''")}'`,
+        202627,
+        odbcFrom,
+        odbcTo,
+        "''",
+        `'${compCodeParam.replace(/'/g, "''")}'`,
+        "''",
+        "''",
+        "'Y'",
         "''",
       ].join(", ");
       sql = `CALL \`pdyasvtrans\`.\`rptCompanyCustomerItemwiseSales\`(${formattedParams})`;
@@ -431,6 +437,7 @@ reportsRouter.post("/dev-procedure-sandbox", async (req: Request, res: Response)
     const durationMs = Date.now() - start;
     const resultRows = Array.isArray(rows) && Array.isArray((rows as any)[0]) ? (rows as any)[0] : (rows as any) || [];
     const columns = Array.isArray(resultRows) && resultRows.length > 0 ? Object.keys(resultRows[0]) : [];
+    const fullDebugSql = `SET sql_mode = '';\n${sql};`;
 
     res.json({
       success: true,
@@ -439,24 +446,25 @@ reportsRouter.post("/dev-procedure-sandbox", async (req: Request, res: Response)
       rowCount: resultRows.length,
       columns,
       sampleRows: resultRows.slice(0, 50),
-      debugSql: sql,
+      debugSql: fullDebugSql,
       data: {
         procedureName,
         durationMs,
         rowCount: resultRows.length,
         columns,
         sampleRows: resultRows.slice(0, 50),
-        debugSql: sql,
+        debugSql: fullDebugSql,
       },
     });
   } catch (error: any) {
     const durationMs = Date.now() - start;
     console.error("[Reports API Sandbox Error]:", error);
+    const fullDebugSql = sql ? `SET sql_mode = '';\n${sql};` : "";
     res.status(500).json({
       success: false,
       error: error.message || "Procedure execution failed",
       durationMs,
-      debugSql: sql,
+      debugSql: fullDebugSql,
     });
   } finally {
     if (conn) conn.release();

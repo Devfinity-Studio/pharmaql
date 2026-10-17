@@ -305,17 +305,18 @@ function buildFallbackProcedureSql(procedureName: string, params: Record<string,
 	const odbcTo = `{d '${toDate}'}`;
 	const compParam = compCodeParam ? `'${compCodeParam.replace(/'/g, "''")}'` : "''";
 	const locParam = params.locNo ? `('${params.locNo}')` : "('11')";
+	const escapedLoc = `'${locParam.replace(/'/g, "''")}'`;
 
 	if (procedureName === "rptStockMovementStatement") {
-		return `CALL \`pdyasvtrans\`.\`rptStockMovementStatement\`(${params.compNo ?? 11}, '${locParam.replace(/'/g, "''")}', 202627, {d '2026-04-01'}, ${odbcFrom}, ${odbcTo}, ${compParam}, '', '', 'PRate')`;
+		return `SET sql_mode = '';\nCALL \`pdyasvtrans\`.\`rptStockMovementStatement\`(${params.compNo ?? 11}, ${escapedLoc}, 202627, {d '2026-04-01'}, ${odbcFrom}, ${odbcTo}, ${compParam}, '', '', 'PRate');`;
 	} else if (procedureName === "rptItemCustomerSale") {
-		return `CALL \`pdyasvtrans\`.\`rptItemCustomerSale\`(1, ${odbcFrom}, ${odbcTo}, ${params.compNo ?? 11}, ${params.locNo ?? 11}, 202627, ${compParam}, '', '', '', 'SRate', '', 'N', 'N')`;
+		return `SET sql_mode = '';\nCALL \`pdyasvtrans\`.\`rptItemCustomerSale\`(${odbcFrom}, ${odbcTo}, ${params.compNo ?? 11}, ${escapedLoc}, 202627, '', '', '', ${compParam}, '', 'Y', '', '', ${escapedLoc}, 'SalesEntry', '');`;
 	} else if (procedureName === "rptMRwisePeriodicalOutstanding") {
-		return `CALL \`pdyasvtrans\`.\`rptMRwisePeriodicalOutstanding\`(${params.compNo ?? 11}, ${params.locNo ?? 11}, 202627, ${odbcFrom}, ${odbcTo}, ${compParam}, '', '', '', 1)`;
+		return `SET sql_mode = '';\nCALL \`pdyasvtrans\`.\`rptMRwisePeriodicalOutstanding\`(${params.compNo ?? 11}, ${Number(params.locNo) || 11}, 202627, {d '2026-04-01'}, ${odbcFrom}, ${odbcTo}, '', '', 'All', '', '', ${compParam}, '', '', '');`;
 	} else if (procedureName === "rptCompanyCustomerItemwiseSales") {
-		return `CALL \`pdyasvtrans\`.\`rptCompanyCustomerItemwiseSales\`(${params.compNo ?? 11}, ${params.locNo ?? 11}, 202627, {d '2026-04-01'}, ${odbcFrom}, ${odbcTo}, '', ${compParam}, '', '', '', '')`;
+		return `SET sql_mode = '';\nCALL \`pdyasvtrans\`.\`rptCompanyCustomerItemwiseSales\`(${params.compNo ?? 11}, ${escapedLoc}, 202627, ${odbcFrom}, ${odbcTo}, '', ${compParam}, '', '', 'Y', '');`;
 	}
-	return `CALL \`${procedureName}\`(...)`;
+	return `SET sql_mode = '';\nCALL \`${procedureName}\`(...);`;
 }
 
 export async function executeProcedureSandbox(payload: {
@@ -323,7 +324,15 @@ export async function executeProcedureSandbox(payload: {
 	params?: Record<string, any>;
 }) {
 	const session = await assertDeveloperSession();
+	const startTime = Date.now();
 
+	let rawRows: any[] = [];
+	let durationMs = 0;
+	let success = false;
+	let error: string | undefined;
+	let resolvedSql = buildFallbackProcedureSql(payload.procedureName, payload.params);
+
+	// 1. Attempt dedicated sandbox endpoint first
 	const res = await apiPost<{
 		success: boolean;
 		procedureName: string;
@@ -335,23 +344,73 @@ export async function executeProcedureSandbox(payload: {
 		error?: string;
 	}>("/api/reports/dev-procedure-sandbox", payload);
 
-	const rawAny = res as any;
-	const nested = res.data as any;
-	const resolvedSql =
-		nested?.debugSql ||
-		rawAny?.debugSql ||
-		buildFallbackProcedureSql(payload.procedureName, payload.params);
+	if (res.success && (res.data as any)?.rowCount !== undefined) {
+		success = true;
+		durationMs = (res.data as any).durationMs || (Date.now() - startTime);
+		rawRows = (res.data as any).sampleRows || [];
+		if ((res.data as any).debugSql) {
+			resolvedSql = (res.data as any).debugSql;
+		}
+	} else {
+		// 2. Resilient fallback to active live report endpoints on production backend
+		const p = payload.params || {};
+		const fallbackParams = {
+			companyCode: p.companyCode,
+			compCode: p.companyCode,
+			fromDate: p.fromDate,
+			toDate: p.toDate,
+			locNo: p.locNo || "11",
+			compNo: p.compNo ?? 11,
+		};
+
+		let liveRes: any = null;
+		try {
+			if (payload.procedureName === "rptStockMovementStatement") {
+				liveRes = await apiPost<any[]>("/api/reports/stock-movement", fallbackParams);
+			} else if (payload.procedureName === "rptItemCustomerSale") {
+				liveRes = await apiPost<any[]>("/api/reports/customer-item-sale", fallbackParams);
+			} else if (payload.procedureName === "rptCompanyCustomerItemwiseSales") {
+				liveRes = await apiPost<any[]>("/api/reports/party-item-sale", fallbackParams);
+			} else if (payload.procedureName === "rptMRwisePeriodicalOutstanding") {
+				liveRes = await apiPost<any[]>("/api/reports/mr-overdue", fallbackParams);
+			}
+		} catch (err: any) {
+			liveRes = { success: false, error: err.message };
+		}
+
+		durationMs = Date.now() - startTime;
+		if (liveRes && liveRes.success && Array.isArray(liveRes.data)) {
+			success = true;
+			rawRows = liveRes.data;
+			if (liveRes.debugSql) {
+				resolvedSql = liveRes.debugSql;
+			}
+		} else {
+			success = false;
+			error = liveRes?.error || res.error || "Failed to execute procedure";
+		}
+	}
+
+	const columns =
+		rawRows.length > 0 && typeof rawRows[0] === "object"
+			? Object.keys(rawRows[0])
+			: [];
+	const sampleRows = rawRows.slice(0, 50);
 
 	const normalized = {
-		success: res.success,
-		error: res.error || rawAny.error,
+		success,
+		error,
 		debugSql: resolvedSql,
+		rowCount: rawRows.length,
+		columns,
+		sampleRows,
+		durationMs,
 		data: {
 			procedureName: payload.procedureName,
-			durationMs: nested?.durationMs ?? rawAny.durationMs ?? 0,
-			rowCount: nested?.rowCount ?? rawAny.rowCount ?? 0,
-			columns: nested?.columns ?? rawAny.columns ?? [],
-			sampleRows: nested?.sampleRows ?? rawAny.sampleRows ?? [],
+			durationMs,
+			rowCount: rawRows.length,
+			columns,
+			sampleRows,
 			debugSql: resolvedSql,
 		},
 	};
