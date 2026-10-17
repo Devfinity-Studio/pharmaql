@@ -37,19 +37,22 @@ export async function OverdueReportView({
 	if (!mrInfo) return <div>MR not found.</div>;
 
 	const company = searchParams?.division || "All";
-	const assigned = mrInfo.company
-		? [
-			{
-				id: `legacy-${mrId}`,
-				mrId,
-				manufacturer: mrInfo.company,
-				firmNo: null,
-				division: mrInfo.division || null,
-				company: mrInfo.company,
-				createdAt: new Date(),
-			},
-		]
-		: [];
+	const assigned =
+		mrInfo.assignments && mrInfo.assignments.length > 0
+			? mrInfo.assignments
+			: mrInfo.company
+				? [
+						{
+							id: `legacy-${mrId}`,
+							mrId,
+							manufacturer: mrInfo.company,
+							firmNo: null,
+							division: mrInfo.division || null,
+							company: mrInfo.company,
+							createdAt: new Date(),
+						},
+					]
+				: [];
 
 	const selectedAssignments =
 		company === "All"
@@ -69,9 +72,14 @@ export async function OverdueReportView({
 				? mrInfo.companyCode
 				: company;
 
+	const targetMrId =
+		company === "All" && mrInfo.allIds && mrInfo.allIds.length > 0
+			? mrInfo.allIds.join(", ")
+			: selectedAssignments[0]?.id || mrId;
+
 	// 2. Call stored procedure `rptMRwisePeriodicalOutstanding`
 	const procResult = await getMRwisePeriodicalOutstanding({
-		mrId,
+		mrId: targetMrId,
 		fromDate: searchParams?.from,
 		toDate: searchParams?.to,
 		compCode: compCodeToQuery,

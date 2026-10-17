@@ -88,6 +88,7 @@ interface DevControlCenterProps {
 		companyCode?: string | null;
 		rank?: number;
 		assignedCompanies?: string[];
+		assignedDivisions?: string[];
 	}>;
 	companiesList?: Array<{
 		companyCode: string;
@@ -643,6 +644,9 @@ export function DevControlCenter({
 			const assignedMatch = m.assignedCompanies?.some((c) =>
 				c.toLowerCase().includes(q),
 			);
+			const divAssignedMatch = m.assignedDivisions?.some((d) =>
+				d.toLowerCase().includes(q),
+			);
 			return Boolean(
 				nameMatch ||
 				idMatch ||
@@ -650,7 +654,8 @@ export function DevControlCenter({
 				compMatch ||
 				compCodeMatch ||
 				divMatch ||
-				assignedMatch,
+				assignedMatch ||
+				divAssignedMatch,
 			);
 		});
 	}, [mrList, mrSearch]);
@@ -2293,7 +2298,21 @@ export function DevControlCenter({
 															</div>
 														)}
 													</td>
-													<td className="px-4 py-3 text-gray-600 font-medium">{mr.division || "-"}</td>
+													<td className="px-4 py-3">
+														<div className="flex flex-wrap gap-1 max-w-xs">
+															{(mr.assignedDivisions && mr.assignedDivisions.length > 0
+																? mr.assignedDivisions
+																: mr.division ? [mr.division] : ["-"]
+															).map((d: string) => (
+																<span
+																	key={d}
+																	className="rounded-md border border-blue-200 bg-blue-50 px-2 py-0.5 font-bold text-blue-800 text-[11px]"
+																>
+																	{d}
+																</span>
+															))}
+														</div>
+													</td>
 													<td className="px-4 py-3">
 														<span className="rounded bg-purple-100 px-2 py-0.5 font-bold text-purple-800">
 															Rank {mr.rank || 3}

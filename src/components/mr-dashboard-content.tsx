@@ -82,23 +82,31 @@ export async function MrDashboardContent({
 		);
 	}
 
-	// 2. Get MR's assigned divisions natively from ERP profile
-	const legacyDivision = mrInfo.division || mrInfo.company;
-	const effectiveAssignments = legacyDivision
-		? [
-				{
-					id: `legacy-${mrId}`,
-					mrId,
-					manufacturer: mrInfo.company || legacyDivision,
-					division: mrInfo.division || null,
-					assignedAt: new Date(),
-				},
-			]
-		: [];
+	// 2. Get MR's assigned divisions from scanned database assignments
+	const effectiveAssignments =
+		mrInfo.assignments && mrInfo.assignments.length > 0
+			? mrInfo.assignments
+			: mrInfo.division || mrInfo.company
+				? [
+						{
+							id: `legacy-${mrId}`,
+							mrId,
+							manufacturer: mrInfo.company || mrInfo.division || "General",
+							division: mrInfo.division || null,
+							company: mrInfo.company || null,
+							companyCode: mrInfo.companyCode || undefined,
+							assignedAt: new Date(),
+						},
+					]
+				: [];
 
 	const assignedDivisions = Array.from(
-		new Set(effectiveAssignments.map((a) => a.division || a.manufacturer)),
-	);
+		new Set(
+			effectiveAssignments
+				.map((a: any) => a.division || a.manufacturer)
+				.filter(Boolean),
+		),
+	) as string[];
 
 	if (assignedDivisions.length === 0) {
 		return (
@@ -457,9 +465,13 @@ export async function MrDashboardContent({
 				{/* Filters and Actions */}
 				<div className="flex flex-col justify-between gap-4 border-gray-200 border-b pb-3 xl:flex-row xl:items-end">
 					<div className="flex flex-col gap-3">
-						<div className="flex flex-wrap gap-2">
+						<div className="flex flex-wrap items-center gap-2">
 							<Link
-								className={`rounded-lg px-3.5 py-1.5 font-bold text-xs transition-colors ${selectedDivision === "All" ? "bg-[#0B2545] text-white" : "border border-gray-200 bg-white text-gray-600 hover:bg-gray-50"}`}
+								className={`rounded-lg px-3.5 py-1.5 font-bold text-xs transition-colors ${
+									selectedDivision === "All"
+										? "bg-[#0B2545] text-white shadow-xs"
+										: "border border-gray-200 bg-white text-gray-700 hover:bg-gray-50"
+								}`}
 								href={`${baseUrl}?${new URLSearchParams({
 									...(searchParams?.from && { from: searchParams.from }),
 									...(searchParams?.to && { to: searchParams.to }),
@@ -467,7 +479,7 @@ export async function MrDashboardContent({
 									...(searchParams?.q && { q: searchParams.q }),
 								}).toString()}`}
 							>
-								All Divisions
+								All Divisions {assignedDivisions.length > 1 ? `(${assignedDivisions.length})` : ""}
 							</Link>
 							{assignedDivisions.map((div) => {
 								const p = new URLSearchParams();
@@ -479,7 +491,11 @@ export async function MrDashboardContent({
 
 								return (
 									<Link
-										className={`rounded-lg px-3.5 py-1.5 font-bold text-xs transition-colors ${selectedDivision === div ? "bg-[#0B2545] text-white" : "border border-gray-200 bg-white text-gray-600 hover:bg-gray-50"}`}
+										className={`rounded-lg px-3.5 py-1.5 font-bold text-xs transition-colors ${
+											selectedDivision === div
+												? "bg-[#0071BC] text-white shadow-xs"
+												: "border border-gray-200 bg-white text-gray-700 hover:bg-gray-50"
+										}`}
 										href={`${baseUrl}?${p.toString()}`}
 										key={div}
 									>

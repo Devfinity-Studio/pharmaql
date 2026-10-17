@@ -55,9 +55,20 @@ export default async function DeveloperControlPage() {
 		company: m.company,
 		companyCode: m.companyCode,
 		rank: m.rank,
-		assignedCompanies: (m.assignments || [])
-			.map((a) => a.manufacturer)
-			.filter(Boolean),
+		assignedCompanies: Array.from(
+			new Set(
+				(m.assignments || [])
+					.map((a) => a.company || a.manufacturer)
+					.filter(Boolean),
+			),
+		),
+		assignedDivisions: Array.from(
+			new Set(
+				(m.assignments || [])
+					.map((a) => a.division)
+					.filter((d): d is string => Boolean(d)),
+			),
+		),
 	}));
 
 	// Deduplicate and assemble companies list for procedure sandbox search

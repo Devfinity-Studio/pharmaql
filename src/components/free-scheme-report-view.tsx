@@ -37,18 +37,40 @@ export async function FreeSchemeReportView({
 	if (mrInfo.companyCode) registeredCodes.add(mrInfo.companyCode.toLowerCase().trim());
 	if (mrInfo.division) registeredCompanies.add(mrInfo.division.toLowerCase().trim());
 
+	for (const a of (mrInfo.assignments || [])) {
+		if (a.company) registeredCompanies.add(a.company.toLowerCase().trim());
+		if (a.manufacturer) registeredCompanies.add(a.manufacturer.toLowerCase().trim());
+		if (a.division) registeredCompanies.add(a.division.toLowerCase().trim());
+		if (a.companyCode) registeredCodes.add(a.companyCode.toLowerCase().trim());
+	}
+
 	for (const a of assigned) {
 		if (a.manufacturer) registeredCompanies.add(a.manufacturer.toLowerCase().trim());
 		if (a.division) registeredCompanies.add(a.division.toLowerCase().trim());
 	}
 
-	const compCodeToQuery =
-		company === "All"
-			? mrInfo.companyCode || mrInfo.company || ""
-			: mrInfo.companyCode &&
-				(mrInfo.company === company || mrInfo.division === company)
-				? mrInfo.companyCode
-				: company;
+	const compCodeToQuery = (() => {
+		if (company === "All") {
+			const allCodes = Array.from(
+				new Set(
+					(mrInfo.assignments || [])
+						.map((a) => a.companyCode)
+						.filter(Boolean),
+				),
+			);
+			return allCodes.length > 0
+				? allCodes.join(",")
+				: mrInfo.companyCode || mrInfo.company || "";
+		}
+		const matchingAssignment = (mrInfo.assignments || []).find(
+			(a) =>
+				a.division === company ||
+				a.manufacturer === company ||
+				a.company === company,
+		);
+		if (matchingAssignment?.companyCode) return matchingAssignment.companyCode;
+		return mrInfo.companyCode || company;
+	})();
 
 	const claimResult = await getClaimData({
 		uniqueCode: `claim-${mrId}-${Date.now()}`,
