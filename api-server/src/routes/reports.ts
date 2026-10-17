@@ -335,6 +335,7 @@ reportsRouter.post("/claim-data", async (req: Request, res: Response) => {
  */
 reportsRouter.post("/dev-procedure-sandbox", async (req: Request, res: Response) => {
   let conn;
+  let sql = "";
   const start = Date.now();
   try {
     const { procedureName, params = {} } = req.body || {};
@@ -342,6 +343,7 @@ reportsRouter.post("/dev-procedure-sandbox", async (req: Request, res: Response)
       "rptStockMovementStatement",
       "rptItemCustomerSale",
       "rptMRwisePeriodicalOutstanding",
+      "rptCompanyCustomerItemwiseSales",
     ];
 
     if (!allowedProcedures.includes(procedureName)) {
@@ -355,7 +357,7 @@ reportsRouter.post("/dev-procedure-sandbox", async (req: Request, res: Response)
     conn = await dbPool.getConnection();
     await conn.query("SET sql_mode = ''");
 
-    let sql = "";
+    sql = "";
     const compCodeParam = formatCompanyCodeParam(params.companyCode || "");
     const odbcFrom = formatDateToOdbc(params.fromDate || "2026-04-01");
     const odbcTo = formatDateToOdbc(params.toDate || new Date().toISOString().slice(0, 10));
@@ -407,6 +409,22 @@ reportsRouter.post("/dev-procedure-sandbox", async (req: Request, res: Response)
         "1",
       ].join(", ");
       sql = `CALL \`pdyasvtrans\`.\`rptMRwisePeriodicalOutstanding\`(${formattedParams})`;
+    } else if (procedureName === "rptCompanyCustomerItemwiseSales") {
+      const formattedParams = [
+        params.compNo ?? 11,
+        params.locNo ?? 11,
+        202627,
+        formatDateToOdbc("2026-04-01"),
+        odbcFrom,
+        odbcTo,
+        "''",
+        `'${compCodeParam.replace(/'/g, "''")}'`,
+        "''",
+        "''",
+        "''",
+        "''",
+      ].join(", ");
+      sql = `CALL \`pdyasvtrans\`.\`rptCompanyCustomerItemwiseSales\`(${formattedParams})`;
     }
 
     const [rows, fields] = await conn.query(sql);
@@ -422,6 +440,14 @@ reportsRouter.post("/dev-procedure-sandbox", async (req: Request, res: Response)
       columns,
       sampleRows: resultRows.slice(0, 50),
       debugSql: sql,
+      data: {
+        procedureName,
+        durationMs,
+        rowCount: resultRows.length,
+        columns,
+        sampleRows: resultRows.slice(0, 50),
+        debugSql: sql,
+      },
     });
   } catch (error: any) {
     const durationMs = Date.now() - start;
@@ -430,6 +456,7 @@ reportsRouter.post("/dev-procedure-sandbox", async (req: Request, res: Response)
       success: false,
       error: error.message || "Procedure execution failed",
       durationMs,
+      debugSql: sql,
     });
   } finally {
     if (conn) conn.release();

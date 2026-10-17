@@ -287,6 +287,37 @@ export async function getUnifiedSystemLogs(options?: {
 /**
  * 3. Stored Procedure Playground Sandbox
  */
+function buildFallbackProcedureSql(procedureName: string, params: Record<string, any> = {}) {
+	const compCode = params.companyCode || "";
+	let compCodeParam = "";
+	if (compCode && compCode.trim() && compCode.trim() !== "All") {
+		const parts = compCode
+			.split(",")
+			.map((p: string) => p.trim().split(/\s+/)[0])
+			.filter(Boolean);
+		if (parts.length > 0) {
+			compCodeParam = parts.map((c: string) => `('${c.replace(/'/g, "''")}')`).join(",");
+		}
+	}
+	const fromDate = params.fromDate || "2026-04-01";
+	const toDate = params.toDate || new Date().toISOString().slice(0, 10);
+	const odbcFrom = `{d '${fromDate}'}`;
+	const odbcTo = `{d '${toDate}'}`;
+	const compParam = compCodeParam ? `'${compCodeParam.replace(/'/g, "''")}'` : "''";
+	const locParam = params.locNo ? `('${params.locNo}')` : "('11')";
+
+	if (procedureName === "rptStockMovementStatement") {
+		return `CALL \`pdyasvtrans\`.\`rptStockMovementStatement\`(${params.compNo ?? 11}, '${locParam.replace(/'/g, "''")}', 202627, {d '2026-04-01'}, ${odbcFrom}, ${odbcTo}, ${compParam}, '', '', 'PRate')`;
+	} else if (procedureName === "rptItemCustomerSale") {
+		return `CALL \`pdyasvtrans\`.\`rptItemCustomerSale\`(1, ${odbcFrom}, ${odbcTo}, ${params.compNo ?? 11}, ${params.locNo ?? 11}, 202627, ${compParam}, '', '', '', 'SRate', '', 'N', 'N')`;
+	} else if (procedureName === "rptMRwisePeriodicalOutstanding") {
+		return `CALL \`pdyasvtrans\`.\`rptMRwisePeriodicalOutstanding\`(${params.compNo ?? 11}, ${params.locNo ?? 11}, 202627, ${odbcFrom}, ${odbcTo}, ${compParam}, '', '', '', 1)`;
+	} else if (procedureName === "rptCompanyCustomerItemwiseSales") {
+		return `CALL \`pdyasvtrans\`.\`rptCompanyCustomerItemwiseSales\`(${params.compNo ?? 11}, ${params.locNo ?? 11}, 202627, {d '2026-04-01'}, ${odbcFrom}, ${odbcTo}, '', ${compParam}, '', '', '', '')`;
+	}
+	return `CALL \`${procedureName}\`(...)`;
+}
+
 export async function executeProcedureSandbox(payload: {
 	procedureName: string;
 	params?: Record<string, any>;
@@ -304,6 +335,27 @@ export async function executeProcedureSandbox(payload: {
 		error?: string;
 	}>("/api/reports/dev-procedure-sandbox", payload);
 
+	const rawAny = res as any;
+	const nested = res.data as any;
+	const resolvedSql =
+		nested?.debugSql ||
+		rawAny?.debugSql ||
+		buildFallbackProcedureSql(payload.procedureName, payload.params);
+
+	const normalized = {
+		success: res.success,
+		error: res.error || rawAny.error,
+		debugSql: resolvedSql,
+		data: {
+			procedureName: payload.procedureName,
+			durationMs: nested?.durationMs ?? rawAny.durationMs ?? 0,
+			rowCount: nested?.rowCount ?? rawAny.rowCount ?? 0,
+			columns: nested?.columns ?? rawAny.columns ?? [],
+			sampleRows: nested?.sampleRows ?? rawAny.sampleRows ?? [],
+			debugSql: resolvedSql,
+		},
+	};
+
 	await recordAuditEvent({
 		event: "SECURITY_WARNING",
 		userId: session.user.id,
@@ -313,12 +365,12 @@ export async function executeProcedureSandbox(payload: {
 		details: {
 			action: "executeProcedureSandbox",
 			procedureName: payload.procedureName,
-			durationMs: res.data?.durationMs,
-			success: res.success,
+			durationMs: normalized.data.durationMs,
+			success: normalized.success,
 		},
 	});
 
-	return res;
+	return normalized;
 }
 
 /**

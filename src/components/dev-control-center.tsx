@@ -1,15 +1,19 @@
 "use client";
 
-import React, { useState, useTransition } from "react";
+import React, { useState, useTransition, useMemo, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import {
 	Activity,
 	AlertOctagon,
 	AlertTriangle,
 	Bell,
+	Building2,
 	Calendar,
+	Check,
 	CheckCircle2,
+	ChevronDown,
 	Clock,
+	Copy,
 	Cpu,
 	Database,
 	Download,
@@ -32,6 +36,7 @@ import {
 	Trash2,
 	Users,
 	Wrench,
+	X,
 	XCircle,
 } from "lucide-react";
 import type { LicenseStatusResult } from "@/lib/license";
@@ -80,6 +85,11 @@ interface DevControlCenterProps {
 		company?: string | null;
 		rank?: number;
 	}>;
+	companiesList?: Array<{
+		companyCode: string;
+		companyName: string;
+		divisionName?: string;
+	}>;
 }
 
 export function DevControlCenter({
@@ -91,6 +101,7 @@ export function DevControlCenter({
 	maskedEnv,
 	initialLogs,
 	mrList,
+	companiesList = [],
 }: DevControlCenterProps) {
 	const router = useRouter();
 	const [activeTab, setActiveTab] = useState<
@@ -145,7 +156,11 @@ export function DevControlCenter({
 	const [sandboxFromDate, setSandboxFromDate] = useState("2026-04-01");
 	const [sandboxToDate, setSandboxToDate] = useState("2026-09-30");
 	const [sandboxCompanyCode, setSandboxCompanyCode] = useState("");
+	const [sandboxCompanySearch, setSandboxCompanySearch] = useState("");
+	const [isCompanyDropdownOpen, setIsCompanyDropdownOpen] = useState(false);
+	const [copiedSql, setCopiedSql] = useState(false);
 	const [sandboxResult, setSandboxResult] = useState<any>(null);
+	const companyDropdownRef = useRef<HTMLDivElement>(null);
 
 	// Impersonation state
 	const [mrSearch, setMrSearch] = useState("");
@@ -389,6 +404,78 @@ export function DevControlCenter({
 	};
 
 	// 6. Query Sandbox
+	useEffect(() => {
+		const handleClickOutside = (e: MouseEvent) => {
+			if (
+				companyDropdownRef.current &&
+				!companyDropdownRef.current.contains(e.target as Node)
+			) {
+				setIsCompanyDropdownOpen(false);
+			}
+		};
+		document.addEventListener("mousedown", handleClickOutside);
+		return () => document.removeEventListener("mousedown", handleClickOutside);
+	}, []);
+
+	const filteredCompanies = useMemo(() => {
+		const list = companiesList || [];
+		if (!sandboxCompanySearch.trim()) {
+			return list;
+		}
+		const q = sandboxCompanySearch.toLowerCase().trim();
+		return list.filter((c) =>
+			c.companyName.toLowerCase().includes(q) ||
+			c.companyCode.toLowerCase().includes(q) ||
+			(c.divisionName && c.divisionName.toLowerCase().includes(q)),
+		);
+	}, [companiesList, sandboxCompanySearch]);
+
+	const selectedCompanyInfo = useMemo(() => {
+		if (!sandboxCompanyCode) return null;
+		return (
+			companiesList?.find(
+				(c) => c.companyCode.toLowerCase() === sandboxCompanyCode.toLowerCase(),
+			) || null
+		);
+	}, [companiesList, sandboxCompanyCode]);
+
+	const liveDebugSql = useMemo(() => {
+		const compCode = (sandboxCompanyCode || "").trim();
+		let compCodeParam = "";
+		if (compCode && compCode !== "All") {
+			const parts = compCode
+				.split(",")
+				.map((p) => p.trim().split(/\s+/)[0])
+				.filter(Boolean);
+			if (parts.length > 0) {
+				compCodeParam = parts.map((c) => `('${c?.replace(/'/g, "''")}')`).join(",");
+			}
+		}
+
+		const odbcFrom = `{d '${sandboxFromDate || "2026-04-01"}'}`;
+		const odbcTo = `{d '${sandboxToDate || new Date().toISOString().slice(0, 10)}'}`;
+		const compParam = compCodeParam ? `'${compCodeParam.replace(/'/g, "''")}'` : "''";
+
+		if (selectedProcedure === "rptStockMovementStatement") {
+			return `SET sql_mode = '';\nCALL \`pdyasvtrans\`.\`rptStockMovementStatement\`(11, '(\\'11\\')', 202627, {d '2026-04-01'}, ${odbcFrom}, ${odbcTo}, ${compParam}, '', '', 'PRate');`;
+		} else if (selectedProcedure === "rptItemCustomerSale") {
+			return `SET sql_mode = '';\nCALL \`pdyasvtrans\`.\`rptItemCustomerSale\`(1, ${odbcFrom}, ${odbcTo}, 11, 11, 202627, ${compParam}, '', '', '', 'SRate', '', 'N', 'N');`;
+		} else if (selectedProcedure === "rptMRwisePeriodicalOutstanding") {
+			return `SET sql_mode = '';\nCALL \`pdyasvtrans\`.\`rptMRwisePeriodicalOutstanding\`(11, 11, 202627, ${odbcFrom}, ${odbcTo}, ${compParam}, '', '', '', 1);`;
+		} else if (selectedProcedure === "rptCompanyCustomerItemwiseSales") {
+			return `SET sql_mode = '';\nCALL \`pdyasvtrans\`.\`rptCompanyCustomerItemwiseSales\`(11, 11, 202627, {d '2026-04-01'}, ${odbcFrom}, ${odbcTo}, '', ${compParam}, '', '', '', '');`;
+		}
+		return `SET sql_mode = '';\nCALL \`${selectedProcedure}\`(...);`;
+	}, [selectedProcedure, sandboxFromDate, sandboxToDate, sandboxCompanyCode]);
+
+	const handleCopySql = (sqlText: string) => {
+		if (typeof navigator !== "undefined" && navigator.clipboard) {
+			navigator.clipboard.writeText(sqlText);
+			setCopiedSql(true);
+			setTimeout(() => setCopiedSql(false), 2500);
+		}
+	};
+
 	const handleRunSandbox = () => {
 		startTransition(async () => {
 			const res = await executeProcedureSandbox({
@@ -2259,30 +2346,41 @@ export function DevControlCenter({
 			{/* TAB 6: PROCEDURE PLAYGROUND */}
 			{activeTab === "query" && (
 				<div className="space-y-6">
-					<div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-xs space-y-4">
-						<div className="font-black text-lg text-gray-900">Stored Procedure Sandbox & Benchmarks</div>
-						<p className="text-xs text-gray-500">
-							Safely test and benchmark read-only stored procedures directly against the legacy ERP MySQL engine with execution timers.
-						</p>
+					<div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-xs space-y-5">
+						<div className="flex flex-col gap-1">
+							<div className="flex items-center gap-2">
+								<div className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-50 text-[#0071BC]">
+									<Terminal className="h-4 w-4" />
+								</div>
+								<h2 className="font-black text-lg text-gray-900">
+									Stored Procedure Sandbox &amp; Debug SQL Generator
+								</h2>
+							</div>
+							<p className="text-xs text-gray-500">
+								Benchmark stored procedures against the legacy ERP MySQL engine and generate the exact <code className="font-mono text-purple-700 bg-purple-50 px-1 py-0.5 rounded font-bold">CALL ...</code> statements to run directly in MySQL Workbench, DBeaver, or phpMyAdmin.
+							</p>
+						</div>
 
-						<div className="grid grid-cols-1 gap-4 sm:grid-cols-4">
+						{/* Form Controls Grid */}
+						<div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4 items-start">
 							<div>
-								<label className="block text-xs font-bold text-gray-700">Procedure</label>
+								<label className="block text-xs font-bold text-gray-700">Stored Procedure</label>
 								<select
-									className="mt-1 w-full rounded-xl border border-gray-300 p-2 text-xs font-bold text-gray-900"
+									className="mt-1 w-full rounded-xl border border-gray-300 p-2.5 text-xs font-bold text-gray-900 bg-white shadow-xs focus:ring-2 focus:ring-[#0071BC]"
 									onChange={(e) => setSelectedProcedure(e.target.value)}
 									value={selectedProcedure}
 								>
-									<option value="rptStockMovementStatement">rptStockMovementStatement</option>
-									<option value="rptItemCustomerSale">rptItemCustomerSale</option>
-									<option value="rptMRwisePeriodicalOutstanding">rptMRwisePeriodicalOutstanding</option>
+									<option value="rptStockMovementStatement">rptStockMovementStatement (Stock Movement)</option>
+									<option value="rptItemCustomerSale">rptItemCustomerSale (Item Customer Sale)</option>
+									<option value="rptMRwisePeriodicalOutstanding">rptMRwisePeriodicalOutstanding (Outstanding &amp; Overdue)</option>
+									<option value="rptCompanyCustomerItemwiseSales">rptCompanyCustomerItemwiseSales (Company Customer Sales)</option>
 								</select>
 							</div>
 
 							<div>
 								<label className="block text-xs font-bold text-gray-700">From Date</label>
 								<input
-									className="mt-1 w-full rounded-xl border border-gray-300 p-2 text-xs text-gray-900"
+									className="mt-1 w-full rounded-xl border border-gray-300 p-2 text-xs text-gray-900 bg-white shadow-xs focus:ring-2 focus:ring-[#0071BC]"
 									onChange={(e) => setSandboxFromDate(e.target.value)}
 									type="date"
 									value={sandboxFromDate}
@@ -2292,61 +2390,325 @@ export function DevControlCenter({
 							<div>
 								<label className="block text-xs font-bold text-gray-700">To Date</label>
 								<input
-									className="mt-1 w-full rounded-xl border border-gray-300 p-2 text-xs text-gray-900"
+									className="mt-1 w-full rounded-xl border border-gray-300 p-2 text-xs text-gray-900 bg-white shadow-xs focus:ring-2 focus:ring-[#0071BC]"
 									onChange={(e) => setSandboxToDate(e.target.value)}
 									type="date"
 									value={sandboxToDate}
 								/>
 							</div>
 
-							<div>
-								<label className="block text-xs font-bold text-gray-700">Company Code</label>
-								<input
-									className="mt-1 w-full rounded-xl border border-gray-300 p-2 text-xs text-gray-900"
-									onChange={(e) => setSandboxCompanyCode(e.target.value)}
-									placeholder="e.g. 11 or empty"
-									type="text"
-									value={sandboxCompanyCode}
-								/>
-							</div>
-						</div>
-
-						<button
-							className="rounded-xl bg-[#0071BC] px-5 py-2 font-bold text-xs text-white shadow-xs hover:bg-[#005a96]"
-							disabled={isPending}
-							onClick={handleRunSandbox}
-							type="button"
-						>
-							{isPending ? "Executing Query..." : "Execute & Benchmark Procedure"}
-						</button>
-
-						{/* Results */}
-						{sandboxResult && (
-							<div className="mt-4 border-t border-gray-100 pt-4 space-y-3 font-mono">
-								<div className="flex flex-wrap gap-4 text-xs">
-									<span className="rounded bg-emerald-100 px-2 py-1 font-bold text-emerald-800">
-										Duration: {sandboxResult.data?.durationMs} ms
-									</span>
-									<span className="rounded bg-blue-100 px-2 py-1 font-bold text-blue-800">
-										Rows Returned: {sandboxResult.data?.rowCount}
-									</span>
+							{/* Search Company by Name or Code */}
+							<div className="relative" ref={companyDropdownRef}>
+								<div className="flex items-center justify-between mb-1">
+									<label className="block text-xs font-bold text-gray-700">Company (Search Name or Code)</label>
+									{sandboxCompanyCode && (
+										<button
+											type="button"
+											onClick={() => {
+												setSandboxCompanyCode("");
+												setSandboxCompanySearch("");
+												setIsCompanyDropdownOpen(false);
+											}}
+											className="text-[11px] font-bold text-rose-600 hover:text-rose-700"
+										>
+											Clear
+										</button>
+									)}
 								</div>
 
-								{sandboxResult.data?.columns && (
-									<div className="flex flex-wrap gap-1 text-[11px]">
-										{sandboxResult.data.columns.map((c: string) => (
-											<span className="rounded bg-gray-100 px-1.5 py-0.5 text-gray-700" key={c}>
-												{c}
-											</span>
-										))}
+								<div className="relative">
+									<input
+										type="text"
+										className="w-full rounded-xl border border-gray-300 p-2 pl-8 pr-16 text-xs text-gray-900 placeholder:text-gray-400 bg-white shadow-xs focus:outline-none focus:ring-2 focus:ring-[#0071BC]"
+										placeholder="e.g. Asmee, 11, Generics..."
+										value={sandboxCompanySearch}
+										onChange={(e) => {
+											setSandboxCompanySearch(e.target.value);
+											setIsCompanyDropdownOpen(true);
+										}}
+										onFocus={() => setIsCompanyDropdownOpen(true)}
+									/>
+									<Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-gray-400 pointer-events-none" />
+									{sandboxCompanyCode ? (
+										<span className="absolute right-2 top-1.5 rounded-md bg-purple-100 px-1.5 py-0.5 font-mono text-[10px] font-bold text-purple-800">
+											Code: {sandboxCompanyCode}
+										</span>
+									) : (
+										<span className="absolute right-2 top-2 text-[10px] text-gray-400 font-medium">
+											All
+										</span>
+									)}
+								</div>
+
+								{/* Selected company preview badge */}
+								{selectedCompanyInfo ? (
+									<div className="mt-1.5 flex items-center justify-between rounded-lg bg-blue-50/80 border border-blue-200 px-2.5 py-1 text-[11px]">
+										<div className="flex items-center gap-1.5 truncate">
+											<Building2 className="h-3 w-3 text-blue-600 shrink-0" />
+											<span className="font-bold text-blue-900 truncate">{selectedCompanyInfo.companyName}</span>
+											{selectedCompanyInfo.divisionName && (
+												<span className="text-gray-500 shrink-0 text-[10px]">({selectedCompanyInfo.divisionName})</span>
+											)}
+										</div>
+										<span className="font-mono font-bold text-blue-700 shrink-0 ml-1">
+											[{selectedCompanyInfo.companyCode}]
+										</span>
+									</div>
+								) : sandboxCompanyCode ? (
+									<div className="mt-1.5 flex items-center justify-between rounded-lg bg-gray-100 border border-gray-200 px-2.5 py-1 text-[11px]">
+										<span className="text-gray-700">Custom Code: <strong className="font-mono text-purple-800">{sandboxCompanyCode}</strong></span>
+									</div>
+								) : (
+									<div className="mt-1 text-[11px] text-gray-500">
+										Filtering: <strong className="text-gray-700">All Marketing Companies</strong>
 									</div>
 								)}
 
-								{sandboxResult.data?.sampleRows && (
-									<div className="max-h-64 overflow-auto rounded-xl border border-gray-200 bg-gray-50 text-[11px]">
-										<pre className="p-3 text-gray-800">
-											{JSON.stringify(sandboxResult.data.sampleRows.slice(0, 10), null, 2)}
-										</pre>
+								{/* Dropdown search popover */}
+								{isCompanyDropdownOpen && (
+									<div className="absolute left-0 right-0 z-30 mt-1 max-h-56 overflow-y-auto rounded-xl border border-gray-200 bg-white shadow-xl divide-y divide-gray-100">
+										<div
+											className="flex items-center justify-between p-2.5 text-xs hover:bg-gray-50 cursor-pointer font-bold text-gray-700 bg-gray-50/50"
+											onClick={() => {
+												setSandboxCompanyCode("");
+												setSandboxCompanySearch("");
+												setIsCompanyDropdownOpen(false);
+											}}
+										>
+											<span>All Companies (No Filter / Blank Code)</span>
+											<span className="font-mono text-[10px] text-gray-400">Code: &apos;&apos;</span>
+										</div>
+
+										{filteredCompanies.length === 0 ? (
+											<div className="p-3 text-center text-xs text-gray-400">
+												No companies match &quot;{sandboxCompanySearch}&quot;.
+												<button
+													type="button"
+													onClick={() => {
+														setSandboxCompanyCode(sandboxCompanySearch.trim());
+														setIsCompanyDropdownOpen(false);
+													}}
+													className="mt-1.5 block mx-auto text-[#0071BC] font-bold text-[11px] underline"
+												>
+													Use &quot;{sandboxCompanySearch}&quot; as manual code
+												</button>
+											</div>
+										) : (
+											filteredCompanies.map((c, idx) => (
+												<div
+													key={`${c.companyCode}_${c.divisionName || idx}`}
+													className={`flex items-center justify-between p-2.5 text-xs hover:bg-blue-50 cursor-pointer transition-colors ${
+														sandboxCompanyCode === c.companyCode ? "bg-blue-50 font-bold text-blue-900" : "text-gray-800"
+													}`}
+													onClick={() => {
+														setSandboxCompanyCode(c.companyCode);
+														setSandboxCompanySearch(c.companyName);
+														setIsCompanyDropdownOpen(false);
+													}}
+												>
+													<div className="truncate mr-2">
+														<span className="font-semibold">{c.companyName}</span>
+														{c.divisionName && (
+															<span className="ml-1.5 text-[10px] text-gray-500 font-normal">
+																• {c.divisionName}
+															</span>
+														)}
+													</div>
+													<span className="shrink-0 rounded bg-purple-100 px-2 py-0.5 font-mono text-[10px] font-bold text-purple-800">
+														{c.companyCode}
+													</span>
+												</div>
+											))
+										)}
+									</div>
+								)}
+							</div>
+						</div>
+
+						{/* Live Generated Debug SQL Query Card */}
+						<div className="rounded-2xl border border-gray-800 bg-gray-950 p-4 text-xs font-mono shadow-md space-y-2">
+							<div className="flex flex-wrap items-center justify-between gap-2 border-b border-gray-800 pb-2.5">
+								<div className="flex items-center gap-2">
+									<Terminal className="h-4 w-4 text-emerald-400" />
+									<span className="font-bold text-emerald-400 uppercase tracking-wide text-[11px]">
+										Generated Debug SQL Query
+									</span>
+									<span className="rounded bg-gray-800 px-2 py-0.5 text-[10px] text-gray-300 font-mono">
+										{selectedProcedure}
+									</span>
+								</div>
+
+								<button
+									type="button"
+									onClick={() => handleCopySql(liveDebugSql)}
+									className="inline-flex items-center gap-1.5 rounded-lg bg-gray-800 hover:bg-gray-700 px-3 py-1 text-xs font-bold text-white transition-colors border border-gray-700"
+								>
+									{copiedSql ? (
+										<>
+											<Check className="h-3.5 w-3.5 text-emerald-400" />
+											<span className="text-emerald-400">Copied!</span>
+										</>
+									) : (
+										<>
+											<Copy className="h-3.5 w-3.5 text-gray-300" />
+											<span>Copy SQL Query</span>
+										</>
+									)}
+								</button>
+							</div>
+
+							<div className="text-[11px] text-gray-400">
+								Run directly in MySQL Workbench, DBeaver, or phpMyAdmin to verify raw database output against the web portal:
+							</div>
+
+							<div className="rounded-xl bg-black/60 p-3 overflow-x-auto border border-gray-800 select-all">
+								<pre className="text-emerald-300 font-mono text-xs whitespace-pre-wrap leading-relaxed">
+									{liveDebugSql}
+								</pre>
+							</div>
+						</div>
+
+						{/* Execution Action Button */}
+						<div className="flex items-center gap-3">
+							<button
+								className="rounded-xl bg-[#0071BC] px-6 py-2.5 font-bold text-xs text-white shadow-xs hover:bg-[#005a96] transition flex items-center gap-2"
+								disabled={isPending}
+								onClick={handleRunSandbox}
+								type="button"
+							>
+								<Play className="h-3.5 w-3.5" />
+								<span>{isPending ? "Executing in MySQL Engine..." : "Execute & Benchmark Procedure in Backend"}</span>
+							</button>
+
+							<span className="text-xs text-gray-500 font-medium">
+								Read-only query executed in isolated transaction.
+							</span>
+						</div>
+
+						{/* Results & Verification View */}
+						{sandboxResult && (
+							<div className="mt-5 border-t border-gray-100 pt-5 space-y-4 font-mono">
+								{/* Summary Status Badges */}
+								<div className="flex flex-wrap gap-3 text-xs">
+									<span
+										className={`rounded-lg px-2.5 py-1 font-bold ${
+											sandboxResult.success
+												? "bg-emerald-100 text-emerald-800 border border-emerald-200"
+												: "bg-rose-100 text-rose-800 border border-rose-200"
+										}`}
+									>
+										Status: {sandboxResult.success ? "SUCCESS" : "ERROR"}
+									</span>
+									<span className="rounded-lg bg-blue-100 px-2.5 py-1 font-bold text-blue-800 border border-blue-200">
+										Duration: {sandboxResult.data?.durationMs ?? sandboxResult.durationMs ?? 0} ms
+									</span>
+									<span className="rounded-lg bg-purple-100 px-2.5 py-1 font-bold text-purple-800 border border-purple-200">
+										Rows Returned: {sandboxResult.data?.rowCount ?? sandboxResult.rowCount ?? 0}
+									</span>
+								</div>
+
+								{/* Error Callout */}
+								{sandboxResult.error && (
+									<div className="rounded-xl border border-rose-200 bg-rose-50 p-4 text-xs font-sans text-rose-900">
+										<div className="font-bold flex items-center gap-1.5 mb-1 text-rose-700">
+											<AlertOctagon className="h-4 w-4" />
+											<span>Database Procedure Error</span>
+										</div>
+										<p>{sandboxResult.error}</p>
+									</div>
+								)}
+
+								{/* Verified Backend Executed Query Card */}
+								<div className="rounded-2xl border border-blue-200 bg-blue-50/50 p-4 space-y-2">
+									<div className="flex flex-wrap items-center justify-between gap-2">
+										<div className="flex items-center gap-2">
+											<Terminal className="h-4 w-4 text-[#0071BC]" />
+											<h4 className="font-bold text-xs uppercase tracking-wider text-gray-900">
+												Backend Executed SQL Query (Direct DB Verification)
+											</h4>
+										</div>
+										<button
+											type="button"
+											onClick={() =>
+												handleCopySql(
+													sandboxResult.debugSql ||
+													sandboxResult.data?.debugSql ||
+													liveDebugSql
+												)
+											}
+											className="inline-flex items-center gap-1.5 rounded-lg bg-[#0071BC] hover:bg-[#005a96] px-3 py-1 font-bold text-xs text-white shadow-xs transition"
+										>
+											{copiedSql ? (
+												<>
+													<Check className="h-3.5 w-3.5 text-white" />
+													<span>Copied to Clipboard!</span>
+												</>
+											) : (
+												<>
+													<Copy className="h-3.5 w-3.5" />
+													<span>Copy SQL for MySQL / DBeaver</span>
+												</>
+											)}
+										</button>
+									</div>
+									<p className="text-[11px] text-gray-600 font-sans">
+										Copy and run this exact statement directly in MySQL Workbench, DBeaver, or phpMyAdmin to verify raw procedure output against the portal:
+									</p>
+									<div className="rounded-xl bg-gray-900 p-3 font-mono text-xs text-emerald-400 overflow-x-auto select-all border border-gray-800">
+										<code>
+											{sandboxResult.debugSql || sandboxResult.data?.debugSql || liveDebugSql}
+										</code>
+									</div>
+								</div>
+
+								{/* Column Schema Badges */}
+								{((sandboxResult.data?.columns || sandboxResult.columns) as string[])?.length > 0 && (
+									<div className="space-y-1.5">
+										<div className="text-[11px] font-bold text-gray-600 uppercase tracking-wider">
+											Result Columns ({((sandboxResult.data?.columns || sandboxResult.columns) as string[]).length})
+										</div>
+										<div className="flex flex-wrap gap-1 text-[11px]">
+											{((sandboxResult.data?.columns || sandboxResult.columns) as string[]).map((c: string) => (
+												<span className="rounded bg-gray-100 border border-gray-200 px-2 py-0.5 text-gray-700" key={c}>
+													{c}
+												</span>
+											))}
+										</div>
+									</div>
+								)}
+
+								{/* Sample Rows JSON */}
+								{((sandboxResult.data?.sampleRows || sandboxResult.sampleRows) as any[])?.length > 0 && (
+									<div className="space-y-1.5">
+										<div className="flex items-center justify-between text-[11px]">
+											<span className="font-bold text-gray-600 uppercase tracking-wider">
+												Sample Rows ({Math.min(10, ((sandboxResult.data?.sampleRows || sandboxResult.sampleRows) as any[]).length)} of {sandboxResult.data?.rowCount ?? sandboxResult.rowCount ?? 0})
+											</span>
+											<button
+												type="button"
+												onClick={() =>
+													handleCopySql(
+														JSON.stringify(
+															sandboxResult.data?.sampleRows || sandboxResult.sampleRows,
+															null,
+															2
+														)
+													)
+												}
+												className="text-[11px] font-bold text-[#0071BC] hover:underline"
+											>
+												Copy Sample Rows JSON
+											</button>
+										</div>
+										<div className="max-h-72 overflow-auto rounded-xl border border-gray-200 bg-gray-50 text-[11px]">
+											<pre className="p-3 text-gray-800">
+												{JSON.stringify(
+													((sandboxResult.data?.sampleRows || sandboxResult.sampleRows) as any[]).slice(0, 10),
+													null,
+													2
+												)}
+											</pre>
+										</div>
 									</div>
 								)}
 							</div>
