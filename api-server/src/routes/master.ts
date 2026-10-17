@@ -13,7 +13,6 @@ const SELECT_MKT_MR_COLUMNS = `
   mr.JobProfile AS JobProfile,
   mr.IsInActive AS IsInActive,
   mr.ShowDealerSalesinWeb AS ShowDealerSalesinWeb,
-  mr.\`Rank\` AS \`Rank\`,
   l.Division AS DivisionName,
   m.ID AS CompanyID,
   m.Code AS CompanyCode,
