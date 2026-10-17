@@ -8,7 +8,7 @@ import {
 	getServiceHealthTelemetry,
 	getUnifiedSystemLogs,
 } from "@/server/actions/devDiagnostics";
-import { fetchMRsPage, getAllMarketingCompaniesWithDivisions } from "@/server/actions/mrInfo";
+import { getAllMRsForDev, getAllMarketingCompaniesWithDivisions } from "@/server/actions/mrInfo";
 import { auth } from "@/server/auth";
 
 export const metadata = {
@@ -33,7 +33,7 @@ export default async function DeveloperControlPage() {
 		maintenanceConfig,
 		runtimeConfig,
 		initialLogs,
-		mrPageData,
+		allDevMRs,
 		companiesData,
 	] = await Promise.all([
 		getServiceHealthTelemetry(),
@@ -42,18 +42,22 @@ export default async function DeveloperControlPage() {
 		getMaintenanceConfig(),
 		getRuntimeConfig(),
 		getUnifiedSystemLogs({ limit: 100 }),
-		fetchMRsPage({ page: 1, limit: 100 }),
+		getAllMRsForDev(),
 		getAllMarketingCompaniesWithDivisions().catch(() => []),
 	]);
 
 	const maskedEnv = getMaskedEnvInspection();
-	const mrList = mrPageData.items.map((m) => ({
+	const mrList = allDevMRs.map((m) => ({
 		id: m.id,
 		name: m.name,
 		email: m.email || "",
 		division: m.division,
 		company: m.company,
+		companyCode: m.companyCode,
 		rank: m.rank,
+		assignedCompanies: (m.assignments || [])
+			.map((a) => a.manufacturer)
+			.filter(Boolean),
 	}));
 
 	// Deduplicate and assemble companies list for procedure sandbox search
@@ -71,7 +75,7 @@ export default async function DeveloperControlPage() {
 	});
 
 	// Augment with MR assignments to guarantee comprehensive coverage
-	mrPageData.items.forEach((m) => {
+	allDevMRs.forEach((m) => {
 		const code = (m.companyCode || "").trim();
 		const compName = (m.company || code).trim();
 		if (code) {
