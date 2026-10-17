@@ -113,7 +113,33 @@ masterRouter.get("/mr-info/:id", async (req: Request, res: Response) => {
     const results = rows as any[];
 
     if (results && results.length > 0) {
-      res.json({ success: true, data: normalizeLegacyMR(results[0]) });
+      const primary = results[0];
+      const name = (primary.MRName || "").trim();
+      const email = (primary.EmailId || "").trim();
+      const isSynth = !email || email.toLowerCase().includes("@asmeepharma.com");
+
+      // Query all matching division rows for this MR
+      const matchQuery = !isSynth
+        ? `${LEGACY_MKT_MR_QUERY} WHERE mr.EmailId = ? OR (LOWER(TRIM(mr.MRName)) = LOWER(TRIM(?))) ORDER BY mr.ID ASC`
+        : `${LEGACY_MKT_MR_QUERY} WHERE LOWER(TRIM(mr.MRName)) = LOWER(TRIM(?)) ORDER BY mr.ID ASC`;
+      const matchParams = !isSynth ? [email, name] : [name];
+      const [allRows] = await dbPool.query(matchQuery, matchParams);
+      const allList = (allRows as any[]) || [primary];
+
+      const norm = normalizeLegacyMR(primary) as any;
+      const assignments = allList.map((item) => ({
+        id: String(item.ID),
+        divisionId: item.DivisionID || null,
+        division: item.DivisionName ? String(item.DivisionName).trim() : null,
+        companyId: item.CompanyID || null,
+        companyCode: item.CompanyCode ? String(item.CompanyCode).trim() : null,
+        company: item.CompanyName ? String(item.CompanyName).trim() : null,
+        manufacturer: item.CompanyName ? String(item.CompanyName).trim() : (item.DivisionName || "General"),
+      }));
+      norm.assignments = assignments;
+      norm.allIds = Array.from(new Set(allList.map((item) => String(item.ID))));
+
+      res.json({ success: true, data: norm });
       return;
     }
 

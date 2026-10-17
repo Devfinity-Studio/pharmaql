@@ -24,14 +24,16 @@ authRouter.post("/mr-lookup", async (req: Request, res: Response) => {
         mr.EmailId AS EmailId,
         mr.MobileNo AS MobileNo,
         mr.IsInActive AS IsInActive,
+        mr.DivisionID AS DivisionID,
         l.Division AS DivisionName,
+        m.ID AS CompanyID,
         m.Code AS CompanyCode,
         m.Description AS CompanyName
       FROM \`pdyasvmaster\`.\`l_mktcompany_mr\` mr
       LEFT JOIN \`pdyasvmaster\`.\`l_mktcompany\` l ON mr.DivisionID = l.ID
       LEFT JOIN \`pdyasvmaster\`.\`m_mktcompany\` m ON l.CompCode = m.Code
       WHERE mr.EmailId = ? OR mr.MobileNo = ? OR mr.MRName = ?
-      LIMIT 1
+      ORDER BY mr.ID ASC
       `,
       [cleanInput, cleanInput, cleanInput]
     );
@@ -43,6 +45,20 @@ authRouter.post("/mr-lookup", async (req: Request, res: Response) => {
     }
 
     const mr = mrList[0];
+    const assignments = mrList.map((item) => ({
+      id: String(item.ID),
+      divisionId: item.DivisionID || null,
+      division: item.DivisionName ? String(item.DivisionName).trim() : null,
+      companyId: item.CompanyID || null,
+      companyCode: item.CompanyCode ? String(item.CompanyCode).trim() : null,
+      company: item.CompanyName ? String(item.CompanyName).trim() : null,
+      manufacturer: item.CompanyName ? String(item.CompanyName).trim() : (item.DivisionName || "General"),
+    }));
+
+    const allDivisions = Array.from(new Set(assignments.map((a: any) => a.division).filter(Boolean)));
+    const allCompanies = Array.from(new Set(assignments.map((a: any) => a.company).filter(Boolean)));
+    const allCodes = Array.from(new Set(assignments.map((a: any) => a.companyCode).filter(Boolean)));
+
     res.json({
       success: true,
       data: {
@@ -50,11 +66,13 @@ authRouter.post("/mr-lookup", async (req: Request, res: Response) => {
         name: (mr.MRName || "Medical Representative").trim(),
         email: (mr.EmailId || "").trim(),
         mobile: (mr.MobileNo || "").trim(),
-        division: mr.DivisionName ? String(mr.DivisionName).trim() : null,
-        company: mr.CompanyName ? String(mr.CompanyName).trim() : null,
-        companyCode: mr.CompanyCode ? String(mr.CompanyCode).trim() : null,
-        isBlocked: Number(mr.IsInActive || 0) === 1,
+        division: allDivisions.join(", ") || (mr.DivisionName ? String(mr.DivisionName).trim() : null),
+        company: allCompanies.join(", ") || (mr.CompanyName ? String(mr.CompanyName).trim() : null),
+        companyCode: allCodes.join(",") || (mr.CompanyCode ? String(mr.CompanyCode).trim() : null),
+        isBlocked: mrList.every((item) => Number(item.IsInActive || 0) === 1),
         locNo: "11",
+        assignments,
+        allIds: Array.from(new Set(mrList.map((item) => String(item.ID)))),
       },
     });
   } catch (error: any) {

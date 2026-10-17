@@ -88,13 +88,26 @@ export async function GET(request: Request) {
 		return new NextResponse("Forbidden - View disabled", { status: 403 });
 	}
 
-	const compCodeToQuery =
-		company === "All"
-			? mrInfo.companyCode || ""
-			: mrInfo.companyCode &&
-					(mrInfo.company === company || mrInfo.division === company)
-				? mrInfo.companyCode
-				: company;
+	const compCodeToQuery = (() => {
+		if (company === "All") {
+			const allCodes = Array.from(
+				new Set(
+					(mrInfo.assignments || [])
+						.map((a) => a.companyCode)
+						.filter(Boolean),
+				),
+			);
+			return allCodes.length > 0 ? allCodes.join(",") : mrInfo.companyCode || "";
+		}
+		const matchingAssignment = (mrInfo.assignments || []).find(
+			(a) =>
+				a.division === company ||
+				a.manufacturer === company ||
+				a.company === company,
+		);
+		if (matchingAssignment?.companyCode) return matchingAssignment.companyCode;
+		return mrInfo.companyCode || company;
+	})();
 
 	const defaultT1 = getDefaultTMinus1MonthRange();
 	const defaultFrom = from || defaultT1.from;

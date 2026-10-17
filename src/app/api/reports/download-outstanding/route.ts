@@ -80,20 +80,42 @@ export async function GET(request: Request) {
 	}
 
 	// Query live stored procedure rptMRwisePeriodicalOutstanding
-	const compCodeToQuery =
-		division === "All"
-			? mrInfo.companyCode || mrInfo.company || ""
-			: mrInfo.companyCode &&
-					(mrInfo.company === division || mrInfo.division === division)
-				? mrInfo.companyCode
-				: division;
+	const compCodeToQuery = (() => {
+		if (division === "All") {
+			const allCodes = Array.from(
+				new Set(
+					(mrInfo.assignments || [])
+						.map((a) => a.companyCode)
+						.filter(Boolean),
+				),
+			);
+			return allCodes.length > 0
+				? allCodes.join(",")
+				: mrInfo.companyCode || mrInfo.company || "";
+		}
+		const matchingAssignment = (mrInfo.assignments || []).find(
+			(a) =>
+				a.division === division ||
+				a.manufacturer === division ||
+				a.company === division,
+		);
+		if (matchingAssignment?.companyCode) return matchingAssignment.companyCode;
+		return mrInfo.companyCode || division;
+	})();
 
 	const defaultT1 = getDefaultTMinus1MonthRange();
 	const defaultFrom = from || defaultT1.from;
 	const defaultTo = to || defaultT1.to;
 
+	const targetMrId =
+		division === "All" && mrInfo.allIds && mrInfo.allIds.length > 0
+			? mrInfo.allIds.join(", ")
+			: (mrInfo.assignments?.find(
+					(a) => a.division === division || a.manufacturer === division,
+				)?.id || mrId);
+
 	const procResult = await getMRwisePeriodicalOutstanding({
-		mrId,
+		mrId: targetMrId,
 		compCode: compCodeToQuery,
 		fromDate: defaultFrom,
 		toDate: defaultTo,

@@ -70,13 +70,28 @@ export async function ProductReportView({
 		return <div>No access to products data.</div>;
 
 	const company = searchParams?.division || "All";
-	const compCodeToQuery =
-		company === "All"
-			? mrInfo.companyCode || mrInfo.company || ""
-			: mrInfo.companyCode &&
-				(mrInfo.company === company || mrInfo.division === company)
-				? mrInfo.companyCode
-				: company;
+	const compCodeToQuery = (() => {
+		if (company === "All") {
+			const allCodes = Array.from(
+				new Set(
+					(mrInfo.assignments || [])
+						.map((a) => a.companyCode)
+						.filter(Boolean),
+				),
+			);
+			return allCodes.length > 0
+				? allCodes.join(",")
+				: mrInfo.companyCode || mrInfo.company || "";
+		}
+		const matchingAssignment = (mrInfo.assignments || []).find(
+			(a) =>
+				a.division === company ||
+				a.manufacturer === company ||
+				a.company === company,
+		);
+		if (matchingAssignment?.companyCode) return matchingAssignment.companyCode;
+		return mrInfo.companyCode || company;
+	})();
 
 	const fromParam = searchParams?.from || "2026-04-01";
 	const toParam = searchParams?.to || "2026-09-30";

@@ -228,13 +228,25 @@ export function MRListInfiniteScroll({
 												{mr.company || "Not assigned"}
 											</span>
 										</div>
-										<div className="flex items-start justify-between gap-2">
-											<span className="font-semibold text-gray-500 uppercase tracking-wider text-[11px]">
-												Division
-											</span>
-											<span className="font-semibold text-blue-700 text-right">
-												{mr.division || "Not assigned"}
-											</span>
+										<div className="flex flex-col gap-1.5 pt-1 border-t border-gray-100">
+											<div className="flex items-center justify-between">
+												<span className="font-semibold text-gray-500 uppercase tracking-wider text-[11px]">
+													Assigned Divisions ({mr.assignments && mr.assignments.length > 0 ? mr.assignments.length : 1})
+												</span>
+											</div>
+											<div className="flex flex-wrap gap-1">
+												{(mr.assignments && mr.assignments.length > 0
+													? Array.from(new Set(mr.assignments.map((a) => a.division).filter(Boolean)))
+													: mr.division ? [mr.division] : []
+												).map((divName) => (
+													<span
+														key={divName}
+														className="rounded-md border border-blue-200 bg-blue-50 px-2 py-0.5 font-bold text-blue-800 text-[11px]"
+													>
+														{divName}
+													</span>
+												))}
+											</div>
 										</div>
 									</div>
 								</div>

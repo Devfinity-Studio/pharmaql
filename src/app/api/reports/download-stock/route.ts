@@ -74,20 +74,23 @@ export async function GET(request: Request) {
 
 	const effectiveLocNo = mrInfo.locNo || "11";
 
-	const assignments = mrInfo.company
-		? [
-				{
-					id: `legacy-${mrId}`,
-					mrId,
-					manufacturer: mrInfo.company,
-					firmNo: null,
-					division: mrInfo.division || null,
-					company: mrInfo.company,
-					companyCode: mrInfo.companyCode,
-					createdAt: new Date(),
-				},
-			]
-		: [];
+	const assignments =
+		mrInfo.assignments && mrInfo.assignments.length > 0
+			? mrInfo.assignments
+			: mrInfo.company
+				? [
+						{
+							id: `legacy-${mrId}`,
+							mrId,
+							manufacturer: mrInfo.company,
+							firmNo: null,
+							division: mrInfo.division || null,
+							company: mrInfo.company,
+							companyCode: mrInfo.companyCode,
+							createdAt: new Date(),
+						},
+					]
+				: [];
 
 	const selectedAssignments =
 		company === "All"
