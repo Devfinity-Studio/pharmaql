@@ -1,0 +1,36 @@
+[
+  {
+    "id": "FB-20261017-C39M",
+    "category": "BUG",
+    "urgency": "HIGH",
+    "status": "RESOLVED",
+    "title": "Stock statement negative value glitch on Baroda 2026",
+    "description": "When filtering by division Generics, item Paracetamol 500mg shows -5 balance.",
+    "contactNote": "Available on 9876543210 during evening clinic visits",
+    "submittedBy": {
+      "userId": "MR-9921",
+      "userName": "Rajesh Kumar",
+      "userEmail": "rajesh.mr@asmeepharma.com",
+      "userRole": "MR",
+      "mrRank": 2,
+      "division": "Generics"
+    },
+    "diagnostics": {
+      "url": "https://pharmaql.vercel.app/dashboard?tab=stock&division=Generics",
+      "tab": "stock",
+      "division": "Generics",
+      "userAgent": "Mozilla/5.0 (Linux; Android 14; Pixel 8) Mobile Safari/537.36",
+      "viewport": "412x915 (2.625x)",
+      "isPwa": true,
+      "isOnline": true,
+      "recentErrors": [
+        "[Error] Unhandled division key parsing at stock-table.tsx:42"
+      ],
+      "ip": "103.21.244.1"
+    },
+    "createdAt": "2026-10-17T13:38:26.230Z",
+    "updatedAt": "2026-10-17T13:38:26.240Z",
+    "developerNotes": "Fixed stock balance calculation formula in stored procedure.",
+    "resolvedAt": "2026-10-17T13:38:26.240Z"
+  }
+]

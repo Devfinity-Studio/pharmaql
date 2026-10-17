@@ -11,6 +11,8 @@ import { MrMobileNav } from "@/components/mr-mobile-nav";
 import { getLicenseStatus } from "@/lib/license";
 import { isUnderMaintenance } from "@/lib/maintenance";
 import { auth } from "@/server/auth";
+import { ErrorBoundary } from "@/components/error-boundary";
+import { FloatingFeedbackButton } from "@/components/floating-feedback-button";
 
 export default async function MRLayout({ children }: { children: ReactNode }) {
 	const session = await auth.api.getSession({
@@ -105,9 +107,12 @@ export default async function MRLayout({ children }: { children: ReactNode }) {
 
 				{/* Independent Scrolling Content Workspace */}
 				<main className="relative z-10 flex-1 overflow-y-auto bg-[#F8FAFC] p-4 md:p-10">
-					{children}
+					<ErrorBoundary>
+						{children}
+					</ErrorBoundary>
 				</main>
 			</div>
+			<FloatingFeedbackButton />
 			<MrMobileNav mrId={session.user.id} mrName={session.user.name} />
 		</div>
 	);
