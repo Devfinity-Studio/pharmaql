@@ -1,6 +1,6 @@
 import React from "react";
-import { ReportStationeryHeader } from "@/components/report-stationery-header";
 import { OfflineReportSync } from "@/components/offline-report-sync";
+import { ReportStationeryHeader } from "@/components/report-stationery-header";
 import { getMRInfo } from "@/server/actions/mrInfo";
 import {
 	getStockMovement,
@@ -110,6 +110,15 @@ export async function StockReportView({
 
 	// Filter rows by assigned divisions/companies directly without cutting strings
 	const matchingRows = response.data.filter((row: StockMovementRow) => {
+		if (company !== "All") {
+			const sel = company.trim().toUpperCase();
+			const rowDiv = (row.Division || "").toString().trim().toUpperCase();
+			const rowMake = (row.Make || "").toString().trim().toUpperCase();
+			if (rowDiv) {
+				return rowDiv === sel || rowDiv.includes(sel) || sel.includes(rowDiv);
+			}
+			return rowMake === sel || rowMake.includes(sel) || sel.includes(rowMake);
+		}
 		return selectedAssignments.some((a) => {
 			const mfgName = a.manufacturer?.trim().toUpperCase();
 			const divName = a.division?.trim().toUpperCase();
@@ -125,7 +134,6 @@ export async function StockReportView({
 
 			const matchesDiv =
 				!divName ||
-				divName === mfgName ||
 				rowDiv === divName ||
 				rowDiv.includes(divName) ||
 				divName.includes(rowDiv);
@@ -212,15 +220,19 @@ export async function StockReportView({
 			/>
 			{/* Official Stationery Header */}
 			<ReportStationeryHeader
-				title="Stock Movement Statement"
-				fromDisplay={fromDate ? fromDate.split("-").reverse().join("/") : undefined}
-				toDisplay={toDate ? toDate.split("-").reverse().join("/") : undefined}
+				fromDisplay={
+					fromDate ? fromDate.split("-").reverse().join("/") : undefined
+				}
 				summaryRight={
 					<div className="flex flex-col items-end gap-0.5 text-right">
 						<span>Total Items: {reportData.length}</span>
-						<span className="font-semibold text-gray-500 text-[10px]">Value Calc. on: PRate</span>
+						<span className="font-semibold text-[10px] text-gray-500">
+							Value Calc. on: PRate
+						</span>
 					</div>
 				}
+				title="Stock Movement Statement"
+				toDisplay={toDate ? toDate.split("-").reverse().join("/") : undefined}
 			/>
 
 			<div className="w-full overflow-x-auto border-[#0B2545] border-t-2 pt-1">

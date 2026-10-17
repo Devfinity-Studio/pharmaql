@@ -1,16 +1,16 @@
 import { headers } from "next/headers";
 import { NextResponse } from "next/server";
 import * as xlsx from "xlsx";
+import { recordAuditEvent } from "@/lib/audit-logger";
 import { buildStyledExcelBuffer } from "@/lib/excel";
+import { rateLimitReportDownload } from "@/lib/rate-limit";
+import { getClientIp, getClientUserAgent } from "@/lib/security";
 import { getMRInfo } from "@/server/actions/mrInfo";
 import {
 	getStockMovement,
 	type StockMovementRow,
 } from "@/server/actions/stockreports";
 import { auth } from "@/server/auth";
-import { getClientIp, getClientUserAgent } from "@/lib/security";
-import { rateLimitReportDownload } from "@/lib/rate-limit";
-import { recordAuditEvent } from "@/lib/audit-logger";
 
 export async function GET(request: Request) {
 	const reqHeaders = await headers();
@@ -118,6 +118,15 @@ export async function GET(request: Request) {
 
 	// Filter rows strictly by assigned divisions/companies directly without cutting strings
 	const matchingRows = items.filter((row: StockMovementRow) => {
+		if (company !== "All") {
+			const sel = company.trim().toUpperCase();
+			const rowDiv = (row.Division || "").toString().trim().toUpperCase();
+			const rowMake = (row.Make || "").toString().trim().toUpperCase();
+			if (rowDiv) {
+				return rowDiv === sel || rowDiv.includes(sel) || sel.includes(rowDiv);
+			}
+			return rowMake === sel || rowMake.includes(sel) || sel.includes(rowMake);
+		}
 		if (selectedAssignments.length === 0) return true;
 		return selectedAssignments.some((a) => {
 			const mfgName = a.manufacturer?.trim().toUpperCase();
@@ -134,7 +143,6 @@ export async function GET(request: Request) {
 
 			const matchesDiv =
 				!divName ||
-				divName === mfgName ||
 				rowDiv === divName ||
 				rowDiv.includes(divName) ||
 				divName.includes(rowDiv);
@@ -262,12 +270,22 @@ export async function GET(request: Request) {
 			{ header: "Division", key: "Division", width: 18 },
 			{ header: "Manufacturer", key: "Manufacturer", width: 22 },
 			{ header: "Opening Qty", key: "Opening Qty", width: 14, numFmt: "#,##0" },
-			{ header: "Purchase Qty", key: "Purchase Qty", width: 14, numFmt: "#,##0" },
+			{
+				header: "Purchase Qty",
+				key: "Purchase Qty",
+				width: 14,
+				numFmt: "#,##0",
+			},
 			{ header: "Sales Qty", key: "Sales Qty", width: 14, numFmt: "#,##0" },
 			{ header: "Balance Qty", key: "Balance Qty", width: 14, numFmt: "#,##0" },
 			{ header: "PTR", key: "PTR", width: 12, numFmt: "#,##0.00" },
 			{ header: "P Rate", key: "P Rate", width: 12, numFmt: "#,##0.00" },
-			{ header: "Stock Value", key: "Stock Value", width: 16, numFmt: "#,##0.00" },
+			{
+				header: "Stock Value",
+				key: "Stock Value",
+				width: 16,
+				numFmt: "#,##0.00",
+			},
 		];
 
 		const excelBuf = await buildStyledExcelBuffer({

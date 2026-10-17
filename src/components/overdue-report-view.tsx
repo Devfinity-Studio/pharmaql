@@ -1,6 +1,6 @@
 import React from "react";
-import { ReportStationeryHeader } from "@/components/report-stationery-header";
 import { OfflineReportSync } from "@/components/offline-report-sync";
+import { ReportStationeryHeader } from "@/components/report-stationery-header";
 import { getCustomerBlockingMap } from "@/server/actions/customerBlocking";
 import { getMRInfo } from "@/server/actions/mrInfo";
 import {
@@ -66,9 +66,9 @@ export async function OverdueReportView({
 	const compCodeToQuery =
 		company === "All"
 			? mrInfo.companyCode ||
-			(targetCompanies.length > 0 ? targetCompanies : "")
+				(targetCompanies.length > 0 ? targetCompanies : "")
 			: mrInfo.companyCode &&
-				(mrInfo.company === company || mrInfo.division === company)
+					(mrInfo.company === company || mrInfo.division === company)
 				? mrInfo.companyCode
 				: company;
 
@@ -91,6 +91,18 @@ export async function OverdueReportView({
 
 	let rowsToProcess =
 		procResult.success && procResult.data ? procResult.data : [];
+
+	if (company !== "All") {
+		const sel = company.trim().toUpperCase();
+		rowsToProcess = rowsToProcess.filter((r) => {
+			const rowDiv = (r.Division || "").toString().trim().toUpperCase();
+			const rowComp = (r.CompCode || "").toString().trim().toUpperCase();
+			if (rowDiv) {
+				return rowDiv === sel || rowDiv.includes(sel) || sel.includes(rowDiv);
+			}
+			return rowComp === sel || rowComp.includes(sel) || sel.includes(rowComp);
+		});
+	}
 
 	if (searchParams?.party) {
 		const partyFilter = searchParams.party.toLowerCase();
@@ -174,10 +186,10 @@ export async function OverdueReportView({
 			/>
 			{/* Official Stationery Header */}
 			<ReportStationeryHeader
-				title="Overdue (Purchase Days & Outstanding) Statement"
 				fromDisplay={fromDisplay}
-				toDisplay={toDisplay}
 				summaryRight={`Total Records: ${reportData.length}`}
+				title="Overdue (Purchase Days & Outstanding) Statement"
+				toDisplay={toDisplay}
 			/>
 
 			<div className="w-full overflow-x-auto border-[#0B2545] border-t-2 pt-1">
@@ -259,10 +271,11 @@ export async function OverdueReportView({
 														const isOlderThan90 = row["Purchase Days"] > 90;
 														return (
 															<tr
-																className={`border-gray-100 border-b transition-colors ${isOlderThan90
+																className={`border-gray-100 border-b transition-colors ${
+																	isOlderThan90
 																		? "bg-red-50/70 text-red-950 hover:bg-red-100/60"
 																		: "text-[#0B2545] hover:bg-gray-50"
-																	}`}
+																}`}
 																key={rowIdx}
 															>
 																<td className="whitespace-nowrap py-1.5 pl-2 font-semibold">
@@ -273,10 +286,11 @@ export async function OverdueReportView({
 																</td>
 																<td className="py-1.5">{row["Due Date"]}</td>
 																<td
-																	className={`py-1.5 text-right font-bold ${isOlderThan90
+																	className={`py-1.5 text-right font-bold ${
+																		isOlderThan90
 																			? "font-extrabold text-red-700"
 																			: "text-amber-600"
-																		}`}
+																	}`}
 																>
 																	{row["Purchase Days"]}
 																</td>
@@ -298,10 +312,11 @@ export async function OverdueReportView({
 																</td>
 																<td className="py-1.5">{row.City}</td>
 																<td
-																	className={`py-1.5 pr-2 text-right font-bold ${isOlderThan90
+																	className={`py-1.5 pr-2 text-right font-bold ${
+																		isOlderThan90
 																			? "font-black text-red-700"
 																			: "text-rose-600"
-																		}`}
+																	}`}
 																>
 																	{row["Amount Due"].toFixed(2)}
 																</td>

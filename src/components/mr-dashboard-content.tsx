@@ -4,6 +4,7 @@ import { DateRangePicker } from "@/components/date-range-picker";
 import { FilterSelect } from "@/components/filter-select";
 import { FreeSchemeReportView } from "@/components/free-scheme-report-view";
 import { MROverdueWarningModal } from "@/components/mr-overdue-warning-modal";
+import { OfflineReportSync } from "@/components/offline-report-sync";
 import { OutstandingDownloadButtons } from "@/components/outstanding-download-buttons";
 import { OverdueReportView } from "@/components/overdue-report-view";
 import { PartyReportView } from "@/components/party-report-view";
@@ -11,14 +12,14 @@ import { ProductReportView } from "@/components/product-report-view";
 import { ReportDownloadButtons } from "@/components/report-download-buttons";
 import { ReportTableSkeleton } from "@/components/report-table-skeleton";
 import { StockReportView } from "@/components/stock-report-view";
-import { OfflineReportSync } from "@/components/offline-report-sync";
+import { isFeatureEnabledForRole } from "@/lib/maintenance";
 import { getItemCustomerSale } from "@/server/actions/customerItemSale";
+import { getItemDivisionMap } from "@/server/actions/itemCatalog";
 import { getMRInfo } from "@/server/actions/mrInfo";
 import {
 	getMRwisePeriodicalOutstanding,
 	type OverduePeriodicalOutstandingRow,
 } from "@/server/actions/overdueReports";
-import { isFeatureEnabledForRole } from "@/lib/maintenance";
 
 function ServiceMaintenanceNotice({
 	title,
@@ -251,7 +252,7 @@ export async function MrDashboardContent({
 	const activeTab =
 		searchParams?.tab && allowedTabs.includes(searchParams.tab)
 			? searchParams.tab
-			: (allowedTabs[0] || "stock");
+			: allowedTabs[0] || "stock";
 
 	// If on the Overview tab and metrics need aggregation, query stored procedures
 	if (
@@ -265,7 +266,7 @@ export async function MrDashboardContent({
 
 		if (compCodeForProc) {
 			try {
-				const [liveSales, liveOut] = await Promise.all([
+				const [liveSales, liveOut, itemDivisionMap] = await Promise.all([
 					getItemCustomerSale({
 						fromDate: defaultFrom,
 						toDate: defaultTo,
@@ -291,16 +292,50 @@ export async function MrDashboardContent({
 						);
 						return { success: false, data: [] };
 					}),
+					selectedDivision !== "All"
+						? getItemDivisionMap(compCodeForProc, mrInfo.locNo || "11")
+						: Promise.resolve<Map<string, string> | null>(null),
 				]);
 
 				if (liveSales.success && liveSales.data) {
 					let procSalesQty = 0;
 					let procSalesAmt = 0;
+					const seenInv = new Set<string>();
+					const liveRecentInvoices: any[] = [];
+
 					liveSales.data.forEach((row) => {
+						if (selectedDivision !== "All" && itemDivisionMap) {
+							const sel = selectedDivision.trim().toUpperCase();
+							const name = (row.ItemName || "").toString().trim().toUpperCase();
+							const code = (row.ItemCode || "").toString().trim().toUpperCase();
+							const itemDiv =
+								itemDivisionMap.get(name) || itemDivisionMap.get(code);
+							if (
+								!itemDiv ||
+								!(
+									itemDiv === sel ||
+									itemDiv.includes(sel) ||
+									sel.includes(itemDiv)
+								)
+							) {
+								return;
+							}
+						}
+
 						const q = Number(row.Qty || 0);
 						const a = Number(row.IAmt || 0);
 						procSalesQty += q;
 						procSalesAmt += a;
+
+						if (row.InvNo && !seenInv.has(row.InvNo)) {
+							seenInv.add(row.InvNo);
+							liveRecentInvoices.push({
+								invNo: row.InvNo,
+								date: row.InvDt ? new Date(row.InvDt) : undefined,
+								invType: row.DocType || "INV",
+								invAmt: row.IAmt,
+							});
+						}
 
 						const pData = productMap.get(
 							String(row.ItemID || row.ItemCode),
@@ -320,13 +355,34 @@ export async function MrDashboardContent({
 								});
 						monthMap.set(m, (monthMap.get(m) || 0) + q);
 					});
-					if (totalSales === 0) totalSales = procSalesQty;
-					if (totalInvoicesAmt === 0) totalInvoicesAmt = procSalesAmt;
+					totalSales = procSalesQty;
+					totalInvoicesAmt = procSalesAmt;
+					if (liveRecentInvoices.length > 0) {
+						recentInvoices = liveRecentInvoices.slice(0, 8);
+					}
 				}
 
 				if (liveOut.success && liveOut.data) {
 					let procOutAmt = 0;
 					liveOut.data.forEach((row: OverduePeriodicalOutstandingRow) => {
+						if (selectedDivision !== "All") {
+							const sel = selectedDivision.trim().toUpperCase();
+							const rowDiv = (row.Division || "")
+								.toString()
+								.trim()
+								.toUpperCase();
+							const rowComp = (row.CompCode || "")
+								.toString()
+								.trim()
+								.toUpperCase();
+							const matchesDiv = rowDiv
+								? rowDiv === sel || rowDiv.includes(sel) || sel.includes(rowDiv)
+								: rowComp === sel ||
+									rowComp.includes(sel) ||
+									sel.includes(rowComp);
+							if (!matchesDiv) return;
+						}
+
 						const amt = Number(row.Amount || 0);
 						const adj = Number(row.AdjAmt || 0);
 						const net = amt - adj;
@@ -344,7 +400,7 @@ export async function MrDashboardContent({
 							docOutMap.set(key, existing);
 						}
 					});
-					if (totalOutstandingAmt === 0) totalOutstandingAmt = procOutAmt;
+					totalOutstandingAmt = procOutAmt;
 				}
 			} catch (err) {
 				console.error("[Dashboard] Error in parallel metric aggregation:", err);
@@ -412,9 +468,11 @@ export async function MrDashboardContent({
 				<div className="flex flex-col justify-between gap-3 md:flex-row md:items-center">
 					<div>
 						<h1 className="font-extrabold text-2xl text-[#0B2545] tracking-tight md:text-3xl">
-							{isAdminView ? `${mrInfo.name}'s Data` : `Welcome, ${mrInfo.name}`}
+							{isAdminView
+								? `${mrInfo.name}'s Data`
+								: `Welcome, ${mrInfo.name}`}
 						</h1>
-						<p className="mt-0.5 font-semibold text-sm text-gray-500">
+						<p className="mt-0.5 font-semibold text-gray-500 text-sm">
 							Viewing aggregated sales & financial data
 						</p>
 						{!isAdminView && (
@@ -479,7 +537,10 @@ export async function MrDashboardContent({
 									...(searchParams?.q && { q: searchParams.q }),
 								}).toString()}`}
 							>
-								All Divisions {assignedDivisions.length > 1 ? `(${assignedDivisions.length})` : ""}
+								All Divisions{" "}
+								{assignedDivisions.length > 1
+									? `(${assignedDivisions.length})`
+									: ""}
 							</Link>
 							{assignedDivisions.map((div) => {
 								const p = new URLSearchParams();
@@ -520,7 +581,7 @@ export async function MrDashboardContent({
 							)}
 						</>
 					) : (
-						<div className="flex items-center gap-1.5 rounded-lg border border-amber-200 bg-amber-50 px-3 py-1.5 text-xs text-amber-800">
+						<div className="flex items-center gap-1.5 rounded-lg border border-amber-200 bg-amber-50 px-3 py-1.5 text-amber-800 text-xs">
 							<span className="font-semibold">Export Paused (Maintenance)</span>
 						</div>
 					)}
@@ -625,270 +686,273 @@ export async function MrDashboardContent({
 					fallback={<ReportTableSkeleton />}
 					key={`${activeTab}-${selectedDivision}-${searchParams?.from || ""}-${searchParams?.to || ""}-${searchParams?.q || ""}-${searchParams?.party || ""}`}
 				>
-
-			{/* OVERVIEW TAB */}
-			{canViewSales && activeTab === "overview" && (
-				!salesFeature.enabled ? (
-					<ServiceMaintenanceNotice
-						title="Sales Analytics Temporarily Unavailable"
-						message={salesFeature.message}
-					/>
-				) : (
-					<div className="space-y-6">
-					<OfflineReportSync
-						data={{
-							totalSales,
-							totalInvoicesAmt,
-							totalOutstandingAmt,
-							monthlyReports,
-						}}
-						mrId={mrId}
-						params={searchParams}
-						tab="overview"
-					/>
-					{/* Refined Metric Cards Family */}
-					<div className="grid grid-cols-1 gap-6 md:grid-cols-3">
-						<div className="rounded-xl bg-[#0071BC] p-6 text-white shadow-sm">
-							<div>
-								<div className="mb-1 font-bold text-blue-100 text-xs uppercase tracking-wider">
-									Total Sales Volume
-								</div>
-								<div className="truncate font-extrabold text-4xl">
-									{totalSales.toLocaleString()}
-								</div>
-							</div>
-						</div>
-						<div className="rounded-xl bg-[#1E40AF] p-6 text-white shadow-sm">
-							<div>
-								<div className="mb-1 font-bold text-indigo-100 text-xs uppercase tracking-wider">
-									Total Invoices
-								</div>
-								<div className="truncate font-extrabold text-4xl">
-									₹
-									{totalInvoicesAmt.toLocaleString(undefined, {
-										minimumFractionDigits: 2,
-										maximumFractionDigits: 2,
-									})}
-								</div>
-							</div>
-						</div>
-						{/* Accessible Red Warning Frame Variant */}
-						<div className="rounded-xl bg-red-600 p-6 text-white shadow-sm">
-							<div>
-								<div className="mb-1 font-bold text-white text-xs uppercase tracking-wider">
-									Outstanding Balance
-								</div>
-								<div className="truncate font-extrabold text-4xl text-white">
-									₹
-									{totalOutstandingAmt.toLocaleString(undefined, {
-										minimumFractionDigits: 2,
-										maximumFractionDigits: 2,
-									})}
-								</div>
-							</div>
-						</div>
-					</div>
-
-					<div className="grid grid-cols-1 gap-8">
-						{/* Monthly Performance */}
-						<div className="space-y-4">
-							<h2 className="font-bold text-[#0B2545] text-xl">
-								Monthly Performance
-							</h2>
-							<div className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
-								<table className="min-w-full divide-y divide-gray-200">
-									<tbody className="divide-y divide-gray-200 bg-white">
-										{monthlyReports.length === 0 ? (
-											<tr>
-												<td className="px-6 py-4 text-center font-medium text-gray-500">
-													No data
-												</td>
-											</tr>
-										) : (
-											monthlyReports.slice(0, 8).map((r, idx) => (
-												<tr
-													className="transition-colors hover:bg-gray-50"
-													key={idx}
-												>
-													<td className="px-6 py-4 font-bold text-[#0B2545] text-sm">
-														{r.time}
-													</td>
-													<td className="px-6 py-4 text-right font-bold text-[#0071BC] text-sm">
-														{r.qty.toLocaleString()}
-													</td>
-												</tr>
-											))
-										)}
-									</tbody>
-								</table>
-							</div>
-						</div>
-
-						{/* Recent Invoices */}
-						<div className="space-y-4">
-							<h2 className="font-bold text-[#0B2545] text-xl">
-								Recent Invoices
-							</h2>
-							<div className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
-								<table className="min-w-full divide-y divide-gray-200">
-									<thead className="bg-gray-50">
-										<tr>
-											<th className="px-6 py-4 text-left font-bold text-gray-500 text-xs uppercase">
-												Invoice No
-											</th>
-											<th className="px-6 py-4 text-left font-bold text-gray-500 text-xs uppercase">
-												Date
-											</th>
-											<th className="px-6 py-4 text-left font-bold text-gray-500 text-xs uppercase">
-												Type
-											</th>
-											<th className="px-6 py-4 text-right font-bold text-gray-500 text-xs uppercase">
-												Amount
-											</th>
-										</tr>
-									</thead>
-									<tbody className="divide-y divide-gray-200 bg-white">
-										{recentInvoices.length === 0 ? (
-											<tr>
-												<td
-													className="px-6 py-8 text-center font-medium text-gray-500"
-													colSpan={4}
-												>
-													No recent invoices.
-												</td>
-											</tr>
-										) : (
-											recentInvoices.map((inv, idx) => (
-												<tr
-													className="transition-colors hover:bg-gray-50"
-													key={idx}
-												>
-													<td className="px-6 py-4 font-bold text-[#0B2545] text-sm">
-														{inv.invNo}
-													</td>
-													<td className="px-6 py-4 font-medium text-gray-500 text-sm">
-														{inv.date
-															? new Date(inv.date).toLocaleDateString()
-															: "N/A"}
-													</td>
-													<td className="px-6 py-4 text-gray-500 text-sm">
-														<span className="rounded-md bg-gray-100 px-2 py-1 font-bold text-gray-600 text-xs">
-															{inv.invType || "N/A"}
-														</span>
-													</td>
-													<td className="px-6 py-4 text-right font-bold text-[#0071BC] text-sm">
-														₹
-														{inv.invAmt
-															? parseFloat(inv.invAmt).toLocaleString(
-																	undefined,
-																	{
-																		minimumFractionDigits: 2,
-																		maximumFractionDigits: 2,
-																	},
-																)
-															: "0.00"}
-													</td>
-												</tr>
-											))
-										)}
-									</tbody>
-								</table>
-							</div>
-						</div>
-					</div>
-				</div>
-			)
-			)}
-
-			{/* DYNAMIC REPORTS */}
-			{activeTab === "products" && canViewProductWise && (
-				!productsFeature.enabled ? (
-					<ServiceMaintenanceNotice
-						title="Product Wise Report Temporarily Unavailable"
-						message={productsFeature.message}
-					/>
-				) : (
-					<div>
-						<div className="mb-4 flex items-center justify-between">
-							<form
-								action={baseUrl}
-								className="flex w-full max-w-sm gap-2"
-								method="GET"
-							>
-								{Object.entries(searchParams || {}).map(([k, v]) => {
-									if (k === "q") return null;
-									return (
-										<input key={k} name={k} type="hidden" value={v as string} />
-									);
-								})}
-								<input
-									className="flex-1 rounded-xl border border-gray-300 px-3 py-2"
-									defaultValue={searchParams?.q || ""}
-									name="q"
-									placeholder="Search product..."
+					{/* OVERVIEW TAB */}
+					{canViewSales &&
+						activeTab === "overview" &&
+						(!salesFeature.enabled ? (
+							<ServiceMaintenanceNotice
+								message={salesFeature.message}
+								title="Sales Analytics Temporarily Unavailable"
+							/>
+						) : (
+							<div className="space-y-6">
+								<OfflineReportSync
+									data={{
+										totalSales,
+										totalInvoicesAmt,
+										totalOutstandingAmt,
+										monthlyReports,
+									}}
+									mrId={mrId}
+									params={searchParams}
+									tab="overview"
 								/>
-								<button
-									className="rounded-xl bg-[#0071BC] px-4 py-2 font-bold text-white"
-									type="submit"
-								>
-									Search
-								</button>
-							</form>
-						</div>
-						<ProductReportView mrId={mrId} searchParams={searchParams} />
-					</div>
-				)
-			)}
+								{/* Refined Metric Cards Family */}
+								<div className="grid grid-cols-1 gap-6 md:grid-cols-3">
+									<div className="rounded-xl bg-[#0071BC] p-6 text-white shadow-sm">
+										<div>
+											<div className="mb-1 font-bold text-blue-100 text-xs uppercase tracking-wider">
+												Total Sales Volume
+											</div>
+											<div className="truncate font-extrabold text-4xl">
+												{totalSales.toLocaleString()}
+											</div>
+										</div>
+									</div>
+									<div className="rounded-xl bg-[#1E40AF] p-6 text-white shadow-sm">
+										<div>
+											<div className="mb-1 font-bold text-indigo-100 text-xs uppercase tracking-wider">
+												Total Invoices
+											</div>
+											<div className="truncate font-extrabold text-4xl">
+												₹
+												{totalInvoicesAmt.toLocaleString(undefined, {
+													minimumFractionDigits: 2,
+													maximumFractionDigits: 2,
+												})}
+											</div>
+										</div>
+									</div>
+									{/* Accessible Red Warning Frame Variant */}
+									<div className="rounded-xl bg-red-600 p-6 text-white shadow-sm">
+										<div>
+											<div className="mb-1 font-bold text-white text-xs uppercase tracking-wider">
+												Outstanding Balance
+											</div>
+											<div className="truncate font-extrabold text-4xl text-white">
+												₹
+												{totalOutstandingAmt.toLocaleString(undefined, {
+													minimumFractionDigits: 2,
+													maximumFractionDigits: 2,
+												})}
+											</div>
+										</div>
+									</div>
+								</div>
 
-			{activeTab === "party" && canViewPartyWise && (
-				!partyFeature.enabled ? (
-					<ServiceMaintenanceNotice
-						title="Party Wise Report Temporarily Unavailable"
-						message={partyFeature.message}
-					/>
-				) : (
-					<div>
-						<div className="mb-4 flex items-center justify-between"></div>
-						<PartyReportView mrId={mrId} searchParams={searchParams} />
-					</div>
-				)
-			)}
+								<div className="grid grid-cols-1 gap-8">
+									{/* Monthly Performance */}
+									<div className="space-y-4">
+										<h2 className="font-bold text-[#0B2545] text-xl">
+											Monthly Performance
+										</h2>
+										<div className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
+											<table className="min-w-full divide-y divide-gray-200">
+												<tbody className="divide-y divide-gray-200 bg-white">
+													{monthlyReports.length === 0 ? (
+														<tr>
+															<td className="px-6 py-4 text-center font-medium text-gray-500">
+																No data
+															</td>
+														</tr>
+													) : (
+														monthlyReports.slice(0, 8).map((r, idx) => (
+															<tr
+																className="transition-colors hover:bg-gray-50"
+																key={idx}
+															>
+																<td className="px-6 py-4 font-bold text-[#0B2545] text-sm">
+																	{r.time}
+																</td>
+																<td className="px-6 py-4 text-right font-bold text-[#0071BC] text-sm">
+																	{r.qty.toLocaleString()}
+																</td>
+															</tr>
+														))
+													)}
+												</tbody>
+											</table>
+										</div>
+									</div>
 
-			{/* FREE SCHEME REPORTS TAB */}
-			{activeTab === "free-schemes" && canViewFreeScheme && (
-				!claimFeature.enabled ? (
-					<ServiceMaintenanceNotice
-						title="Claim Quantity Report Temporarily Unavailable"
-						message={claimFeature.message}
-					/>
-				) : (
-					<FreeSchemeReportView mrId={mrId} searchParams={searchParams} />
-				)
-			)}
+									{/* Recent Invoices */}
+									<div className="space-y-4">
+										<h2 className="font-bold text-[#0B2545] text-xl">
+											Recent Invoices
+										</h2>
+										<div className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
+											<table className="min-w-full divide-y divide-gray-200">
+												<thead className="bg-gray-50">
+													<tr>
+														<th className="px-6 py-4 text-left font-bold text-gray-500 text-xs uppercase">
+															Invoice No
+														</th>
+														<th className="px-6 py-4 text-left font-bold text-gray-500 text-xs uppercase">
+															Date
+														</th>
+														<th className="px-6 py-4 text-left font-bold text-gray-500 text-xs uppercase">
+															Type
+														</th>
+														<th className="px-6 py-4 text-right font-bold text-gray-500 text-xs uppercase">
+															Amount
+														</th>
+													</tr>
+												</thead>
+												<tbody className="divide-y divide-gray-200 bg-white">
+													{recentInvoices.length === 0 ? (
+														<tr>
+															<td
+																className="px-6 py-8 text-center font-medium text-gray-500"
+																colSpan={4}
+															>
+																No recent invoices.
+															</td>
+														</tr>
+													) : (
+														recentInvoices.map((inv, idx) => (
+															<tr
+																className="transition-colors hover:bg-gray-50"
+																key={idx}
+															>
+																<td className="px-6 py-4 font-bold text-[#0B2545] text-sm">
+																	{inv.invNo}
+																</td>
+																<td className="px-6 py-4 font-medium text-gray-500 text-sm">
+																	{inv.date
+																		? new Date(inv.date).toLocaleDateString()
+																		: "N/A"}
+																</td>
+																<td className="px-6 py-4 text-gray-500 text-sm">
+																	<span className="rounded-md bg-gray-100 px-2 py-1 font-bold text-gray-600 text-xs">
+																		{inv.invType || "N/A"}
+																	</span>
+																</td>
+																<td className="px-6 py-4 text-right font-bold text-[#0071BC] text-sm">
+																	₹
+																	{inv.invAmt
+																		? parseFloat(inv.invAmt).toLocaleString(
+																				undefined,
+																				{
+																					minimumFractionDigits: 2,
+																					maximumFractionDigits: 2,
+																				},
+																			)
+																		: "0.00"}
+																</td>
+															</tr>
+														))
+													)}
+												</tbody>
+											</table>
+										</div>
+									</div>
+								</div>
+							</div>
+						))}
 
-			{/* OVERDUE TAB */}
-			{activeTab === "overdue" && (
-				!overdueFeature.enabled ? (
-					<ServiceMaintenanceNotice
-						title="Overdue Report Temporarily Unavailable"
-						message={overdueFeature.message}
-					/>
-				) : (
-					<OverdueReportView mrId={mrId} searchParams={searchParams} />
-				)
-			)}
+					{/* DYNAMIC REPORTS */}
+					{activeTab === "products" &&
+						canViewProductWise &&
+						(!productsFeature.enabled ? (
+							<ServiceMaintenanceNotice
+								message={productsFeature.message}
+								title="Product Wise Report Temporarily Unavailable"
+							/>
+						) : (
+							<div>
+								<div className="mb-4 flex items-center justify-between">
+									<form
+										action={baseUrl}
+										className="flex w-full max-w-sm gap-2"
+										method="GET"
+									>
+										{Object.entries(searchParams || {}).map(([k, v]) => {
+											if (k === "q") return null;
+											return (
+												<input
+													key={k}
+													name={k}
+													type="hidden"
+													value={v as string}
+												/>
+											);
+										})}
+										<input
+											className="flex-1 rounded-xl border border-gray-300 px-3 py-2"
+											defaultValue={searchParams?.q || ""}
+											name="q"
+											placeholder="Search product..."
+										/>
+										<button
+											className="rounded-xl bg-[#0071BC] px-4 py-2 font-bold text-white"
+											type="submit"
+										>
+											Search
+										</button>
+									</form>
+								</div>
+								<ProductReportView mrId={mrId} searchParams={searchParams} />
+							</div>
+						))}
 
-			{/* STOCK REPORTS TAB */}
-			{activeTab === "stock" && canViewStock && (
-				!stockFeature.enabled ? (
-					<ServiceMaintenanceNotice
-						title="Stock Report Temporarily Unavailable"
-						message={stockFeature.message}
-					/>
-				) : (
-					<StockReportView mrId={mrId} searchParams={searchParams} />
-				)
-			)}
+					{activeTab === "party" &&
+						canViewPartyWise &&
+						(!partyFeature.enabled ? (
+							<ServiceMaintenanceNotice
+								message={partyFeature.message}
+								title="Party Wise Report Temporarily Unavailable"
+							/>
+						) : (
+							<div>
+								<div className="mb-4 flex items-center justify-between"></div>
+								<PartyReportView mrId={mrId} searchParams={searchParams} />
+							</div>
+						))}
+
+					{/* FREE SCHEME REPORTS TAB */}
+					{activeTab === "free-schemes" &&
+						canViewFreeScheme &&
+						(!claimFeature.enabled ? (
+							<ServiceMaintenanceNotice
+								message={claimFeature.message}
+								title="Claim Quantity Report Temporarily Unavailable"
+							/>
+						) : (
+							<FreeSchemeReportView mrId={mrId} searchParams={searchParams} />
+						))}
+
+					{/* OVERDUE TAB */}
+					{activeTab === "overdue" &&
+						(!overdueFeature.enabled ? (
+							<ServiceMaintenanceNotice
+								message={overdueFeature.message}
+								title="Overdue Report Temporarily Unavailable"
+							/>
+						) : (
+							<OverdueReportView mrId={mrId} searchParams={searchParams} />
+						))}
+
+					{/* STOCK REPORTS TAB */}
+					{activeTab === "stock" &&
+						canViewStock &&
+						(!stockFeature.enabled ? (
+							<ServiceMaintenanceNotice
+								message={stockFeature.message}
+								title="Stock Report Temporarily Unavailable"
+							/>
+						) : (
+							<StockReportView mrId={mrId} searchParams={searchParams} />
+						))}
 				</Suspense>
 			</div>
 		</div>

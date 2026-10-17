@@ -1,14 +1,14 @@
 import { headers } from "next/headers";
 import { NextResponse } from "next/server";
 import * as xlsx from "xlsx";
+import { recordAuditEvent } from "@/lib/audit-logger";
+import { getDefaultTMinus1MonthRange } from "@/lib/dateUtils";
 import { buildStyledExcelBuffer } from "@/lib/excel";
+import { rateLimitReportDownload } from "@/lib/rate-limit";
+import { getClientIp, getClientUserAgent } from "@/lib/security";
 import { getMRInfo } from "@/server/actions/mrInfo";
 import { getMRwisePeriodicalOutstanding } from "@/server/actions/overdueReports";
 import { auth } from "@/server/auth";
-import { getClientIp, getClientUserAgent } from "@/lib/security";
-import { rateLimitReportDownload } from "@/lib/rate-limit";
-import { recordAuditEvent } from "@/lib/audit-logger";
-import { getDefaultTMinus1MonthRange } from "@/lib/dateUtils";
 
 export async function GET(request: Request) {
 	const reqHeaders = await headers();
@@ -47,7 +47,8 @@ export async function GET(request: Request) {
 
 	const { searchParams } = new URL(request.url);
 	const mrId = searchParams.get("mrId");
-	const division = searchParams.get("division") || "All";
+	const division =
+		searchParams.get("division") || searchParams.get("company") || "All";
 	const from = searchParams.get("from");
 	const to = searchParams.get("to");
 	const format = searchParams.get("format") || "csv"; // csv or excel
@@ -84,9 +85,7 @@ export async function GET(request: Request) {
 		if (division === "All") {
 			const allCodes = Array.from(
 				new Set(
-					(mrInfo.assignments || [])
-						.map((a) => a.companyCode)
-						.filter(Boolean),
+					(mrInfo.assignments || []).map((a) => a.companyCode).filter(Boolean),
 				),
 			);
 			return allCodes.length > 0
@@ -110,9 +109,9 @@ export async function GET(request: Request) {
 	const targetMrId =
 		division === "All" && mrInfo.allIds && mrInfo.allIds.length > 0
 			? mrInfo.allIds.join(", ")
-			: (mrInfo.assignments?.find(
+			: mrInfo.assignments?.find(
 					(a) => a.division === division || a.manufacturer === division,
-				)?.id || mrId);
+				)?.id || mrId;
 
 	const procResult = await getMRwisePeriodicalOutstanding({
 		mrId: targetMrId,
@@ -140,8 +139,21 @@ export async function GET(request: Request) {
 		from && to ? `${from}_to_${to}` : new Date().toISOString().split("T")[0];
 	const filename = `${safeMrName}_${safeDivision}_Outstanding_${dateRangeTag}`;
 
+	let rawOutRows = procResult.data || [];
+	if (division !== "All") {
+		const sel = division.trim().toUpperCase();
+		rawOutRows = rawOutRows.filter((r) => {
+			const rowDiv = (r.Division || "").toString().trim().toUpperCase();
+			const rowComp = (r.CompCode || "").toString().trim().toUpperCase();
+			if (rowDiv) {
+				return rowDiv === sel || rowDiv.includes(sel) || sel.includes(rowDiv);
+			}
+			return rowComp === sel || rowComp.includes(sel) || sel.includes(rowComp);
+		});
+	}
+
 	// Filter strictly for Amount - AdjAmt > 0 (pending balance)
-	const reportData = procResult.data
+	const reportData = rawOutRows
 		.map((row) => {
 			const originalAmt = Number(row.Amount || 0);
 			const adjAmt = Number(row.AdjAmt || 0);
@@ -209,10 +221,30 @@ export async function GET(request: Request) {
 			{ header: "City", key: "City", width: 18 },
 			{ header: "Bill No", key: "Bill No", width: 14 },
 			{ header: "Bill Date", key: "Bill Date", width: 14 },
-			{ header: "Bill Amount", key: "Bill Amount", width: 16, numFmt: "#,##0.00" },
-			{ header: "Adjusted Amount", key: "Adjusted Amount", width: 16, numFmt: "#,##0.00" },
-			{ header: "Balance Amount", key: "Balance Amount", width: 16, numFmt: "#,##0.00" },
-			{ header: "Overdue Days", key: "Overdue Days", width: 14, numFmt: "#,##0" },
+			{
+				header: "Bill Amount",
+				key: "Bill Amount",
+				width: 16,
+				numFmt: "#,##0.00",
+			},
+			{
+				header: "Adjusted Amount",
+				key: "Adjusted Amount",
+				width: 16,
+				numFmt: "#,##0.00",
+			},
+			{
+				header: "Balance Amount",
+				key: "Balance Amount",
+				width: 16,
+				numFmt: "#,##0.00",
+			},
+			{
+				header: "Overdue Days",
+				key: "Overdue Days",
+				width: 14,
+				numFmt: "#,##0",
+			},
 			{ header: "Division", key: "Division", width: 18 },
 		];
 
@@ -272,9 +304,7 @@ export async function GET(request: Request) {
 			headersKeys
 				.map((key) => {
 					const val = row[key];
-					return typeof val === "string"
-						? `"${val.replace(/"/g, '""')}"`
-						: val;
+					return typeof val === "string" ? `"${val.replace(/"/g, '""')}"` : val;
 				})
 				.join(","),
 		),

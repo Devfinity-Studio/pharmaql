@@ -1,12 +1,15 @@
 import React from "react";
-import { ReportStationeryHeader } from "@/components/report-stationery-header";
 import { OfflineReportSync } from "@/components/offline-report-sync";
+import { ReportStationeryHeader } from "@/components/report-stationery-header";
 import {
 	getItemCustomerSale,
 	type ItemCustomerSaleResult,
 	type ItemCustomerSaleRow,
 } from "@/server/actions/customerItemSale";
-import { getProductCatalog } from "@/server/actions/itemCatalog";
+import {
+	getItemDivisionMap,
+	getProductCatalog,
+} from "@/server/actions/itemCatalog";
 import { getMRInfo } from "@/server/actions/mrInfo";
 
 function formatDisplayDate(val?: string | Date | null): string {
@@ -74,9 +77,7 @@ export async function ProductReportView({
 		if (company === "All") {
 			const allCodes = Array.from(
 				new Set(
-					(mrInfo.assignments || [])
-						.map((a) => a.companyCode)
-						.filter(Boolean),
+					(mrInfo.assignments || []).map((a) => a.companyCode).filter(Boolean),
 				),
 			);
 			return allCodes.length > 0
@@ -96,19 +97,24 @@ export async function ProductReportView({
 	const fromParam = searchParams?.from || "2026-04-01";
 	const toParam = searchParams?.to || "2026-09-30";
 
-	const procSalesResult: ItemCustomerSaleResult = mrInfo.canViewSales
-		? await getItemCustomerSale({
-			fromDate: fromParam,
-			toDate: toParam,
-			compCode: compCodeToQuery,
-			locNo: mrInfo.locNo || "11",
-		})
-		: {
-			success: false,
-			error: "MR does not have sales view permissions",
-			data: null,
-			debugSql: undefined,
-		};
+	const [procSalesResult, itemDivisionMap] = await Promise.all([
+		mrInfo.canViewSales
+			? getItemCustomerSale({
+					fromDate: fromParam,
+					toDate: toParam,
+					compCode: compCodeToQuery,
+					locNo: mrInfo.locNo || "11",
+				})
+			: Promise.resolve<ItemCustomerSaleResult>({
+					success: false,
+					error: "MR does not have sales view permissions",
+					data: null,
+					debugSql: undefined,
+				}),
+		company !== "All"
+			? getItemDivisionMap(compCodeToQuery, mrInfo.locNo || "11")
+			: Promise.resolve<Map<string, string> | null>(null),
+	]);
 
 	const fromDisplay = formatDisplayDate(fromParam);
 	const toDisplay = formatDisplayDate(toParam);
@@ -120,6 +126,19 @@ export async function ProductReportView({
 		procSalesResult.data.length > 0
 	) {
 		let rowsToProcess = procSalesResult.data;
+
+		if (company !== "All" && itemDivisionMap) {
+			const sel = company.trim().toUpperCase();
+			rowsToProcess = rowsToProcess.filter((r) => {
+				const name = (r.ItemName || "").toString().trim().toUpperCase();
+				const code = (r.ItemCode || "").toString().trim().toUpperCase();
+				const itemDiv = itemDivisionMap.get(name) || itemDivisionMap.get(code);
+				if (!itemDiv) return false;
+				return (
+					itemDiv === sel || itemDiv.includes(sel) || sel.includes(itemDiv)
+				);
+			});
+		}
 
 		if (searchParams?.q) {
 			const q = searchParams.q.toLowerCase();
@@ -214,10 +233,10 @@ export async function ProductReportView({
 				/>
 				{/* Official Stationery Header */}
 				<ReportStationeryHeader
-					title="Itemwise/Customerwise Sales"
 					fromDisplay={fromDisplay}
-					toDisplay={toDisplay}
 					summaryRight={`Total Items: ${productGroups.length}`}
+					title="Itemwise/Customerwise Sales"
+					toDisplay={toDisplay}
 				/>
 
 				{/* REPORT TABLE */}
@@ -329,8 +348,8 @@ export async function ProductReportView({
 	return (
 		<div className="mt-4 space-y-4 rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
 			<ReportStationeryHeader
-				title="Product Catalog"
 				summaryRight={`Total Products: ${catalogItems.length}`}
+				title="Product Catalog"
 			/>
 
 			<div className="w-full overflow-x-auto border-gray-300 border-t pt-2">

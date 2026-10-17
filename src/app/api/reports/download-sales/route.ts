@@ -1,15 +1,16 @@
 import { headers } from "next/headers";
 import { NextResponse } from "next/server";
+import { recordAuditEvent } from "@/lib/audit-logger";
+import { getDefaultTMinus1MonthRange } from "@/lib/dateUtils";
 import { buildStyledExcelBuffer, type ExcelColumnDef } from "@/lib/excel";
+import { rateLimitReportDownload } from "@/lib/rate-limit";
+import { getClientIp, getClientUserAgent } from "@/lib/security";
 import { getClaimData } from "@/server/actions/claimData";
 import { getItemCustomerSale } from "@/server/actions/customerItemSale";
+import { getItemDivisionMap } from "@/server/actions/itemCatalog";
 import { getMRInfo } from "@/server/actions/mrInfo";
 import { getPartyCustomerItemSale } from "@/server/actions/partyItemSale";
 import { auth } from "@/server/auth";
-import { getClientIp, getClientUserAgent } from "@/lib/security";
-import { rateLimitReportDownload } from "@/lib/rate-limit";
-import { recordAuditEvent } from "@/lib/audit-logger";
-import { getDefaultTMinus1MonthRange } from "@/lib/dateUtils";
 
 export async function GET(request: Request) {
 	const reqHeaders = await headers();
@@ -92,12 +93,12 @@ export async function GET(request: Request) {
 		if (company === "All") {
 			const allCodes = Array.from(
 				new Set(
-					(mrInfo.assignments || [])
-						.map((a) => a.companyCode)
-						.filter(Boolean),
+					(mrInfo.assignments || []).map((a) => a.companyCode).filter(Boolean),
 				),
 			);
-			return allCodes.length > 0 ? allCodes.join(",") : mrInfo.companyCode || "";
+			return allCodes.length > 0
+				? allCodes.join(",")
+				: mrInfo.companyCode || "";
 		}
 		const matchingAssignment = (mrInfo.assignments || []).find(
 			(a) =>
@@ -128,14 +129,33 @@ export async function GET(request: Request) {
 			locNo: mrInfo.locNo || "11",
 		});
 
-		const partyRows =
+		let partyRows =
 			partyResult.success && partyResult.data ? partyResult.data : [];
+
+		if (company !== "All") {
+			const sel = company.trim().toUpperCase();
+			partyRows = partyRows.filter((r) => {
+				const rowDiv = (r.Division || "").toString().trim().toUpperCase();
+				if (rowDiv) {
+					return rowDiv === sel || rowDiv.includes(sel) || sel.includes(rowDiv);
+				}
+				const rowComp = (r.MktBy || "").toString().trim().toUpperCase();
+				return (
+					rowComp === sel || rowComp.includes(sel) || sel.includes(rowComp)
+				);
+			});
+		}
+
 		const filename = `${safeMrName}_${safeCompany}_Party_Report_${dateRangeTag}`;
 
 		if (format === "json") {
 			const jsonPartyData = partyRows.map((r) => ({
 				"MR Name": mrName,
-				Division: mrInfo.division || mrInfo.company || company || "General",
+				Division:
+					(r.Division ? r.Division.toString().trim() : null) ||
+					(company !== "All"
+						? company
+						: mrInfo.division || mrInfo.company || "General"),
 				Manufacturer: mrInfo.company || mrInfo.division || company || "General",
 				CustID: r.CustID,
 				CustCode: r.CustCode || "",
@@ -256,7 +276,8 @@ export async function GET(request: Request) {
 				title: "Partywise / Itemwise Sales Statement",
 				metadata: {
 					mrName,
-					company: mrInfo.company || (company !== "All" ? company : "All Companies"),
+					company:
+						mrInfo.company || (company !== "All" ? company : "All Companies"),
 					division:
 						company !== "All"
 							? company
@@ -365,12 +386,15 @@ export async function GET(request: Request) {
 
 			if (company !== "All") {
 				const sel = company.toLowerCase().trim();
+				if (rowDiv !== "") {
+					return rowDiv === sel || rowDiv.includes(sel) || sel.includes(rowDiv);
+				}
 				return (
-					rowComp.includes(sel) ||
-					sel.includes(rowComp) ||
-					rowDiv.includes(sel) ||
-					sel.includes(rowDiv) ||
-					rowCode === sel
+					(rowComp !== "" &&
+						(rowComp === sel ||
+							rowComp.includes(sel) ||
+							sel.includes(rowComp))) ||
+					(rowCode !== "" && rowCode === sel)
 				);
 			}
 
@@ -631,7 +655,8 @@ export async function GET(request: Request) {
 				title: "Scheme Claim / Free Scheme Statement",
 				metadata: {
 					mrName,
-					company: mrInfo.company || (company !== "All" ? company : "All Companies"),
+					company:
+						mrInfo.company || (company !== "All" ? company : "All Companies"),
 					division:
 						company !== "All"
 							? company
@@ -727,7 +752,23 @@ export async function GET(request: Request) {
 		compCode: compCodeToQuery,
 	});
 
-	const rows = salesResult.success && salesResult.data ? salesResult.data : [];
+	let rows = salesResult.success && salesResult.data ? salesResult.data : [];
+
+	if (company !== "All") {
+		const itemDivisionMap = await getItemDivisionMap(
+			compCodeToQuery,
+			mrInfo.locNo || "11",
+		);
+		const sel = company.trim().toUpperCase();
+		rows = rows.filter((r) => {
+			const name = (r.ItemName || "").toString().trim().toUpperCase();
+			const code = (r.ItemCode || "").toString().trim().toUpperCase();
+			const itemDiv = itemDivisionMap.get(name) || itemDivisionMap.get(code);
+			if (!itemDiv) return false;
+			return itemDiv === sel || itemDiv.includes(sel) || sel.includes(itemDiv);
+		});
+	}
+
 	const reportTypeTitle =
 		tab === "products" ? "Product_Report" : "Sales_Report";
 	const filename = `${safeMrName}_${safeCompany}_${reportTypeTitle}_${dateRangeTag}`;
@@ -736,7 +777,10 @@ export async function GET(request: Request) {
 		// Provide comprehensive sales & return rows for both product and sales PDF generators
 		const jsonSalesData = rows.map((r) => ({
 			"MR Name": mrName,
-			Division: mrInfo.division || mrInfo.company || company || "General",
+			Division:
+				company !== "All"
+					? company
+					: mrInfo.division || mrInfo.company || "General",
 			Manufacturer: mrInfo.company || mrInfo.division || company || "General",
 			Customer: r.Customer || "Unknown Party",
 			Address: r.Address || "",
@@ -854,7 +898,8 @@ export async function GET(request: Request) {
 			title: sheetTitle,
 			metadata: {
 				mrName,
-				company: mrInfo.company || (company !== "All" ? company : "All Companies"),
+				company:
+					mrInfo.company || (company !== "All" ? company : "All Companies"),
 				division:
 					company !== "All"
 						? company
