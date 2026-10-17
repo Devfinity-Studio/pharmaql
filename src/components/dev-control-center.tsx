@@ -85,7 +85,9 @@ interface DevControlCenterProps {
 		email: string;
 		division?: string | null;
 		company?: string | null;
+		companyCode?: string | null;
 		rank?: number;
+		assignedCompanies?: string[];
 	}>;
 	companiesList?: Array<{
 		companyCode: string;
@@ -627,12 +629,31 @@ export function DevControlCenter({
 		});
 	};
 
-	// Filter MRs
-	const filteredMRs = mrList.filter((m) => {
-		if (!mrSearch.trim()) return true;
-		const q = mrSearch.toLowerCase();
-		return m.name.toLowerCase().includes(q) || m.id.toLowerCase().includes(q) || (m.email && m.email.toLowerCase().includes(q));
-	});
+	// Filter MRs by name, ID, email, company name, company code, division, or assigned companies
+	const filteredMRs = useMemo(() => {
+		if (!mrSearch.trim()) return mrList;
+		const q = mrSearch.toLowerCase().trim();
+		return mrList.filter((m) => {
+			const nameMatch = m.name?.toLowerCase().includes(q);
+			const idMatch = m.id?.toLowerCase().includes(q);
+			const emailMatch = m.email?.toLowerCase().includes(q);
+			const compMatch = m.company?.toLowerCase().includes(q);
+			const compCodeMatch = m.companyCode?.toLowerCase().includes(q);
+			const divMatch = m.division?.toLowerCase().includes(q);
+			const assignedMatch = m.assignedCompanies?.some((c) =>
+				c.toLowerCase().includes(q),
+			);
+			return Boolean(
+				nameMatch ||
+				idMatch ||
+				emailMatch ||
+				compMatch ||
+				compCodeMatch ||
+				divMatch ||
+				assignedMatch,
+			);
+		});
+	}, [mrList, mrSearch]);
 
 	// Filter logs
 	const filteredLogs = logs.filter((l) => {
@@ -2218,54 +2239,80 @@ export function DevControlCenter({
 									Instantly preview the dashboard as any registered MR to test ranking rules, overdue warnings, and report layouts.
 								</p>
 							</div>
-							<div className="relative w-full sm:w-64">
-								<Search className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
-								<input
-									className="w-full rounded-xl border border-gray-300 py-2 pl-9 pr-4 text-xs font-medium text-gray-900"
-									onChange={(e) => setMrSearch(e.target.value)}
-									placeholder="Search MR by name or ID..."
-									type="text"
-									value={mrSearch}
-								/>
+							<div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5 w-full sm:w-auto">
+								<div className="relative flex-1 sm:w-80">
+									<Search className="absolute left-3 top-2.5 h-4 w-4 text-gray-400" />
+									<input
+										className="w-full rounded-xl border border-gray-300 py-2 pl-9 pr-4 text-xs font-medium text-gray-900 focus:border-purple-600 focus:outline-none focus:ring-1 focus:ring-purple-600"
+										onChange={(e) => setMrSearch(e.target.value)}
+										placeholder="Search MR by name, code, company, or division..."
+										type="text"
+										value={mrSearch}
+									/>
+								</div>
+								<span className="inline-flex items-center justify-center rounded-xl bg-purple-50 px-3 py-1.5 text-xs font-bold text-purple-800 border border-purple-200 whitespace-nowrap">
+									{filteredMRs.length} / {mrList.length} MRs
+								</span>
 							</div>
 						</div>
 
 						<div className="mt-5 overflow-hidden rounded-xl border border-gray-200">
-							<div className="max-h-96 overflow-y-auto">
+							<div className="max-h-[520px] overflow-y-auto">
 								<table className="w-full text-left text-xs">
-									<thead className="sticky top-0 bg-gray-50 font-bold text-gray-600 uppercase">
+									<thead className="sticky top-0 bg-gray-50 font-bold text-gray-600 uppercase text-[11px] z-10 border-b border-gray-200">
 										<tr>
 											<th className="px-4 py-3">MR Name</th>
 											<th className="px-4 py-3">MR Code</th>
+											<th className="px-4 py-3">Company</th>
 											<th className="px-4 py-3">Division</th>
 											<th className="px-4 py-3">Rank</th>
 											<th className="px-4 py-3 text-right">Action</th>
 										</tr>
 									</thead>
 									<tbody className="divide-y divide-gray-100">
-										{filteredMRs.slice(0, 50).map((mr) => (
-											<tr className="hover:bg-purple-50/40 transition-colors" key={mr.id}>
-												<td className="px-4 py-3 font-bold text-gray-900">{mr.name}</td>
-												<td className="px-4 py-3 font-mono text-gray-600">{mr.id}</td>
-												<td className="px-4 py-3 text-gray-600">{mr.division || mr.company || "All"}</td>
-												<td className="px-4 py-3">
-													<span className="rounded bg-purple-100 px-2 py-0.5 font-bold text-purple-800">
-														Rank {mr.rank || 3}
-													</span>
-												</td>
-												<td className="px-4 py-3 text-right">
-													<button
-														className="inline-flex items-center gap-1.5 rounded-lg bg-purple-600 px-3 py-1 font-bold text-white shadow-xs hover:bg-purple-700"
-														disabled={isPending}
-														onClick={() => handleStartImpersonate(mr.id)}
-														type="button"
-													>
-														<Eye className="h-3 w-3" />
-														View As MR
-													</button>
+										{filteredMRs.length === 0 ? (
+											<tr>
+												<td colSpan={6} className="px-4 py-8 text-center text-gray-500">
+													No MRs found matching &ldquo;{mrSearch}&rdquo;
 												</td>
 											</tr>
-										))}
+										) : (
+											filteredMRs.map((mr) => (
+												<tr className="hover:bg-purple-50/40 transition-colors" key={mr.id}>
+													<td className="px-4 py-3">
+														<div className="font-bold text-gray-900">{mr.name}</div>
+														{mr.email && <div className="text-[11px] text-gray-400 font-mono">{mr.email}</div>}
+													</td>
+													<td className="px-4 py-3 font-mono font-semibold text-gray-700">{mr.id}</td>
+													<td className="px-4 py-3">
+														<div className="font-semibold text-gray-900">{mr.company || "All Companies"}</div>
+														{mr.companyCode && <div className="text-[10px] text-gray-400 font-mono">Code: {mr.companyCode}</div>}
+														{mr.assignedCompanies && mr.assignedCompanies.length > 1 && (
+															<div className="text-[10px] text-purple-700 font-bold mt-0.5">
+																+{mr.assignedCompanies.length - 1} more assigned
+															</div>
+														)}
+													</td>
+													<td className="px-4 py-3 text-gray-600 font-medium">{mr.division || "-"}</td>
+													<td className="px-4 py-3">
+														<span className="rounded bg-purple-100 px-2 py-0.5 font-bold text-purple-800">
+															Rank {mr.rank || 3}
+														</span>
+													</td>
+													<td className="px-4 py-3 text-right">
+														<button
+															className="inline-flex items-center gap-1.5 rounded-lg bg-purple-600 px-3 py-1.5 font-bold text-white shadow-xs hover:bg-purple-700 transition"
+															disabled={isPending}
+															onClick={() => handleStartImpersonate(mr.id)}
+															type="button"
+														>
+															<Eye className="h-3.5 w-3.5" />
+															View As MR
+														</button>
+													</td>
+												</tr>
+											))
+										)}
 									</tbody>
 								</table>
 							</div>

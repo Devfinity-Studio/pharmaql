@@ -99,6 +99,75 @@ export async function getAllMRUsers(): Promise<LegacyMRUser[]> {
 	return res.data;
 }
 
+/**
+ * Fetch all MRs with overrides and assignments merged (for developer simulation & management)
+ */
+export async function getAllMRsForDev(): Promise<MRDisplayItem[]> {
+	const allRawMRs = await getAllMRUsers();
+	const allOverrides = await getMROverrides();
+
+	return allRawMRs.map((mr) => {
+		const override = allOverrides[mr.id] || {};
+		const isBlocked =
+			override.isBlocked !== undefined ? override.isBlocked : mr.isBlocked;
+
+		let rank: MRRank = 3;
+		if (override.rank === 1 || override.rank === 2 || override.rank === 3) {
+			rank = override.rank;
+		} else if (mr.rank === 1 || mr.rank === 2 || mr.rank === 3) {
+			rank = mr.rank;
+		} else if (mr.JobProfile) {
+			const jp = mr.JobProfile.toUpperCase().trim();
+			if (jp === "MR") {
+				rank = 1;
+			} else if (jp === "ABM" || jp === "BO") {
+				rank = 2;
+			} else {
+				rank = 3;
+			}
+		}
+
+		const perms = getPermissionsForRank(rank);
+
+		const assignments =
+			override.assignedManufacturers &&
+			override.assignedManufacturers.length > 0
+				? override.assignedManufacturers
+				: mr.company
+					? [
+							{
+								id: `legacy-${mr.id}`,
+								manufacturer: mr.company,
+								division: mr.division || null,
+							},
+						]
+					: [];
+
+		return {
+			id: mr.id,
+			legacyId: mr.id,
+			name: mr.name || "MR User",
+			email: mr.email || "",
+			company: mr.company,
+			companyCode: mr.companyCode || mr.CompanyCode || undefined,
+			division: mr.division,
+			isBlocked,
+			role: "MR",
+			rank,
+			lastLogin: override.lastLogin,
+			canViewStock: override.permissions?.canViewStock ?? perms.canViewStock,
+			canViewSales: override.permissions?.canViewSales ?? perms.canViewSales,
+			canViewFreeScheme:
+				override.permissions?.canViewFreeScheme ?? perms.canViewFreeScheme,
+			canViewPartyWise:
+				override.permissions?.canViewPartyWise ?? perms.canViewPartyWise,
+			canViewProductWise:
+				override.permissions?.canViewProductWise ?? perms.canViewProductWise,
+			assignments,
+		};
+	});
+}
+
 export interface PaginatedMRResponse {
 	mrs: LegacyMRUser[];
 	total: number;
