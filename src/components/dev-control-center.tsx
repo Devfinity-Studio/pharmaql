@@ -455,15 +455,17 @@ export function DevControlCenter({
 		const odbcFrom = `{d '${sandboxFromDate || "2026-04-01"}'}`;
 		const odbcTo = `{d '${sandboxToDate || new Date().toISOString().slice(0, 10)}'}`;
 		const compParam = compCodeParam ? `'${compCodeParam.replace(/'/g, "''")}'` : "''";
+		const locParam = "('11')";
+		const escapedLoc = `'${locParam.replace(/'/g, "''")}'`;
 
 		if (selectedProcedure === "rptStockMovementStatement") {
-			return `SET sql_mode = '';\nCALL \`pdyasvtrans\`.\`rptStockMovementStatement\`(11, '(\\'11\\')', 202627, {d '2026-04-01'}, ${odbcFrom}, ${odbcTo}, ${compParam}, '', '', 'PRate');`;
+			return `SET sql_mode = '';\nCALL \`pdyasvtrans\`.\`rptStockMovementStatement\`(11, ${escapedLoc}, 202627, {d '2026-04-01'}, ${odbcFrom}, ${odbcTo}, ${compParam}, '', '', 'PRate');`;
 		} else if (selectedProcedure === "rptItemCustomerSale") {
-			return `SET sql_mode = '';\nCALL \`pdyasvtrans\`.\`rptItemCustomerSale\`(1, ${odbcFrom}, ${odbcTo}, 11, 11, 202627, ${compParam}, '', '', '', 'SRate', '', 'N', 'N');`;
+			return `SET sql_mode = '';\nCALL \`pdyasvtrans\`.\`rptItemCustomerSale\`(${odbcFrom}, ${odbcTo}, 11, ${escapedLoc}, 202627, '', '', '', ${compParam}, '', 'Y', '', '', ${escapedLoc}, 'SalesEntry', '');`;
 		} else if (selectedProcedure === "rptMRwisePeriodicalOutstanding") {
-			return `SET sql_mode = '';\nCALL \`pdyasvtrans\`.\`rptMRwisePeriodicalOutstanding\`(11, 11, 202627, ${odbcFrom}, ${odbcTo}, ${compParam}, '', '', '', 1);`;
+			return `SET sql_mode = '';\nCALL \`pdyasvtrans\`.\`rptMRwisePeriodicalOutstanding\`(11, 11, 202627, {d '2026-04-01'}, ${odbcFrom}, ${odbcTo}, '', '', 'All', '', '', ${compParam}, '', '', '');`;
 		} else if (selectedProcedure === "rptCompanyCustomerItemwiseSales") {
-			return `SET sql_mode = '';\nCALL \`pdyasvtrans\`.\`rptCompanyCustomerItemwiseSales\`(11, 11, 202627, {d '2026-04-01'}, ${odbcFrom}, ${odbcTo}, '', ${compParam}, '', '', '', '');`;
+			return `SET sql_mode = '';\nCALL \`pdyasvtrans\`.\`rptCompanyCustomerItemwiseSales\`(11, ${escapedLoc}, 202627, ${odbcFrom}, ${odbcTo}, '', ${compParam}, '', '', 'Y', '');`;
 		}
 		return `SET sql_mode = '';\nCALL \`${selectedProcedure}\`(...);`;
 	}, [selectedProcedure, sandboxFromDate, sandboxToDate, sandboxCompanyCode]);
