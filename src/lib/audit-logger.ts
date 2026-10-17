@@ -89,3 +89,33 @@ export async function getRecentAuditLogs(options?: {
 		return [];
 	}
 }
+
+/**
+ * Resolves a map of latest successful login timestamps indexed by userId and userEmail (lowercased).
+ * Reads the persistent audit log so login history survives cache clears and container reboots.
+ */
+export async function getLatestLoginTimestamps(): Promise<Map<string, string>> {
+	const map = new Map<string, string>();
+	try {
+		const logs = await readServerJson<AuditLogEntry[]>("audit_logs.json", []);
+		if (!Array.isArray(logs)) return map;
+
+		for (const entry of logs) {
+			if (entry.event === "AUTH_LOGIN_SUCCESS" && entry.timestamp) {
+				if (entry.userId && !map.has(String(entry.userId))) {
+					map.set(String(entry.userId), entry.timestamp);
+				}
+				if (entry.userEmail) {
+					const clean = entry.userEmail.trim().toLowerCase();
+					if (clean && !map.has(clean)) {
+						map.set(clean, entry.timestamp);
+					}
+				}
+			}
+		}
+	} catch (err) {
+		console.warn("[AuditLogger] Error resolving latest login timestamps:", err);
+	}
+	return map;
+}
+

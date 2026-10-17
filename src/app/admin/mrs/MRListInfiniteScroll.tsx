@@ -215,7 +215,17 @@ export function MRListInfiniteScroll({
 										<span className="font-semibold text-gray-500 uppercase tracking-wider text-[11px]">
 											Last Login
 										</span>
-										<span className="font-medium text-gray-900">
+										<span
+											suppressHydrationWarning
+											className={
+												mr.lastLogin
+													? "inline-flex items-center gap-1.5 font-semibold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200/60"
+													: "font-medium text-gray-400"
+											}
+										>
+											{mr.lastLogin && (
+												<span className="h-1.5 w-1.5 rounded-full bg-emerald-500 inline-block" />
+											)}
 											{formatLastLogin(mr.lastLogin)}
 										</span>
 									</div>

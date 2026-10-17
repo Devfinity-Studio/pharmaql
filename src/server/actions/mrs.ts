@@ -171,15 +171,40 @@ export async function checkMRExists(email: string) {
 
 /**
  * Records the timestamp of when an MR logs in successfully.
+ * Stores under mrId, all linked IDs, and email, and revalidates /admin/mrs.
  */
-export async function recordMRLastLogin(mrId: string) {
+export async function recordMRLastLogin(
+	mrId: string,
+	email?: string,
+	allIds?: string[],
+) {
 	try {
 		const allOverrides = await getMROverrides();
-		allOverrides[mrId] = {
-			...allOverrides[mrId],
-			lastLogin: new Date().toISOString(),
-		};
+		const timestamp = new Date().toISOString();
+
+		const idsToUpdate = new Set<string>([String(mrId)]);
+		if (allIds && Array.isArray(allIds)) {
+			for (const id of allIds) {
+				if (id) idsToUpdate.add(String(id));
+			}
+		}
+		for (const id of idsToUpdate) {
+			allOverrides[id] = {
+				...allOverrides[id],
+				lastLogin: timestamp,
+			};
+		}
+		if (email) {
+			const cleanEmail = email.trim().toLowerCase();
+			allOverrides[cleanEmail] = {
+				...allOverrides[cleanEmail],
+				lastLogin: timestamp,
+			};
+		}
+
 		await saveMROverrides(allOverrides);
+		revalidatePath("/admin/mrs");
+		revalidatePath(`/admin/mrs/${mrId}`);
 		return { success: true };
 	} catch (error) {
 		console.error("Failed to record MR last login:", error);

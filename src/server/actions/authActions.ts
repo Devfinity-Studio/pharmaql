@@ -75,6 +75,7 @@ export async function requestMrOtp(emailOrPhone: string) {
 			companyCode: string | null;
 			isBlocked: boolean;
 			locNo: string;
+			allIds?: string[];
 		} | null>("/api/auth/mr-lookup", { emailOrPhone: cleanInput });
 
 		if (!res.success || !res.data) {
@@ -171,6 +172,7 @@ export async function requestMrOtp(emailOrPhone: string) {
 			companyCode: mr.companyCode || undefined,
 			isBlocked: false,
 			rank,
+			allIds: mr.allIds || [mr.id],
 			canViewStock: perms.canViewStock,
 			canViewSales: perms.canViewSales,
 			canViewFreeScheme: perms.canViewFreeScheme,
@@ -305,7 +307,11 @@ export async function verifyMrOtp(email: string, otp: string) {
 		otpStore.delete(cleanEmail);
 
 		// Record Last Login timestamp for MR
-		await recordMRLastLogin(record.mrUser.id);
+		await recordMRLastLogin(
+			record.mrUser.id,
+			cleanEmail,
+			record.mrUser.allIds,
+		);
 
 		// Record Audit Events
 		await recordAuditEvent({
