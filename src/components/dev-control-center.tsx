@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useTransition, useMemo, useRef, useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import {
 	Activity,
 	AlertOctagon,
@@ -24,6 +24,7 @@ import {
 	Lock,
 	Mail,
 	Megaphone,
+	MessageSquare,
 	Play,
 	Power,
 	RefreshCw,
@@ -39,6 +40,7 @@ import {
 	X,
 	XCircle,
 } from "lucide-react";
+import { DevFeedbackPanel } from "./dev-feedback-panel";
 import type { LicenseStatusResult } from "@/lib/license";
 import type { FeatureKey, FeatureScope, MaintenanceConfig } from "@/lib/maintenance";
 import type { RuntimeConfig } from "@/lib/runtime-config";
@@ -104,9 +106,11 @@ export function DevControlCenter({
 	companiesList = [],
 }: DevControlCenterProps) {
 	const router = useRouter();
+	const searchParams = useSearchParams();
+	const initialTabFromUrl = searchParams.get("tab");
 	const [activeTab, setActiveTab] = useState<
-		"status" | "debug" | "license" | "push" | "toggles" | "impersonate" | "logs" | "query" | "runtime" | "notices"
-	>("status");
+		"status" | "debug" | "feedback" | "license" | "push" | "toggles" | "impersonate" | "logs" | "query" | "runtime" | "notices"
+	>((initialTabFromUrl as any) || "status");
 
 	// Debug Console states
 	const [debugEmailRecipient, setDebugEmailRecipient] = useState(initialLicense.developerEmail || "dev@asmeepharma.com");
@@ -731,6 +735,7 @@ export function DevControlCenter({
 				{[
 					{ id: "status", label: "Services Status", icon: Activity },
 					{ id: "debug", label: "Debug Console", icon: Terminal },
+					{ id: "feedback", label: "Feedback & Bug Reports", icon: MessageSquare },
 					{ id: "license", label: "Subscription & License", icon: Key },
 					{ id: "push", label: "Push & Field Alerts", icon: Bell },
 					{ id: "toggles", label: "Feature Switchboard", icon: Wrench },
@@ -1608,6 +1613,11 @@ export function DevControlCenter({
 						</div>
 					</div>
 				</div>
+			)}
+
+			{/* TAB: FEEDBACK & BUG REPORTS */}
+			{activeTab === "feedback" && (
+				<DevFeedbackPanel />
 			)}
 
 			{/* TAB 2: SUBSCRIPTION & LICENSE */}

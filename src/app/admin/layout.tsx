@@ -7,6 +7,8 @@ import { getLicenseStatus } from "@/lib/license";
 import { isFeatureEnabledForRole, isUnderMaintenance } from "@/lib/maintenance";
 import { getActiveNotices } from "@/server/actions/notices";
 import { auth } from "@/server/auth";
+import { ErrorBoundary } from "@/components/error-boundary";
+import { FloatingFeedbackButton } from "@/components/floating-feedback-button";
 
 export default async function AdminLayout({
 	children,
@@ -76,8 +78,11 @@ export default async function AdminLayout({
 				userRole={session.user.role}
 			/>
 			<main className="relative z-10 flex-1 p-4 md:overflow-y-auto md:p-8">
-				{children}
+				<ErrorBoundary>
+					{children}
+				</ErrorBoundary>
 			</main>
+			<FloatingFeedbackButton />
 		</div>
 	);
 }
