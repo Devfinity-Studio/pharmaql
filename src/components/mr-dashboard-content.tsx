@@ -497,7 +497,7 @@ export async function MrDashboardContent({
 								activeTab === "free-schemes" ||
 								activeTab === "stock" ||
 								activeTab === "party") && (
-								<ReportDownloadButtons mrId={mrId} />
+								<ReportDownloadButtons activeTab={activeTab} mrId={mrId} />
 							)}
 							{activeTab === "overdue" && (
 								<OutstandingDownloadButtons mrId={mrId} />

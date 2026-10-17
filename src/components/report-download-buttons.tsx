@@ -12,14 +12,20 @@ import {
 	generateStockPdfReport,
 } from "@/lib/pdf";
 
-export function ReportDownloadButtons({ mrId }: { mrId: string }) {
+export function ReportDownloadButtons({
+	mrId,
+	activeTab,
+}: {
+	mrId: string;
+	activeTab?: string;
+}) {
 	const searchParams = useSearchParams();
 	const division = searchParams.get("division") || "All";
 	const tMinus1 = getDefaultTMinus1MonthRange();
 	const defaultFrom = searchParams.get("from") || tMinus1.from;
 	const defaultTo = searchParams.get("to") || tMinus1.to;
 	const product = searchParams.get("product") || "";
-	const currentTab = searchParams.get("tab");
+	const currentTab = activeTab || searchParams.get("tab") || "stock";
 
 	const [isOpen, setIsOpen] = useState(false);
 	const [format, setFormat] = useState<"csv" | "excel" | "pdf" | "print">(
@@ -65,11 +71,7 @@ export function ReportDownloadButtons({ mrId }: { mrId: string }) {
 				let endpoint = "/api/reports/download-sales";
 				if (currentTab === "stock") {
 					endpoint = "/api/reports/download-stock";
-				} else if (
-					currentTab === "products" ||
-					currentTab === "free-schemes" ||
-					currentTab === "party"
-				) {
+				} else {
 					endpoint = "/api/reports/download-sales";
 					params.set("tab", currentTab);
 				}
@@ -188,7 +190,7 @@ export function ReportDownloadButtons({ mrId }: { mrId: string }) {
 				endpoint = "/api/reports/download-stock";
 			} else {
 				endpoint = "/api/reports/download-sales";
-				if (currentTab) params.set("tab", currentTab);
+				params.set("tab", currentTab);
 			}
 			window.location.href = `${endpoint}?${params.toString()}`;
 		}
@@ -201,6 +203,9 @@ export function ReportDownloadButtons({ mrId }: { mrId: string }) {
 		switch (currentTab) {
 			case "stock":
 				return "Stock Movement Statement";
+			case "sales":
+			case "new-sales":
+				return "Sales & Invoicing Details";
 			case "party":
 				return "Partywise Sales Statement";
 			case "products":

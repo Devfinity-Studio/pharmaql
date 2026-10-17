@@ -58,7 +58,7 @@ export async function GET(request: Request) {
 	}
 
 	const requestingUserId = session.user.id;
-	const isSelf = requestingUserId === mrId;
+	const isSelf = String(requestingUserId) === String(mrId);
 	const isAdmin =
 		(session.user as any).role === "ADMIN" ||
 		(session.user as any).role === "DEVELOPER";
