@@ -445,7 +445,7 @@ export function DevControlCenter({
 		if (compCode && compCode !== "All") {
 			const parts = compCode
 				.split(",")
-				.map((p) => p.trim().split(/\s+/)[0])
+				.map((p) => p.trim())
 				.filter(Boolean);
 			if (parts.length > 0) {
 				compCodeParam = parts.map((c) => `('${c?.replace(/'/g, "''")}')`).join(",");

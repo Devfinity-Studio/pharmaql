@@ -1,7 +1,7 @@
 import { Router, Request, Response } from "express";
 import { dbPool } from "../db";
 import { formatDateToOdbc } from "../utils/dateUtils";
-import { formatCompanyCodeParam } from "../utils/companyCodeUtils";
+import { formatCompanyCodeParam, resolveCompanyCodeParam } from "../utils/companyCodeUtils";
 
 export const reportsRouter = Router();
 
@@ -24,7 +24,7 @@ reportsRouter.post("/stock-movement", async (req: Request, res: Response) => {
     const odbcFromDate = formatDateToOdbc(effectiveFrom);
     const odbcToDate = formatDateToOdbc(effectiveTo);
 
-    const compCodeParam = formatCompanyCodeParam(companyCode);
+    const compCodeParam = await resolveCompanyCodeParam(conn, companyCode);
     const compNo = req.body?.compNo ?? 11;
     const locParam = locNo ? `('${locNo}')` : "('11')";
 
@@ -74,7 +74,7 @@ reportsRouter.post("/customer-item-sale", async (req: Request, res: Response) =>
     const odbcFromDate = formatDateToOdbc(fromDateStr);
     const odbcToDate = formatDateToOdbc(toDateStr);
 
-    const compCodeParam = formatCompanyCodeParam(params.compCode);
+    const compCodeParam = await resolveCompanyCodeParam(conn, params.compCode);
     const custIdsParam = params.custIds || "";
     const itemIdsParam = params.itemIds || "";
     const salesmanIdsParam = params.salesmanIds || "";
@@ -155,7 +155,7 @@ reportsRouter.post("/party-item-sale", async (req: Request, res: Response) => {
     const odbcFromDate = formatDateToOdbc(fromDateStr);
     const odbcToDate = formatDateToOdbc(toDateStr);
 
-    const compCodeParam = formatCompanyCodeParam(params.compCode);
+    const compCodeParam = await resolveCompanyCodeParam(conn, params.compCode);
     const custIdsParam = params.custIds || "";
     const divParam = params.div || "";
     const itemIdsParam = params.itemIds || "";
@@ -216,7 +216,7 @@ reportsRouter.post("/mr-overdue", async (req: Request, res: Response) => {
     const custTypeParam = params.custType || "All";
     const custIdsParam = params.custIds || "";
     const seriesIdsParam = params.seriesIds || "";
-    const compCodeParam = formatCompanyCodeParam(params.compCode);
+    const compCodeParam = await resolveCompanyCodeParam(conn, params.compCode);
     const custGrpParam = params.custGrp || "";
     const divIdsParam = params.divIds || "";
 
@@ -280,7 +280,7 @@ reportsRouter.post("/claim-data", async (req: Request, res: Response) => {
       const compNo = params.compNo ?? 11;
       const locNo = Number(params.locNo) || 11;
       const finYear = params.finYear ?? 202627;
-      const compCodeParam = formatCompanyCodeParam(params.compCode);
+      const compCodeParam = await resolveCompanyCodeParam(conn, params.compCode);
 
       // Clean existing rows for this uniqueCode before populating
       await conn.query("DELETE FROM `pdyasvtrans`.`claimdata` WHERE `UniqueCode` = ?", [uniqueCode]);
@@ -358,7 +358,7 @@ reportsRouter.post("/dev-procedure-sandbox", async (req: Request, res: Response)
     await conn.query("SET sql_mode = ''");
 
     sql = "";
-    const compCodeParam = formatCompanyCodeParam(params.companyCode || "");
+    const compCodeParam = await resolveCompanyCodeParam(conn, params.companyCode || "");
     const odbcFrom = formatDateToOdbc(params.fromDate || "2026-04-01");
     const odbcTo = formatDateToOdbc(params.toDate || new Date().toISOString().slice(0, 10));
     const locParam = params.locNo ? `('${params.locNo}')` : "('11')";

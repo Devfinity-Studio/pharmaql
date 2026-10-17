@@ -153,6 +153,7 @@ export interface MRDisplayItem {
 	name: string;
 	email: string;
 	company?: string;
+	companyCode?: string;
 	division?: string;
 	isBlocked: boolean;
 	role: string;
@@ -237,6 +238,7 @@ export async function fetchMRsPage(params: {
 			name: mr.name || "MR User",
 			email: mr.email || "",
 			company: mr.company,
+			companyCode: mr.companyCode || mr.CompanyCode || undefined,
 			division: mr.division,
 			isBlocked,
 			role: "MR",
