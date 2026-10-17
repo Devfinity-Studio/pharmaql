@@ -72,14 +72,14 @@ export default async function DeveloperControlPage() {
 
 	// Augment with MR assignments to guarantee comprehensive coverage
 	mrPageData.items.forEach((m) => {
-		if (m.company) {
-			const compTrim = m.company.trim();
-			const code = compTrim.split(/\s+/)[0]?.replace(/[^a-zA-Z0-9]/g, "") || compTrim;
+		const code = (m.companyCode || "").trim();
+		const compName = (m.company || code).trim();
+		if (code) {
 			const key = `${code}_${m.division || ""}`;
 			if (!companyMap.has(key)) {
 				companyMap.set(key, {
 					companyCode: code,
-					companyName: compTrim,
+					companyName: compName,
 					divisionName: m.division || "",
 				});
 			}

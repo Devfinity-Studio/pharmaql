@@ -60,6 +60,7 @@ export async function StockReportView({
 					firmNo: null,
 					division: mrInfo.division || null,
 					company: mrInfo.company,
+					companyCode: mrInfo.companyCode,
 					createdAt: new Date(),
 				},
 			]
@@ -74,18 +75,21 @@ export async function StockReportView({
 
 	if (selectedAssignments.length === 0) return <div>No data assigned</div>;
 
-	const targetCompanies = Array.from(
-		new Set(selectedAssignments.map((a) => a.manufacturer).filter(Boolean)),
+	// Use the Code column directly from the legacy m_mktcompany ERP table
+	const targetCodes = Array.from(
+		new Set(
+			selectedAssignments
+				.map((a: any) => a.companyCode || mrInfo.companyCode)
+				.filter(Boolean),
+		),
 	) as string[];
-
-	if (targetCompanies.length === 0) return <div>No data assigned</div>;
 
 	const finYearStart = "2026-04-01";
 	const fromDate = searchParams?.from || finYearStart;
 	const toDate = searchParams?.to || new Date().toISOString().slice(0, 10);
 
 	const response = await getStockMovement(
-		targetCompanies,
+		targetCodes.length > 0 ? targetCodes : mrInfo.companyCode || undefined,
 		fromDate,
 		toDate,
 		effectiveLocNo,
@@ -101,13 +105,11 @@ export async function StockReportView({
 		);
 	}
 
-	// Filter rows by assigned divisions/companies
+	// Filter rows by assigned divisions/companies directly without cutting strings
 	const matchingRows = response.data.filter((row: StockMovementRow) => {
 		return selectedAssignments.some((a) => {
 			const mfgName = a.manufacturer?.trim().toUpperCase();
-			const mfgFirstWord = mfgName ? mfgName.split(/\s+/)[0] : "";
 			const divName = a.division?.trim().toUpperCase();
-			const divFirstWord = divName ? divName.split(/\s+/)[0] : "";
 			const rowMake = (row.Make || "").toString().trim().toUpperCase();
 			const rowDiv = (row.Division || "").toString().trim().toUpperCase();
 
@@ -116,7 +118,6 @@ export async function StockReportView({
 				rowMake === mfgName ||
 				rowMake.includes(mfgName) ||
 				mfgName.includes(rowMake) ||
-				Boolean(mfgFirstWord && rowMake.includes(mfgFirstWord)) ||
 				(a.company && rowMake === a.company.trim().toUpperCase());
 
 			const matchesDiv =
@@ -124,8 +125,7 @@ export async function StockReportView({
 				divName === mfgName ||
 				rowDiv === divName ||
 				rowDiv.includes(divName) ||
-				divName.includes(rowDiv) ||
-				Boolean(divFirstWord && rowDiv.includes(divFirstWord));
+				divName.includes(rowDiv);
 
 			return matchesMfg && matchesDiv;
 		});

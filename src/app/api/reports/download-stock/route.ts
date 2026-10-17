@@ -83,6 +83,7 @@ export async function GET(request: Request) {
 					firmNo: null,
 					division: mrInfo.division || null,
 					company: mrInfo.company,
+					companyCode: mrInfo.companyCode,
 					createdAt: new Date(),
 				},
 			]
@@ -93,14 +94,17 @@ export async function GET(request: Request) {
 			? assignments
 			: assignments.filter((a) => (a.division || a.manufacturer) === company);
 
-	const targetCompanies = Array.from(
-		new Set(selectedAssignments.map((a) => a.manufacturer).filter(Boolean)),
+	// Use the Code column directly from the legacy m_mktcompany ERP table
+	const targetCodes = Array.from(
+		new Set(
+			selectedAssignments
+				.map((a: any) => a.companyCode || mrInfo.companyCode)
+				.filter(Boolean),
+		),
 	) as string[];
 
 	const result = await getStockMovement(
-		targetCompanies.length > 0
-			? targetCompanies
-			: mrInfo.companyCode || undefined,
+		targetCodes.length > 0 ? targetCodes : mrInfo.companyCode || undefined,
 		from || undefined,
 		to || undefined,
 		effectiveLocNo,
@@ -109,14 +113,12 @@ export async function GET(request: Request) {
 	const items: StockMovementRow[] =
 		result.success && result.data ? result.data : [];
 
-	// Filter rows strictly by assigned divisions/companies (exact match to web view)
+	// Filter rows strictly by assigned divisions/companies directly without cutting strings
 	const matchingRows = items.filter((row: StockMovementRow) => {
 		if (selectedAssignments.length === 0) return true;
 		return selectedAssignments.some((a) => {
 			const mfgName = a.manufacturer?.trim().toUpperCase();
-			const mfgFirstWord = mfgName ? mfgName.split(/\s+/)[0] : "";
 			const divName = a.division?.trim().toUpperCase();
-			const divFirstWord = divName ? divName.split(/\s+/)[0] : "";
 			const rowMake = (row.Make || "").toString().trim().toUpperCase();
 			const rowDiv = (row.Division || "").toString().trim().toUpperCase();
 
@@ -125,7 +127,6 @@ export async function GET(request: Request) {
 				rowMake === mfgName ||
 				rowMake.includes(mfgName) ||
 				mfgName.includes(rowMake) ||
-				Boolean(mfgFirstWord && rowMake.includes(mfgFirstWord)) ||
 				(a.company && rowMake === a.company.trim().toUpperCase());
 
 			const matchesDiv =
@@ -133,8 +134,7 @@ export async function GET(request: Request) {
 				divName === mfgName ||
 				rowDiv === divName ||
 				rowDiv.includes(divName) ||
-				divName.includes(rowDiv) ||
-				Boolean(divFirstWord && rowDiv.includes(divFirstWord));
+				divName.includes(rowDiv);
 
 			return matchesMfg && matchesDiv;
 		});

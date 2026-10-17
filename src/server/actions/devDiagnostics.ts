@@ -293,7 +293,7 @@ function buildFallbackProcedureSql(procedureName: string, params: Record<string,
 	if (compCode && compCode.trim() && compCode.trim() !== "All") {
 		const parts = compCode
 			.split(",")
-			.map((p: string) => p.trim().split(/\s+/)[0])
+			.map((p: string) => p.trim())
 			.filter(Boolean);
 		if (parts.length > 0) {
 			compCodeParam = parts.map((c: string) => `('${c.replace(/'/g, "''")}')`).join(",");
