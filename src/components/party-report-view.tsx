@@ -1,6 +1,6 @@
 import React from "react";
-import { ReportStationeryHeader } from "@/components/report-stationery-header";
 import { OfflineReportSync } from "@/components/offline-report-sync";
+import { ReportStationeryHeader } from "@/components/report-stationery-header";
 import { getMRInfo } from "@/server/actions/mrInfo";
 import {
 	getPartyCustomerItemSale,
@@ -73,9 +73,7 @@ export async function PartyReportView({
 		if (company === "All") {
 			const allCodes = Array.from(
 				new Set(
-					(mrInfo.assignments || [])
-						.map((a) => a.companyCode)
-						.filter(Boolean),
+					(mrInfo.assignments || []).map((a) => a.companyCode).filter(Boolean),
 				),
 			);
 			return allCodes.length > 0
@@ -97,17 +95,17 @@ export async function PartyReportView({
 
 	const partySalesResult: PartyCustomerItemSaleResult = mrInfo.canViewSales
 		? await getPartyCustomerItemSale({
-			fromDate: defaultFrom,
-			toDate: defaultTo,
-			compCode: compCodeToQuery,
-			locNo: mrInfo.locNo,
-		})
+				fromDate: defaultFrom,
+				toDate: defaultTo,
+				compCode: compCodeToQuery,
+				locNo: mrInfo.locNo,
+			})
 		: {
-			success: false,
-			error: "MR does not have sales view permissions",
-			data: null,
-			debugSql: undefined,
-		};
+				success: false,
+				error: "MR does not have sales view permissions",
+				data: null,
+				debugSql: undefined,
+			};
 
 	const fromDisplay = formatDisplayDate(defaultFrom);
 	const toDisplay = formatDisplayDate(defaultTo);
@@ -118,6 +116,20 @@ export async function PartyReportView({
 		partySalesResult.data.length > 0
 	) {
 		let rowsToProcess = partySalesResult.data;
+
+		if (company !== "All") {
+			const sel = company.trim().toUpperCase();
+			rowsToProcess = rowsToProcess.filter((r) => {
+				const rowDiv = (r.Division || "").toString().trim().toUpperCase();
+				if (rowDiv) {
+					return rowDiv === sel || rowDiv.includes(sel) || sel.includes(rowDiv);
+				}
+				const rowComp = (r.MktBy || "").toString().trim().toUpperCase();
+				return (
+					rowComp === sel || rowComp.includes(sel) || sel.includes(rowComp)
+				);
+			});
+		}
 
 		if (searchParams?.party) {
 			const filterParty = searchParams.party.toLowerCase();
@@ -189,10 +201,10 @@ export async function PartyReportView({
 				/>
 				{/* REPORT HEADER */}
 				<ReportStationeryHeader
-					title="Partywise/Itemwise Sales"
 					fromDisplay={fromDisplay}
-					toDisplay={toDisplay}
 					summaryRight={`Total Parties: ${customerGroups.length}`}
+					title="Partywise/Itemwise Sales"
+					toDisplay={toDisplay}
 				/>
 
 				{/* REPORT DATA TABLE */}
@@ -328,10 +340,10 @@ export async function PartyReportView({
 	return (
 		<div className="mt-4 space-y-4 rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
 			<ReportStationeryHeader
-				title="Partywise/Itemwise Sales"
 				fromDisplay={fromDisplay}
-				toDisplay={toDisplay}
 				summaryRight="No records found"
+				title="Partywise/Itemwise Sales"
+				toDisplay={toDisplay}
 			/>
 
 			<div className="py-12 text-center font-medium text-gray-500 text-sm">

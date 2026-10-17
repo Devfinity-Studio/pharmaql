@@ -112,3 +112,40 @@ export async function getProductCatalog(options?: {
 	});
 	return { success: true, data };
 }
+
+import { getStockMovement } from "./stockreports";
+
+/**
+ * Builds an Item-to-Division mapping dictionary for a company / assigned codes.
+ * Maps ItemName and ItemId (all normalized uppercase) to the exact Division.
+ */
+export async function getItemDivisionMap(
+	companyCode?: string | string[],
+	locNo: string = "11",
+): Promise<Map<string, string>> {
+	const map = new Map<string, string>();
+	try {
+		const stockRes = await getStockMovement(
+			companyCode,
+			"2026-04-01",
+			"2026-09-30",
+			locNo,
+		);
+		if (stockRes.success && stockRes.data) {
+			for (const r of stockRes.data) {
+				const div = (r.Division || "").toString().trim().toUpperCase();
+				if (div) {
+					if (r.ItemName)
+						map.set(r.ItemName.toString().trim().toUpperCase(), div);
+					if (r.ItemId) map.set(String(r.ItemId).trim().toUpperCase(), div);
+				}
+			}
+		}
+	} catch (e) {
+		console.error(
+			"[getItemDivisionMap] Error building item-to-division map:",
+			e,
+		);
+	}
+	return map;
+}

@@ -1,6 +1,6 @@
 import React from "react";
-import { ReportStationeryHeader } from "@/components/report-stationery-header";
 import { OfflineReportSync } from "@/components/offline-report-sync";
+import { ReportStationeryHeader } from "@/components/report-stationery-header";
 import { getClaimData } from "@/server/actions/claimData";
 import { getMRInfo } from "@/server/actions/mrInfo";
 import { getMROverrides } from "@/server/actions/mrs";
@@ -33,19 +33,24 @@ export async function FreeSchemeReportView({
 	const registeredCompanies = new Set<string>();
 	const registeredCodes = new Set<string>();
 
-	if (mrInfo.company) registeredCompanies.add(mrInfo.company.toLowerCase().trim());
-	if (mrInfo.companyCode) registeredCodes.add(mrInfo.companyCode.toLowerCase().trim());
-	if (mrInfo.division) registeredCompanies.add(mrInfo.division.toLowerCase().trim());
+	if (mrInfo.company)
+		registeredCompanies.add(mrInfo.company.toLowerCase().trim());
+	if (mrInfo.companyCode)
+		registeredCodes.add(mrInfo.companyCode.toLowerCase().trim());
+	if (mrInfo.division)
+		registeredCompanies.add(mrInfo.division.toLowerCase().trim());
 
-	for (const a of (mrInfo.assignments || [])) {
+	for (const a of mrInfo.assignments || []) {
 		if (a.company) registeredCompanies.add(a.company.toLowerCase().trim());
-		if (a.manufacturer) registeredCompanies.add(a.manufacturer.toLowerCase().trim());
+		if (a.manufacturer)
+			registeredCompanies.add(a.manufacturer.toLowerCase().trim());
 		if (a.division) registeredCompanies.add(a.division.toLowerCase().trim());
 		if (a.companyCode) registeredCodes.add(a.companyCode.toLowerCase().trim());
 	}
 
 	for (const a of assigned) {
-		if (a.manufacturer) registeredCompanies.add(a.manufacturer.toLowerCase().trim());
+		if (a.manufacturer)
+			registeredCompanies.add(a.manufacturer.toLowerCase().trim());
 		if (a.division) registeredCompanies.add(a.division.toLowerCase().trim());
 	}
 
@@ -53,9 +58,7 @@ export async function FreeSchemeReportView({
 		if (company === "All") {
 			const allCodes = Array.from(
 				new Set(
-					(mrInfo.assignments || [])
-						.map((a) => a.companyCode)
-						.filter(Boolean),
+					(mrInfo.assignments || []).map((a) => a.companyCode).filter(Boolean),
 				),
 			);
 			return allCodes.length > 0
@@ -80,7 +83,8 @@ export async function FreeSchemeReportView({
 		locNo: mrInfo.locNo,
 	});
 
-	const rawRows = claimResult.success && claimResult.data ? claimResult.data : [];
+	const rawRows =
+		claimResult.success && claimResult.data ? claimResult.data : [];
 
 	// Filter rows so only companies the MR is registered for are ever displayed
 	const filteredRows = rawRows.filter((row) => {
@@ -91,15 +95,21 @@ export async function FreeSchemeReportView({
 		// If a specific division was chosen from the division selector:
 		if (company !== "All") {
 			const sel = company.toLowerCase().trim();
+			if (rowDiv !== "") {
+				return rowDiv === sel || rowDiv.includes(sel) || sel.includes(rowDiv);
+			}
 			return (
-				(rowComp !== "" && (rowComp.includes(sel) || sel.includes(rowComp))) ||
-				(rowDiv !== "" && (rowDiv.includes(sel) || sel.includes(rowDiv))) ||
+				(rowComp !== "" &&
+					(rowComp === sel ||
+						rowComp.includes(sel) ||
+						sel.includes(rowComp))) ||
 				(rowCode !== "" && rowCode === sel)
 			);
 		}
 
 		// When "All" is selected, only permit registered companies/divisions for this MR
-		if (registeredCompanies.size === 0 && registeredCodes.size === 0) return true;
+		if (registeredCompanies.size === 0 && registeredCodes.size === 0)
+			return true;
 
 		for (const reg of registeredCompanies) {
 			if (!reg) continue;
@@ -174,9 +184,13 @@ export async function FreeSchemeReportView({
 
 			reportData.push({
 				Company:
-					row.Company || mrInfo.company || (company !== "All" ? company : "All"),
+					row.Company ||
+					mrInfo.company ||
+					(company !== "All" ? company : "All"),
 				Division:
-					row.Division || mrInfo.division || (company !== "All" ? company : "General"),
+					row.Division ||
+					mrInfo.division ||
+					(company !== "All" ? company : "General"),
 				Manufacturer:
 					row.Company || row.Division || (company !== "All" ? company : "All"),
 				SchemeType: schemeType,
@@ -261,14 +275,24 @@ export async function FreeSchemeReportView({
 			/>
 			{/* Official Stationery Header */}
 			<ReportStationeryHeader
-				title="Claim Quantity Statement"
-				fromDisplay={defaultFrom ? defaultFrom.split("-").reverse().join("/") : undefined}
-				toDisplay={defaultTo ? defaultTo.split("-").reverse().join("/") : undefined}
+				fromDisplay={
+					defaultFrom ? defaultFrom.split("-").reverse().join("/") : undefined
+				}
 				summaryRight={
 					<div className="text-right font-medium text-[10px] text-gray-700">
-						<div><span className="font-bold text-[#0B2545]">Qty Claim:</span> PTR × ClaimQty</div>
-						<div><span className="font-bold text-[#0B2545]">Rate Claim:</span> (NetRate - InvRate) × SaleQty</div>
+						<div>
+							<span className="font-bold text-[#0B2545]">Qty Claim:</span> PTR ×
+							ClaimQty
+						</div>
+						<div>
+							<span className="font-bold text-[#0B2545]">Rate Claim:</span>{" "}
+							(NetRate - InvRate) × SaleQty
+						</div>
 					</div>
+				}
+				title="Claim Quantity Statement"
+				toDisplay={
+					defaultTo ? defaultTo.split("-").reverse().join("/") : undefined
 				}
 			/>
 
@@ -305,10 +329,7 @@ export async function FreeSchemeReportView({
 								mfgData[0]?.Manufacturer ||
 								mfg
 							).toUpperCase();
-							const divName = (
-								mfgData[0]?.Division ||
-								mfg
-							).toUpperCase();
+							const divName = (mfgData[0]?.Division || mfg).toUpperCase();
 							const claimTypes = [
 								...new Set(mfgData.map((d) => d.SchemeType)),
 							].sort();
@@ -437,7 +458,7 @@ export async function FreeSchemeReportView({
 																		</Td>
 																		<Td className="border-none pt-0.5 pb-0 text-right">
 																			{typeof row["Rate Diff."] === "number" &&
-																				row["Rate Diff."] > 0
+																			row["Rate Diff."] > 0
 																				? row["Rate Diff."].toFixed(2)
 																				: "-"}
 																		</Td>
@@ -584,7 +605,13 @@ export async function FreeSchemeReportView({
 									acc.ClaimValue += curr.ClaimValue;
 									return acc;
 								},
-								{ SaleQty: 0, FreeQty: 0, ActualFQty: 0, ClaimQty: 0, ClaimValue: 0 },
+								{
+									SaleQty: 0,
+									FreeQty: 0,
+									ActualFQty: 0,
+									ClaimQty: 0,
+									ClaimValue: 0,
+								},
 							);
 
 							return (
