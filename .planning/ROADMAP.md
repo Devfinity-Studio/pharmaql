@@ -219,10 +219,10 @@
 - [x] **Automated Developer Email Alerts with MR Attribution**: Trigger automated email notifications to developers via Admin Mailer whenever reports are submitted, explicitly identifying which MR (name, role, rank, division) submitted the report.
 - [x] **Verification & End-to-End Validation**: Verify submission flows, error boundary interception, data persistence, email alerts, run automated tests, and perform clean production build validation.
 
-## Phase 28: Multi-Division & Multi-Company MR Assignment Management
+## Phase 28: Multi-Division MR Database Scanning & Aggregation
 
-- [ ] **Data Model & Backend Assignment Resolution**: Extend `LegacyMRUser`, `getMRInfo`, and `mr_overrides.json` to natively resolve multi-company/multi-division assignments alongside legacy ERP primary mappings.
-- [ ] **Interactive Admin Assignment Modal & Manager UI**: Build an assignment management dialog on `/admin/mrs` enabling Admins/Developers to search all 74 marketing companies & 185 divisions, add assignments in one click, and remove obsolete assignments.
-- [ ] **MR Dashboard Multi-Division Dropdown Synchronization**: Upgrade the division selector in `MrDashboardContent` to dynamically display all assigned companies/divisions, allowing reps to filter by specific division or aggregate across "All Assigned Companies".
-- [ ] **Multi-Company Report Querying & Export Alignment**: Update report data actions and export download endpoints (`download-stock`, `download-sales`, `download-outstanding`) to properly query and filter across all assigned company codes when an MR has multi-company assignments.
-- [ ] **Verification & Build Validation**: Run end-to-end multi-company assignment tests, verify typecheck, run clean production build, and sync branches.
+- [ ] **Database Scanning & Consolidation Engine**: Automatically scan and group `pdyasvmaster.l_mktcompany_mr` entries by `MRName` and `EmailId` in `mrInfo.ts` and API server, merging all duplicate records into unified MR profiles with all their `DivisionID`s, divisions, and marketing companies.
+- [ ] **MR Impersonation & Admin MR List Enhancement**: Upgrade Developer Impersonation (`/admin/dev`) and Admin MR Management (`/admin/mrs`) to display all consolidated MRs, render all division badges on cards/tables, and enable searching by company name, company code, division, MR name, and email.
+- [ ] **MR Dashboard Multi-Division Switcher**: Upgrade `MrDashboardContent` division dropdown to dynamically render all scanned divisions from `mrInfo.assignments`, enabling reps to switch between divisions or view "All Divisions".
+- [ ] **Multi-Division Report Querying & Export Synchronization**: Ensure report actions and download endpoints query with the active division and its corresponding company code.
+- [ ] **Verification & Validation**: Verify multi-division reps (Amit Bhagat with 3 divisions, Kalpesh, Manish, Ravikumar, Sachin), verify company-name search, run typecheck, and ensure clean build.

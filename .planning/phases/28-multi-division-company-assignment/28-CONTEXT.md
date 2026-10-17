@@ -1,66 +1,75 @@
-# Phase 28: Multi-Division & Multi-Company MR Assignment Management - Context & Requirements
+# Phase 28: Multi-Division MR Database Scanning & Aggregation - Context & Requirements
 
 ## Objectives
-Equip PharmaQL with comprehensive **Multi-Division & Multi-Company MR Assignment Management**. In the legacy ERP database (`pdyasvmaster`), an MR record is linked by default to a single division (`l_mktcompany_mr.DivisionID -> l_mktcompany.ID -> m_mktcompany.Code`). In actual pharmaceutical field operations, medical representatives often represent multiple divisions or marketing companies simultaneously.
+Equip PharmaQL with automated **Multi-Division Database Scanning and Aggregation** for Medical Representatives (MRs). The ERP database (`pdyasvmaster.l_mktcompany_mr`) has been updated to contain multiple rows for the same MR (sharing the same `MRName` and/or `EmailId`, but having different `ID` and `DivisionID` values linking to different divisions in `l_mktcompany` and marketing companies in `m_mktcompany`).
 
-This phase provides:
-1. Complete Admin & Developer UI to assign and remove marketing companies and divisions for any MR.
-2. Safe persistence via `mr_overrides.json` (`readServerJson` / `writeServerJson`), respecting read-only ERP database rules.
-3. Upgraded `LegacyMRUser` and `getMRInfo` resolving both legacy ERP primary assignments and multi-company overrides.
-4. MR Dashboard division switcher enhancement displaying all assigned companies & divisions with support for "All Assigned Companies".
-5. Multi-company report querying and export alignment for Excel, PDF, and print formats.
-6. Enhanced MR search allowing search by company name and code in Admin MR view and Developer impersonation.
+Previously, queries in `auth.ts`, `master.ts`, and `mrInfo.ts` executed with `LIMIT 1` or treated each row in isolation, causing MRs to see only their first division and hiding all other assigned divisions. Furthermore, MR impersonation in the Developer Control Center (`/admin/dev`) did not consolidate these entries or allow full search by company name.
+
+This phase implements automated scanning across all duplicate MR records in the database, consolidating them into unified MR profiles with all their divisions and companies, upgrading the MR Dashboard division selector, and making all MRs searchable by company name, code, division, and name.
 
 ---
 
 ## Locked Implementation Decisions
 
-### 1. Data Model & Storage (`mr_overrides.json`)
-- **Structure**:
-  Each assignment item stored in `mr_overrides[mrId].assignedManufacturers` contains:
-  - `id`: Unique UUID (`string`).
-  - `manufacturer`: Company description/name (e.g., `"ABBOTT HEALTHCARE PVT LTD"`).
-  - `companyCode`: ERP company code (e.g., `"ABBOTTH"`).
-  - `division`: Division description (e.g., `"ABBOTT -> CARDIAC"` or `"ALL"`).
-  - `divisionId`: Division integer ID (or `null` if assigned to entire company).
-  - `assignedAt`: ISO timestamp string.
-- **Legacy ERP Default Inclusion**:
-  If an MR has a legacy division/company from ERP (`mrInfo.company`, `mrInfo.division`), that legacy assignment is always preserved and treated as the primary assignment, seamlessly unioned with additional assigned companies/divisions.
-- **Zero ERP Table Writes**:
-  All custom assignments are stored in `data/mr_overrides.json` using atomic `writeServerJson` with lock guards.
+### 1. Database Scanning & Entity Consolidation (Zero Manual Input Needed)
+- **Automatic Matching Criteria**:
+  - Two or more records in `pdyasvmaster.l_mktcompany_mr` represent the same MR if:
+    1. They share the same `MRName` (case-insensitive, trimmed), OR
+    2. They share the same non-placeholder `EmailId` (case-insensitive, trimmed, excluding `@asmeepharma.com` synthetic emails).
+- **Aggregated Profile**:
+  - Primary identity: Uses the primary row ID, name, email, mobile, and rank.
+  - `assignments` / `divisions`: An array containing all distinct divisions and companies associated with the MR across all matching database rows:
+    ```ts
+    assignments: [
+      {
+        id: string; // row ID in l_mktcompany_mr
+        divisionId: number; // l_mktcompany.ID
+        division: string; // l_mktcompany.Division
+        companyId: number; // m_mktcompany.ID
+        companyCode: string; // m_mktcompany.Code
+        company: string; // m_mktcompany.Description
+        manufacturer: string;
+      }
+    ]
+    ```
 
-### 2. Admin Assignment Modal & Manager UI (`/admin/mrs`)
-- **Card Placement**:
-  - Each MR card in `src/app/admin/mrs/MRListInfiniteScroll.tsx` displays an "Assignments" summary badge indicating the total assigned companies (e.g., `3 Companies / 5 Divisions`).
-  - A prominent "Manage Assignments" button opens `MRAssignmentModal`.
-- **Modal Features**:
-  - **Existing Assignments List**: Shows each active company & division tag with a red removal (`✕`) button and confirmation.
-  - **Company Selector**: Searchable combobox/dropdown listing all 74 marketing companies (`getAllMarketingCompaniesWithDivisions()`).
-  - **Division Selector**: Shows all divisions for the selected company, with an "All Divisions in this Company" option.
-  - **Add Assignment Button**: Adds the company/division mapping instantly with optimistic UI update and server revalidation.
+### 2. API Server & Next.js Backend Layer
+- **`api-server/src/routes/auth.ts`**:
+  - In `/api/auth/mr-lookup`: Remove `LIMIT 1`. Query all rows matching the user's email, phone, or name. Aggregate all divisions into the returned user session payload.
+- **`api-server/src/routes/master.ts`**:
+  - In `/api/master/mr-info/:id`: When an MR is queried by ID or identifier, locate the primary record, then query all related rows for that MR in `l_mktcompany_mr` to attach the full list of divisions and companies.
+- **`src/server/actions/mrInfo.ts`**:
+  - In `getMRInfo(identifier)`: Ensure the returned `LegacyMRUser` includes all scanned database divisions in `assignments`.
+  - In `fetchMRsPage`: Group rows by MR identity so MRs with multiple divisions appear as a single consolidated rep with all divisions displayed. Support search across `company`, `companyCode`, `division`, `name`, and `email`.
+  - In `getAllMRsForDev`: Consolidate multi-division entries so that the Developer Impersonation table lists all MRs cleanly with all their companies and divisions.
 
-### 3. MR Search by Company Name / Code
-- **Admin Search (`MRSearchForm`) & Developer Sim**:
-  - Upgraded filter logic in `fetchMRsPage` and `getAllMRsForDev` to search by `name`, `email`, `company`, `companyCode`, `division`, and any assigned multi-companies.
-  - Resolves the issue where reps could not be discovered by their company name.
+### 3. Developer Impersonation (`/admin/dev`) & Admin List (`/admin/mrs`)
+- **Search Capabilities**:
+  - Reps are searchable by:
+    - Company Name (e.g., "Altrex", "Alembic", "Apical", "Valite")
+    - Company Code (e.g., "ALTRX", "ALEMBIC", "APICAL", "VALITE")
+    - Division Name (e.g., "ALTRX", "MEDIBRUCK", "SHREEJI", "SUMMIT")
+    - MR Name (e.g., "Amit Bhagat", "Kalpesh")
+    - MR Email and ID
+- **Display**:
+  - Cards and table rows clearly display all assigned divisions as distinct badges or pills (e.g., `ALTRX`, `MEDIBRUCK`, `SHREEJI`).
+  - Clicking "View As MR" or "View Data" retains access to all of that MR's divisions.
 
 ### 4. MR Dashboard Multi-Division Switcher (`MrDashboardContent`)
-- **Dynamic Dropdown**:
-  - In `src/components/mr-dashboard-content.tsx`, `effectiveAssignments` is populated from `mrInfo.assignments` (containing both ERP default and multi-company overrides).
-  - The division selector dropdown lists all assigned divisions grouped by company.
-  - Includes an "All Assigned Companies" option for reps with multi-company coverage.
-
-### 5. Report Querying & Export Synchronization
-- **Report Actions**:
-  - When an MR selects a specific company/division, reports query for that specific company code / division.
-  - When "All" is selected, report queries aggregate across all assigned company codes.
-- **Export Verification**:
-  - Download endpoints (`/api/reports/download-stock`, `/api/reports/download-sales`, `/api/reports/download-outstanding`) accept `companyCode` or `division` validated against the user's assigned companies.
+- **Division Dropdown**:
+  - Upgraded from using single `legacyDivision` to using the full list of scanned divisions from `mrInfo.assignments`.
+  - Displays all divisions (e.g. `ALTRX`, `MEDIBRUCK`, `SHREEJI`), with the option to filter by a specific division or view "All Divisions".
+  - Switching division filters the report queries (Stock Movement, Sales, Overdue/Outstanding, Claim Quantity) to that specific division and its corresponding company code.
 
 ---
 
 ## Verification & Quality Gates
 1. Type check: `pnpm exec tsc --noEmit` must pass with 0 errors.
 2. Build check: `pnpm run build` must succeed cleanly.
-3. End-to-end assignment check: Assigning, removing, viewing in MR dashboard, switching company/division in report views.
-4. Git synchronization: Push cleanly across `localdb`, `dev`, and `prod`.
+3. Multi-division verification:
+   - Amit Bhagat (ID 47 / 244 / 245) shows 3 divisions: `ALTRX`, `MEDIBRUCK`, `SHREEJI`.
+   - Kalpesh Rajpurohit (ID 182 / 185) shows 2 divisions: `SUMMIT-1`, `SUMMIT`.
+   - Manish Lonkar (ID 82 / 198) shows 2 divisions: `APICAL - INETA`, `APICAL - LEVANTA`.
+   - Sachin (ID 26 / 92) shows 2 divisions: `COSMEDERMA`, `VALITE` across 2 companies.
+4. Search verification: Searching "altrex" or "alembic" in MR search finds the respective reps.
+5. Impersonation verification: "View As MR" loads the dashboard with the division switcher containing all divisions.

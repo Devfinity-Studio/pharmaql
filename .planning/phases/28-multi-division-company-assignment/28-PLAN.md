@@ -1,7 +1,7 @@
-# Phase 28: Multi-Division & Multi-Company MR Assignment Management Plan
+# Phase 28: Multi-Division MR Database Scanning & Aggregation Plan
 
 ## Objective
-Equip PharmaQL with end-to-end multi-division and multi-company assignment capabilities for Medical Representatives (MRs). Admins and Developers can assign multiple marketing companies (`m_mktcompany`) and divisions (`l_mktcompany`) to any MR from `/admin/mrs`. MRs can seamlessly view, switch between, or aggregate reports across their assigned companies/divisions, and MR lookups in Admin and Developer views are fully searchable by company name.
+Automatically scan, aggregate, and display all division and company records for MRs in PharmaQL. The database (`pdyasvmaster.l_mktcompany_mr`) stores multiple entries for MRs with the same name and email across different `DivisionID`s. This plan consolidates those database records into unified MR profiles, enables company-name search in MR Impersonation and Admin lists, and provides a multi-division switcher on the MR dashboard.
 
 ---
 
@@ -9,101 +9,92 @@ Equip PharmaQL with end-to-end multi-division and multi-company assignment capab
 
 ```mermaid
 flowchart TD
-    subgraph Storage ["Server Storage (data/mr_overrides.json)"]
-        Overrides["mr_overrides[mrId].assignedManufacturers<br/>[ { id, manufacturer, companyCode, division, divisionId } ]"]
+    subgraph Database ["ERP MySQL (pdyasvmaster)"]
+        MRRows["l_mktcompany_mr Rows<br/>(Multiple rows with same MRName / EmailId, different DivisionID)"]
+        Divisions["l_mktcompany (Divisions)"]
+        Companies["m_mktcompany (Marketing Companies)"]
     end
 
-    subgraph Actions ["Server Actions"]
-        GetMRInfo["getMRInfo(identifier)<br/>Merges ERP defaults + assignedManufacturers into mrInfo.assignments"]
-        FetchMRsPage["fetchMRsPage({ search, sort })<br/>Searches name, email, company, code, division, overrides"]
-        AssignAction["assignCompanyAndDivision({ mrId, companyCode, companyName, divisionId, divisionName })"]
-        RemoveAction["removeCompanyAssignment({ mrId, assignmentId })"]
+    subgraph Aggregation ["Aggregation & Scanning Engine"]
+        Scanner["consolidateMRRecords()<br/>Matches by MRName & non-placeholder EmailId<br/>Extracts all distinct { divisionId, divisionName, companyCode, companyName }"]
     end
 
-    subgraph AdminUI ["Admin MR Management (/admin/mrs)"]
-        MRCard["MR Card in MRListInfiniteScroll<br/>Displays assigned companies badge & 'Manage Assignments'"]
-        Modal["MRAssignmentModal<br/>Searchable company/division select + active assignment list"]
+    subgraph Backend ["Server Actions & API Routes"]
+        GetMRInfo["getMRInfo(identifier) -> LegacyMRUser with all assignments"]
+        FetchMRsPage["fetchMRsPage({ search, sort }) -> Consolidated MRDisplayItems"]
+        GetAllMRsForDev["getAllMRsForDev() -> Consolidated Dev MR List"]
     end
 
-    subgraph MRUI ["MR Dashboard & Reports"]
-        Dashboard["MrDashboardContent<br/>Division Switcher with multi-company support & 'All Assigned'"]
-        Reports["Stock / Sales / Outstanding Views<br/>Queries filtered by selected assigned company/division"]
+    subgraph UI ["User Interfaces"]
+        AdminList["/admin/mrs (Displays all division tags & company search)"]
+        DevImpersonate["/admin/dev Impersonation (Shows all MRs, searchable by company name)"]
+        MRDashboard["MR Dashboard (Division switcher with all scanned divisions)"]
     end
 
-    Modal -->|Add/Remove| AssignAction & RemoveAction --> Overrides
-    Overrides --> GetMRInfo & FetchMRsPage
-    GetMRInfo --> Dashboard --> Reports
-    FetchMRsPage --> MRCard
+    MRRows & Divisions & Companies --> Scanner
+    Scanner --> GetMRInfo & FetchMRsPage & GetAllMRsForDev
+    FetchMRsPage --> AdminList
+    GetAllMRsForDev --> DevImpersonate
+    GetMRInfo --> MRDashboard
 ```
 
 ---
 
 ## Implementation Waves
 
-### Wave 1: Data Model, Server Actions & MR Search Enhancement
-- **File**: `src/lib/permissions.ts`
-  - Update `MROverride` interface to type `assignedManufacturers`:
-    ```ts
-    assignedManufacturers?: Array<{
-        id: string;
-        manufacturer: string;
-        companyCode?: string;
-        division?: string | null;
-        divisionId?: number | null;
-        assignedAt?: string;
-    }>;
-    ```
+### Wave 1: Database Scanning & Profile Consolidation
 - **File**: `src/server/actions/mrInfo.ts`
-  - Update `LegacyMRUser` interface to add `assignments`:
+  - Update `LegacyMRUser` and `MRDisplayItem` to include `assignments`:
     ```ts
-    assignments?: Array<{
+    assignments: Array<{
         id: string;
-        manufacturer: string;
-        companyCode?: string;
-        division?: string | null;
         divisionId?: number | null;
+        division: string | null;
+        companyId?: number | null;
+        companyCode?: string;
+        company?: string | null;
+        manufacturer: string;
     }>;
     ```
-  - In `getMRInfo(identifier)`:
-    - Build `assignments` list by merging the legacy primary assignment (`rawData.company` / `rawData.division`) with `override.assignedManufacturers`.
-    - Return `assignments` on the resolved user profile.
-  - In `fetchMRsPage`:
-    - Enhance search filter logic so queries match `companyName`, `companyCode`, or any multi-assigned company names.
-  - In `getAllMRsForDev`:
-    - Ensure `companyCode` and `divisionId` are preserved in `assignments`.
+  - Implement a centralized consolidation helper:
+    `consolidateMRs(rawList: LegacyMRUser[]): MRDisplayItem[]`
+    - Groups rows where `MRName` matches (case-insensitive) OR valid `EmailId` matches (excluding `@asmeepharma.com`).
+    - Collects all unique divisions and companies into `assignments`.
+    - Merges company names and company codes.
+  - Update `getMRInfo(identifier)`:
+    - Resolves the requested MR, scans all database rows for matching name/email, and returns the consolidated profile with all `assignments`.
+  - Update `getAllMRsForDev()`:
+    - Uses `consolidateMRs` so the developer impersonation list contains the deduplicated list of all 182 MRs with all their divisions and companies.
+  - Update `fetchMRsPage`:
+    - Uses `consolidateMRs` before pagination and searching.
+    - Enables searching across `company`, `companyCode`, `division`, `assignments`, `name`, and `email`.
 
-- **File**: `src/server/actions/mrs.ts`
-  - Implement `assignCompanyAndDivision({ mrId, companyCode, companyName, divisionId, divisionName })`.
-  - Implement `removeCompanyAssignment({ mrId, assignmentId })`.
-  - Add authorization check (must be `ADMIN` or `DEVELOPER`).
-  - Revalidate paths `/admin/mrs` and `/admin/mrs/[id]`.
+- **File**: `api-server/src/routes/auth.ts` & `api-server/src/routes/master.ts`
+  - Update `/api/auth/mr-lookup` and `/api/master/mr-info/:id` to scan for all matching rows in `l_mktcompany_mr` by `MRName` or `EmailId` instead of limiting to a single division.
 
-### Wave 2: Admin Assignment Modal & Manager UI
-- **File**: `src/components/mr-assignment-modal.tsx`
-  - Create interactive, accessible modal dialog:
-    - Displays MR name, primary ERP division, and current custom assignments.
-    - Searchable company select populated from `getAllMarketingCompaniesWithDivisions()`.
-    - Division select (with "All Divisions in this Company" option).
-    - "Add Assignment" button with instant optimistic UI update.
-    - Badges for each assigned company/division with a delete (`✕`) button and confirmation.
+### Wave 2: MR Impersonation & Admin MR List UI Enhancements
+- **File**: `src/components/dev-control-center.tsx`
+  - In the "MR Simulation & View-As" tab:
+    - Display all divisions assigned to each MR as badges (or "+N more divisions").
+    - Ensure search (`filteredMRs`) matches against company name, company code, division name, MR name, and email.
 - **File**: `src/app/admin/mrs/MRListInfiniteScroll.tsx`
-  - Accept `allManufacturers` from props (already passed by `page.tsx`).
-  - In MR Card info section, display:
-    - Primary company & division.
-    - Pill counter showing total assigned companies/divisions (e.g. `+2 additional companies`).
-    - "Manage Assignments" button with icon (`Building2` or `Settings2`) to open `MRAssignmentModal`.
+  - Update MR Card to display all scanned divisions (e.g. `ALTRX`, `MEDIBRUCK`, `SHREEJI`) as badges.
+  - If multiple companies are present, display each company badge.
 
-### Wave 3: MR Dashboard Division Selector & Report Query Alignment
+### Wave 3: MR Dashboard Division Switcher Synchronization
 - **File**: `src/components/mr-dashboard-content.tsx`
-  - Replace hardcoded single `legacyDivision` fallback with full `mrInfo.assignments`.
-  - Allow selecting individual assigned divisions or "All Assigned Companies".
-  - Pass the active division/company selection down to report subcomponents.
-- **File**: `src/server/actions/reports.ts` & download endpoints:
-  - Verify that report data fetching respects the active company code/division.
+  - Populate `effectiveAssignments` directly from `mrInfo.assignments`.
+  - The division switcher dropdown will show all scanned divisions (e.g. `ALTRX`, `MEDIBRUCK`, `SHREEJI`) plus "All Divisions".
+  - Ensure selecting a division passes that division and its corresponding `companyCode` to report components (`StockReportView`, `SalesReportView`, etc.).
 
 ### Wave 4: Verification, Quality Gates & Sync
-- Run `pnpm exec tsc --noEmit` (ensure 0 errors).
-- Run `pnpm run build` (ensure clean Next.js build).
-- Test adding an assignment to an MR, verifying it shows in MR dashboard and reports.
-- Test removing an assignment.
-- Commit to `localdb` and push across `localdb`, `dev`, and `prod`.
+- Verify all 5 known multi-division reps:
+  - Amit Bhagat (ID 47, 244, 245 -> `ALTRX`, `MEDIBRUCK`, `SHREEJI`)
+  - Kalpesh Rajpurohit (ID 182, 185 -> `SUMMIT-1`, `SUMMIT`)
+  - Manish Lonkar (ID 82, 198 -> `APICAL - INETA`, `APICAL - LEVANTA`)
+  - Ravikumar (ID 181, 183 -> `SUMMIT-1`, `SUMMIT`)
+  - Sachin (ID 26, 92 -> `COSMEDERMA`, `VALITE`)
+- Verify company search in Developer Impersonation and Admin MR list.
+- Run `pnpm exec tsc --noEmit` (0 errors).
+- Run `pnpm run build` (clean build).
+- Push across `localdb`, `dev`, and `prod`.
