@@ -236,32 +236,32 @@ export async function GET(request: Request) {
 			"Overdue Days": "" as any,
 			Division: "",
 		});
-	} else {
-		// CSV
-		const firstRow = tabularData[0];
-		if (!firstRow) {
-			return new NextResponse("No data available", { status: 200 });
-		}
-		const headersKeys = Object.keys(firstRow);
-		const csvContent = [
-			headersKeys.join(","),
-			...tabularData.map((row: any) =>
-				headersKeys
-					.map((key) => {
-						const val = row[key];
-						return typeof val === "string"
-							? `"${val.replace(/"/g, '""')}"`
-							: val;
-					})
-					.join(","),
-			),
-		].join("\n");
-
-		return new NextResponse(csvContent, {
-			headers: {
-				"Content-Disposition": `attachment; filename="${filename}.csv"`,
-				"Content-Type": "text/csv; charset=utf-8",
-			},
-		});
 	}
+
+	// CSV
+	const firstRow = tabularData[0];
+	if (!firstRow) {
+		return new NextResponse("No data available", { status: 200 });
+	}
+	const headersKeys = Object.keys(firstRow);
+	const csvContent = [
+		headersKeys.join(","),
+		...tabularData.map((row: any) =>
+			headersKeys
+				.map((key) => {
+					const val = row[key];
+					return typeof val === "string"
+						? `"${val.replace(/"/g, '""')}"`
+						: val;
+				})
+				.join(","),
+		),
+	].join("\n");
+
+	return new NextResponse(csvContent, {
+		headers: {
+			"Content-Disposition": `attachment; filename="${filename}.csv"`,
+			"Content-Type": "text/csv; charset=utf-8",
+		},
+	});
 }
