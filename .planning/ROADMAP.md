@@ -218,3 +218,11 @@
 - [x] **Developer Feedback Management Center**: Create a dedicated view in `/admin/dev` ("Feedback & Bug Reports" tab) to search, filter, inspect full diagnostic payloads, update ticket status, and resolve field issues.
 - [x] **Automated Developer Email Alerts with MR Attribution**: Trigger automated email notifications to developers via Admin Mailer whenever reports are submitted, explicitly identifying which MR (name, role, rank, division) submitted the report.
 - [x] **Verification & End-to-End Validation**: Verify submission flows, error boundary interception, data persistence, email alerts, run automated tests, and perform clean production build validation.
+
+## Phase 28: Multi-Division & Multi-Company MR Assignment Management
+
+- [ ] **Data Model & Backend Assignment Resolution**: Extend `LegacyMRUser`, `getMRInfo`, and `mr_overrides.json` to natively resolve multi-company/multi-division assignments alongside legacy ERP primary mappings.
+- [ ] **Interactive Admin Assignment Modal & Manager UI**: Build an assignment management dialog on `/admin/mrs` enabling Admins/Developers to search all 74 marketing companies & 185 divisions, add assignments in one click, and remove obsolete assignments.
+- [ ] **MR Dashboard Multi-Division Dropdown Synchronization**: Upgrade the division selector in `MrDashboardContent` to dynamically display all assigned companies/divisions, allowing reps to filter by specific division or aggregate across "All Assigned Companies".
+- [ ] **Multi-Company Report Querying & Export Alignment**: Update report data actions and export download endpoints (`download-stock`, `download-sales`, `download-outstanding`) to properly query and filter across all assigned company codes when an MR has multi-company assignments.
+- [ ] **Verification & Build Validation**: Run end-to-end multi-company assignment tests, verify typecheck, run clean production build, and sync branches.
