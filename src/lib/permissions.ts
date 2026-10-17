@@ -11,6 +11,7 @@ export interface RankPermissions {
 export interface MROverride {
 	isBlocked?: boolean;
 	lastLogin?: string;
+	rank?: MRRank;
 	permissions?: {
 		canViewFreeScheme: boolean;
 		canViewStock: boolean;

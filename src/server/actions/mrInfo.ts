@@ -58,7 +58,9 @@ export async function getMRInfo(
 
 	// Resolve Rank directly from database (ERP Rank column -> ERP JobProfile -> default 3)
 	let rank: MRRank = 3;
-	if (rawData.rank === 1 || rawData.rank === 2 || rawData.rank === 3) {
+	if (override.rank === 1 || override.rank === 2 || override.rank === 3) {
+		rank = override.rank;
+	} else if (rawData.rank === 1 || rawData.rank === 2 || rawData.rank === 3) {
 		rank = rawData.rank;
 	} else if (rawData.JobProfile) {
 		const jp = rawData.JobProfile.toUpperCase().trim();
@@ -75,11 +77,14 @@ export async function getMRInfo(
 		lastLogin: override.lastLogin,
 		isBlocked:
 			override.isBlocked !== undefined ? override.isBlocked : rawData.isBlocked,
-		canViewStock: perms.canViewStock,
-		canViewSales: perms.canViewSales,
-		canViewFreeScheme: perms.canViewFreeScheme,
-		canViewPartyWise: perms.canViewPartyWise,
-		canViewProductWise: perms.canViewProductWise,
+		canViewStock: override.permissions?.canViewStock ?? perms.canViewStock,
+		canViewSales: override.permissions?.canViewSales ?? perms.canViewSales,
+		canViewFreeScheme:
+			override.permissions?.canViewFreeScheme ?? perms.canViewFreeScheme,
+		canViewPartyWise:
+			override.permissions?.canViewPartyWise ?? perms.canViewPartyWise,
+		canViewProductWise:
+			override.permissions?.canViewProductWise ?? perms.canViewProductWise,
 	};
 }
 

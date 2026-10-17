@@ -58,8 +58,10 @@ export async function GET(request: Request) {
 
 	// Authorize: Admin or the MR themselves
 	const requestingUserId = session.user.id;
-	const isSelf = requestingUserId === mrId;
-	const isAdmin = (session.user as any).role === "ADMIN";
+	const isSelf = String(requestingUserId) === String(mrId);
+	const isAdmin =
+		(session.user as any).role === "ADMIN" ||
+		(session.user as any).role === "DEVELOPER";
 
 	if (!isSelf && !isAdmin) {
 		return new NextResponse("Forbidden", { status: 403 });
@@ -71,10 +73,10 @@ export async function GET(request: Request) {
 		return new NextResponse("MR not found", { status: 404 });
 	}
 
-	const canViewSales = isAdmin || mrInfo.canViewSales;
+	const canViewOverdue = isSelf || isAdmin || mrInfo.canViewSales;
 
-	if (!canViewSales) {
-		return new NextResponse("Forbidden - Sales view disabled", { status: 403 });
+	if (!canViewOverdue) {
+		return new NextResponse("Forbidden - View disabled", { status: 403 });
 	}
 
 	// Query live stored procedure rptMRwisePeriodicalOutstanding
