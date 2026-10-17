@@ -2,6 +2,7 @@
 
 import { apiGet } from "@/lib/api-client";
 import { getPermissionsForRank, type MRRank, type MROverride } from "@/lib/permissions";
+import { getLatestLoginTimestamps } from "@/lib/audit-logger";
 import { getMROverrides } from "./mrs";
 
 export interface MRAssignment {
@@ -79,6 +80,25 @@ function isSyntheticEmail(email?: string | null): boolean {
 }
 
 /**
+ * Picks the newest valid ISO timestamp from a list of candidates.
+ */
+function pickLatestTimestamp(
+	...timestamps: (string | null | undefined)[]
+): string | undefined {
+	let latest: string | undefined;
+	let latestMs = -1;
+	for (const ts of timestamps) {
+		if (!ts) continue;
+		const ms = new Date(ts).getTime();
+		if (!isNaN(ms) && ms > latestMs) {
+			latestMs = ms;
+			latest = ts;
+		}
+	}
+	return latest;
+}
+
+/**
  * Consolidates duplicate database rows for the same MR across multiple division IDs.
  * Priority rule: Email ID is prioritized first. Rows with identical valid non-synthetic
  * emails belong to the same MR. Remaining rows are matched by case-insensitive trimmed MRName.
@@ -86,6 +106,7 @@ function isSyntheticEmail(email?: string | null): boolean {
 function consolidateMRProfiles(
 	rawList: LegacyMRUser[],
 	allOverrides: Record<string, MROverride> = {},
+	auditLoginMap?: Map<string, string>,
 ): MRDisplayItem[] {
 	if (!rawList || rawList.length === 0) return [];
 
@@ -153,13 +174,28 @@ function consolidateMRProfiles(
 		const primary = sortedMembers[0]!;
 		const allIds = Array.from(new Set(members.map((m) => String(m.id))));
 
-		// Aggregate overrides across all linked IDs
+		// Aggregate overrides across all linked IDs and email
 		let mergedOverride: MROverride = {};
 		for (const id of allIds) {
 			if (allOverrides[id]) {
 				mergedOverride = { ...mergedOverride, ...allOverrides[id] };
 			}
 		}
+		if (primary.email && allOverrides[primary.email.toLowerCase()]) {
+			mergedOverride = {
+				...mergedOverride,
+				...allOverrides[primary.email.toLowerCase()],
+			};
+		}
+
+		// Resolve Last Login across overrides (all IDs + email) and audit logs (all IDs + email)
+		const resolvedLastLogin = pickLatestTimestamp(
+			mergedOverride.lastLogin,
+			primary.email ? allOverrides[primary.email.toLowerCase()]?.lastLogin : undefined,
+			...allIds.map((id) => allOverrides[id]?.lastLogin),
+			...allIds.map((id) => auditLoginMap?.get(id)),
+			primary.email ? auditLoginMap?.get(primary.email.toLowerCase()) : undefined,
+		);
 
 		// Resolve Rank: Max rank among members or override
 		let rank: MRRank = 3;
@@ -250,7 +286,7 @@ function consolidateMRProfiles(
 			isBlocked,
 			role: "MR",
 			rank,
-			lastLogin: mergedOverride.lastLogin,
+			lastLogin: resolvedLastLogin,
 			canViewStock: perms.canViewStock,
 			canViewSales: perms.canViewSales,
 			canViewFreeScheme: perms.canViewFreeScheme,
@@ -272,9 +308,10 @@ export async function getMRInfo(
 	const strId = String(identifier).trim();
 	const allRawMRs = await getAllMRUsers();
 	const allOverrides = await getMROverrides();
+	const auditLoginMap = await getLatestLoginTimestamps();
 
 	if (allRawMRs && allRawMRs.length > 0) {
-		const consolidated = consolidateMRProfiles(allRawMRs, allOverrides);
+		const consolidated = consolidateMRProfiles(allRawMRs, allOverrides, auditLoginMap);
 		const found = consolidated.find(
 			(m) =>
 				m.id === strId ||
@@ -332,6 +369,12 @@ export async function getMRInfo(
 
 	const rawData = res.data;
 	const override = allOverrides[rawData.id] || {};
+	const resolvedLastLogin = pickLatestTimestamp(
+		override.lastLogin,
+		rawData.email ? allOverrides[rawData.email.toLowerCase()]?.lastLogin : undefined,
+		auditLoginMap.get(String(rawData.id)),
+		rawData.email ? auditLoginMap.get(rawData.email.toLowerCase()) : undefined,
+	);
 
 	let rank: MRRank = 3;
 	if (override.rank === 1 || override.rank === 2 || override.rank === 3) {
@@ -360,7 +403,7 @@ export async function getMRInfo(
 	return {
 		...rawData,
 		rank,
-		lastLogin: override.lastLogin,
+		lastLogin: resolvedLastLogin,
 		isBlocked:
 			override.isBlocked !== undefined ? override.isBlocked : rawData.isBlocked,
 		canViewStock: override.permissions?.canViewStock ?? perms.canViewStock,
@@ -394,7 +437,8 @@ export async function getAllMRUsers(): Promise<LegacyMRUser[]> {
 export async function getAllMRsForDev(): Promise<MRDisplayItem[]> {
 	const allRawMRs = await getAllMRUsers();
 	const allOverrides = await getMROverrides();
-	return consolidateMRProfiles(allRawMRs, allOverrides);
+	const auditLoginMap = await getLatestLoginTimestamps();
+	return consolidateMRProfiles(allRawMRs, allOverrides, auditLoginMap);
 }
 
 export interface PaginatedMRResponse {
@@ -474,8 +518,9 @@ export async function fetchMRsPage(params: {
 
 	const allRawMRs = await getAllMRUsers();
 	const allOverrides = await getMROverrides();
+	const auditLoginMap = await getLatestLoginTimestamps();
 
-	let allItems = consolidateMRProfiles(allRawMRs, allOverrides);
+	let allItems = consolidateMRProfiles(allRawMRs, allOverrides, auditLoginMap);
 
 	// Search filter across MR name, email, company, company code, division, and all assigned divisions
 	if (searchQuery) {
