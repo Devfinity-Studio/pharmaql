@@ -208,3 +208,13 @@
   - Stored procedure latency benchmark test.
 - [x] **Developer Email Credentials Configuration**: Implement full support for dedicated developer SMTP sending credentials (`DEV_SMTP_USER`, `DEV_SMTP_PASS`, `DEV_EMAIL`) in mailer so system alerts, renewal invoices, and administrative notices originate directly from the developer account to Admins and MRs.
 - [x] **Verification & Build Validation**: Test all debug actions, verify email dispatch with developer credentials, run typecheck, and ensure clean production builds.
+
+## Phase 27: In-App Feedback & Error Reporting System
+
+- [ ] **In-App Feedback & Bug Submission Widget**: Embed an accessible feedback/bug report trigger across MR and Admin interfaces with category selection (Bug, Data Issue, Feature Request, General Feedback), urgency level, description, and optional screenshot attachment.
+- [ ] **Context-Aware Error Diagnostics & Telemetry**: Automatically collect environment diagnostics with each report (current URL/tab, user ID, role, browser/OS version, screen dimensions, recent console errors/network failures).
+- [ ] **React Error Boundary & Unhandled Exception Catcher**: Implement global and route-level error boundaries that catch render crashes and display a user-friendly fallback UI with one-click instant error reporting.
+- [ ] **Persistent Ticket Storage & Server Actions**: Build server actions and structured file storage (`data/feedback_reports.json`) with unique ticket IDs, timestamps, status tracking (New, Under Review, Resolved), and developer notes.
+- [ ] **Admin & Developer Feedback Management Center**: Create a dedicated view in `/admin/dev` (or `/admin/feedback`) to search, filter, inspect full diagnostic payloads, update ticket status, and resolve field issues.
+- [ ] **Automated Developer & Admin Email Alerts**: Trigger automated email notifications to developers and system administrators via Developer Mailer whenever critical bugs or errors are submitted.
+- [ ] **Verification & End-to-End Validation**: Verify submission flows from MR and Admin views, error boundary interception, data persistence, email alerts, and perform clean production build validation.
