@@ -8,7 +8,7 @@ import {
 	getServiceHealthTelemetry,
 	getUnifiedSystemLogs,
 } from "@/server/actions/devDiagnostics";
-import { fetchMRsPage } from "@/server/actions/mrInfo";
+import { fetchMRsPage, getAllMarketingCompaniesWithDivisions } from "@/server/actions/mrInfo";
 import { auth } from "@/server/auth";
 
 export const metadata = {
@@ -34,6 +34,7 @@ export default async function DeveloperControlPage() {
 		runtimeConfig,
 		initialLogs,
 		mrPageData,
+		companiesData,
 	] = await Promise.all([
 		getServiceHealthTelemetry(),
 		getLicenseStatus(),
@@ -42,6 +43,7 @@ export default async function DeveloperControlPage() {
 		getRuntimeConfig(),
 		getUnifiedSystemLogs({ limit: 100 }),
 		fetchMRsPage({ page: 1, limit: 100 }),
+		getAllMarketingCompaniesWithDivisions().catch(() => []),
 	]);
 
 	const maskedEnv = getMaskedEnvInspection();
@@ -54,8 +56,52 @@ export default async function DeveloperControlPage() {
 		rank: m.rank,
 	}));
 
+	// Deduplicate and assemble companies list for procedure sandbox search
+	const companyMap = new Map<string, { companyCode: string; companyName: string; divisionName: string }>();
+
+	(companiesData || []).forEach((c) => {
+		const code = String(c.companyCode || "").trim();
+		if (!code) return;
+		const key = `${code}_${c.divisionName || ""}`;
+		companyMap.set(key, {
+			companyCode: code,
+			companyName: String(c.companyName || code).trim(),
+			divisionName: String(c.divisionName || "").trim(),
+		});
+	});
+
+	// Augment with MR assignments to guarantee comprehensive coverage
+	mrPageData.items.forEach((m) => {
+		if (m.company) {
+			const compTrim = m.company.trim();
+			const code = compTrim.split(/\s+/)[0]?.replace(/[^a-zA-Z0-9]/g, "") || compTrim;
+			const key = `${code}_${m.division || ""}`;
+			if (!companyMap.has(key)) {
+				companyMap.set(key, {
+					companyCode: code,
+					companyName: compTrim,
+					divisionName: m.division || "",
+				});
+			}
+		}
+	});
+
+	// Ensure standard Asmee Pharma code 11 is always in the list
+	if (!Array.from(companyMap.values()).some((c) => c.companyCode === "11")) {
+		companyMap.set("11_Generics", {
+			companyCode: "11",
+			companyName: "Asmee Pharma Pvt. Ltd.",
+			divisionName: "Generics",
+		});
+	}
+
+	const companiesList = Array.from(companyMap.values()).sort((a, b) =>
+		a.companyName.localeCompare(b.companyName),
+	);
+
 	return (
 		<DevControlCenter
+			companiesList={companiesList}
 			featureToggles={featureToggles}
 			healthReport={healthReport}
 			initialLogs={initialLogs}
