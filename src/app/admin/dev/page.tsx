@@ -55,6 +55,7 @@ export default async function DeveloperControlPage() {
 		company: m.company,
 		companyCode: m.companyCode,
 		rank: m.rank,
+		isBlocked: m.isBlocked,
 		assignedCompanies: Array.from(
 			new Set(
 				(m.assignments || [])

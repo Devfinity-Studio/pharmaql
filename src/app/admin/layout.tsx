@@ -1,6 +1,8 @@
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import type { ReactNode } from "react";
+import { Suspense } from "react";
+import { PresenceBeacon } from "@/components/presence-beacon";
 import { CollapsibleSidebar } from "@/components/collapsible-sidebar";
 import { NoticeModal } from "@/components/notice-modal";
 import { getLicenseStatus } from "@/lib/license";
@@ -69,6 +71,9 @@ export default async function AdminLayout({
 
 	return (
 		<div className="relative flex min-h-screen flex-col bg-gray-50 text-gray-900 md:h-screen md:flex-row md:overflow-hidden">
+			<Suspense fallback={null}>
+				<PresenceBeacon />
+			</Suspense>
 			<div className="pointer-events-none absolute inset-0 z-0 bg-[url('/devfinity.png')] bg-repeat opacity-[0.03] [background-size:120px]"></div>
 			<NoticeModal notices={activeNotices as any} />
 			<CollapsibleSidebar

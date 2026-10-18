@@ -27,6 +27,7 @@ import {
 	MessageSquare,
 	Play,
 	Power,
+	Radio,
 	RefreshCw,
 	Search,
 	Server,
@@ -41,6 +42,7 @@ import {
 	XCircle,
 } from "lucide-react";
 import { DevFeedbackPanel } from "./dev-feedback-panel";
+import { DevLivePresence } from "./dev-live-presence";
 import type { LicenseStatusResult } from "@/lib/license";
 import type { FeatureKey, FeatureScope, MaintenanceConfig } from "@/lib/maintenance";
 import type { RuntimeConfig } from "@/lib/runtime-config";
@@ -87,6 +89,7 @@ interface DevControlCenterProps {
 		company?: string | null;
 		companyCode?: string | null;
 		rank?: number;
+		isBlocked?: boolean;
 		assignedCompanies?: string[];
 		assignedDivisions?: string[];
 	}>;
@@ -112,7 +115,7 @@ export function DevControlCenter({
 	const searchParams = useSearchParams();
 	const initialTabFromUrl = searchParams.get("tab");
 	const [activeTab, setActiveTab] = useState<
-		"status" | "debug" | "feedback" | "license" | "push" | "toggles" | "impersonate" | "logs" | "query" | "runtime" | "notices"
+		"status" | "presence" | "debug" | "feedback" | "license" | "push" | "toggles" | "impersonate" | "logs" | "query" | "runtime" | "notices"
 	>((initialTabFromUrl as any) || "status");
 
 	// Debug Console states
@@ -760,6 +763,7 @@ export function DevControlCenter({
 			<div className="flex overflow-x-auto border-b border-gray-200 pb-px">
 				{[
 					{ id: "status", label: "Services Status", icon: Activity },
+					{ id: "presence", label: "Live Users & Presence", icon: Radio },
 					{ id: "debug", label: "Debug Console", icon: Terminal },
 					{ id: "feedback", label: "Feedback & Bug Reports", icon: MessageSquare },
 					{ id: "license", label: "Subscription & License", icon: Key },
@@ -1084,6 +1088,11 @@ export function DevControlCenter({
 						</div>
 					</div>
 				</div>
+			)}
+
+			{/* TAB: LIVE USERS & PRESENCE */}
+			{activeTab === "presence" && (
+				<DevLivePresence mrList={mrList as any} />
 			)}
 
 			{/* TAB: DEBUG & DIAGNOSTICS CONSOLE */}
