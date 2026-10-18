@@ -2,6 +2,8 @@ import { headers } from "next/headers";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import type { ReactNode } from "react";
+import { Suspense } from "react";
+import { PresenceBeacon } from "@/components/presence-beacon";
 import { LogoutButton } from "@/components/logout-button";
 import { CollapsibleSidebar } from "@/components/collapsible-sidebar";
 import { ImpersonationBanner } from "@/components/impersonation-banner";
@@ -87,6 +89,9 @@ export default async function MRLayout({ children }: { children: ReactNode }) {
 
 	return (
 		<div className="relative flex flex-col h-screen overflow-hidden bg-[#F8FAFC] text-[#0B2545]">
+			<Suspense fallback={null}>
+				<PresenceBeacon />
+			</Suspense>
 			<OfflineIndicator mrId={session.user.id} mrName={session.user.name} />
 			<PwaInstallPrompt />
 			{isImpersonating && (
