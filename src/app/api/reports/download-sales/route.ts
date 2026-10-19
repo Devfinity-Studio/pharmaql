@@ -371,7 +371,6 @@ export async function GET(request: Request) {
 			toDate: defaultTo,
 			compCode: compCodeToQuery,
 			locNo: mrInfo.locNo || "11",
-			div: company !== "All" ? company : undefined,
 		});
 
 		const rawRows =
@@ -390,22 +389,23 @@ export async function GET(request: Request) {
 		let totalClosingVal = 0;
 
 		const excelRows = rawRows.map((r: any) => {
-			const opQty = Number(r.OpQty ?? r.OpeningQty ?? r.Opening ?? 0);
+			const opQty = Number(r.OpenQty ?? r.OpQty ?? r.OpeningQty ?? r.Opening ?? 0);
 			const purQty = Number(
-				r.PurQty ?? r.PurchaseQty ?? r.Purchase ?? r.RecQty ?? 0,
+				r.PQty ?? r.PurQty ?? r.PurchaseQty ?? r.Purchase ?? r.RecQty ?? 0,
 			);
-			const saleQty = Number(r.SaleQty ?? r.SalesQty ?? r.Sales ?? 0);
-			const freeQty = Number(r.FreeQty ?? r.Free ?? r.FQty ?? 0);
+			const saleQty = Number(r.SQty ?? r.SaleQty ?? r.SalesQty ?? r.Sales ?? 0);
+			const freeQty = Number(r.SFQty ?? r.FreeQty ?? r.Free ?? r.FQty ?? 0);
 			const sRetQty = Number(r.SRetQty ?? r.SReturn ?? r.SalesReturn ?? 0);
 			const closingQty = Number(
-				r.BalQty ??
+				r.CurrStck ??
+					r.BalQty ??
 					r.ClosingQty ??
 					r.Balance ??
 					r.Closing ??
 					opQty + purQty + sRetQty - saleQty,
 			);
 			const ptr = Number(r.PTR ?? r.Ptr ?? 0);
-			const rate = Number(r.Rate ?? r.PRate ?? ptr);
+			const rate = Number(r.Rate ?? r.PRate ?? r.Srate ?? ptr);
 			const saleVal = Number(
 				r.SaleVal ?? r.SalesValue ?? saleQty * (ptr || rate),
 			);
@@ -430,10 +430,10 @@ export async function GET(request: Request) {
 					r.ProductName ||
 					"Unknown Item"
 				).toString().trim(),
-				packing: (r.Packing || "-").toString().trim(),
+				packing: (r.Pack || r.Packing || "-").toString().trim(),
 				division: (
 					r.Division ||
-					r.Make ||
+					r.MktBy ||
 					(company !== "All" ? company : "General")
 				).toString().trim(),
 				batchNo: (r.BatchNo || r.Batch || "-").toString().trim(),

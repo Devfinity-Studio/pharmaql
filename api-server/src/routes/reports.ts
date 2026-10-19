@@ -61,7 +61,7 @@ reportsRouter.post("/stock-movement", async (req: Request, res: Response) => {
 reportsRouter.post("/stock-and-sales", async (req: Request, res: Response) => {
   let conn;
   try {
-    const { companyCode, fromDate, toDate, locNo, div, itemIds } = req.body || {};
+    const { companyCode, fromDate, toDate, locNo, div, divId, itemIds, itemCategory, includeBr, showFree } = req.body || {};
 
     conn = await dbPool.getConnection();
     await conn.query("SET sql_mode = ''");
@@ -73,23 +73,48 @@ reportsRouter.post("/stock-and-sales", async (req: Request, res: Response) => {
 
     const compCodeParam = await resolveCompanyCodeParam(conn, companyCode);
     const compNo = req.body?.compNo ?? 11;
-    const locParam = locNo ? `('${locNo}')` : "('11')";
-    const divParam = div ? `'${String(div).replace(/'/g, "''")}'` : "''";
-    const itemIdsParam = itemIds ? `'${String(itemIds).replace(/'/g, "''")}'` : "''";
-    const finYear = req.body?.finYear ?? 202627;
+    const cleanLoc = locNo ? String(locNo).replace(/['"()]/g, "").trim() : "11";
+    const locParam = `('${cleanLoc}')`;
+
+    // p_DivId: Procedure creates tmpDivisionID (DivisionID INT NOT NULL) and executes: INSERT INTO tmpDivisionID VALUES <p_DivId>
+    // Only pass valid numeric ID formatted as (id). If text name like 'AVRIVA' was passed, do NOT pass it to p_DivId!
+    let divIdParam = "";
+    const rawDivId = divId ?? div;
+    if (rawDivId !== undefined && rawDivId !== null && String(rawDivId).trim() !== "" && String(rawDivId).toUpperCase() !== "ALL") {
+      const parsedId = parseInt(String(rawDivId).replace(/['"()]/g, "").trim(), 10);
+      if (!isNaN(parsedId) && parsedId > 0) {
+        divIdParam = `(${parsedId})`;
+      }
+    }
+
+    // p_ItemIds: INSERT INTO tmpItemID VALUES <p_ItemIds>
+    let itemIdsParam = "";
+    if (itemIds && String(itemIds).trim() !== "") {
+      const raw = String(itemIds).trim();
+      itemIdsParam = raw.startsWith("(") ? raw : `(${raw})`;
+    }
+
+    // p_ItemCategory: INSERT INTO tmpItemCat VALUES <p_ItemCategory>
+    let itemCatParam = "";
+    if (itemCategory && String(itemCategory).trim() !== "") {
+      const raw = String(itemCategory).trim();
+      itemCatParam = raw.startsWith("(") ? raw : `('${raw.replace(/'/g, "''")}')`;
+    }
+
+    const includeBrParam = includeBr === "Y" ? "'Y'" : "'N'";
+    const showFreeParam = showFree === "N" ? "'N'" : "'Y'";
 
     const formattedParams = [
-      compNo,
-      `'${locParam.replace(/'/g, "''")}'`,
-      odbcFromDate,
-      odbcToDate,
-      `'${compCodeParam.replace(/'/g, "''")}'`,
-      divParam,
-      itemIdsParam,
-      finYear,
-      "'N'",
-      "''",
-      "'Y'",
+      compNo,                                                           // 1: p_CmpNo (INT)
+      `'${locParam.replace(/'/g, "''")}'`,                             // 2: p_LocNo (mediumtext)
+      odbcFromDate,                                                     // 3: p_FromDt
+      odbcToDate,                                                       // 4: p_ToDt
+      compCodeParam ? `'${compCodeParam.replace(/'/g, "''")}'` : "''",  // 5: p_CompCode (longtext)
+      divIdParam ? `'${divIdParam.replace(/'/g, "''")}'` : "''",        // 6: p_DivId (longtext - INT values)
+      itemIdsParam ? `'${itemIdsParam.replace(/'/g, "''")}'` : "''",    // 7: p_ItemIds (longtext)
+      itemCatParam ? `'${itemCatParam.replace(/'/g, "''")}'` : "''",    // 8: p_ItemCategory (longtext)
+      includeBrParam,                                                   // 9: p_IncludeBr (varchar)
+      showFreeParam,                                                    // 10: p_ShowFree (varchar)
     ].join(", ");
 
     const sql = `CALL \`pdyasvtrans\`.\`rptStockandSalesStatementReport\`(${formattedParams})`;
@@ -576,18 +601,41 @@ reportsRouter.post("/dev-procedure-sandbox", async (req: Request, res: Response)
       ].join(", ");
       sql = `CALL \`pdyasvtrans\`.\`rptCompanyCustomerItemwiseSales\`(${formattedParams})`;
     } else if (procedureName === "rptStockandSalesStatementReport") {
+      let divIdParam = "";
+      const rawDivId = params.divId ?? params.div;
+      if (rawDivId !== undefined && rawDivId !== null && String(rawDivId).trim() !== "" && String(rawDivId).toUpperCase() !== "ALL") {
+        const parsedId = parseInt(String(rawDivId).replace(/['"()]/g, "").trim(), 10);
+        if (!isNaN(parsedId) && parsedId > 0) {
+          divIdParam = `(${parsedId})`;
+        }
+      }
+
+      let itemIdsParam = "";
+      if (params.itemIds && String(params.itemIds).trim() !== "") {
+        const raw = String(params.itemIds).trim();
+        itemIdsParam = raw.startsWith("(") ? raw : `(${raw})`;
+      }
+
+      let itemCatParam = "";
+      if (params.itemCategory && String(params.itemCategory).trim() !== "") {
+        const raw = String(params.itemCategory).trim();
+        itemCatParam = raw.startsWith("(") ? raw : `('${raw.replace(/'/g, "''")}')`;
+      }
+
+      const includeBrParam = params.includeBr === "Y" ? "'Y'" : "'N'";
+      const showFreeParam = params.showFree === "N" ? "'N'" : "'Y'";
+
       const formattedParams = [
         params.compNo ?? 11,
         `'${locParam.replace(/'/g, "''")}'`,
         odbcFrom,
         odbcTo,
-        `'${compCodeParam.replace(/'/g, "''")}'`,
-        params.div ? `'${String(params.div).replace(/'/g, "''")}'` : "''",
-        params.itemIds ? `'${String(params.itemIds).replace(/'/g, "''")}'` : "''",
-        params.finYear ?? 202627,
-        "'N'",
-        "''",
-        "'Y'",
+        compCodeParam ? `'${compCodeParam.replace(/'/g, "''")}'` : "''",
+        divIdParam ? `'${divIdParam.replace(/'/g, "''")}'` : "''",
+        itemIdsParam ? `'${itemIdsParam.replace(/'/g, "''")}'` : "''",
+        itemCatParam ? `'${itemCatParam.replace(/'/g, "''")}'` : "''",
+        includeBrParam,
+        showFreeParam,
       ].join(", ");
       sql = `CALL \`pdyasvtrans\`.\`rptStockandSalesStatementReport\`(${formattedParams})`;
     }

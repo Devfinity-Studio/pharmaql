@@ -91,7 +91,15 @@ export async function StockAndSalesReportView({
 
 	const fromDate = searchParams?.from || "2026-10-01";
 	const toDate = searchParams?.to || new Date().toISOString().slice(0, 10);
-	const divFilter = company !== "All" ? company : undefined;
+
+	// Find numeric divisionId if assigned
+	const activeAssignment = selectedAssignments.find(
+		(a: any) => (a.division || a.manufacturer || a.company) === company,
+	);
+	const divIdNum = (activeAssignment as any)?.divisionId
+		? Number((activeAssignment as any).divisionId)
+		: undefined;
+	const validDivId = divIdNum && !isNaN(divIdNum) && divIdNum > 0 ? divIdNum : undefined;
 
 	// Execute stored procedure: CALL `rptStockandSalesStatementReport`(...)
 	const response = await getStockAndSales({
@@ -99,7 +107,7 @@ export async function StockAndSalesReportView({
 		fromDate,
 		toDate,
 		locNo: effectiveLocNo,
-		div: divFilter,
+		divId: validDivId,
 	});
 
 	if (!response.success || !response.data) {
@@ -120,48 +128,43 @@ export async function StockAndSalesReportView({
 	// Filter rows by assigned divisions/companies to ensure clean data isolation
 	const rawData = response.data;
 	const matchingRows = rawData.filter((row: StockAndSalesRow) => {
+		const rowMktBy = (row.MktBy || row.CompanyCode || row.CompanyName || row.Make || "").toString().trim().toUpperCase();
+		const rowDiv = (row.Division || "").toString().trim().toUpperCase();
+
 		if (company !== "All") {
 			const sel = company.trim().toUpperCase();
-			const rowDiv = (row.Division || "").toString().trim().toUpperCase();
-			const rowMake = (row.Make || row.Company || row.CompanyName || "").toString().trim().toUpperCase();
-			if (rowDiv) {
-				return rowDiv === sel || rowDiv.includes(sel) || sel.includes(rowDiv);
+			if (rowDiv && (rowDiv === sel || rowDiv.includes(sel) || sel.includes(rowDiv))) {
+				return true;
 			}
-			return rowMake === sel || rowMake.includes(sel) || sel.includes(rowMake);
+			if (rowMktBy && (rowMktBy === sel || rowMktBy.includes(sel) || sel.includes(rowMktBy))) {
+				return true;
+			}
+			return selectedAssignments.some((a: any) => {
+				const cCode = (a.companyCode || "").toString().trim().toUpperCase();
+				const mfg = (a.manufacturer || a.company || "").toString().trim().toUpperCase();
+				const div = (a.division || "").toString().trim().toUpperCase();
+				return (cCode && rowMktBy === cCode) || (mfg && rowMktBy === mfg) || (div && rowDiv === div);
+			});
 		}
-		return selectedAssignments.some((a) => {
-			const mfgName = a.manufacturer?.trim().toUpperCase();
-			const divName = a.division?.trim().toUpperCase();
-			const rowMake = (row.Make || row.Company || row.CompanyName || "").toString().trim().toUpperCase();
-			const rowDiv = (row.Division || "").toString().trim().toUpperCase();
 
-			const matchesMfg =
-				!mfgName ||
-				rowMake === mfgName ||
-				rowMake.includes(mfgName) ||
-				mfgName.includes(rowMake) ||
-				(a.company && rowMake === a.company.trim().toUpperCase());
-
-			const matchesDiv =
-				!divName ||
-				rowDiv === divName ||
-				rowDiv.includes(divName) ||
-				divName.includes(rowDiv);
-
-			return matchesMfg && matchesDiv;
-		});
+		// When company === "All", verify against target company codes if available
+		if (targetCodes.length > 0) {
+			const upperCodes = targetCodes.map((c) => c.toUpperCase());
+			if (rowMktBy && upperCodes.includes(rowMktBy)) return true;
+		}
+		return true;
 	});
 
 	// Normalize data columns
 	const reportData: StockAndSalesDisplayItem[] = matchingRows.map((r: StockAndSalesRow) => {
-		const opQty = Number(r.OpQty ?? r.OpeningQty ?? r.Opening ?? 0);
-		const purQty = Number(r.PurQty ?? r.PurchaseQty ?? r.Purchase ?? r.RecQty ?? 0);
-		const saleQty = Number(r.SaleQty ?? r.SalesQty ?? r.Sales ?? 0);
-		const freeQty = Number(r.FreeQty ?? r.Free ?? r.FQty ?? 0);
+		const opQty = Number(r.OpenQty ?? r.OpQty ?? r.OpeningQty ?? r.Opening ?? 0);
+		const purQty = Number(r.PQty ?? r.PurQty ?? r.PurchaseQty ?? r.Purchase ?? r.RecQty ?? 0);
+		const saleQty = Number(r.SQty ?? r.SaleQty ?? r.SalesQty ?? r.Sales ?? 0);
+		const freeQty = Number(r.SFQty ?? r.FreeQty ?? r.Free ?? r.FQty ?? 0);
 		const sRetQty = Number(r.SRetQty ?? r.SReturn ?? r.SalesReturn ?? 0);
-		const closingQty = Number(r.BalQty ?? r.ClosingQty ?? r.Balance ?? r.Closing ?? (opQty + purQty + sRetQty - saleQty));
+		const closingQty = Number(r.CurrStck ?? r.BalQty ?? r.ClosingQty ?? r.Balance ?? r.Closing ?? (opQty + purQty + sRetQty - saleQty));
 		const ptr = Number(r.PTR ?? r.Ptr ?? 0);
-		const rate = Number(r.Rate ?? r.PRate ?? ptr);
+		const rate = Number(r.Rate ?? r.PRate ?? r.Srate ?? ptr);
 		const salesValue = Number(r.SaleVal ?? r.SalesValue ?? (saleQty * (ptr || rate)));
 		const closingValue = Number(r.BalVal ?? r.ClosingValue ?? (closingQty * (rate || ptr)));
 
@@ -169,9 +172,9 @@ export async function StockAndSalesReportView({
 			ItemId: r.ItemId || r.ItemID || r.ItemCode || "-",
 			ItemCode: (r.ItemCode || "").toString().trim() || "-",
 			ItemName: (r.ItemName || r.Iname || r.ProductName || "Unknown Item").toString().trim(),
-			Packing: (r.Packing || "-").toString().trim(),
-			Division: (r.Division || r.Make || company !== "All" ? company : "General").toString().trim(),
-			Company: (r.CompanyName || r.Company || r.Make || mrInfo.company || "").toString().trim(),
+			Packing: (r.Pack || r.Packing || "-").toString().trim(),
+			Division: (r.Division || r.MktBy || (company !== "All" ? company : "General")).toString().trim(),
+			Company: (r.MktBy || r.CompanyName || r.Company || r.Make || mrInfo.company || "").toString().trim(),
 			BatchNo: (r.BatchNo || r.Batch || "-").toString().trim(),
 			OpeningQty: opQty,
 			PurchaseQty: purQty,

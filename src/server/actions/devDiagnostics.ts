@@ -310,7 +310,7 @@ function buildFallbackProcedureSql(procedureName: string, params: Record<string,
 	if (procedureName === "rptStockMovementStatement") {
 		return `SET sql_mode = '';\nCALL \`pdyasvtrans\`.\`rptStockMovementStatement\`(${params.compNo ?? 11}, ${escapedLoc}, 202627, {d '2026-04-01'}, ${odbcFrom}, ${odbcTo}, ${compParam}, '', '', 'PRate');`;
 	} else if (procedureName === "rptStockandSalesStatementReport") {
-		return `SET sql_mode = '';\nCALL \`rptStockandSalesStatementReport\`(${params.compNo ?? 11}, ${escapedLoc}, ${odbcFrom}, ${odbcTo}, ${compParam}, '', '', ${params.finYear ?? 202627}, 'N', '', 'Y');`;
+		return `SET sql_mode = '';\nCALL \`pdyasvtrans\`.\`rptStockandSalesStatementReport\`(${params.compNo ?? 11}, ${escapedLoc}, ${odbcFrom}, ${odbcTo}, ${compParam}, '', '', '', 'N', 'Y');`;
 	} else if (procedureName === "rptItemCustomerSale") {
 		return `SET sql_mode = '';\nCALL \`pdyasvtrans\`.\`rptItemCustomerSale\`(${odbcFrom}, ${odbcTo}, ${params.compNo ?? 11}, ${escapedLoc}, 202627, '', '', '', ${compParam}, '', 'Y', '', '', ${escapedLoc}, 'SalesEntry', '');`;
 	} else if (procedureName === "rptMRwisePeriodicalOutstanding") {
