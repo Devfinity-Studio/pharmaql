@@ -9,6 +9,7 @@ import {
 	generatePartyWisePdfReport,
 	generateProductPdfReport,
 	generateSalesPdfReport,
+	generateStockAndSalesPdfReport,
 	generateStockPdfReport,
 } from "@/lib/pdf";
 
@@ -111,13 +112,23 @@ export function ReportDownloadButtons({
 				else if (formattedToForFilename)
 					fromToSuffix = `_${formattedToForFilename}`;
 
-				if (currentTab === "stock" || currentTab === "stock-and-sales") {
+				if (currentTab === "stock-and-sales") {
 					const mrName = data.length > 0 ? data[0]["MR Name"] : "Unknown";
 					const safeMrName = mrName.replace(/[^a-zA-Z0-9]/g, "_");
-					const filePrefix =
-						currentTab === "stock-and-sales" ? "stock_and_sales" : "stock";
+					await generateStockAndSalesPdfReport(
+						`${safeMrName}_${safeDivision}_stock_and_sales${fromToSuffix}.pdf`,
+						data,
+						mrName,
+						displayFrom,
+						displayTo,
+						format === "print" ? "print" : "download",
+						serverDateStr,
+					);
+				} else if (currentTab === "stock") {
+					const mrName = data.length > 0 ? data[0]["MR Name"] : "Unknown";
+					const safeMrName = mrName.replace(/[^a-zA-Z0-9]/g, "_");
 					await generateStockPdfReport(
-						`${safeMrName}_${safeDivision}_${filePrefix}${fromToSuffix}.pdf`,
+						`${safeMrName}_${safeDivision}_stock${fromToSuffix}.pdf`,
 						data,
 						mrName,
 						displayFrom,
