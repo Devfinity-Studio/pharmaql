@@ -5,6 +5,7 @@ import { getOrSetCache } from "../cache";
 export const masterRouter = Router();
 
 const SELECT_MKT_MR_COLUMNS = `
+  mr.*,
   mr.ID AS ID,
   mr.DivisionID AS DivisionID,
   mr.MRName AS MRName,
@@ -34,13 +35,13 @@ function normalizeLegacyMR(raw: any) {
   const company = raw.CompanyName || raw.CompanyCode ? String(raw.CompanyName || raw.CompanyCode).trim() : undefined;
   const companyCode = raw.CompanyCode ? String(raw.CompanyCode).trim() : undefined;
 
-  // Determine Rank: 1, 2, or 3
-  const rawRank = raw.Rank ?? raw.rank;
+  // Determine Rank: 1, 2, or 3 directly from database
+  const rawRank = raw.Rank ?? raw.rank ?? raw.UserRank ?? raw.MRRank;
   let rank: 1 | 2 | 3 = 3;
-  if (rawRank !== undefined && rawRank !== null) {
+  if (rawRank !== undefined && rawRank !== null && String(rawRank).trim() !== "") {
     const parsed = Number(rawRank);
     if (parsed === 1 || parsed === 2 || parsed === 3) {
-      rank = parsed;
+      rank = parsed as 1 | 2 | 3;
     }
   } else if (raw.JobProfile) {
     const jp = String(raw.JobProfile).toUpperCase().trim();
@@ -156,7 +157,7 @@ masterRouter.get("/mr-info/:id", async (req: Request, res: Response) => {
 
     // Check internal m_user
     const [userRows] = await dbPool.query(
-      `SELECT ID, UCode, Description, EmailId, MobileNo, IsBlocked FROM \`pdyasvmaster\`.\`m_user\` WHERE ID = ? OR UCode = ? LIMIT 1`,
+      `SELECT *, ID, UCode, Description, EmailId, MobileNo, IsBlocked FROM \`pdyasvmaster\`.\`m_user\` WHERE ID = ? OR UCode = ? LIMIT 1`,
       [isNumeric ? numId : -1, strId]
     );
     const userResults = userRows as any[];
@@ -165,6 +166,7 @@ masterRouter.get("/mr-info/:id", async (req: Request, res: Response) => {
       res.json({
         success: true,
         data: normalizeLegacyMR({
+          ...u,
           ID: u.ID,
           MRName: u.Description || u.UCode,
           EmailId: u.EmailId,

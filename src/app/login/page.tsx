@@ -1,6 +1,7 @@
 import { headers } from "next/headers";
 import Image from "next/image";
 import { redirect } from "next/navigation";
+import { Suspense } from "react";
 import { auth } from "@/server/auth";
 import { LoginForm } from "./login-form";
 
@@ -48,7 +49,9 @@ export default async function LoginPage() {
 
 			{/* Interactive Form Component Layer */}
 			<div className="relative z-10 mt-8 sm:mx-auto sm:w-full sm:max-w-md">
-				<LoginForm />
+				<Suspense fallback={<div className="h-64 rounded-2xl bg-white shadow-sm border border-gray-100 animate-pulse" />}>
+					<LoginForm />
+				</Suspense>
 			</div>
 		</main>
 	);

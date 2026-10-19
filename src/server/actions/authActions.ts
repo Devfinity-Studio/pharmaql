@@ -299,6 +299,7 @@ export async function verifyMrOtp(email: string, otp: string) {
 				error:
 					overdueStatus.message ||
 					"Your account has been blocked due to overdue payments.",
+				statusDetails: overdueStatus,
 			};
 		}
 

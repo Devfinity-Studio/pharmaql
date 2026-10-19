@@ -199,26 +199,32 @@ function consolidateMRProfiles(
 			primary.email ? auditLoginMap?.get(primary.email.toLowerCase()) : undefined,
 		);
 
-		// Resolve Rank: Max rank among members or override
-		let rank: MRRank = 3;
-		if (mergedOverride.rank) {
-			rank = mergedOverride.rank;
-		} else {
-			let maxRank: MRRank = 1;
-			for (const m of members) {
-				let r: MRRank = 3;
-				if (m.rank === 1 || m.rank === 2 || m.rank === 3) {
-					r = m.rank;
-				} else if (m.JobProfile) {
-					const jp = m.JobProfile.toUpperCase().trim();
-					if (jp === "MR") r = 1;
-					else if (jp === "ABM" || jp === "BO") r = 2;
-					else r = 3;
-				}
-				if (r > maxRank) maxRank = r;
+		// Resolve Rank: Prioritize database rank from member rows over local overrides
+		let dbRank: MRRank | null = null;
+		let maxRank: MRRank = 1;
+		let hasDbRank = false;
+
+		for (const m of members) {
+			let r: MRRank | null = null;
+			if (m.rank === 1 || m.rank === 2 || m.rank === 3) {
+				r = m.rank as MRRank;
+				hasDbRank = true;
+			} else if (m.JobProfile) {
+				const jp = m.JobProfile.toUpperCase().trim();
+				if (jp === "MR") r = 1;
+				else if (jp === "ABM" || jp === "BO") r = 2;
+				else if (jp === "ASM" || jp === "RSM" || jp === "ZSM" || jp === "NSM") r = 3;
+				hasDbRank = true;
 			}
-			rank = maxRank;
+			if (r && r > maxRank) maxRank = r;
 		}
+
+		if (hasDbRank) {
+			dbRank = maxRank;
+		}
+
+		// Database rank takes primary precedence so MySQL updates reflect immediately
+		const rank: MRRank = dbRank ?? mergedOverride.rank ?? 3;
 
 		const perms = getPermissionsForRank(rank);
 
@@ -381,15 +387,16 @@ export async function getMRInfo(
 	);
 
 	let rank: MRRank = 3;
-	if (override.rank === 1 || override.rank === 2 || override.rank === 3) {
-		rank = override.rank;
-	} else if (rawData.rank === 1 || rawData.rank === 2 || rawData.rank === 3) {
+	if (rawData.rank === 1 || rawData.rank === 2 || rawData.rank === 3) {
 		rank = rawData.rank;
 	} else if (rawData.JobProfile) {
 		const jp = rawData.JobProfile.toUpperCase().trim();
 		if (jp === "MR") rank = 1;
 		else if (jp === "ABM" || jp === "BO") rank = 2;
+		else if (jp === "ASM" || jp === "RSM" || jp === "ZSM" || jp === "NSM") rank = 3;
 		else rank = 3;
+	} else if (override.rank === 1 || override.rank === 2 || override.rank === 3) {
+		rank = override.rank;
 	}
 
 	const perms = getPermissionsForRank(rank);
