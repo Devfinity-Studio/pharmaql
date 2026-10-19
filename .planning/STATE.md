@@ -1,8 +1,8 @@
 # State
 
 **Current Milestone:** Milestone 1 - Production Hardening & Optimization
-**Active Phase:** Phase 29 - Live Active User Sessions & Real-Time Presence Monitor [COMPLETED]
-**Status:** Completed. Live presence tracking, device/IP telemetry, active page inspection, immediate server-side session revocation ("Force Logout"), and developer live users monitor tab in `/admin/dev` fully implemented and verified.
+**Active Phase:** Phase 30 - MR Ranking Database Synchronization & Overdue Cascading Blocking [ACTIVE]
+**Status:** In Planning. Fixing database rank updates not propagating from MySQL, enforcing >90-day direct MR blocking with "Contact Admin" screen, calibrating division cascading blocking to >95 days, and showing explicit responsible MR attribution to peer reps.
 
 ## Accumulated Context
 
@@ -19,3 +19,4 @@
 - Phase 27 added: In-App Feedback & Error Reporting System
 - Phase 28 added: Multi-Division & Multi-Company MR Assignment Management
 - Phase 29 added: Live Active User Sessions & Real-Time Presence Monitor
+- Phase 30 added: MR Ranking Database Synchronization & Overdue Cascading Blocking

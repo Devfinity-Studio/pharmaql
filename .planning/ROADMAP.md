@@ -239,3 +239,12 @@
   - **Session Inspection Drawer**: Inspect user details, IP, device details, current page/tab, login time, and recent audit activity.
 - [x] **Verification & Security Validation**: Verify heartbeat efficiency, remote logout propagation, multi-device session handling, and clean production build validation.
 
+## Phase 30: MR Ranking Database Synchronization & Overdue Cascading Blocking
+
+- [ ] **Legacy Database Rank Projection & Real-Time Sync**: Update API server SQL queries (`SELECT_MKT_MR_COLUMNS`) and `normalizeLegacyMR` to reliably query and project `Rank` from `l_mktcompany_mr` and `m_user`. Ensure database rank changes take precedence over stale cached records and overrides, dynamically updating MR permissions without requiring session recreation.
+- [ ] **Direct MR Overdue Blocking (>90 Days)**: Verify and enforce that when an MR has any invoice with net pending balance overdue exceeding 90 days (`> 90 days`), that specific MR is immediately blocked from logging in and accessing reports.
+- [ ] **Login Screen "Contact Admin" Blocked State**: Upgrade login form and MR authentication flow so blocked reps receive a prominent, informative "Account Suspended / Contact Admin" screen displaying exact overdue invoice details (Invoice No, Party Name, Amount, Days Overdue) rather than a generic error toast.
+- [ ] **Division Cascading Blocking Calibration (>95 Days)**: Calibrate the division cascading blocking threshold in `overdueEngine.ts` to 95 days (`> 95 days`). When any MR in a division has overdue invoices exceeding 95 days, all peer MRs in the same division are blocked from logging in.
+- [ ] **Peer MR Cascading Blocking Attribution Notice**: When a peer MR is blocked due to the 95-day division rule, display a clear explanatory message identifying the specific responsible MR by name, the division name, invoice number, and overdue amount.
+- [ ] **Verification & End-to-End Testing**: Test database rank updates in real time, verify >90-day individual blocks, verify >95-day division blocks, and validate clean production build.
+
