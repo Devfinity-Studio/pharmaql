@@ -20,7 +20,8 @@ interface OfflineReportViewerProps {
 }
 
 const REPORT_TABS = [
-	{ id: "stock", label: "Stock Movement" },
+	{ id: "stock", label: "Stock MVT" },
+	{ id: "stock-and-sales", label: "Stock & Sales" },
 	{ id: "sales", label: "Sales & Invoices" },
 	{ id: "products", label: "Product Wise" },
 	{ id: "party", label: "Party Wise" },

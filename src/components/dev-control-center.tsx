@@ -470,6 +470,8 @@ export function DevControlCenter({
 
 		if (selectedProcedure === "rptStockMovementStatement") {
 			return `SET sql_mode = '';\nCALL \`pdyasvtrans\`.\`rptStockMovementStatement\`(11, ${escapedLoc}, 202627, {d '2026-04-01'}, ${odbcFrom}, ${odbcTo}, ${compParam}, '', '', 'PRate');`;
+		} else if (selectedProcedure === "rptStockandSalesStatementReport") {
+			return `SET sql_mode = '';\nCALL \`rptStockandSalesStatementReport\`(11, ${escapedLoc}, ${odbcFrom}, ${odbcTo}, ${compParam}, '', '', 202627, 'N', '', 'Y');`;
 		} else if (selectedProcedure === "rptItemCustomerSale") {
 			return `SET sql_mode = '';\nCALL \`pdyasvtrans\`.\`rptItemCustomerSale\`(${odbcFrom}, ${odbcTo}, 11, ${escapedLoc}, 202627, '', '', '', ${compParam}, '', 'Y', '', '', ${escapedLoc}, 'SalesEntry', '');`;
 		} else if (selectedProcedure === "rptMRwisePeriodicalOutstanding") {
@@ -2458,6 +2460,7 @@ export function DevControlCenter({
 									value={selectedProcedure}
 								>
 									<option value="rptStockMovementStatement">rptStockMovementStatement (Stock Movement)</option>
+									<option value="rptStockandSalesStatementReport">rptStockandSalesStatementReport (Stock &amp; Sales Statement)</option>
 									<option value="rptItemCustomerSale">rptItemCustomerSale (Item Customer Sale)</option>
 									<option value="rptMRwisePeriodicalOutstanding">rptMRwisePeriodicalOutstanding (Outstanding &amp; Overdue)</option>
 									<option value="rptCompanyCustomerItemwiseSales">rptCompanyCustomerItemwiseSales (Company Customer Sales)</option>

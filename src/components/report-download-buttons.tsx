@@ -111,11 +111,13 @@ export function ReportDownloadButtons({
 				else if (formattedToForFilename)
 					fromToSuffix = `_${formattedToForFilename}`;
 
-				if (currentTab === "stock") {
+				if (currentTab === "stock" || currentTab === "stock-and-sales") {
 					const mrName = data.length > 0 ? data[0]["MR Name"] : "Unknown";
 					const safeMrName = mrName.replace(/[^a-zA-Z0-9]/g, "_");
+					const filePrefix =
+						currentTab === "stock-and-sales" ? "stock_and_sales" : "stock";
 					await generateStockPdfReport(
-						`${safeMrName}_${safeDivision}_stock${fromToSuffix}.pdf`,
+						`${safeMrName}_${safeDivision}_${filePrefix}${fromToSuffix}.pdf`,
 						data,
 						mrName,
 						displayFrom,
@@ -203,6 +205,8 @@ export function ReportDownloadButtons({
 		switch (currentTab) {
 			case "stock":
 				return "Stock Movement Statement";
+			case "stock-and-sales":
+				return "Stock & Sales Statement";
 			case "sales":
 			case "new-sales":
 				return "Sales & Invoicing Details";
