@@ -272,6 +272,7 @@ reportsRouter.post("/claim-data", async (req: Request, res: Response) => {
     conn = await dbPool.getConnection();
     await conn.query("SET sql_mode = ''");
 
+    let rows: any[] = [];
     if (params.fromDate && params.toDate) {
       const matchFrom = String(params.fromDate).match(/\d{4}-\d{2}-\d{2}/);
       const effectiveFrom = matchFrom ? matchFrom[0] : String(params.fromDate).trim();
@@ -282,39 +283,123 @@ reportsRouter.post("/claim-data", async (req: Request, res: Response) => {
       const finYear = params.finYear ?? 202627;
       const compCodeParam = await resolveCompanyCodeParam(conn, params.compCode);
 
-      // Clean existing rows for this uniqueCode before populating
-      await conn.query("DELETE FROM `pdyasvtrans`.`claimdata` WHERE `UniqueCode` = ?", [uniqueCode]);
+      // Clean existing rows for this uniqueCode before populating (non-blocking if lacking DELETE grant)
+      try {
+        await conn.query("DELETE FROM `pdyasvtrans`.`claimdata` WHERE `UniqueCode` = ?", [uniqueCode]);
+      } catch (_) {
+        // non-blocking pre-clean
+      }
 
-      const prepSql =
-        "CALL `pdyasvtrans`.`rptSaleFreeQtyStatement`(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
-      const prepParams = [
-        params.isFC || "F",
-        effectiveFrom,
-        effectiveTo,
-        compNo,
-        locNo,
-        finYear,
-        compCodeParam,
-        params.div || "",
-        params.itemIds || "",
-        params.custIds || "",
-        params.rate || "SRate",
-        uniqueCode,
-        params.isChallan || "Y",
-        params.includeSRet || "Y",
-      ];
-      await conn.query(prepSql, prepParams);
+      try {
+        const prepSql =
+          "CALL `pdyasvtrans`.`rptSaleFreeQtyStatement`(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+        const prepParams = [
+          params.isFC || "F",
+          effectiveFrom,
+          effectiveTo,
+          compNo,
+          locNo,
+          finYear,
+          compCodeParam,
+          params.div || "",
+          params.itemIds || "",
+          params.custIds || "",
+          params.rate || "SRate",
+          uniqueCode,
+          params.isChallan || "Y",
+          params.includeSRet || "Y",
+        ];
+        await conn.query(prepSql, prepParams);
+
+        const sql = "CALL `pdyasvtrans`.`rptClaimData`(?)";
+        const [callRes] = await conn.query(sql, [uniqueCode]);
+        rows = Array.isArray(callRes) && Array.isArray((callRes as any)[0]) ? (callRes as any)[0] : (callRes as any) || [];
+
+        // Purge temporary claimdata rows after retrieval to keep database lean
+        try {
+          await conn.query("DELETE FROM `pdyasvtrans`.`claimdata` WHERE `UniqueCode` = ?", [uniqueCode]);
+        } catch (_) {
+          // non-blocking cleanup
+        }
+      } catch (procErr: any) {
+        console.warn("[Reports API] Stored procedure rptSaleFreeQtyStatement execution warning:", procErr.message);
+      }
+    } else {
+      const sql = "CALL `pdyasvtrans`.`rptClaimData`(?)";
+      const [callRes] = await conn.query(sql, [uniqueCode]);
+      rows = Array.isArray(callRes) && Array.isArray((callRes as any)[0]) ? (callRes as any)[0] : (callRes as any) || [];
     }
 
-    const sql = "CALL `pdyasvtrans`.`rptClaimData`(?)";
-    const [callRes] = await conn.query(sql, [uniqueCode]);
-    const rows = Array.isArray(callRes) ? callRes[0] : callRes;
+    // Direct ERP Fallback: If staging table returned no rows or procedure was blocked,
+    // query sales entries with Free Quantity or Rate schemes directly via rptItemCustomerSale
+    if (!Array.isArray(rows) || rows.length === 0) {
+      try {
+        const fromDateStr = params.fromDate || "2026-04-01";
+        const toDateStr = params.toDate || new Date().toISOString().slice(0, 10);
+        const odbcFromDate = formatDateToOdbc(fromDateStr);
+        const odbcToDate = formatDateToOdbc(toDateStr);
+        const compNo = params.compNo ?? 11;
+        const locNo = Number(params.locNo) || 11;
+        const locNoParam = `('${locNo}')`;
+        const finYear = params.finYear || 202627;
+        const compCodeParam = await resolveCompanyCodeParam(conn, params.compCode);
 
-    // Purge temporary claimdata rows after retrieval to keep database lean
-    try {
-      await conn.query("DELETE FROM `pdyasvtrans`.`claimdata` WHERE `UniqueCode` = ?", [uniqueCode]);
-    } catch (_) {
-      // non-blocking cleanup
+        const callParams = [
+          compNo,
+          locNoParam,
+          finYear,
+          params.custIds || "",
+          params.itemIds || "",
+          "",
+          compCodeParam,
+          params.div || "",
+          "Y", // includeZero
+          "",
+          "",
+          locNoParam,
+          "SalesEntry",
+          "",
+        ];
+        const saleSql =
+          "CALL `pdyasvtrans`.`rptItemCustomerSale`(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+        const [saleRes] = await conn.query(saleSql, [odbcFromDate, odbcToDate, ...callParams]);
+        const allSales: any[] = Array.isArray(saleRes) && Array.isArray((saleRes as any)[0]) ? (saleRes as any)[0] : [];
+
+        const freeItems = allSales.filter(
+          (r) => Number(r.FQty || 0) !== 0 || (Number(r.PTR || 0) > Number(r.Srate || 0) && Number(r.Srate || 0) > 0)
+        );
+
+        if (freeItems.length > 0) {
+          rows = freeItems.map((r) => ({
+            CustCode: r.CustCode || String(r.CustID || ""),
+            Customer: r.Customer || "Unknown Party",
+            Area: r.Address || r.Area || "",
+            City: r.City || "",
+            Code: r.CompCode || compCodeParam.replace(/['()]/g, "") || "11",
+            Company: r.CompanyName || r.CompCode || "",
+            ItemId: r.ItemID,
+            ItemCode: r.ItemCode,
+            ItemName: r.ItemName,
+            Division: r.Division || "",
+            Packing: r.Packing || "",
+            InvNo: r.InvNo,
+            InvDt: r.InvDt,
+            BatchNo: r.BatchNo,
+            MRP: r.MRP || r.PTR || 0,
+            PTR: r.PTR || 0,
+            SRate: r.Srate || 0,
+            PRate: r.PRate || r.PTR || 0,
+            Qty: Number(r.Qty || 0),
+            FreeIAmt: Number(r.PTR || 0) * Number(r.FQty || 0),
+            Scheme: r.Scheme || "",
+            Free: Number(r.FQty || 0),
+            FQty: Number(r.FQty || 0),
+            MRName: r.CreatedBy || null,
+          }));
+        }
+      } catch (fallbackErr: any) {
+        console.warn("[Reports API] Claim data direct ERP fallback warning:", fallbackErr.message);
+      }
     }
 
     res.json({
