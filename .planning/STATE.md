@@ -1,8 +1,8 @@
 # State
 
 **Current Milestone:** Milestone 1 - Production Hardening & Optimization
-**Active Phase:** Phase 28 - Multi-Division MR Database Scanning & Aggregation
-**Status:** Completed. Automated database scanning & consolidation engine implemented with email-first matching priority. MR profiles merged across duplicate division rows with all assignments and allIds. Division switcher with "All Divisions" and division-wise buttons integrated in MR Dashboard, Admin view, and Developer Impersonation. Stored procedure queries, PDF, Excel, and Print reports aligned to query all divisions or specific divisions. 0 TypeScript errors, clean production build.
+**Active Phase:** Phase 29 - Live Active User Sessions & Real-Time Presence Monitor [COMPLETED]
+**Status:** Completed. Live presence tracking, device/IP telemetry, active page inspection, immediate server-side session revocation ("Force Logout"), and developer live users monitor tab in `/admin/dev` fully implemented and verified.
 
 ## Accumulated Context
 
@@ -18,3 +18,4 @@
 - Phase 26 added: Developer Debug Suite & Email Credentials Integration
 - Phase 27 added: In-App Feedback & Error Reporting System
 - Phase 28 added: Multi-Division & Multi-Company MR Assignment Management
+- Phase 29 added: Live Active User Sessions & Real-Time Presence Monitor

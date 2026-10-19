@@ -11,6 +11,7 @@ import { PartyReportView } from "@/components/party-report-view";
 import { ProductReportView } from "@/components/product-report-view";
 import { ReportDownloadButtons } from "@/components/report-download-buttons";
 import { ReportTableSkeleton } from "@/components/report-table-skeleton";
+import { StockAndSalesReportView } from "@/components/stock-and-sales-report-view";
 import { StockReportView } from "@/components/stock-report-view";
 import { isFeatureEnabledForRole } from "@/lib/maintenance";
 import { getItemCustomerSale } from "@/server/actions/customerItemSale";
@@ -136,6 +137,8 @@ export async function MrDashboardContent({
 	// Determine permissions
 	const canViewSales = isAdminView || mrInfo.canViewSales;
 	const canViewStock = isAdminView || mrInfo.canViewStock;
+	const canViewStockAndSales =
+		isAdminView || mrInfo.canViewStockAndSales || mrInfo.canViewStock;
 	const canViewFreeScheme = isAdminView || mrInfo.canViewFreeScheme;
 	const canViewPartyWise = isAdminView || mrInfo.canViewPartyWise;
 	const canViewProductWise = isAdminView || mrInfo.canViewProductWise;
@@ -224,6 +227,7 @@ export async function MrDashboardContent({
 	const allowedTabs: string[] = [];
 	if (canViewSales) allowedTabs.push("overview");
 	if (canViewStock) allowedTabs.push("stock");
+	if (canViewStockAndSales) allowedTabs.push("stock-and-sales");
 	if (canViewPartyWise) allowedTabs.push("party");
 	if (canViewProductWise) allowedTabs.push("products");
 	if (canViewFreeScheme) allowedTabs.push("free-schemes");
@@ -616,6 +620,21 @@ export async function MrDashboardContent({
 								tab: "stock",
 							}).toString()}`}
 						>
+							Stock MVT
+						</Link>
+					)}
+					{canViewStockAndSales && (
+						<Link
+							className={`border-b-4 px-5 py-3 font-bold text-sm transition-colors ${
+								activeTab === "stock-and-sales"
+									? "border-[#0071BC] text-[#0071BC]"
+									: "border-transparent text-gray-500 hover:text-[#0B2545]"
+							}`}
+							href={`${baseUrl}?${new URLSearchParams({
+								...searchParams,
+								tab: "stock-and-sales",
+							}).toString()}`}
+						>
 							Stock & Sales
 						</Link>
 					)}
@@ -942,7 +961,7 @@ export async function MrDashboardContent({
 							<OverdueReportView mrId={mrId} searchParams={searchParams} />
 						))}
 
-					{/* STOCK REPORTS TAB */}
+					{/* STOCK REPORTS TAB (Stock MVT) */}
 					{activeTab === "stock" &&
 						canViewStock &&
 						(!stockFeature.enabled ? (
@@ -952,6 +971,21 @@ export async function MrDashboardContent({
 							/>
 						) : (
 							<StockReportView mrId={mrId} searchParams={searchParams} />
+						))}
+
+					{/* STOCK & SALES TAB */}
+					{activeTab === "stock-and-sales" &&
+						canViewStockAndSales &&
+						(!stockFeature.enabled ? (
+							<ServiceMaintenanceNotice
+								message={stockFeature.message}
+								title="Stock & Sales Report Temporarily Unavailable"
+							/>
+						) : (
+							<StockAndSalesReportView
+								mrId={mrId}
+								searchParams={searchParams}
+							/>
 						))}
 				</Suspense>
 			</div>

@@ -309,6 +309,8 @@ function buildFallbackProcedureSql(procedureName: string, params: Record<string,
 
 	if (procedureName === "rptStockMovementStatement") {
 		return `SET sql_mode = '';\nCALL \`pdyasvtrans\`.\`rptStockMovementStatement\`(${params.compNo ?? 11}, ${escapedLoc}, 202627, {d '2026-04-01'}, ${odbcFrom}, ${odbcTo}, ${compParam}, '', '', 'PRate');`;
+	} else if (procedureName === "rptStockandSalesStatementReport") {
+		return `SET sql_mode = '';\nCALL \`pdyasvtrans\`.\`rptStockandSalesStatementReport\`(${params.compNo ?? 11}, ${escapedLoc}, ${odbcFrom}, ${odbcTo}, ${compParam}, '', '', '', 'N', 'Y');`;
 	} else if (procedureName === "rptItemCustomerSale") {
 		return `SET sql_mode = '';\nCALL \`pdyasvtrans\`.\`rptItemCustomerSale\`(${odbcFrom}, ${odbcTo}, ${params.compNo ?? 11}, ${escapedLoc}, 202627, '', '', '', ${compParam}, '', 'Y', '', '', ${escapedLoc}, 'SalesEntry', '');`;
 	} else if (procedureName === "rptMRwisePeriodicalOutstanding") {
@@ -367,6 +369,8 @@ export async function executeProcedureSandbox(payload: {
 		try {
 			if (payload.procedureName === "rptStockMovementStatement") {
 				liveRes = await apiPost<any[]>("/api/reports/stock-movement", fallbackParams);
+			} else if (payload.procedureName === "rptStockandSalesStatementReport") {
+				liveRes = await apiPost<any[]>("/api/reports/stock-and-sales", fallbackParams);
 			} else if (payload.procedureName === "rptItemCustomerSale") {
 				liveRes = await apiPost<any[]>("/api/reports/customer-item-sale", fallbackParams);
 			} else if (payload.procedureName === "rptCompanyCustomerItemwiseSales") {

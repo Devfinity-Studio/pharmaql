@@ -55,6 +55,7 @@ export default async function DeveloperControlPage() {
 		company: m.company,
 		companyCode: m.companyCode,
 		rank: m.rank,
+		isBlocked: m.isBlocked,
 		assignedCompanies: Array.from(
 			new Set(
 				(m.assignments || [])
@@ -77,28 +78,48 @@ export default async function DeveloperControlPage() {
 	(companiesData || []).forEach((c) => {
 		const code = String(c.companyCode || "").trim();
 		if (!code) return;
-		const key = `${code}_${c.divisionName || ""}`;
-		companyMap.set(key, {
-			companyCode: code,
-			companyName: String(c.companyName || code).trim(),
-			divisionName: String(c.divisionName || "").trim(),
-		});
+		const div = String(c.divisionName || "").trim();
+		const key = `${code.toUpperCase()}_${div.toUpperCase()}`;
+		if (!companyMap.has(key)) {
+			companyMap.set(key, {
+				companyCode: code,
+				companyName: String(c.companyName || code).trim(),
+				divisionName: div,
+			});
+		}
 	});
 
 	// Augment with MR assignments to guarantee comprehensive coverage
 	allDevMRs.forEach((m) => {
 		const code = (m.companyCode || "").trim();
 		const compName = (m.company || code).trim();
+		const div = (m.division || "").trim();
 		if (code) {
-			const key = `${code}_${m.division || ""}`;
+			const key = `${code.toUpperCase()}_${div.toUpperCase()}`;
 			if (!companyMap.has(key)) {
 				companyMap.set(key, {
 					companyCode: code,
 					companyName: compName,
-					divisionName: m.division || "",
+					divisionName: div,
 				});
 			}
 		}
+
+		(m.assignments || []).forEach((a) => {
+			const aCode = (a.companyCode || "").trim();
+			const aCompName = (a.company || aCode).trim();
+			const aDiv = (a.division || "").trim();
+			if (aCode) {
+				const aKey = `${aCode.toUpperCase()}_${aDiv.toUpperCase()}`;
+				if (!companyMap.has(aKey)) {
+					companyMap.set(aKey, {
+						companyCode: aCode,
+						companyName: aCompName,
+						divisionName: aDiv,
+					});
+				}
+			}
+		});
 	});
 
 	// Ensure standard Asmee Pharma code 11 is always in the list

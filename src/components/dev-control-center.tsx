@@ -27,6 +27,7 @@ import {
 	MessageSquare,
 	Play,
 	Power,
+	Radio,
 	RefreshCw,
 	Search,
 	Server,
@@ -41,6 +42,7 @@ import {
 	XCircle,
 } from "lucide-react";
 import { DevFeedbackPanel } from "./dev-feedback-panel";
+import { DevLivePresence } from "./dev-live-presence";
 import type { LicenseStatusResult } from "@/lib/license";
 import type { FeatureKey, FeatureScope, MaintenanceConfig } from "@/lib/maintenance";
 import type { RuntimeConfig } from "@/lib/runtime-config";
@@ -87,6 +89,7 @@ interface DevControlCenterProps {
 		company?: string | null;
 		companyCode?: string | null;
 		rank?: number;
+		isBlocked?: boolean;
 		assignedCompanies?: string[];
 		assignedDivisions?: string[];
 	}>;
@@ -112,7 +115,7 @@ export function DevControlCenter({
 	const searchParams = useSearchParams();
 	const initialTabFromUrl = searchParams.get("tab");
 	const [activeTab, setActiveTab] = useState<
-		"status" | "debug" | "feedback" | "license" | "push" | "toggles" | "impersonate" | "logs" | "query" | "runtime" | "notices"
+		"status" | "presence" | "debug" | "feedback" | "license" | "push" | "toggles" | "impersonate" | "logs" | "query" | "runtime" | "notices"
 	>((initialTabFromUrl as any) || "status");
 
 	// Debug Console states
@@ -467,6 +470,8 @@ export function DevControlCenter({
 
 		if (selectedProcedure === "rptStockMovementStatement") {
 			return `SET sql_mode = '';\nCALL \`pdyasvtrans\`.\`rptStockMovementStatement\`(11, ${escapedLoc}, 202627, {d '2026-04-01'}, ${odbcFrom}, ${odbcTo}, ${compParam}, '', '', 'PRate');`;
+		} else if (selectedProcedure === "rptStockandSalesStatementReport") {
+			return `SET sql_mode = '';\nCALL \`pdyasvtrans\`.\`rptStockandSalesStatementReport\`(11, ${escapedLoc}, ${odbcFrom}, ${odbcTo}, ${compParam}, '', '', '', 'N', 'Y');`;
 		} else if (selectedProcedure === "rptItemCustomerSale") {
 			return `SET sql_mode = '';\nCALL \`pdyasvtrans\`.\`rptItemCustomerSale\`(${odbcFrom}, ${odbcTo}, 11, ${escapedLoc}, 202627, '', '', '', ${compParam}, '', 'Y', '', '', ${escapedLoc}, 'SalesEntry', '');`;
 		} else if (selectedProcedure === "rptMRwisePeriodicalOutstanding") {
@@ -760,6 +765,7 @@ export function DevControlCenter({
 			<div className="flex overflow-x-auto border-b border-gray-200 pb-px">
 				{[
 					{ id: "status", label: "Services Status", icon: Activity },
+					{ id: "presence", label: "Live Users & Presence", icon: Radio },
 					{ id: "debug", label: "Debug Console", icon: Terminal },
 					{ id: "feedback", label: "Feedback & Bug Reports", icon: MessageSquare },
 					{ id: "license", label: "Subscription & License", icon: Key },
@@ -1084,6 +1090,11 @@ export function DevControlCenter({
 						</div>
 					</div>
 				</div>
+			)}
+
+			{/* TAB: LIVE USERS & PRESENCE */}
+			{activeTab === "presence" && (
+				<DevLivePresence mrList={mrList as any} />
 			)}
 
 			{/* TAB: DEBUG & DIAGNOSTICS CONSOLE */}
@@ -2449,6 +2460,7 @@ export function DevControlCenter({
 									value={selectedProcedure}
 								>
 									<option value="rptStockMovementStatement">rptStockMovementStatement (Stock Movement)</option>
+									<option value="rptStockandSalesStatementReport">rptStockandSalesStatementReport (Stock &amp; Sales Statement)</option>
 									<option value="rptItemCustomerSale">rptItemCustomerSale (Item Customer Sale)</option>
 									<option value="rptMRwisePeriodicalOutstanding">rptMRwisePeriodicalOutstanding (Outstanding &amp; Overdue)</option>
 									<option value="rptCompanyCustomerItemwiseSales">rptCompanyCustomerItemwiseSales (Company Customer Sales)</option>
@@ -2574,7 +2586,7 @@ export function DevControlCenter({
 										) : (
 											filteredCompanies.map((c, idx) => (
 												<div
-													key={`${c.companyCode}_${c.divisionName || idx}`}
+													key={`${c.companyCode}_${c.divisionName || "nodiv"}_${idx}`}
 													className={`flex items-center justify-between p-2.5 text-xs hover:bg-blue-50 cursor-pointer transition-colors ${
 														sandboxCompanyCode === c.companyCode ? "bg-blue-50 font-bold text-blue-900" : "text-gray-800"
 													}`}

@@ -57,5 +57,6 @@ api-server/.env
 /data/audit_logs.json
 /data/vapid_keys.json
 /data/notifications.json
+/data/active_sessions.json
 api-server/package-lock.json
 /scratch/

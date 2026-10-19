@@ -44,6 +44,7 @@ export interface LegacyMRUser {
 	rank: MRRank;
 	lastLogin?: string;
 	canViewStock: boolean;
+	canViewStockAndSales: boolean;
 	canViewSales: boolean;
 	canViewFreeScheme: boolean;
 	canViewPartyWise: boolean;
@@ -66,6 +67,7 @@ export interface MRDisplayItem {
 	rank: MRRank;
 	lastLogin?: string;
 	canViewStock: boolean;
+	canViewStockAndSales: boolean;
 	canViewSales: boolean;
 	canViewFreeScheme: boolean;
 	canViewPartyWise: boolean;
@@ -288,6 +290,7 @@ function consolidateMRProfiles(
 			rank,
 			lastLogin: resolvedLastLogin,
 			canViewStock: perms.canViewStock,
+			canViewStockAndSales: perms.canViewStockAndSales,
 			canViewSales: perms.canViewSales,
 			canViewFreeScheme: perms.canViewFreeScheme,
 			canViewPartyWise: perms.canViewPartyWise,
@@ -349,6 +352,7 @@ export async function getMRInfo(
 				rank: found.rank,
 				lastLogin: found.lastLogin,
 				canViewStock: found.canViewStock,
+				canViewStockAndSales: found.canViewStockAndSales,
 				canViewSales: found.canViewSales,
 				canViewFreeScheme: found.canViewFreeScheme,
 				canViewPartyWise: found.canViewPartyWise,
@@ -407,6 +411,8 @@ export async function getMRInfo(
 		isBlocked:
 			override.isBlocked !== undefined ? override.isBlocked : rawData.isBlocked,
 		canViewStock: override.permissions?.canViewStock ?? perms.canViewStock,
+		canViewStockAndSales:
+			override.permissions?.canViewStockAndSales ?? perms.canViewStockAndSales,
 		canViewSales: override.permissions?.canViewSales ?? perms.canViewSales,
 		canViewFreeScheme:
 			override.permissions?.canViewFreeScheme ?? perms.canViewFreeScheme,
@@ -483,6 +489,7 @@ export async function getPaginatedMRUsers(params: {
 			rank: i.rank,
 			lastLogin: i.lastLogin,
 			canViewStock: i.canViewStock,
+			canViewStockAndSales: i.canViewStockAndSales,
 			canViewSales: i.canViewSales,
 			canViewFreeScheme: i.canViewFreeScheme,
 			canViewPartyWise: i.canViewPartyWise,

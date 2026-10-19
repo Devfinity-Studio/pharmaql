@@ -109,6 +109,13 @@ export async function getSession(options?: {
 		}
 	}
 
+	// Check if session has been remotely revoked by Developer/Admin
+	const { checkIsSessionRevoked } = await import("@/lib/presence-store");
+	const isRevoked = await checkIsSessionRevoked(user.id);
+	if (isRevoked) {
+		return null; // Session immediately revoked!
+	}
+
 	// For MR users, verify they are not blocked by overdue or admin
 	if (user.role === "MR") {
 		const { evaluateMROverdueStatus } = await import("./actions/overdueEngine");

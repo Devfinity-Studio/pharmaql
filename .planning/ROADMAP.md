@@ -226,3 +226,16 @@
 - [x] **MR Dashboard Multi-Division Switcher**: Upgrade `MrDashboardContent` division dropdown to dynamically render all scanned divisions from `mrInfo.assignments`, enabling reps to switch between divisions or view "All Divisions".
 - [x] **Multi-Division Report Querying & Export Synchronization**: Ensure report actions and download endpoints query with the active division and its corresponding company code.
 - [x] **Verification & Validation**: Verify multi-division reps (Amit Bhagat with 3 divisions, Kalpesh, Manish, Ravikumar, Sachin), verify company-name search, run typecheck, and ensure clean build.
+
+## Phase 29: Live Active User Sessions & Real-Time Presence Monitor [COMPLETED]
+
+- [x] **Real-Time Heartbeat & Presence Beacon**: Implement client-side heartbeat beacon (`usePresenceBeacon` / `/api/presence/heartbeat`) capturing active route/tab, user ID, role, MR rank, division, and activity timestamps without performance overhead.
+- [x] **Rich Client Telemetry & Device Parsing**: Parse client IP address, operating system, browser engine, device form factor (mobile/desktop/tablet), viewport dimensions, and network status from request headers and client payload.
+- [x] **Live Sessions Store & Session Revocation Engine**: Create server-side session registry tracking live sessions, idle timeouts, and an immediate session termination/revocation mechanism (revoking JWT session tokens on the fly).
+- [x] **Developer Live Presence Dashboard Tab**: Add a dedicated "Live Users & Presence" tab in `/admin/dev` with interactive status indicators (🟢 Active Now < 2m, 🟡 Idle 2–15m, ⚪ Offline), search, role filters, and real-time auto-refresh toggle.
+- [x] **Remote Session Management Actions**: Provide one-click developer actions:
+  - **Remote Logout**: Terminate an active user session immediately, redirecting their next request to `/login`.
+  - **Account Block / Unblock**: Toggle MR or user block status directly from the live user row.
+  - **Session Inspection Drawer**: Inspect user details, IP, device details, current page/tab, login time, and recent audit activity.
+- [x] **Verification & Security Validation**: Verify heartbeat efficiency, remote logout propagation, multi-device session handling, and clean production build validation.
+

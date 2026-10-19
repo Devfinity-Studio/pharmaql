@@ -313,6 +313,10 @@ export async function verifyMrOtp(email: string, otp: string) {
 			record.mrUser.allIds,
 		);
 
+		// Clear any past remote session revocation
+		const { unrevokeUser } = await import("@/lib/presence-store");
+		await unrevokeUser(record.mrUser.id);
+
 		// Record Audit Events
 		await recordAuditEvent({
 			event: "OTP_VERIFY_SUCCESS",
@@ -454,6 +458,10 @@ export async function loginAdminOrDev(email: string, pass: string) {
 
 		// Reset brute-force counter on successful login
 		recordLoginSuccess(clientIp);
+
+		// Clear any past remote session revocation
+		const { unrevokeUser } = await import("@/lib/presence-store");
+		await unrevokeUser(sessionUser.id);
 
 		// Record Audit Event
 		await recordAuditEvent({
