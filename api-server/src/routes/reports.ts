@@ -55,6 +55,64 @@ reportsRouter.post("/stock-movement", async (req: Request, res: Response) => {
 });
 
 /**
+ * 1.5. Stock & Sales Statement Report
+ * Procedure: rptStockandSalesStatementReport
+ */
+reportsRouter.post("/stock-and-sales", async (req: Request, res: Response) => {
+  let conn;
+  try {
+    const { companyCode, fromDate, toDate, locNo, div, itemIds } = req.body || {};
+
+    conn = await dbPool.getConnection();
+    await conn.query("SET sql_mode = ''");
+
+    const effectiveFrom = fromDate || "2026-10-01";
+    const effectiveTo = toDate || new Date().toISOString().slice(0, 10);
+    const odbcFromDate = formatDateToOdbc(effectiveFrom);
+    const odbcToDate = formatDateToOdbc(effectiveTo);
+
+    const compCodeParam = await resolveCompanyCodeParam(conn, companyCode);
+    const compNo = req.body?.compNo ?? 11;
+    const locParam = locNo ? `('${locNo}')` : "('11')";
+    const divParam = div ? `'${String(div).replace(/'/g, "''")}'` : "''";
+    const itemIdsParam = itemIds ? `'${String(itemIds).replace(/'/g, "''")}'` : "''";
+    const finYear = req.body?.finYear ?? 202627;
+
+    const formattedParams = [
+      compNo,
+      `'${locParam.replace(/'/g, "''")}'`,
+      odbcFromDate,
+      odbcToDate,
+      `'${compCodeParam.replace(/'/g, "''")}'`,
+      divParam,
+      itemIdsParam,
+      finYear,
+      "'N'",
+      "''",
+      "'Y'",
+    ].join(", ");
+
+    const sql = `CALL \`pdyasvtrans\`.\`rptStockandSalesStatementReport\`(${formattedParams})`;
+    let reportData: any[] = [];
+    try {
+      const [rows] = await conn.query(sql);
+      reportData = Array.isArray(rows) && Array.isArray((rows as any)[0]) ? (rows as any)[0] : (rows as any) || [];
+    } catch (callErr: any) {
+      const altSql = `CALL \`rptStockandSalesStatementReport\`(${formattedParams})`;
+      const [rows] = await conn.query(altSql);
+      reportData = Array.isArray(rows) && Array.isArray((rows as any)[0]) ? (rows as any)[0] : (rows as any) || [];
+    }
+
+    res.json({ success: true, data: reportData, debugSql: sql });
+  } catch (error: any) {
+    console.error("[Reports API] Stock & Sales Report Error:", error);
+    res.status(500).json({ success: false, error: error.message || "Failed to generate Stock & Sales report" });
+  } finally {
+    if (conn) conn.release();
+  }
+});
+
+/**
  * 2. Item Customer Sales
  * Procedure: rptItemCustomerSale
  */
@@ -429,6 +487,7 @@ reportsRouter.post("/dev-procedure-sandbox", async (req: Request, res: Response)
       "rptItemCustomerSale",
       "rptMRwisePeriodicalOutstanding",
       "rptCompanyCustomerItemwiseSales",
+      "rptStockandSalesStatementReport",
     ];
 
     if (!allowedProcedures.includes(procedureName)) {
@@ -516,6 +575,21 @@ reportsRouter.post("/dev-procedure-sandbox", async (req: Request, res: Response)
         "''",
       ].join(", ");
       sql = `CALL \`pdyasvtrans\`.\`rptCompanyCustomerItemwiseSales\`(${formattedParams})`;
+    } else if (procedureName === "rptStockandSalesStatementReport") {
+      const formattedParams = [
+        params.compNo ?? 11,
+        `'${locParam.replace(/'/g, "''")}'`,
+        odbcFrom,
+        odbcTo,
+        `'${compCodeParam.replace(/'/g, "''")}'`,
+        params.div ? `'${String(params.div).replace(/'/g, "''")}'` : "''",
+        params.itemIds ? `'${String(params.itemIds).replace(/'/g, "''")}'` : "''",
+        params.finYear ?? 202627,
+        "'N'",
+        "''",
+        "'Y'",
+      ].join(", ");
+      sql = `CALL \`pdyasvtrans\`.\`rptStockandSalesStatementReport\`(${formattedParams})`;
     }
 
     const [rows, fields] = await conn.query(sql);

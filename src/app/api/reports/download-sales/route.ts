@@ -10,6 +10,7 @@ import { getItemCustomerSale } from "@/server/actions/customerItemSale";
 import { getItemDivisionMap } from "@/server/actions/itemCatalog";
 import { getMRInfo } from "@/server/actions/mrInfo";
 import { getPartyCustomerItemSale } from "@/server/actions/partyItemSale";
+import { getStockAndSales } from "@/server/actions/stockAndSales";
 import { auth } from "@/server/auth";
 
 export async function GET(request: Request) {
@@ -83,7 +84,9 @@ export async function GET(request: Request) {
 					? isAdmin || mrInfo.canViewProductWise
 					: tab === "free-schemes"
 						? isAdmin || mrInfo.canViewFreeScheme
-						: isAdmin || mrInfo.canViewSales;
+						: tab === "stock-and-sales"
+							? isAdmin || mrInfo.canViewStockAndSales || mrInfo.canViewStock
+							: isAdmin || mrInfo.canViewSales;
 
 	if (!canView) {
 		return new NextResponse("Forbidden - View disabled", { status: 403 });
@@ -349,6 +352,259 @@ export async function GET(request: Request) {
 		);
 		csvRows.push(
 			`,"GRAND TOTAL :",,,,,,,,,${totalQty},${totalFree},,${totalAmt.toFixed(2)},,`,
+		);
+
+		return new NextResponse([csvHeaders.join(","), ...csvRows].join("\n"), {
+			headers: {
+				"Content-Disposition": `attachment; filename="${filename}.csv"`,
+				"Content-Type": "text/csv; charset=utf-8",
+			},
+		});
+	}
+
+	// ==========================================
+	// 1.5. Handle Stock & Sales Statement Report
+	// ==========================================
+	if (tab === "stock-and-sales") {
+		const stockAndSalesRes = await getStockAndSales({
+			fromDate: defaultFrom,
+			toDate: defaultTo,
+			compCode: compCodeToQuery,
+			locNo: mrInfo.locNo || "11",
+			div: company !== "All" ? company : undefined,
+		});
+
+		const rawRows =
+			stockAndSalesRes.success && stockAndSalesRes.data
+				? stockAndSalesRes.data
+				: [];
+		const filename = `${safeMrName}_${safeCompany}_Stock_and_Sales_${dateRangeTag}`;
+
+		let totalOpening = 0;
+		let totalPur = 0;
+		let totalSale = 0;
+		let totalFree = 0;
+		let totalSRet = 0;
+		let totalClosing = 0;
+		let totalSaleVal = 0;
+		let totalClosingVal = 0;
+
+		const excelRows = rawRows.map((r: any) => {
+			const opQty = Number(r.OpQty ?? r.OpeningQty ?? r.Opening ?? 0);
+			const purQty = Number(
+				r.PurQty ?? r.PurchaseQty ?? r.Purchase ?? r.RecQty ?? 0,
+			);
+			const saleQty = Number(r.SaleQty ?? r.SalesQty ?? r.Sales ?? 0);
+			const freeQty = Number(r.FreeQty ?? r.Free ?? r.FQty ?? 0);
+			const sRetQty = Number(r.SRetQty ?? r.SReturn ?? r.SalesReturn ?? 0);
+			const closingQty = Number(
+				r.BalQty ??
+					r.ClosingQty ??
+					r.Balance ??
+					r.Closing ??
+					opQty + purQty + sRetQty - saleQty,
+			);
+			const ptr = Number(r.PTR ?? r.Ptr ?? 0);
+			const rate = Number(r.Rate ?? r.PRate ?? ptr);
+			const saleVal = Number(
+				r.SaleVal ?? r.SalesValue ?? saleQty * (ptr || rate),
+			);
+			const closingVal = Number(
+				r.BalVal ?? r.ClosingValue ?? closingQty * (rate || ptr),
+			);
+
+			totalOpening += opQty;
+			totalPur += purQty;
+			totalSale += saleQty;
+			totalFree += freeQty;
+			totalSRet += sRetQty;
+			totalClosing += closingQty;
+			totalSaleVal += saleVal;
+			totalClosingVal += closingVal;
+
+			return {
+				itemCode: (r.ItemCode || "").toString().trim() || "-",
+				itemName: (
+					r.ItemName ||
+					r.Iname ||
+					r.ProductName ||
+					"Unknown Item"
+				).toString().trim(),
+				packing: (r.Packing || "-").toString().trim(),
+				division: (
+					r.Division ||
+					r.Make ||
+					(company !== "All" ? company : "General")
+				).toString().trim(),
+				batchNo: (r.BatchNo || r.Batch || "-").toString().trim(),
+				openingQty: opQty,
+				purQty,
+				saleQty,
+				freeQty,
+				sRetQty,
+				closingQty,
+				ptr,
+				saleVal,
+				closingVal,
+			};
+		});
+
+		if (format === "excel") {
+			const columns: ExcelColumnDef[] = [
+				{ header: "Item Code", key: "itemCode", width: 14 },
+				{ header: "Product Name", key: "itemName", width: 30 },
+				{ header: "Packing", key: "packing", width: 12 },
+				{ header: "Division", key: "division", width: 16 },
+				{ header: "Batch No", key: "batchNo", width: 14 },
+				{
+					header: "Opening Qty",
+					key: "openingQty",
+					width: 12,
+					numFmt: "#,##0",
+					alignment: { horizontal: "right" },
+				},
+				{
+					header: "Inward / Pur",
+					key: "purQty",
+					width: 12,
+					numFmt: "#,##0",
+					alignment: { horizontal: "right" },
+				},
+				{
+					header: "Sales Qty",
+					key: "saleQty",
+					width: 12,
+					numFmt: "#,##0",
+					alignment: { horizontal: "right" },
+				},
+				{
+					header: "Free Qty",
+					key: "freeQty",
+					width: 10,
+					numFmt: "#,##0",
+					alignment: { horizontal: "right" },
+				},
+				{
+					header: "S.Ret Qty",
+					key: "sRetQty",
+					width: 10,
+					numFmt: "#,##0",
+					alignment: { horizontal: "right" },
+				},
+				{
+					header: "Closing Qty",
+					key: "closingQty",
+					width: 12,
+					numFmt: "#,##0",
+					alignment: { horizontal: "right" },
+				},
+				{
+					header: "PTR (₹)",
+					key: "ptr",
+					width: 12,
+					numFmt: "#,##0.00",
+					alignment: { horizontal: "right" },
+				},
+				{
+					header: "Sales Val (₹)",
+					key: "saleVal",
+					width: 14,
+					numFmt: "#,##0.00",
+					alignment: { horizontal: "right" },
+				},
+				{
+					header: "Closing Val (₹)",
+					key: "closingVal",
+					width: 14,
+					numFmt: "#,##0.00",
+					alignment: { horizontal: "right" },
+				},
+			];
+
+			const buffer = await buildStyledExcelBuffer({
+				sheetName: "Stock & Sales",
+				title: "Stock & Sales Statement Report",
+				metadata: {
+					mrName,
+					company:
+						mrInfo.company ||
+						(company !== "All" ? company : "All Companies"),
+					division:
+						company !== "All"
+							? company
+							: mrInfo.division || mrInfo.company || "All Divisions",
+					period: `${defaultFrom} to ${defaultTo}`,
+					year: "2026-27",
+				},
+				columns,
+				data: excelRows,
+				totals: {
+					itemCode: "",
+					itemName: "GRAND TOTAL :",
+					packing: "",
+					division: "",
+					batchNo: "",
+					openingQty: totalOpening,
+					purQty: totalPur,
+					saleQty: totalSale,
+					freeQty: totalFree,
+					sRetQty: totalSRet,
+					closingQty: totalClosing,
+					ptr: 0,
+					saleVal: Number(totalSaleVal.toFixed(2)),
+					closingVal: Number(totalClosingVal.toFixed(2)),
+				},
+			});
+
+			return new NextResponse(new Uint8Array(buffer), {
+				headers: {
+					"Content-Disposition": `attachment; filename="${filename}.xlsx"`,
+					"Content-Type":
+						"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+				},
+			});
+		}
+
+		// CSV
+		if (excelRows.length === 0) {
+			return new NextResponse("No data available", { status: 200 });
+		}
+		const csvHeaders = [
+			"Item Code",
+			"Product Name",
+			"Packing",
+			"Division",
+			"Batch No",
+			"Opening Qty",
+			"Inward / Pur",
+			"Sales Qty",
+			"Free Qty",
+			"S.Ret Qty",
+			"Closing Qty",
+			"PTR",
+			"Sales Value",
+			"Closing Value",
+		];
+		const csvRows = excelRows.map((r) =>
+			[
+				`"${r.itemCode.replace(/"/g, '""')}"`,
+				`"${r.itemName.replace(/"/g, '""')}"`,
+				`"${r.packing.replace(/"/g, '""')}"`,
+				`"${r.division.replace(/"/g, '""')}"`,
+				`"${r.batchNo.replace(/"/g, '""')}"`,
+				r.openingQty,
+				r.purQty,
+				r.saleQty,
+				r.freeQty,
+				r.sRetQty,
+				r.closingQty,
+				r.ptr.toFixed(2),
+				r.saleVal.toFixed(2),
+				r.closingVal.toFixed(2),
+			].join(","),
+		);
+		csvRows.push(
+			`,"GRAND TOTAL :",,,,${totalOpening},${totalPur},${totalSale},${totalFree},${totalSRet},${totalClosing},,${totalSaleVal.toFixed(2)},${totalClosingVal.toFixed(2)}`,
 		);
 
 		return new NextResponse([csvHeaders.join(","), ...csvRows].join("\n"), {
