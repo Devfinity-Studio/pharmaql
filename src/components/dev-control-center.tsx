@@ -2586,7 +2586,7 @@ export function DevControlCenter({
 										) : (
 											filteredCompanies.map((c, idx) => (
 												<div
-													key={`${c.companyCode}_${c.divisionName || idx}`}
+													key={`${c.companyCode}_${c.divisionName || "nodiv"}_${idx}`}
 													className={`flex items-center justify-between p-2.5 text-xs hover:bg-blue-50 cursor-pointer transition-colors ${
 														sandboxCompanyCode === c.companyCode ? "bg-blue-50 font-bold text-blue-900" : "text-gray-800"
 													}`}
