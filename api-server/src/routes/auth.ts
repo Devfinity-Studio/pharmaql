@@ -19,10 +19,12 @@ authRouter.post("/mr-lookup", async (req: Request, res: Response) => {
     const [rows] = await dbPool.query(
       `
       SELECT 
+        mr.*,
         mr.ID AS ID,
         mr.MRName AS MRName,
         mr.EmailId AS EmailId,
         mr.MobileNo AS MobileNo,
+        mr.JobProfile AS JobProfile,
         mr.IsInActive AS IsInActive,
         mr.DivisionID AS DivisionID,
         l.Division AS DivisionName,
@@ -59,6 +61,25 @@ authRouter.post("/mr-lookup", async (req: Request, res: Response) => {
     const allCompanies = Array.from(new Set(assignments.map((a: any) => a.company).filter(Boolean)));
     const allCodes = Array.from(new Set(assignments.map((a: any) => a.companyCode).filter(Boolean)));
 
+    // Resolve rank from database across all member records
+    let maxRank: 1 | 2 | 3 = 1;
+    for (const item of mrList) {
+      const rawRank = item.Rank ?? item.rank ?? item.UserRank ?? item.MRRank;
+      let r: 1 | 2 | 3 = 3;
+      if (rawRank !== undefined && rawRank !== null && String(rawRank).trim() !== "") {
+        const parsed = Number(rawRank);
+        if (parsed === 1 || parsed === 2 || parsed === 3) {
+          r = parsed as 1 | 2 | 3;
+        }
+      } else if (item.JobProfile) {
+        const jp = String(item.JobProfile).toUpperCase().trim();
+        if (jp === "MR") r = 1;
+        else if (jp === "ABM" || jp === "BO") r = 2;
+        else r = 3;
+      }
+      if (r > maxRank) maxRank = r;
+    }
+
     res.json({
       success: true,
       data: {
@@ -70,6 +91,7 @@ authRouter.post("/mr-lookup", async (req: Request, res: Response) => {
         company: allCompanies.join(", ") || (mr.CompanyName ? String(mr.CompanyName).trim() : null),
         companyCode: allCodes.join(",") || (mr.CompanyCode ? String(mr.CompanyCode).trim() : null),
         isBlocked: mrList.every((item) => Number(item.IsInActive || 0) === 1),
+        rank: maxRank,
         locNo: "11",
         assignments,
         allIds: Array.from(new Set(mrList.map((item) => String(item.ID)))),

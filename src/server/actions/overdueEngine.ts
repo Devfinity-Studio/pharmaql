@@ -38,6 +38,7 @@ export interface MROverdueEvaluation {
 	responsibleMrId?: string;
 	responsibleInvoiceNo?: string;
 	responsibleAmount?: number;
+	responsibleOverDays?: number;
 	message?: string;
 	hasAdminExemption: boolean;
 	exemptionReason?: string;
@@ -257,70 +258,85 @@ export async function evaluateMROverdueStatus(
 	}
 
 	// Check Division Cascading Block:
-	// If MR is clean, check all peer MRs in the same division
-	const divisionName = mrInfo.division || mrInfo.company;
-	if (divisionName) {
+	// If MR is clean, check all peer MRs in all assigned divisions of this MR
+	const divisionNames = Array.from(
+		new Set(
+			(mrInfo.assignments && mrInfo.assignments.length > 0
+				? mrInfo.assignments.map((a) => a.division || a.manufacturer)
+				: [mrInfo.division || mrInfo.company]
+			).filter((d): d is string => Boolean(d)),
+		),
+	);
+
+	if (divisionNames.length > 0) {
 		try {
-			// Find all MRs in the same division via API server
+			// Find all MRs in the same division(s) via API server
 			const allMrs = await getAllMRUsers();
-			const peers = allMrs.filter(
-				(m) =>
-					(m.division === divisionName || m.company === divisionName) &&
-					String(m.ID) !== String(mrInfo.ID),
-			);
 
-			for (const peer of peers) {
-				const peerId = String(peer.ID);
-				// Check if peer has an admin exemption
-				const peerOverride = (overrides as any)[peerId] || {};
-				const peerExemption =
-					Boolean(peerOverride.unblockedUntil) &&
-					new Date(peerOverride.unblockedUntil).getTime() > now.getTime();
+			for (const divisionName of divisionNames) {
+				const peers = allMrs.filter(
+					(m) =>
+						(m.division === divisionName || m.company === divisionName) &&
+						String(m.ID) !== String(mrInfo.ID),
+				);
 
-				if (peerExemption) continue;
+				for (const peer of peers) {
+					const peerId = String(peer.ID);
+					// Check if peer has an admin exemption
+					const peerOverride = (overrides as any)[peerId] || {};
+					const peerExemption =
+						Boolean(peerOverride.unblockedUntil) &&
+						new Date(peerOverride.unblockedUntil).getTime() > now.getTime();
 
-				// Query peer outstanding
-				const peerOut = await getMRwisePeriodicalOutstanding({
-					mrId: peerId,
-					compCode,
-					fromDate: "2026-04-01",
-					toDate: new Date().toISOString().split("T")[0],
-					locNo: mrInfo.locNo || "11",
-				});
+					if (peerExemption) continue;
 
-				const peerItems = (
-					peerOut.success && peerOut.data ? peerOut.data : []
-				) as OverduePeriodicalOutstandingRow[];
-				const peerBlocking = peerItems.filter((p) => {
-					const net = Number(p.Amount || 0) - Number(p.AdjAmt || 0);
-					return net > 0 && Number(p.OverDays || 0) > 90;
-				});
+					// Query peer outstanding
+					const peerOut = await getMRwisePeriodicalOutstanding({
+						mrId: peerId,
+						compCode,
+						fromDate: "2026-04-01",
+						toDate: new Date().toISOString().split("T")[0],
+						locNo: mrInfo.locNo || "11",
+					});
 
-				if (peerBlocking.length > 0) {
-					const worst = peerBlocking.sort(
-						(a, b) => Number(b.OverDays) - Number(a.OverDays),
-					)[0]!;
-					const netAmt = Number(worst.Amount || 0) - Number(worst.AdjAmt || 0);
+					const peerItems = (
+						peerOut.success && peerOut.data ? peerOut.data : []
+					) as OverduePeriodicalOutstandingRow[];
 
-					if (!hasAdminExemption) {
-						return {
-							mrId,
-							mrName: mrInfo.name,
-							status: "DIVISION_BLOCKED",
-							isBlocked: true,
-							totalPendingAmt,
-							oldestDays,
-							warningInvoices: [],
-							blockingInvoices: [],
-							divisionName,
-							responsibleMrName: peer.MRName || `MR #${peerId}`,
-							responsibleMrId: peerId,
-							responsibleInvoiceNo:
-								worst.DocNo || worst.AgainstNo || `INV-${worst.ID}`,
-							responsibleAmount: netAmt,
-							message: `Division access for '${divisionName}' is temporarily suspended due to overdue payment (>90 days) by MR ${peer.MRName || peerId} on invoice ${worst.DocNo || worst.AgainstNo} (₹${netAmt.toFixed(2)}).`,
-							hasAdminExemption: false,
-						};
+					// Division cascading block only triggers when peer payment exceeds 95 days
+					const peerBlocking = peerItems.filter((p) => {
+						const net = Number(p.Amount || 0) - Number(p.AdjAmt || 0);
+						return net > 0 && Number(p.OverDays || 0) > 95;
+					});
+
+					if (peerBlocking.length > 0) {
+						const worst = peerBlocking.sort(
+							(a, b) => Number(b.OverDays) - Number(a.OverDays),
+						)[0]!;
+						const netAmt = Number(worst.Amount || 0) - Number(worst.AdjAmt || 0);
+						const overDays = Number(worst.OverDays || 0);
+
+						if (!hasAdminExemption) {
+							return {
+								mrId,
+								mrName: mrInfo.name,
+								status: "DIVISION_BLOCKED",
+								isBlocked: true,
+								totalPendingAmt,
+								oldestDays,
+								warningInvoices: [],
+								blockingInvoices: [],
+								divisionName,
+								responsibleMrName: peer.MRName || `MR #${peerId}`,
+								responsibleMrId: peerId,
+								responsibleInvoiceNo:
+									worst.DocNo || worst.AgainstNo || `INV-${worst.ID}`,
+								responsibleAmount: netAmt,
+								responsibleOverDays: overDays,
+								message: `Division access for '${divisionName}' is temporarily suspended because MR ${peer.MRName || peerId} has overdue payments exceeding 95 days on invoice ${worst.DocNo || worst.AgainstNo} (₹${netAmt.toFixed(2)}, ${overDays} days overdue).`,
+								hasAdminExemption: false,
+							};
+						}
 					}
 				}
 			}
@@ -341,7 +357,7 @@ export async function evaluateMROverdueStatus(
 		oldestDays,
 		warningInvoices: [],
 		blockingInvoices: [],
-		divisionName,
+		divisionName: divisionNames[0] || mrInfo.division || mrInfo.company || undefined,
 		hasAdminExemption,
 		exemptionUntil: exemptionUntilStr,
 	};

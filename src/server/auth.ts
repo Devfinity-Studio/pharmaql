@@ -116,12 +116,31 @@ export async function getSession(options?: {
 		return null; // Session immediately revoked!
 	}
 
-	// For MR users, verify they are not blocked by overdue or admin
+	// For MR users, verify they are not blocked by overdue or admin, and sync live database rank
 	if (user.role === "MR") {
 		const { evaluateMROverdueStatus } = await import("./actions/overdueEngine");
 		const status = await evaluateMROverdueStatus(user.id);
 		if (status.isBlocked) {
 			return null; // Session immediately invalid
+		}
+
+		try {
+			const { getMRInfo } = await import("./actions/mrInfo");
+			const { getPermissionsForRank } = await import("@/lib/permissions");
+			const mrDetails = await getMRInfo(user.id);
+			if (mrDetails) {
+				const liveRank = mrDetails.rank || 3;
+				const livePerms = getPermissionsForRank(liveRank);
+				(user as any).rank = liveRank;
+				(user as any).canViewStock = livePerms.canViewStock;
+				(user as any).canViewStockAndSales = livePerms.canViewStockAndSales;
+				(user as any).canViewSales = livePerms.canViewSales;
+				(user as any).canViewFreeScheme = livePerms.canViewFreeScheme;
+				(user as any).canViewPartyWise = livePerms.canViewPartyWise;
+				(user as any).canViewProductWise = livePerms.canViewProductWise;
+			}
+		} catch (err) {
+			console.warn("[Auth] Failed to refresh live rank for MR:", err);
 		}
 	}
 
