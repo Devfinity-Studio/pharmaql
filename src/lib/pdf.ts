@@ -2537,3 +2537,274 @@ export async function generatePdfReport(
 		serverTimeStr,
 	);
 }
+
+// ---------------------------------------------------------------------------
+// 8. STOCK & SALES STATEMENT PDF REPORT
+// ---------------------------------------------------------------------------
+export async function generateStockAndSalesPdfReport(
+	filename: string,
+	data: any[],
+	mrName?: string,
+	fromDate?: string,
+	toDate?: string,
+	action: "download" | "print" = "download",
+	serverTimeStr?: string,
+) {
+	const logoDataUrl = await getLogoDataUrl();
+	const doc = new jsPDF("landscape");
+
+	const activeData = data.filter((row) => {
+		const op = Number(row["Opening Qty."] ?? row["Opening Qty"] ?? row["Opening"] ?? 0);
+		const pur = Number(row["Purchase Qty"] ?? row["Purchase"] ?? 0);
+		const sale = Number(row["Sales Qty."] ?? row["Sales Qty"] ?? row["Sales"] ?? 0);
+		const free = Number(row["Free Qty"] ?? row["Free"] ?? 0);
+		const sRet = Number(row["S.Ret Qty."] ?? row["SReturn"] ?? 0);
+		const closing = Number(row["Closing Qty"] ?? row["Balance Qty."] ?? row["Qty"] ?? 0);
+		return op !== 0 || pur !== 0 || sale !== 0 || free !== 0 || sRet !== 0 || closing !== 0;
+	});
+
+	if (activeData.length === 0) {
+		doc.text(
+			"No active stock & sales records found for the selected period.",
+			14,
+			20,
+		);
+		addFooterToAllPages(doc, mrName, serverTimeStr);
+		if (action === "print") {
+			doc.autoPrint();
+			window.open(URL.createObjectURL(doc.output("blob")), "_blank");
+		} else {
+			doc.save(filename);
+		}
+		return;
+	}
+
+	const startY = drawReportStationeryHeader(
+		doc,
+		logoDataUrl,
+		"Stock & Sales Statement Report",
+		fromDate,
+		toDate,
+		`Total Items: ${activeData.length}\nRate Basis: PTR / Rate`,
+	);
+
+	const divisions = [
+		...new Set(
+			activeData.map((item) =>
+				(item.Division || item.Manufacturer || "General").toString().trim(),
+			),
+		),
+	].sort();
+
+	const tableBody: any[] = [];
+	let grandTotalOpening = 0;
+	let grandTotalPur = 0;
+	let grandTotalSale = 0;
+	let grandTotalFree = 0;
+	let grandTotalSRet = 0;
+	let grandTotalClosing = 0;
+	let grandTotalSaleVal = 0;
+	let grandTotalClosingVal = 0;
+
+	for (const div of divisions) {
+		const divData = activeData
+			.filter(
+				(item) =>
+					(item.Division || item.Manufacturer || "General")
+						.toString()
+						.trim() === div,
+			)
+			.sort((a, b) =>
+				(a["Item Name"] || a["Product Name"] || "").localeCompare(
+					b["Item Name"] || b["Product Name"] || "",
+				),
+			);
+
+		let divOpening = 0;
+		let divPur = 0;
+		let divSale = 0;
+		let divFree = 0;
+		let divSRet = 0;
+		let divClosing = 0;
+		let divSaleVal = 0;
+		let divClosingVal = 0;
+
+		const compName = (
+			divData[0]?.Manufacturer ||
+			divData[0]?.Company ||
+			div
+		)
+			.toString()
+			.toUpperCase();
+		const divName = div.toUpperCase();
+
+		// Division Header Banner Row
+		tableBody.push([
+			{
+				content: `Company: ${compName} - ${divName}`,
+				colSpan: 11,
+				styles: {
+					fillColor: [238, 246, 252],
+					textColor: [0, 43, 102],
+					fontStyle: "bold",
+					fontSize: 8,
+					lineWidth: { top: 0.3, bottom: 0.3 },
+					lineColor: [184, 215, 245],
+				},
+			},
+		]);
+
+		divData.forEach((row) => {
+			const itemName = row["Item Name"] || row["Product Name"] || "-";
+			const packing = row["Packing"] || "-";
+			const opening = Number(row["Opening Qty."] ?? row["Opening Qty"] ?? 0);
+			const pur = Number(row["Purchase Qty"] ?? row["Inward"] ?? 0);
+			const sale = Number(row["Sales Qty."] ?? row["Sales Qty"] ?? 0);
+			const free = Number(row["Free Qty"] ?? 0);
+			const sRet = Number(row["S.Ret Qty."] ?? 0);
+			const closing = Number(row["Closing Qty"] ?? row["Balance Qty."] ?? 0);
+			const ptr = Number(row["ptr"] ?? row["PTR"] ?? 0);
+			const saleVal = Number(row["Sales Value"] ?? row["SaleVal"] ?? sale * ptr);
+			const closingVal = Number(row["Stock Value"] ?? row["Closing Value"] ?? row["BalVal"] ?? closing * ptr);
+
+			divOpening += opening;
+			divPur += pur;
+			divSale += sale;
+			divFree += free;
+			divSRet += sRet;
+			divClosing += closing;
+			divSaleVal += saleVal;
+			divClosingVal += closingVal;
+
+			grandTotalOpening += opening;
+			grandTotalPur += pur;
+			grandTotalSale += sale;
+			grandTotalFree += free;
+			grandTotalSRet += sRet;
+			grandTotalClosing += closing;
+			grandTotalSaleVal += saleVal;
+			grandTotalClosingVal += closingVal;
+
+			tableBody.push([
+				{ content: itemName, styles: { halign: "left" } },
+				{ content: packing, styles: { halign: "center" } },
+				{ content: opening !== 0 ? String(opening) : "-", styles: { halign: "right" } },
+				{ content: pur !== 0 ? String(pur) : "-", styles: { halign: "right" } },
+				{ content: sale !== 0 ? String(sale) : "-", styles: { halign: "right" } },
+				{ content: free !== 0 ? String(free) : "-", styles: { halign: "right" } },
+				{ content: sRet !== 0 ? String(sRet) : "-", styles: { halign: "right" } },
+				{ content: closing !== 0 ? String(closing) : "-", styles: { halign: "right", fontStyle: "bold" } },
+				{ content: ptr !== 0 ? ptr.toFixed(2) : "-", styles: { halign: "right" } },
+				{ content: saleVal !== 0 ? saleVal.toFixed(2) : "-", styles: { halign: "right" } },
+				{ content: closingVal !== 0 ? closingVal.toFixed(2) : "-", styles: { halign: "right" } },
+			]);
+		});
+
+		// Division Subtotal Row
+		tableBody.push([
+			{
+				content: `Sub Total (${divName}) :`,
+				colSpan: 2,
+				styles: {
+					fontStyle: "bold",
+					fillColor: [249, 250, 251],
+					lineWidth: { top: 0.4, bottom: 0.4 },
+					lineColor: [156, 163, 175],
+				},
+			},
+			{ content: String(divOpening), styles: { halign: "right", fontStyle: "bold", fillColor: [249, 250, 251] } },
+			{ content: String(divPur), styles: { halign: "right", fontStyle: "bold", fillColor: [249, 250, 251] } },
+			{ content: String(divSale), styles: { halign: "right", fontStyle: "bold", fillColor: [249, 250, 251] } },
+			{ content: String(divFree), styles: { halign: "right", fontStyle: "bold", fillColor: [249, 250, 251] } },
+			{ content: String(divSRet), styles: { halign: "right", fontStyle: "bold", fillColor: [249, 250, 251] } },
+			{ content: String(divClosing), styles: { halign: "right", fontStyle: "bold", fillColor: [249, 250, 251] } },
+			{ content: "", styles: { fillColor: [249, 250, 251] } },
+			{ content: divSaleVal.toFixed(2), styles: { halign: "right", fontStyle: "bold", fillColor: [249, 250, 251], textColor: [30, 64, 175] } },
+			{ content: divClosingVal.toFixed(2), styles: { halign: "right", fontStyle: "bold", fillColor: [249, 250, 251], textColor: [30, 64, 175] } },
+		]);
+	}
+
+	// Grand Total Row
+	tableBody.push([
+		{
+			content: "Grand Total :",
+			colSpan: 2,
+			styles: {
+				fontStyle: "bold",
+				fontSize: 8.5,
+				fillColor: [243, 244, 246],
+				lineWidth: { top: 0.8, bottom: 0.8 },
+				lineColor: [17, 24, 39],
+			},
+		},
+		{ content: String(grandTotalOpening), styles: { halign: "right", fontStyle: "bold", fontSize: 8.5, fillColor: [243, 244, 246] } },
+		{ content: String(grandTotalPur), styles: { halign: "right", fontStyle: "bold", fontSize: 8.5, fillColor: [243, 244, 246] } },
+		{ content: String(grandTotalSale), styles: { halign: "right", fontStyle: "bold", fontSize: 8.5, fillColor: [243, 244, 246] } },
+		{ content: String(grandTotalFree), styles: { halign: "right", fontStyle: "bold", fontSize: 8.5, fillColor: [243, 244, 246] } },
+		{ content: String(grandTotalSRet), styles: { halign: "right", fontStyle: "bold", fontSize: 8.5, fillColor: [243, 244, 246] } },
+		{ content: String(grandTotalClosing), styles: { halign: "right", fontStyle: "bold", fontSize: 8.5, fillColor: [243, 244, 246] } },
+		{ content: "", styles: { fillColor: [243, 244, 246] } },
+		{ content: grandTotalSaleVal.toFixed(2), styles: { halign: "right", fontStyle: "bold", fontSize: 8.5, fillColor: [243, 244, 246], textColor: [30, 64, 175] } },
+		{ content: grandTotalClosingVal.toFixed(2), styles: { halign: "right", fontStyle: "bold", fontSize: 8.5, fillColor: [243, 244, 246], textColor: [30, 64, 175] } },
+	]);
+
+	autoTable(doc, {
+		startY,
+		head: [
+			[
+				"Item Name",
+				"Packing",
+				"Opening\nQty",
+				"Inward\nPur",
+				"Sales\nQty",
+				"Free\nQty",
+				"S.Ret\nQty",
+				"Closing\nQty",
+				"PTR\n(₹)",
+				"Sales Val\n(₹)",
+				"Closing Val\n(₹)",
+			],
+		],
+		body: tableBody,
+		theme: "plain",
+		styles: {
+			fontSize: 7.5,
+			cellPadding: 1.2,
+			textColor: [31, 41, 55],
+		},
+		headStyles: {
+			fillColor: [11, 37, 69],
+			textColor: [255, 255, 255],
+			fontStyle: "bold",
+			halign: "center",
+			fontSize: 7.5,
+			lineWidth: 0.1,
+			lineColor: [209, 213, 219],
+		},
+		columnStyles: {
+			0: { cellWidth: 55 },
+			1: { cellWidth: 20 },
+			2: { cellWidth: 20 },
+			3: { cellWidth: 20 },
+			4: { cellWidth: 20 },
+			5: { cellWidth: 18 },
+			6: { cellWidth: 18 },
+			7: { cellWidth: 22 },
+			8: { cellWidth: 22 },
+			9: { cellWidth: 28 },
+			10: { cellWidth: 28 },
+		},
+		margin: { left: 10, right: 10, bottom: 15 },
+		pageBreak: "auto",
+		didDrawPage: () => {
+			addFooterToAllPages(doc, mrName, serverTimeStr);
+		},
+	});
+
+	if (action === "print") {
+		doc.autoPrint();
+		window.open(URL.createObjectURL(doc.output("blob")), "_blank");
+	} else {
+		doc.save(filename);
+	}
+}

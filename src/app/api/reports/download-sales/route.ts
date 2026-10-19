@@ -366,17 +366,67 @@ export async function GET(request: Request) {
 	// 1.5. Handle Stock & Sales Statement Report
 	// ==========================================
 	if (tab === "stock-and-sales") {
+		const matchingAssignment = (mrInfo.assignments || []).find(
+			(a: any) =>
+				a.division === company ||
+				a.manufacturer === company ||
+				a.company === company,
+		);
+		const divIdNum = (matchingAssignment as any)?.divisionId
+			? Number((matchingAssignment as any).divisionId)
+			: undefined;
+		const validDivId =
+			divIdNum && !isNaN(divIdNum) && divIdNum > 0 ? divIdNum : undefined;
+
 		const stockAndSalesRes = await getStockAndSales({
 			fromDate: defaultFrom,
 			toDate: defaultTo,
 			compCode: compCodeToQuery,
 			locNo: mrInfo.locNo || "11",
+			divId: validDivId,
 		});
 
 		const rawRows =
 			stockAndSalesRes.success && stockAndSalesRes.data
 				? stockAndSalesRes.data
 				: [];
+
+		// Filter rows to match selected division/company cleanly
+		const filteredRows = rawRows.filter((row: any) => {
+			const rowMktBy = (
+				row.MktBy ||
+				row.CompanyCode ||
+				row.CompanyName ||
+				row.Make ||
+				""
+			)
+				.toString()
+				.trim()
+				.toUpperCase();
+			const rowDiv = (row.Division || "").toString().trim().toUpperCase();
+
+			if (company !== "All") {
+				const sel = company.trim().toUpperCase();
+				if (rowDiv && (rowDiv === sel || rowDiv.includes(sel) || sel.includes(rowDiv))) {
+					return true;
+				}
+				if (rowMktBy && (rowMktBy === sel || rowMktBy.includes(sel) || sel.includes(rowMktBy))) {
+					return true;
+				}
+				return (mrInfo.assignments || []).some((a: any) => {
+					const cCode = (a.companyCode || "").toString().trim().toUpperCase();
+					const mfg = (a.manufacturer || a.company || "").toString().trim().toUpperCase();
+					const div = (a.division || "").toString().trim().toUpperCase();
+					return (
+						(cCode && rowMktBy === cCode) ||
+						(mfg && rowMktBy === mfg) ||
+						(div && rowDiv === div)
+					);
+				});
+			}
+			return true;
+		});
+
 		const filename = `${safeMrName}_${safeCompany}_Stock_and_Sales_${dateRangeTag}`;
 
 		let totalOpening = 0;
@@ -388,7 +438,7 @@ export async function GET(request: Request) {
 		let totalSaleVal = 0;
 		let totalClosingVal = 0;
 
-		const excelRows = rawRows.map((r: any) => {
+		const excelRows = filteredRows.map((r: any) => {
 			const opQty = Number(r.OpenQty ?? r.OpQty ?? r.OpeningQty ?? r.Opening ?? 0);
 			const purQty = Number(
 				r.PQty ?? r.PurQty ?? r.PurchaseQty ?? r.Purchase ?? r.RecQty ?? 0,
@@ -444,10 +494,39 @@ export async function GET(request: Request) {
 				sRetQty,
 				closingQty,
 				ptr,
+				rate,
 				saleVal,
 				closingVal,
 			};
 		});
+
+		// JSON format for PDF generation & print previews
+		if (format === "json") {
+			const jsonReportData = excelRows.map((r: any) => ({
+				"MR Name": mrName,
+				ItemId: r.itemCode,
+				"Item Code": r.itemCode,
+				"Item Name": r.itemName,
+				"Product Name": r.itemName,
+				Packing: r.packing,
+				Division: r.division,
+				Manufacturer: mrInfo.company || r.division || "General",
+				"Opening Qty.": r.openingQty,
+				"Purchase Qty": r.purQty,
+				"Sales Qty.": r.saleQty,
+				"Free Qty": r.freeQty,
+				"S.Ret Qty.": r.sRetQty,
+				"Balance Qty.": r.closingQty,
+				"Closing Qty": r.closingQty,
+				ptr: r.ptr,
+				prate: r.rate ?? r.ptr,
+				"Sales Value": r.saleVal,
+				"Stock Value": r.closingVal,
+				"Closing Value": r.closingVal,
+			}));
+
+			return NextResponse.json(jsonReportData);
+		}
 
 		if (format === "excel") {
 			const columns: ExcelColumnDef[] = [
