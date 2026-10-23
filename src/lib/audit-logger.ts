@@ -11,7 +11,9 @@ export type AuditEventType =
 	| "ADMIN_UNBLOCK"
 	| "RATE_LIMIT_EXCEEDED"
 	| "SECURITY_WARNING"
-	| "EXPORT_DOWNLOAD";
+	| "EXPORT_DOWNLOAD"
+	| "DEVELOPER_IMPERSONATION_START"
+	| "DEVELOPER_IMPERSONATION_STOP";
 
 export interface AuditLogEntry {
 	id: string;

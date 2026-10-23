@@ -2,6 +2,13 @@ import { Router, Request, Response } from "express";
 import { dbPool } from "../db";
 import { formatDateToOdbc } from "../utils/dateUtils";
 import { formatCompanyCodeParam, resolveCompanyCodeParam } from "../utils/companyCodeUtils";
+import {
+  validateStockMovementParams,
+  validateStockAndSalesParams,
+  validateOutstandingParams,
+  validatePartyItemSaleParams,
+  SP_TIMEOUT_MS,
+} from "../utils/spValidator";
 
 export const reportsRouter = Router();
 
@@ -10,6 +17,11 @@ export const reportsRouter = Router();
  * Procedure: rptStockMovementStatement
  */
 reportsRouter.post("/stock-movement", async (req: Request, res: Response) => {
+  const val = validateStockMovementParams(req.body);
+  if (!val.isValid) {
+    return res.status(400).json({ success: false, error: "Validation Error", details: val.errors });
+  }
+
   let conn;
   try {
     const { companyCode, fromDate, toDate, locNo } = req.body || {};
@@ -42,7 +54,7 @@ reportsRouter.post("/stock-movement", async (req: Request, res: Response) => {
     ].join(", ");
 
     const sql = `CALL \`pdyasvtrans\`.\`rptStockMovementStatement\`(${formattedParams})`;
-    const [rows] = await conn.query(sql);
+    const [rows] = await conn.query({ sql, timeout: SP_TIMEOUT_MS } as any);
     const reportData = ((rows as any)?.[0] || []);
 
     res.json({ success: true, data: reportData, debugSql: sql });
@@ -59,6 +71,11 @@ reportsRouter.post("/stock-movement", async (req: Request, res: Response) => {
  * Procedure: rptStockandSalesStatementReport
  */
 reportsRouter.post("/stock-and-sales", async (req: Request, res: Response) => {
+  const val = validateStockAndSalesParams(req.body);
+  if (!val.isValid) {
+    return res.status(400).json({ success: false, error: "Validation Error", details: val.errors });
+  }
+
   let conn;
   try {
     const { companyCode, fromDate, toDate, locNo, div, divId, itemIds, itemCategory, includeBr, showFree } = req.body || {};
@@ -122,11 +139,11 @@ reportsRouter.post("/stock-and-sales", async (req: Request, res: Response) => {
     const sql = `CALL \`pdyasvtrans\`.\`rptStockandSalesStatementReport\`(${formattedParams})`;
     let reportData: any[] = [];
     try {
-      const [rows] = await conn.query(sql);
+      const [rows] = await conn.query({ sql, timeout: SP_TIMEOUT_MS } as any);
       reportData = Array.isArray(rows) && Array.isArray((rows as any)[0]) ? (rows as any)[0] : (rows as any) || [];
     } catch (callErr: any) {
       const altSql = `CALL \`rptStockandSalesStatementReport\`(${formattedParams})`;
-      const [rows] = await conn.query(altSql);
+      const [rows] = await conn.query({ sql: altSql, timeout: SP_TIMEOUT_MS } as any);
       reportData = Array.isArray(rows) && Array.isArray((rows as any)[0]) ? (rows as any)[0] : (rows as any) || [];
     }
 
@@ -225,6 +242,11 @@ reportsRouter.post("/customer-item-sale", async (req: Request, res: Response) =>
  * 11: p_SeriesIds (LONGTEXT) e.g. ''
  */
 reportsRouter.post("/party-item-sale", async (req: Request, res: Response) => {
+  const val = validatePartyItemSaleParams(req.body);
+  if (!val.isValid) {
+    return res.status(400).json({ success: false, error: "Validation Error", details: val.errors });
+  }
+
   let conn;
   try {
     const params = req.body || {};
@@ -262,7 +284,7 @@ reportsRouter.post("/party-item-sale", async (req: Request, res: Response) => {
     ].join(", ");
 
     const sql = `CALL \`pdyasvtrans\`.\`rptCompanyCustomerItemwiseSales\`(${formattedParams})`;
-    const [callRes] = await conn.query(sql);
+    const [callRes] = await conn.query({ sql, timeout: SP_TIMEOUT_MS } as any);
     const rows = Array.isArray(callRes) ? callRes[0] : callRes;
 
     res.json({ success: true, data: rows || [], debugSql: sql });
@@ -279,6 +301,11 @@ reportsRouter.post("/party-item-sale", async (req: Request, res: Response) => {
  * Procedure: rptMRwisePeriodicalOutstanding
  */
 reportsRouter.post("/mr-overdue", async (req: Request, res: Response) => {
+  const val = validateOutstandingParams(req.body);
+  if (!val.isValid) {
+    return res.status(400).json({ success: false, error: "Validation Error", details: val.errors });
+  }
+
   let conn;
   try {
     const params = req.body || {};
@@ -330,7 +357,7 @@ reportsRouter.post("/mr-overdue", async (req: Request, res: Response) => {
     ].join(", ");
 
     const sql = `CALL \`rptMRwisePeriodicalOutstanding\`(${formattedParams})`;
-    const [resData] = await conn.query(sql);
+    const [resData] = await conn.query({ sql, timeout: SP_TIMEOUT_MS } as any);
     const rows = Array.isArray(resData) ? resData[0] : resData;
 
     res.json({ success: true, data: rows || [], debugSql: sql });

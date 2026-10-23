@@ -19,12 +19,13 @@ import { getClientIp, getClientUserAgent } from "@/lib/security";
 import { getMRInfo } from "@/server/actions/mrInfo";
 import { recordMRLastLogin } from "@/server/actions/mrs";
 import { AUTH_COOKIE_NAME, getSession } from "@/server/auth";
+import { kvStore } from "@/lib/kv-store";
 
-// Temporary in-memory OTP storage: email -> { otp, expiresAt, mrUser }
-const otpStore = new Map<
-	string,
-	{ otp: string; expiresAt: number; mrUser: SessionUser }
->();
+interface StoredOtpRecord {
+	otp: string;
+	expiresAt: number;
+	mrUser: SessionUser;
+}
 
 /**
  * 1. Request OTP for Medical Representative (MR)
@@ -180,11 +181,16 @@ export async function requestMrOtp(emailOrPhone: string) {
 			canViewProductWise: perms.canViewProductWise,
 		};
 
-		otpStore.set(targetEmail.toLowerCase(), {
-			otp,
-			expiresAt,
-			mrUser: mrSessionUser,
-		});
+		const otpKey = `otp:${targetEmail.toLowerCase()}`;
+		await kvStore.set<StoredOtpRecord>(
+			otpKey,
+			{
+				otp,
+				expiresAt,
+				mrUser: mrSessionUser,
+			},
+			600, // 10 minutes TTL
+		);
 
 		// Send email using Gmail SMTP
 		await sendOtpEmail(targetEmail, otp, mr.name);
@@ -250,7 +256,8 @@ export async function verifyMrOtp(email: string, otp: string) {
 			};
 		}
 
-		const record = otpStore.get(cleanEmail);
+		const otpKey = `otp:${cleanEmail}`;
+		const record = await kvStore.get<StoredOtpRecord>(otpKey);
 		if (!record) {
 			return {
 				success: false,
@@ -259,7 +266,7 @@ export async function verifyMrOtp(email: string, otp: string) {
 		}
 
 		if (Date.now() > record.expiresAt) {
-			otpStore.delete(cleanEmail);
+			await kvStore.del(otpKey);
 			return {
 				success: false,
 				error: "OTP has expired. Please request a new OTP.",
@@ -293,7 +300,7 @@ export async function verifyMrOtp(email: string, otp: string) {
 		const { evaluateMROverdueStatus } = await import("./overdueEngine");
 		const overdueStatus = await evaluateMROverdueStatus(record.mrUser.id);
 		if (overdueStatus.isBlocked) {
-			otpStore.delete(cleanEmail);
+			await kvStore.del(otpKey);
 			return {
 				success: false,
 				error:
@@ -305,7 +312,7 @@ export async function verifyMrOtp(email: string, otp: string) {
 
 		// OTP Valid! Reset brute force counters & clean up active OTP
 		recordOtpVerifySuccess(clientIp, cleanEmail);
-		otpStore.delete(cleanEmail);
+		await kvStore.del(otpKey);
 
 		// Record Last Login timestamp for MR
 		await recordMRLastLogin(
