@@ -1,5 +1,6 @@
 "use server";
 
+import crypto from "node:crypto";
 import { cookies, headers } from "next/headers";
 import { apiPost } from "@/lib/api-client";
 import { recordAuditEvent } from "@/lib/audit-logger";
@@ -153,8 +154,8 @@ export async function requestMrOtp(emailOrPhone: string) {
 			};
 		}
 
-		// Generate 6-digit secure numeric OTP
-		const otp = Math.floor(100000 + Math.random() * 900000).toString();
+		// Generate 6-digit secure numeric OTP via cryptographically strong PRNG
+		const otp = crypto.randomInt(100000, 1000000).toString();
 		const expiresAt = Date.now() + 10 * 60 * 1000; // 10 minutes
 
 		// Look up MR info including rank and permissions
@@ -404,19 +405,31 @@ export async function loginAdminOrDev(email: string, pass: string) {
 			};
 		}
 
-		const adminEmail = (
-			process.env.ADMIN_EMAIL || "admin@admin.com"
-		).toLowerCase();
-		const adminPass = process.env.ADMIN_PASSWORD || "Admin123";
+		const adminEmail = (process.env.ADMIN_EMAIL || "").trim().toLowerCase();
+		const adminPass = (process.env.ADMIN_PASSWORD || "").trim();
 
-		const devEmail = (
-			process.env.DEV_EMAIL || "dev@asmeepharma.com"
-		).toLowerCase();
-		const devPass = process.env.DEV_PASSWORD || "Dev@PharmaQL2026";
+		const devEmail = (process.env.DEV_EMAIL || "").trim().toLowerCase();
+		const devPass = (process.env.DEV_PASSWORD || "").trim();
+
+		const timingSafeMatch = (provided: string, expected: string): boolean => {
+			if (!provided || !expected) return false;
+			const bufA = Buffer.from(provided, "utf-8");
+			const bufB = Buffer.from(expected, "utf-8");
+			if (bufA.length !== bufB.length) {
+				crypto.timingSafeEqual(bufA, bufA);
+				return false;
+			}
+			return crypto.timingSafeEqual(bufA, bufB);
+		};
 
 		let sessionUser: SessionUser | null = null;
 
-		if (cleanEmail === adminEmail && cleanPass === adminPass) {
+		if (
+			adminEmail &&
+			adminPass &&
+			cleanEmail === adminEmail &&
+			timingSafeMatch(cleanPass, adminPass)
+		) {
 			sessionUser = {
 				id: "admin-system",
 				name: "System Administrator",
@@ -429,7 +442,12 @@ export async function loginAdminOrDev(email: string, pass: string) {
 				canViewPartyWise: true,
 				canViewProductWise: true,
 			};
-		} else if (cleanEmail === devEmail && cleanPass === devPass) {
+		} else if (
+			devEmail &&
+			devPass &&
+			cleanEmail === devEmail &&
+			timingSafeMatch(cleanPass, devPass)
+		) {
 			sessionUser = {
 				id: "dev-system",
 				name: "Developer Admin",

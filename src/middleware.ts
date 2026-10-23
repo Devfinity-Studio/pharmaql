@@ -33,18 +33,14 @@ export function middleware(request: NextRequest) {
 
 	// 4. Protect /api/debug in production environments
 	if (pathname.startsWith("/api/debug")) {
-		if (process.env.NODE_ENV === "production") {
-			// Require session cookie or deny
-			const sessionCookie = request.cookies.get("pharmaql_session");
-			if (!sessionCookie?.value) {
-				return new NextResponse(
-					JSON.stringify({ error: "Forbidden: Debug endpoint disabled in production." }),
-					{
-						status: 403,
-						headers: { "Content-Type": "application/json", "x-request-id": requestId },
-					},
-				);
-			}
+		if (process.env.NODE_ENV === "production" && process.env.ENABLE_DEBUG_ENDPOINT !== "true") {
+			return new NextResponse(
+				JSON.stringify({ error: "Forbidden: Debug endpoint disabled in production." }),
+				{
+					status: 403,
+					headers: { "Content-Type": "application/json", "x-request-id": requestId },
+				},
+			);
 		}
 	}
 
