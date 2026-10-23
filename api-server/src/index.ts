@@ -26,7 +26,10 @@ app.use(
       if (allowedOrigins.includes(origin) || allowedOrigins.includes("*")) {
         return callback(null, true);
       }
-      return callback(null, true); // Permissive in dev/local environment
+      if (process.env.NODE_ENV === "production") {
+        return callback(new Error("CORS origin not allowed"), false);
+      }
+      return callback(null, true); // Permissive only in local development
     },
     credentials: true,
   })

@@ -1,9 +1,24 @@
 import { NextResponse } from "next/server";
+import { headers } from "next/headers";
 import { apiGet } from "@/lib/api-client";
+import { auth } from "@/server/auth";
 
 export const dynamic = "force-dynamic";
 
 export async function GET() {
+	// Debug route is strictly restricted to authenticated DEVELOPER users
+	const reqHeaders = await headers();
+	const session = await auth.api.getSession({
+		headers: reqHeaders,
+	});
+
+	if (!session || session.user.role !== "DEVELOPER") {
+		return NextResponse.json(
+			{ error: "Forbidden: Developer privileges required to access debug diagnostics." },
+			{ status: 403 }
+		);
+	}
+
 	try {
 		const healthRes = await apiGet<{
 			status: string;

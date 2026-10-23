@@ -6,16 +6,13 @@ import {
 	getMRwisePeriodicalOutstanding,
 	type OverduePeriodicalOutstandingRow,
 } from "./overdueReports";
+import {
+	calculateBlockDate,
+	evaluateOverdueInvoices,
+	type ImpendingBlockInvoice,
+} from "@/lib/overdueUtils";
 
-export interface ImpendingBlockInvoice {
-	invoiceNo: string;
-	customer: string;
-	docDate: string;
-	dueDate?: string;
-	amount: number;
-	overDays: number;
-	autoBlockDate: string; // Date string when overDays reaches 91
-}
+export type { ImpendingBlockInvoice };
 
 export type MROverdueStatusType =
 	| "CLEAN"
@@ -43,23 +40,6 @@ export interface MROverdueEvaluation {
 	hasAdminExemption: boolean;
 	exemptionReason?: string;
 	exemptionUntil?: string;
-}
-
-function calculateBlockDate(
-	docDateStr: string | Date,
-	currentOverDays: number,
-): string {
-	const base = new Date(docDateStr);
-	if (isNaN(base.getTime())) {
-		const target = new Date();
-		target.setDate(target.getDate() + Math.max(0, 91 - currentOverDays));
-		return target.toISOString().split("T")[0]!;
-	}
-	// Invoice reaches 91 days at base + 91 days (assuming OverDays is from invoice date)
-	const blockDate = new Date();
-	const daysRemaining = Math.max(0, 91 - currentOverDays);
-	blockDate.setDate(blockDate.getDate() + daysRemaining);
-	return blockDate.toISOString().split("T")[0]!;
 }
 
 /**
@@ -134,41 +114,8 @@ export async function evaluateMROverdueStatus(
 		outRes.success && outRes.data ? outRes.data : []
 	) as OverduePeriodicalOutstandingRow[];
 
-	let totalPendingAmt = 0;
-	let oldestDays = 0;
-	const warningInvoices: ImpendingBlockInvoice[] = [];
-	const blockingInvoices: ImpendingBlockInvoice[] = [];
-
-	rows.forEach((r) => {
-		const amt = Number(r.Amount || 0);
-		const adj = Number(r.AdjAmt || 0);
-		const net = amt - adj;
-
-		if (net > 0) {
-			totalPendingAmt += net;
-			const days = Number(r.OverDays || 0);
-			if (days > oldestDays) oldestDays = days;
-
-			const docDateStr = r.DocDate
-				? new Date(r.DocDate).toISOString().split("T")[0]!
-				: "";
-			const invItem: ImpendingBlockInvoice = {
-				invoiceNo: r.DocNo || r.AgainstNo || `INV-${r.ID}`,
-				customer: r.Customer || "Unknown Customer",
-				docDate: docDateStr,
-				dueDate: r.DueDate ? String(r.DueDate).split("T")[0] : undefined,
-				amount: net,
-				overDays: days,
-				autoBlockDate: calculateBlockDate(r.DocDate, days),
-			};
-
-			if (days > 90) {
-				blockingInvoices.push(invItem);
-			} else if (days >= 80 && days <= 90) {
-				warningInvoices.push(invItem);
-			}
-		}
-	});
+	const { totalPendingAmt, oldestDays, warningInvoices, blockingInvoices } =
+		evaluateOverdueInvoices(rows);
 
 	// If direct block applies (>90 days)
 	if (blockingInvoices.length > 0) {

@@ -3,18 +3,18 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import type { ReactNode } from "react";
 import { Suspense } from "react";
-import { PresenceBeacon } from "@/components/presence-beacon";
-import { LogoutButton } from "@/components/logout-button";
 import { CollapsibleSidebar } from "@/components/collapsible-sidebar";
+import { ErrorBoundary } from "@/components/error-boundary";
+import { FloatingFeedbackButton } from "@/components/floating-feedback-button";
 import { ImpersonationBanner } from "@/components/impersonation-banner";
-import { OfflineIndicator } from "@/components/offline-indicator";
-import { PwaInstallPrompt } from "@/components/pwa-install-prompt";
+import { LogoutButton } from "@/components/logout-button";
 import { MrMobileNav } from "@/components/mr-mobile-nav";
+import { OfflineIndicator } from "@/components/offline-indicator";
+import { PresenceBeacon } from "@/components/presence-beacon";
+import { PwaInstallPrompt } from "@/components/pwa-install-prompt";
 import { getLicenseStatus } from "@/lib/license";
 import { isUnderMaintenance } from "@/lib/maintenance";
 import { auth } from "@/server/auth";
-import { ErrorBoundary } from "@/components/error-boundary";
-import { FloatingFeedbackButton } from "@/components/floating-feedback-button";
 
 export default async function MRLayout({ children }: { children: ReactNode }) {
 	const session = await auth.api.getSession({
@@ -37,10 +37,14 @@ export default async function MRLayout({ children }: { children: ReactNode }) {
 		return (
 			<div className="flex min-h-screen items-center justify-center bg-gray-900 p-4 text-white">
 				<div className="w-full max-w-md space-y-4 rounded-2xl border border-amber-500/30 bg-gray-950 p-8 text-center shadow-xl">
-					<h2 className="font-extrabold text-2xl text-amber-400">Scheduled Maintenance</h2>
-					<p className="text-sm text-gray-300">{maintenance.message}</p>
+					<h2 className="font-extrabold text-2xl text-amber-400">
+						Scheduled Maintenance
+					</h2>
+					<p className="text-gray-300 text-sm">{maintenance.message}</p>
 					{maintenance.estimatedEndTime && (
-						<p className="font-mono text-xs text-amber-200">Estimated Completion: {maintenance.estimatedEndTime}</p>
+						<p className="font-mono text-amber-200 text-xs">
+							Estimated Completion: {maintenance.estimatedEndTime}
+						</p>
 					)}
 				</div>
 			</div>
@@ -88,7 +92,7 @@ export default async function MRLayout({ children }: { children: ReactNode }) {
 	const isImpersonating = Boolean((session.user as any).isImpersonating);
 
 	return (
-		<div className="relative flex flex-col h-screen overflow-hidden bg-[#F8FAFC] text-[#0B2545]">
+		<div className="relative flex h-screen flex-col overflow-hidden bg-[#F8FAFC] text-[#0B2545]">
 			<Suspense fallback={null}>
 				<PresenceBeacon />
 			</Suspense>
@@ -101,7 +105,7 @@ export default async function MRLayout({ children }: { children: ReactNode }) {
 					rank={session.user.rank}
 				/>
 			)}
-			<div className="relative flex flex-1 min-h-0 flex-col md:flex-row pb-16 md:pb-0">
+			<div className="relative flex min-h-0 flex-1 flex-col pb-16 md:flex-row md:pb-0">
 				<div className="pointer-events-none absolute inset-0 z-0 bg-[url('/devfinity.png')] bg-repeat opacity-[0.03] [background-size:120px]"></div>
 				<CollapsibleSidebar
 					portal="mr"
@@ -112,13 +116,23 @@ export default async function MRLayout({ children }: { children: ReactNode }) {
 
 				{/* Independent Scrolling Content Workspace */}
 				<main className="relative z-10 flex-1 overflow-y-auto bg-[#F8FAFC] p-4 md:p-10">
-					<ErrorBoundary>
-						{children}
-					</ErrorBoundary>
+					<ErrorBoundary>{children}</ErrorBoundary>
 				</main>
 			</div>
 			<FloatingFeedbackButton />
-			<MrMobileNav mrId={session.user.id} mrName={session.user.name} />
+			<MrMobileNav
+				canViewFreeScheme={session.user.canViewFreeScheme}
+				canViewProductWise={session.user.canViewProductWise}
+				canViewSales={session.user.canViewSales}
+				canViewStockAndSales={
+					session.user.rank === 1 ||
+					session.user.rank === 2 ||
+					session.user.rank === 3
+				}
+				mrId={session.user.id}
+				mrName={session.user.name}
+				rank={session.user.rank}
+			/>
 		</div>
 	);
 }

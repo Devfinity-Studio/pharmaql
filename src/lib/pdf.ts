@@ -1,6 +1,36 @@
 import { jsPDF } from "jspdf";
 import autoTable from "jspdf-autotable";
 
+export const PDF_SAFE_ROW_LIMIT = 2500;
+
+/**
+ * Validates dataset size before generating PDF to protect lower-memory mobile devices.
+ */
+export function validatePdfDatasetSize(rowCount: number): {
+	safe: boolean;
+	warning?: string;
+	cappedRowCount: number;
+} {
+	if (rowCount > PDF_SAFE_ROW_LIMIT) {
+		return {
+			safe: false,
+			warning: `Dataset contains ${rowCount} rows, which exceeds the safe PDF limit (${PDF_SAFE_ROW_LIMIT} rows) and may crash mobile devices. Capping to first ${PDF_SAFE_ROW_LIMIT} records. For complete records, please export as Excel.`,
+			cappedRowCount: PDF_SAFE_ROW_LIMIT,
+		};
+	}
+	return {
+		safe: true,
+		cappedRowCount: rowCount,
+	};
+}
+
+/**
+ * Yields execution back to the browser event loop to prevent UI freezing during large data iteration.
+ */
+export async function yieldToMain(): Promise<void> {
+	return new Promise((resolve) => setTimeout(resolve, 0));
+}
+
 async function getLogoDataUrl(): Promise<string | null> {
 	try {
 		const res = await fetch("/logo.png");
@@ -249,18 +279,25 @@ export async function generateStockPdfReport(
 		return;
 	}
 
+	const sizeCheck = validatePdfDatasetSize(activeData.length);
+	const renderData = sizeCheck.safe ? activeData : activeData.slice(0, PDF_SAFE_ROW_LIMIT);
+
+	const summaryRight = sizeCheck.safe
+		? `Total Items: ${activeData.length}\nValue Calc. on: PRate`
+		: `Total Items: ${activeData.length} (Capped to ${PDF_SAFE_ROW_LIMIT})\nValue Calc. on: PRate`;
+
 	const startY = drawReportStationeryHeader(
 		doc,
 		logoDataUrl,
 		"Stock Movement Statement",
 		fromDate,
 		toDate,
-		`Total Items: ${activeData.length}\nValue Calc. on: PRate`,
+		summaryRight,
 	);
 
 	const divisions = [
 		...new Set(
-			activeData.map((item) =>
+			renderData.map((item) =>
 				(item.Division || item.Manufacturer || "General").toString().trim(),
 			),
 		),
@@ -273,7 +310,7 @@ export async function generateStockPdfReport(
 	let grandTotalStockValue = 0;
 
 	for (const div of divisions) {
-		const divData = activeData
+		const divData = renderData
 			.filter(
 				(item) =>
 					(item.Division || item.Manufacturer || "General")
@@ -2579,18 +2616,25 @@ export async function generateStockAndSalesPdfReport(
 		return;
 	}
 
+	const sizeCheck = validatePdfDatasetSize(activeData.length);
+	const renderData = sizeCheck.safe ? activeData : activeData.slice(0, PDF_SAFE_ROW_LIMIT);
+
+	const summaryRight = sizeCheck.safe
+		? `Total Items: ${activeData.length}\nRate Basis: PTR / Rate`
+		: `Total Items: ${activeData.length} (Capped to ${PDF_SAFE_ROW_LIMIT})\nRate Basis: PTR / Rate`;
+
 	const startY = drawReportStationeryHeader(
 		doc,
 		logoDataUrl,
 		"Stock & Sales Statement Report",
 		fromDate,
 		toDate,
-		`Total Items: ${activeData.length}\nRate Basis: PTR / Rate`,
+		summaryRight,
 	);
 
 	const divisions = [
 		...new Set(
-			activeData.map((item) =>
+			renderData.map((item) =>
 				(item.Division || item.Manufacturer || "General").toString().trim(),
 			),
 		),
@@ -2607,7 +2651,7 @@ export async function generateStockAndSalesPdfReport(
 	let grandTotalClosingVal = 0;
 
 	for (const div of divisions) {
-		const divData = activeData
+		const divData = renderData
 			.filter(
 				(item) =>
 					(item.Division || item.Manufacturer || "General")

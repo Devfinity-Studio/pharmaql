@@ -1,5 +1,6 @@
 "use server";
 
+import crypto from "node:crypto";
 import { revalidatePath } from "next/cache";
 import { headers } from "next/headers";
 import { recordAuditEvent } from "@/lib/audit-logger";
@@ -94,10 +95,24 @@ export async function secureAdminUnblockMR({
 	}
 
 	// 4. Validate explicit Admin / Dev Password
-	const expectedAdminPass = process.env.ADMIN_PASSWORD || "Admin123";
-	const expectedDevPass = process.env.DEV_PASSWORD || "Dev@PharmaQL2026";
+	const expectedAdminPass = (process.env.ADMIN_PASSWORD || "").trim();
+	const expectedDevPass = (process.env.DEV_PASSWORD || "").trim();
 	const suppliedPass = (adminPassword || "").trim();
-	const isPassValid = suppliedPass === expectedAdminPass.trim() || suppliedPass === expectedDevPass.trim();
+
+	const timingSafeMatch = (provided: string, expected: string): boolean => {
+		if (!provided || !expected) return false;
+		const bufA = Buffer.from(provided, "utf-8");
+		const bufB = Buffer.from(expected, "utf-8");
+		if (bufA.length !== bufB.length) {
+			crypto.timingSafeEqual(bufA, bufA);
+			return false;
+		}
+		return crypto.timingSafeEqual(bufA, bufB);
+	};
+
+	const isPassValid =
+		(Boolean(expectedAdminPass) && timingSafeMatch(suppliedPass, expectedAdminPass)) ||
+		(Boolean(expectedDevPass) && timingSafeMatch(suppliedPass, expectedDevPass));
 
 	if (!isPassValid) {
 		const fail = recordAdminUnblockFailure(clientIp);
