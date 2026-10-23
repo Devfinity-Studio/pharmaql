@@ -103,6 +103,7 @@ reportsRouter.post("/stock-and-sales", async (req: Request, res: Response) => {
 
     const includeBrParam = includeBr === "Y" ? "'Y'" : "'N'";
     const showFreeParam = showFree === "N" ? "'N'" : "'Y'";
+    const finYear = req.body?.finYear ?? 202627;
 
     const formattedParams = [
       compNo,                                                           // 1: p_CmpNo (INT)
@@ -112,9 +113,10 @@ reportsRouter.post("/stock-and-sales", async (req: Request, res: Response) => {
       compCodeParam ? `'${compCodeParam.replace(/'/g, "''")}'` : "''",  // 5: p_CompCode (longtext)
       divIdParam ? `'${divIdParam.replace(/'/g, "''")}'` : "''",        // 6: p_DivId (longtext - INT values)
       itemIdsParam ? `'${itemIdsParam.replace(/'/g, "''")}'` : "''",    // 7: p_ItemIds (longtext)
-      itemCatParam ? `'${itemCatParam.replace(/'/g, "''")}'` : "''",    // 8: p_ItemCategory (longtext)
+      finYear,                                                          // 8: p_FinYear (INT)
       includeBrParam,                                                   // 9: p_IncludeBr (varchar)
-      showFreeParam,                                                    // 10: p_ShowFree (varchar)
+      itemCatParam ? `'${itemCatParam.replace(/'/g, "''")}'` : "''",    // 10: p_ItemCategory (longtext)
+      showFreeParam,                                                    // 11: p_ShowFree (varchar)
     ].join(", ");
 
     const sql = `CALL \`pdyasvtrans\`.\`rptStockandSalesStatementReport\`(${formattedParams})`;
@@ -624,6 +626,7 @@ reportsRouter.post("/dev-procedure-sandbox", async (req: Request, res: Response)
 
       const includeBrParam = params.includeBr === "Y" ? "'Y'" : "'N'";
       const showFreeParam = params.showFree === "N" ? "'N'" : "'Y'";
+      const finYear = params.finYear ?? 202627;
 
       const formattedParams = [
         params.compNo ?? 11,
@@ -633,8 +636,9 @@ reportsRouter.post("/dev-procedure-sandbox", async (req: Request, res: Response)
         compCodeParam ? `'${compCodeParam.replace(/'/g, "''")}'` : "''",
         divIdParam ? `'${divIdParam.replace(/'/g, "''")}'` : "''",
         itemIdsParam ? `'${itemIdsParam.replace(/'/g, "''")}'` : "''",
-        itemCatParam ? `'${itemCatParam.replace(/'/g, "''")}'` : "''",
+        finYear,
         includeBrParam,
+        itemCatParam ? `'${itemCatParam.replace(/'/g, "''")}'` : "''",
         showFreeParam,
       ].join(", ");
       sql = `CALL \`pdyasvtrans\`.\`rptStockandSalesStatementReport\`(${formattedParams})`;
