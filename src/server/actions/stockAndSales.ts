@@ -54,7 +54,7 @@ export type StockAndSalesResult =
 
 /**
  * Fetch Stock & Sales Statement report from database via stored procedure:
- * CALL `rptStockandSalesStatementReport`(11, '(''11'')', {d '2026-10-01'}, {d '2026-10-19'}, '(''AASPAN'')', '', '', '', 'N', 'Y')
+ * CALL `rptStockandSalesStatementReport`(11, '(''11'')', {d '2026-10-01'}, {d '2026-10-19'}, '(''AASPAN'')', '', '', 202627, 'N', '', 'Y')
  */
 export async function getStockAndSales(params: {
 	fromDate?: string;
