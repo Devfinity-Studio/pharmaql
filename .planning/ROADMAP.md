@@ -239,12 +239,21 @@
   - **Session Inspection Drawer**: Inspect user details, IP, device details, current page/tab, login time, and recent audit activity.
 - [x] **Verification & Security Validation**: Verify heartbeat efficiency, remote logout propagation, multi-device session handling, and clean production build validation.
 
-## Phase 30: MR Ranking Database Synchronization & Overdue Cascading Blocking
+## Phase 30: MR Ranking Database Synchronization & Overdue Cascading Blocking [COMPLETED]
 
-- [ ] **Legacy Database Rank Projection & Real-Time Sync**: Update API server SQL queries (`SELECT_MKT_MR_COLUMNS`) and `normalizeLegacyMR` to reliably query and project `Rank` from `l_mktcompany_mr` and `m_user`. Ensure database rank changes take precedence over stale cached records and overrides, dynamically updating MR permissions without requiring session recreation.
-- [ ] **Direct MR Overdue Blocking (>90 Days)**: Verify and enforce that when an MR has any invoice with net pending balance overdue exceeding 90 days (`> 90 days`), that specific MR is immediately blocked from logging in and accessing reports.
-- [ ] **Login Screen "Contact Admin" Blocked State**: Upgrade login form and MR authentication flow so blocked reps receive a prominent, informative "Account Suspended / Contact Admin" screen displaying exact overdue invoice details (Invoice No, Party Name, Amount, Days Overdue) rather than a generic error toast.
-- [ ] **Division Cascading Blocking Calibration (>95 Days)**: Calibrate the division cascading blocking threshold in `overdueEngine.ts` to 95 days (`> 95 days`). When any MR in a division has overdue invoices exceeding 95 days, all peer MRs in the same division are blocked from logging in.
-- [ ] **Peer MR Cascading Blocking Attribution Notice**: When a peer MR is blocked due to the 95-day division rule, display a clear explanatory message identifying the specific responsible MR by name, the division name, invoice number, and overdue amount.
-- [ ] **Verification & End-to-End Testing**: Test database rank updates in real time, verify >90-day individual blocks, verify >95-day division blocks, and validate clean production build.
+- [x] **Legacy Database Rank Projection & Real-Time Sync**: Update API server SQL queries (`SELECT_MKT_MR_COLUMNS`) and `normalizeLegacyMR` to reliably query and project `Rank` from `l_mktcompany_mr` and `m_user`. Ensure database rank changes take precedence over stale cached records and overrides, dynamically updating MR permissions without requiring session recreation.
+- [x] **Direct MR Overdue Blocking (>90 Days)**: Verify and enforce that when an MR has any invoice with net pending balance overdue exceeding 90 days (`> 90 days`), that specific MR is immediately blocked from logging in and accessing reports.
+- [x] **Login Screen "Contact Admin" Blocked State**: Upgrade login form and MR authentication flow so blocked reps receive a prominent, informative "Account Suspended / Contact Admin" screen displaying exact overdue invoice details (Invoice No, Party Name, Amount, Days Overdue) rather than a generic error toast.
+- [x] **Division Cascading Blocking Calibration (>95 Days)**: Calibrate the division cascading blocking threshold in `overdueEngine.ts` to 95 days (`> 95 days`). When any MR in a division has overdue invoices exceeding 95 days, all peer MRs in the same division are blocked from logging in.
+- [x] **Peer MR Cascading Blocking Attribution Notice**: When a peer MR is blocked due to the 95-day division rule, display a clear explanatory message identifying the specific responsible MR by name, the division name, invoice number, and overdue amount.
+- [x] **Verification & End-to-End Testing**: Test database rank updates in real time, verify >90-day individual blocks, verify >95-day division blocks, and validate clean production build.
+
+## Phase 31: Architectural Hardening, Testing Suite & Production Resilience
+
+- [ ] **Automated Testing Suite (Vitest)**: Set up Vitest and create comprehensive unit tests for core domain engines: `overdueEngine.ts` (impending block calculations, >90d direct block, >95d division cascading block, admin exemptions), `permissions.ts` (rank 1/2/3 report permission matrix), `rate-limit.ts` (sliding window rate limit algorithms), and `dateUtils.ts` (ODBC date conversions).
+- [ ] **Stored Procedure Parameter Validation & Connection Safeguards**: Implement strict parameter schema validation and query execution timeout safeguards in `api-server` before executing stored procedures (`rptStockMovementStatement`, `rptStockandSalesStatementReport`, `rptFreeSchemePartyWiseStatementReport`), preventing parameter count mismatches or pool exhaustion during peak load.
+- [ ] **Distributed State Adapter (Redis / In-Memory Dual-Mode)**: Design a unified key-value adapter for `otpStore`, rate limiting, and active presence tracking with zero-config in-memory fallback for local development and Upstash/Redis support for multi-instance serverless deployments (Vercel).
+- [ ] **Client-Side Heavy PDF Memory Protection & Export Pagination**: Optimize `src/lib/pdf.ts` by adding chunked row rendering and pagination caps for high-volume transactions to prevent browser tab crashes on lower-memory MR mobile devices.
+- [ ] **Security Hardening (Reverse Proxy IP Sanitization & Impersonation Audit)**: Enforce strict IP resolution in `src/middleware.ts` to prevent header spoofing when deployed behind reverse proxies, and strengthen developer impersonation session auditing with high-visibility audit trails.
+- [ ] **Verification & Validation**: Execute Vitest test suite, verify parameter validation guards against simulated query faults, benchmark PDF generation with mock 5,000-row datasets, and validate clean production build.
 

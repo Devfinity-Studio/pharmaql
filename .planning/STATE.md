@@ -1,8 +1,8 @@
 # State
 
 **Current Milestone:** Milestone 1 - Production Hardening & Optimization
-**Active Phase:** Phase 30 - MR Ranking Database Synchronization & Overdue Cascading Blocking [ACTIVE]
-**Status:** In Planning. Fixing database rank updates not propagating from MySQL, enforcing >90-day direct MR blocking with "Contact Admin" screen, calibrating division cascading blocking to >95 days, and showing explicit responsible MR attribution to peer reps.
+**Active Phase:** Phase 31 - Architectural Hardening, Testing Suite & Production Resilience [ACTIVE]
+**Status:** In Planning. Resolving architectural debt from CONCERNS.md: adding automated Vitest suite, API parameter guards, serverless distributed state adapter, PDF memory safety, and security header hardening.
 
 ## Accumulated Context
 
@@ -20,3 +20,4 @@
 - Phase 28 added: Multi-Division & Multi-Company MR Assignment Management
 - Phase 29 added: Live Active User Sessions & Real-Time Presence Monitor
 - Phase 30 added: MR Ranking Database Synchronization & Overdue Cascading Blocking
+- Phase 31 added: Architectural Hardening, Testing Suite & Production Resilience
