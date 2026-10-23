@@ -1,9 +1,19 @@
 import { jwtVerify, SignJWT } from "jose";
 
-const JWT_SECRET_STRING =
-	process.env.BETTER_AUTH_SECRET ||
-	"pharmaql-stateless-jwt-secret-key-2026-secure-token-vault";
-const SECRET_KEY = new TextEncoder().encode(JWT_SECRET_STRING);
+function getJwtSecret(): Uint8Array {
+	const secret = process.env.BETTER_AUTH_SECRET;
+	if (!secret) {
+		if (process.env.NODE_ENV === "production") {
+			throw new Error(
+				"SECURITY ERROR: BETTER_AUTH_SECRET must be defined in production environment.",
+			);
+		}
+		return new TextEncoder().encode(
+			"pharmaql-local-dev-secret-do-not-use-in-production",
+		);
+	}
+	return new TextEncoder().encode(secret);
+}
 
 export interface SessionUser {
 	id: string;
@@ -32,14 +42,14 @@ export async function signSessionToken(
 		.setProtectedHeader({ alg: "HS256" })
 		.setIssuedAt()
 		.setExpirationTime(expiresIn)
-		.sign(SECRET_KEY);
+		.sign(getJwtSecret());
 }
 
 export async function verifySessionToken(
 	token: string,
 ): Promise<SessionUser | null> {
 	try {
-		const { payload } = await jwtVerify(token, SECRET_KEY);
+		const { payload } = await jwtVerify(token, getJwtSecret());
 		return (payload.user as SessionUser) || null;
 	} catch {
 		return null;
