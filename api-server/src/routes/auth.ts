@@ -61,11 +61,11 @@ authRouter.post("/mr-lookup", async (req: Request, res: Response) => {
     const allCompanies = Array.from(new Set(assignments.map((a: any) => a.company).filter(Boolean)));
     const allCodes = Array.from(new Set(assignments.map((a: any) => a.companyCode).filter(Boolean)));
 
-    // Resolve rank from database across all member records
-    let maxRank: 1 | 2 | 3 = 1;
+    // Resolve rank from database across all member records without null rows defaulting to 3
+    let explicitRank: 1 | 2 | 3 | null = null;
     for (const item of mrList) {
       const rawRank = item.Rank ?? item.rank ?? item.UserRank ?? item.MRRank;
-      let r: 1 | 2 | 3 = 3;
+      let r: 1 | 2 | 3 | null = null;
       if (rawRank !== undefined && rawRank !== null && String(rawRank).trim() !== "") {
         const parsed = Number(rawRank);
         if (parsed === 1 || parsed === 2 || parsed === 3) {
@@ -75,10 +75,15 @@ authRouter.post("/mr-lookup", async (req: Request, res: Response) => {
         const jp = String(item.JobProfile).toUpperCase().trim();
         if (jp === "MR") r = 1;
         else if (jp === "ABM" || jp === "BO") r = 2;
-        else r = 3;
+        else if (jp === "ASM" || jp === "RSM" || jp === "ZSM" || jp === "NSM") r = 3;
       }
-      if (r > maxRank) maxRank = r;
+      if (r !== null) {
+        if (explicitRank === null || r > explicitRank) {
+          explicitRank = r;
+        }
+      }
     }
+    const maxRank: 1 | 2 | 3 = explicitRank ?? 3;
 
     res.json({
       success: true,

@@ -160,7 +160,7 @@ export async function requestMrOtp(emailOrPhone: string) {
 
 		// Look up MR info including rank and permissions
 		const mrDetails = await getMRInfo(mr.id);
-		const rank = mrDetails?.rank || 3;
+		const rank = mrDetails?.rank || (mr as any).rank || 3;
 		const perms = getPermissionsForRank(rank);
 
 		const mrSessionUser: SessionUser = {
