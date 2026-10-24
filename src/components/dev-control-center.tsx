@@ -368,6 +368,39 @@ export function DevControlCenter({
 		});
 	};
 
+	const handleToggleMaintenance = () => {
+		const isCurrentlyOn = maintenance.mode !== "DISABLED";
+		const nextMode = isCurrentlyOn
+			? "DISABLED"
+			: maintenance.mode && maintenance.mode !== "DISABLED"
+				? maintenance.mode
+				: "ALL_USERS";
+
+		if (!isCurrentlyOn) {
+			const confirmMsg =
+				nextMode === "ALL_USERS"
+					? "TURN ON MAINTENANCE MODE?\n\nThis will immediately block login and access for ALL Medical Reps and standard Admins. Developers will still have access.\n\nContinue?"
+					: "TURN ON MAINTENANCE MODE?\n\nThis will immediately block login and access for Medical Reps. Continue?";
+			if (!confirm(confirmMsg)) return;
+		}
+
+		startTransition(async () => {
+			const payload = {
+				...maintenance,
+				mode: nextMode as "DISABLED" | "MRS_ONLY" | "ALL_USERS",
+			};
+			const updated = await saveMaintenanceConfigAction(payload);
+			setMaintenance(updated);
+			showFeedback(
+				isCurrentlyOn ? "success" : "error",
+				isCurrentlyOn
+					? "Maintenance Mode TURNED OFF. Normal operations restored."
+					: `Maintenance Mode ACTIVATED (${nextMode}). Non-developer users are blocked.`,
+			);
+			router.refresh();
+		});
+	};
+
 	const handleToggleFeature = (key: FeatureKey, scope: FeatureScope) => {
 		startTransition(async () => {
 			const next = await saveFeatureToggleAction(key, scope);
@@ -2176,14 +2209,53 @@ export function DevControlCenter({
 							/>
 						</div>
 
-						<button
-							className="rounded-xl bg-amber-600 px-5 py-2 font-bold text-xs text-white shadow-xs hover:bg-amber-700"
-							disabled={isPending}
-							onClick={handleSaveMaintenance}
-							type="button"
-						>
-							Save Maintenance Settings
-						</button>
+						<div className="flex flex-wrap items-center gap-3 pt-2">
+							{maintenance.mode !== "DISABLED" ? (
+								<button
+									className="inline-flex items-center gap-2 rounded-xl bg-emerald-600 px-5 py-2.5 font-bold text-xs text-white shadow-sm hover:bg-emerald-700 active:scale-95 transition-all"
+									disabled={isPending}
+									onClick={handleToggleMaintenance}
+									type="button"
+								>
+									<Power className="h-4 w-4" />
+									Turn Off Maintenance Mode
+								</button>
+							) : (
+								<button
+									className="inline-flex items-center gap-2 rounded-xl bg-rose-600 px-5 py-2.5 font-bold text-xs text-white shadow-sm hover:bg-rose-700 active:scale-95 transition-all"
+									disabled={isPending}
+									onClick={handleToggleMaintenance}
+									type="button"
+								>
+									<Power className="h-4 w-4" />
+									Turn On Maintenance Mode
+								</button>
+							)}
+
+							<button
+								className="inline-flex items-center gap-2 rounded-xl border border-gray-300 bg-white px-4 py-2.5 font-bold text-xs text-gray-700 shadow-2xs hover:bg-gray-50 active:scale-95 transition-all"
+								disabled={isPending}
+								onClick={handleSaveMaintenance}
+								type="button"
+							>
+								Save Maintenance Details
+							</button>
+
+							<span className="text-xs font-semibold text-gray-500">
+								Current status:{" "}
+								<span
+									className={`font-black ${
+										maintenance.mode === "DISABLED"
+											? "text-emerald-700"
+											: "text-rose-700"
+									}`}
+								>
+									{maintenance.mode === "DISABLED"
+										? "OFF (Normal Operations)"
+										: `ACTIVE (${maintenance.mode})`}
+								</span>
+							</span>
+						</div>
 					</div>
 
 					{/* Granular Service Switchboard */}

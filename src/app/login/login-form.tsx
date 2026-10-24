@@ -39,8 +39,12 @@ export function LoginForm() {
 
 	const searchParams = useSearchParams();
 	const reason = searchParams.get("reason");
+	const requestedMode = searchParams.get("mode");
+	const isDevAccess = searchParams.get("dev") === "1" || searchParams.get("access") === "dev";
 
-	const [mode, setMode] = useState<"mr" | "admin">("mr");
+	const [mode, setMode] = useState<"mr" | "admin">(
+		requestedMode === "admin" || isDevAccess ? "admin" : "mr",
+	);
 	const [step, setStep] = useState<"request" | "otp">("request");
 	const [email, setEmail] = useState("");
 	const [password, setPassword] = useState("");
@@ -54,6 +58,12 @@ export function LoginForm() {
 	const [loading, setLoading] = useState(false);
 	const [blockedInfo, setBlockedInfo] = useState<any>(null);
 	const router = useRouter();
+
+	useEffect(() => {
+		if (requestedMode === "admin" || isDevAccess) {
+			setMode("admin");
+		}
+	}, [requestedMode, isDevAccess]);
 
 	async function handleMrOtpRequest(e: React.FormEvent) {
 		e.preventDefault();
@@ -401,14 +411,22 @@ export function LoginForm() {
 			{/* ADMIN / DEV FLOW */}
 			{mode === "admin" && (
 				<form className="space-y-5" onSubmit={handleAdminLogin}>
+					{isDevAccess && (
+						<div className="flex items-center gap-2 rounded-xl border border-amber-500/30 bg-amber-50/70 p-3 text-xs text-amber-900 font-medium">
+							<ShieldCheck className="h-4 w-4 shrink-0 text-amber-600" />
+							<span>Developer Access Mode &bull; Enter developer or admin credentials.</span>
+						</div>
+					)}
+
 					<div>
 						<label className="block font-semibold text-gray-700 text-sm">
-							Admin Email
+							Admin or Developer Email
 						</label>
 						<div className="mt-1.5">
 							<input
 								className="block w-full rounded-lg border border-gray-300 px-3.5 py-2.5 text-gray-900 shadow-sm focus:border-[#0B2545] focus:ring-[#0B2545] sm:text-sm"
 								onChange={(e) => setEmail(e.target.value)}
+								placeholder="admin@asmeepharma.com or dev email"
 								required
 								type="email"
 								value={email}
