@@ -1,4 +1,19 @@
-import type { Request, Response, NextFunction } from "express";
+export interface CorsRequest {
+  headers: {
+    origin?: string;
+    [key: string]: any;
+  };
+  method?: string;
+}
+
+export interface CorsResponse {
+  setHeader(name: string, value: string): any;
+  status(code: number): CorsResponse;
+  json(body: any): any;
+  end(): any;
+}
+
+export type CorsNextFunction = (err?: any) => void;
 
 /**
  * Strict CORS Ingress Middleware for PharmaQL API Server
@@ -40,7 +55,11 @@ export function getAllowedOrigins(): string[] {
     .filter((origin) => Boolean(origin) && origin !== "*");
 }
 
-export function corsMiddleware(req: Request, res: Response, next: NextFunction): void {
+export function corsMiddleware(
+  req: CorsRequest,
+  res: CorsResponse,
+  next: CorsNextFunction
+): void {
   const origin = req.headers.origin;
 
   // 1. Non-browser / server-to-server request (e.g. Next.js server actions, curl, internal health monitors)
