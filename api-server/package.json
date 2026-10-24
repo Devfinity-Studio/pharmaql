@@ -7,6 +7,8 @@
   "scripts": {
     "dev": "tsx watch src/index.ts",
     "build": "tsc",
+    "bundle": "tsup",
+    "build:exe": "tsup && pkg dist/bundle.cjs --targets node22-win-x64 --output release/api-server.exe && node scripts/copy-release-assets.js",
     "prestart": "npm run build",
     "start": "node dist/index.js"
   },
@@ -21,6 +23,8 @@
     "@types/cors": "^2.8.17",
     "@types/express": "^5.0.0",
     "@types/node": "^22.13.1",
+    "@yao-pkg/pkg": "^6.24.0",
+    "tsup": "^9.0.0",
     "tsx": "^4.19.2"
   }
 }

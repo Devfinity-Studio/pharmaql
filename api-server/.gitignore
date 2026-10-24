@@ -1,3 +1,6 @@
 node_modules
 dist
 .env
+release/*.exe
+release/.env
+release/logs/*.log

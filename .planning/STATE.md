@@ -1,8 +1,8 @@
 # State
 
 **Current Milestone:** Milestone 1 - Production Hardening & Optimization
-**Active Phase:** Phase 32 - Strict CORS Ingress Protection & API Security Hardening [COMPLETED]
-**Status:** Completed. Implemented dedicated strict CORS ingress middleware in api-server with environment-driven origin whitelisting, wildcard elimination, early HTTP 204 preflight termination, credentials support, and comprehensive unit tests passing with zero errors. Ready for next phase.
+**Active Phase:** Phase 33 - Standalone Windows x64 Executable (.exe) & NSSM Packaging [COMPLETED]
+**Status:** Completed. Fully automated bundling (tsup) and native Windows packaging (@yao-pkg/pkg) into a standalone release executable (release/api-server.exe) with process.execPath runtime anchoring, safe database pool drainage, and complete NSSM service runbook. All builds and tests passing. Ready for next phase.
 
 ## Accumulated Context
 
@@ -22,3 +22,4 @@
 - Phase 30 added: MR Ranking Database Synchronization & Overdue Cascading Blocking
 - Phase 31 added: Architectural Hardening, Testing Suite & Production Resilience
 - Phase 32 added: Strict CORS Ingress Protection & API Security Hardening
+- Phase 33 added: Standalone Windows x64 Executable (.exe) & NSSM Packaging
