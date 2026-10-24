@@ -34,13 +34,16 @@ describe("permissions", () => {
 		});
 
 		it("correctly resolves ranks across multi-division rows without null profile escalation", () => {
-			function resolveMemberRank(members: { rank?: number; explicitRank?: number; JobProfile?: string | null }[]) {
+			function resolveMemberRank(members: { rank?: number; explicitRank?: number; JobProfile?: string | null; Ranking?: string | number | null; ranking?: string | number | null }[]) {
 				let explicitDbRank: 1 | 2 | 3 | null = null;
 				for (const m of members) {
 					let r: 1 | 2 | 3 | null = null;
-					const explicit = m.explicitRank;
-					if (explicit === 1 || explicit === 2 || explicit === 3) {
-						r = explicit as 1 | 2 | 3;
+					const rawRanking = m.Ranking ?? m.ranking ?? m.explicitRank;
+					if (rawRanking !== undefined && rawRanking !== null && String(rawRanking).trim() !== "") {
+						const parsed = Number(rawRanking);
+						if (parsed === 1 || parsed === 2 || parsed === 3) {
+							r = parsed as 1 | 2 | 3;
+						}
 					} else if (m.JobProfile) {
 						const jp = m.JobProfile.toUpperCase().trim();
 						if (jp === "MR") r = 1;
@@ -61,8 +64,10 @@ describe("permissions", () => {
 			// Single row set to MR
 			expect(resolveMemberRank([{ JobProfile: "MR" }])).toBe(1);
 
+			// Legacy database exact row pattern: Ranking is "2", JobProfile is empty string ""
+			expect(resolveMemberRank([{ Ranking: "2", JobProfile: "" }])).toBe(2);
+
 			// Multi-division MR: One division set to MR (Rank 1), other division unconfigured/null
-			// MUST NOT escalate to Rank 3!
 			expect(resolveMemberRank([{ JobProfile: "MR" }, { JobProfile: null }])).toBe(1);
 
 			// Multi-division ABM: One division set to ABM (Rank 2), other division null

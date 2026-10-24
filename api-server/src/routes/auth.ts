@@ -26,6 +26,7 @@ authRouter.post("/mr-lookup", async (req: Request, res: Response) => {
         mr.MobileNo AS MobileNo,
         mr.JobProfile AS JobProfile,
         mr.IsInActive AS IsInActive,
+        mr.Ranking AS Ranking,
         mr.DivisionID AS DivisionID,
         l.Division AS DivisionName,
         m.ID AS CompanyID,
@@ -64,7 +65,7 @@ authRouter.post("/mr-lookup", async (req: Request, res: Response) => {
     // Resolve rank from database across all member records without null rows defaulting to 3
     let explicitRank: 1 | 2 | 3 | null = null;
     for (const item of mrList) {
-      const rawRank = item.Rank ?? item.rank ?? item.UserRank ?? item.MRRank;
+      const rawRank = item.Ranking ?? item.ranking ?? item.Rank ?? item.rank ?? item.UserRank ?? item.MRRank;
       let r: 1 | 2 | 3 | null = null;
       if (rawRank !== undefined && rawRank !== null && String(rawRank).trim() !== "") {
         const parsed = Number(rawRank);
