@@ -1,7 +1,5 @@
 import mysql from "mysql2/promise";
-import dotenv from "dotenv";
-
-dotenv.config();
+import "./config";
 
 const host = process.env.CLIENT_MYSQL_HOST || "127.0.0.1";
 const port = parseInt(process.env.CLIENT_MYSQL_PORT || "2903", 10);
@@ -29,3 +27,14 @@ export const dbPool = mysql.createPool({
   enableKeepAlive: true,
   keepAliveInitialDelay: 10000,
 });
+
+/**
+ * Gracefully drains all active database connections in the pool.
+ */
+export async function closeDatabasePool(): Promise<void> {
+  try {
+    await dbPool.end();
+  } catch (err: any) {
+    console.error("[Database] Error while draining database pool:", err?.message || err);
+  }
+}

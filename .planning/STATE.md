@@ -1,8 +1,8 @@
 # State
 
 **Current Milestone:** Milestone 1 - Production Hardening & Optimization
-**Active Phase:** Phase 33 - Standalone Windows x64 Executable (.exe) & NSSM Packaging [PLANNING]
-**Status:** Added Phase 33 to roadmap. Ready to generate detailed PLAN.md for bundling and packaging api-server into a standalone encrypted/minified Windows x64 binary for on-premise client deployments via NSSM.
+**Active Phase:** Phase 33 - Standalone Windows x64 Executable (.exe) & NSSM Packaging [COMPLETED]
+**Status:** Completed. Fully automated bundling (tsup) and native Windows packaging (@yao-pkg/pkg) into a standalone release executable (release/api-server.exe) with process.execPath runtime anchoring, safe database pool drainage, and complete NSSM service runbook. All builds and tests passing. Ready for next phase.
 
 ## Accumulated Context
 
