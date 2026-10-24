@@ -266,4 +266,13 @@
 - [x] **Preflight (OPTIONS) Early Termination**: Catch preflight requests, return 200/204 with required CORS headers, and terminate early without invoking downstream routes or running DB queries.
 - [x] **Environment Documentation & Verification**: Update `api-server/.env.example` with `ALLOWED_ORIGINS` format and provide curl/fetch test scripts verifying whitelisted origins, rejected origins, and OPTIONS preflights.
 
+## Phase 33: Standalone Windows x64 Executable (.exe) & NSSM Packaging
+
+- [ ] **Bundling & Minification Pipeline**: Set up a pre-bundle step using `esbuild` or `tsup` in `api-server` to bundle, tree-shake, and minify all TypeScript/JavaScript application code and compatible dependencies into a single production bundle (`dist/bundle.cjs`), stripping unneeded source maps and comments to protect intellectual property.
+- [ ] **Single-File Native Executable Packaging (`@yao-pkg/pkg`)**: Configure `@yao-pkg/pkg` (targeting `node20-win-x64`) to compile and package the bundled server code into a standalone, binary `api-server.exe` protected against inspection or tampering on client-owned servers.
+- [ ] **Native Dependencies & Sibling Asset Resolution**: Detect and handle any native C/C++ binary bindings (`.node`), ensure working directory resolution (`process.cwd()`, `.env`, sibling assets) is robust when invoked via Windows Service managers (NSSM), and assemble a self-contained `release/` distribution directory.
+- [ ] **Graceful Process Lifecycle & Error Handling**: Implement robust `SIGINT`, `SIGTERM`, `uncaughtException`, and `unhandledRejection` handlers in `api-server` to ensure clean database pool shutdown and reliable `stdout`/`stderr` logging when managed by NSSM.
+- [ ] **Automated Build Scripts & NSSM Service Runbook**: Add `"build:exe"` pipeline script to `api-server/package.json` and document exact NSSM commands for service registration, working directory configuration, auto-restart on failure, and log redirection.
+
+
 
