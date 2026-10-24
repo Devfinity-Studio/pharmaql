@@ -3,6 +3,7 @@
 import fs from "fs/promises";
 import path from "path";
 import { headers } from "next/headers";
+import { revalidatePath } from "next/cache";
 import {
 	getServerDataFilePath,
 	getServerDataDir,
@@ -620,6 +621,17 @@ export async function saveFeatureToggleAction(key: FeatureKey, scope: FeatureSco
 export async function saveMaintenanceConfigAction(update: Partial<MaintenanceConfig>) {
 	const session = await assertDeveloperSession();
 	const result = await updateMaintenanceConfig(update, session.user.email);
+
+	try {
+		revalidatePath("/", "layout");
+		revalidatePath("/login");
+		revalidatePath("/dashboard");
+		revalidatePath("/admin/dashboard");
+		revalidatePath("/admin/dev");
+	} catch {
+		// Ignore revalidation errors outside request context
+	}
+
 	await recordAuditEvent({
 		event: "SECURITY_WARNING",
 		userId: session.user.id,

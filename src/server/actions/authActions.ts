@@ -21,6 +21,7 @@ import { getMRInfo } from "@/server/actions/mrInfo";
 import { recordMRLastLogin } from "@/server/actions/mrs";
 import { AUTH_COOKIE_NAME, getSession } from "@/server/auth";
 import { kvStore } from "@/lib/kv-store";
+import { isUnderMaintenance } from "@/lib/maintenance";
 
 interface StoredOtpRecord {
 	otp: string;
@@ -43,6 +44,17 @@ export async function requestMrOtp(emailOrPhone: string) {
 			return {
 				success: false,
 				error: "Please enter your registered email address.",
+			};
+		}
+
+		// 0. Enforce Global Maintenance Mode for MRs
+		const maintenance = await isUnderMaintenance("MR");
+		if (maintenance.inMaintenance) {
+			return {
+				success: false,
+				error:
+					maintenance.message ||
+					"System is currently undergoing scheduled maintenance. Please try again later.",
 			};
 		}
 
@@ -236,6 +248,17 @@ export async function verifyMrOtp(email: string, otp: string) {
 	try {
 		const cleanEmail = email.trim().toLowerCase();
 		const cleanOtp = otp.trim();
+
+		// 0. Enforce Global Maintenance Mode for MRs
+		const maintenance = await isUnderMaintenance("MR");
+		if (maintenance.inMaintenance) {
+			return {
+				success: false,
+				error:
+					maintenance.message ||
+					"System is currently undergoing scheduled maintenance. Please try again later.",
+			};
+		}
 
 		// 1. Check if account or IP is locked due to repeated bad attempts
 		const lockCheck = checkOtpVerifyAllowed(clientIp, cleanEmail);
@@ -480,6 +503,19 @@ export async function loginAdminOrDev(email: string, pass: string) {
 				success: false,
 				error: failMsg,
 			};
+		}
+
+		// 2. Enforce Global Maintenance Mode for Standard Admins (DEVELOPER always bypasses)
+		if (sessionUser.role === "ADMIN") {
+			const maintenance = await isUnderMaintenance("ADMIN");
+			if (maintenance.inMaintenance) {
+				return {
+					success: false,
+					error:
+						maintenance.message ||
+						"System is currently undergoing scheduled maintenance. Please try again later.",
+				};
+			}
 		}
 
 		// Reset brute-force counter on successful login
