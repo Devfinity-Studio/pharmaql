@@ -35,12 +35,24 @@ export const APP_ROOT = getAppRootDir();
  * 2. Falls back to process.cwd()/.env for local development.
  */
 export function initializeEnvironment(): void {
-  const primaryEnvPath = path.join(APP_ROOT, ".env");
-  if (fs.existsSync(primaryEnvPath)) {
-    dotenv.config({ path: primaryEnvPath });
-  } else {
-    dotenv.config();
+  const candidatePaths = [
+    path.join(APP_ROOT, ".env"),
+    path.join(APP_ROOT, "..", ".env"),
+    path.join(process.cwd(), ".env"),
+  ];
+
+  for (const envPath of candidatePaths) {
+    if (fs.existsSync(envPath)) {
+      dotenv.config({ path: envPath });
+      console.log(`[PharmaQL API Server] Config loaded from: ${envPath}`);
+      return;
+    }
   }
+
+  console.warn(
+    `[PharmaQL API Server] ⚠️ WARNING: No .env configuration file found in ${APP_ROOT}. Ensure .env exists adjacent to api-server.exe.`
+  );
+  dotenv.config();
 }
 
 // Automatically initialize on import
