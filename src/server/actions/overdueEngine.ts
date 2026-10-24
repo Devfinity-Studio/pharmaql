@@ -12,8 +12,6 @@ import {
 	type ImpendingBlockInvoice,
 } from "@/lib/overdueUtils";
 
-export type { ImpendingBlockInvoice };
-
 export type MROverdueStatusType =
 	| "CLEAN"
 	| "WARNING" // 80 - 90 days

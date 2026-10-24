@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import type { ImpendingBlockInvoice } from "@/server/actions/overdueEngine";
+import type { ImpendingBlockInvoice } from "@/lib/overdueUtils";
 
 interface Props {
 	mrName: string;
