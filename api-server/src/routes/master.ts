@@ -37,18 +37,20 @@ function normalizeLegacyMR(raw: any) {
 
   // Determine Rank: 1, 2, or 3 directly from database
   const rawRank = raw.Rank ?? raw.rank ?? raw.UserRank ?? raw.MRRank;
-  let rank: 1 | 2 | 3 = 3;
+  let explicitRank: 1 | 2 | 3 | null = null;
   if (rawRank !== undefined && rawRank !== null && String(rawRank).trim() !== "") {
     const parsed = Number(rawRank);
     if (parsed === 1 || parsed === 2 || parsed === 3) {
-      rank = parsed as 1 | 2 | 3;
+      explicitRank = parsed as 1 | 2 | 3;
     }
   } else if (raw.JobProfile) {
     const jp = String(raw.JobProfile).toUpperCase().trim();
-    if (jp === "MR") rank = 1;
-    else if (jp === "ABM" || jp === "BO") rank = 2;
-    else rank = 3;
+    if (jp === "MR") explicitRank = 1;
+    else if (jp === "ABM" || jp === "BO") explicitRank = 2;
+    else if (jp === "ASM" || jp === "RSM" || jp === "ZSM" || jp === "NSM") explicitRank = 3;
   }
+
+  const rank: 1 | 2 | 3 = explicitRank ?? 3;
 
   // Strict rank-based permissions:
   // Rank 1: Stock only
@@ -82,6 +84,7 @@ function normalizeLegacyMR(raw: any) {
     companyCode,
     isBlocked,
     rank,
+    explicitRank,
     canViewStock,
     canViewSales,
     canViewFreeScheme,

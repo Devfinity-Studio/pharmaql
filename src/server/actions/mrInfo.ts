@@ -199,32 +199,35 @@ function consolidateMRProfiles(
 			primary.email ? auditLoginMap?.get(primary.email.toLowerCase()) : undefined,
 		);
 
-		// Resolve Rank: Prioritize database rank from member rows over local overrides
-		let dbRank: MRRank | null = null;
-		let maxRank: MRRank = 1;
-		let hasDbRank = false;
+		// Resolve Rank: Prioritize explicit database rank/JobProfile from member rows
+		let explicitDbRank: MRRank | null = null;
 
 		for (const m of members) {
 			let r: MRRank | null = null;
-			if (m.rank === 1 || m.rank === 2 || m.rank === 3) {
-				r = m.rank as MRRank;
-				hasDbRank = true;
+			const explicit = (m as any).explicitRank;
+			if (explicit === 1 || explicit === 2 || explicit === 3) {
+				r = explicit as MRRank;
 			} else if (m.JobProfile) {
 				const jp = m.JobProfile.toUpperCase().trim();
 				if (jp === "MR") r = 1;
 				else if (jp === "ABM" || jp === "BO") r = 2;
 				else if (jp === "ASM" || jp === "RSM" || jp === "ZSM" || jp === "NSM") r = 3;
-				hasDbRank = true;
+			} else if (m.rank === 1 || m.rank === 2) {
+				// Rank 1 and 2 are never default fallbacks (default is 3), so they are guaranteed explicit
+				r = m.rank as MRRank;
 			}
-			if (r && r > maxRank) maxRank = r;
+
+			if (r !== null) {
+				// When multiple division records exist with explicit designations, take the highest explicit designation
+				if (explicitDbRank === null || r > explicitDbRank) {
+					explicitDbRank = r;
+				}
+			}
 		}
 
-		if (hasDbRank) {
-			dbRank = maxRank;
-		}
-
-		// Database rank takes primary precedence so MySQL updates reflect immediately
-		const rank: MRRank = dbRank ?? mergedOverride.rank ?? 3;
+		// Database rank takes primary precedence so MySQL updates reflect immediately.
+		// If no member row has an explicit designation, fall back to overrides or 3.
+		const rank: MRRank = explicitDbRank ?? mergedOverride.rank ?? 3;
 
 		const perms = getPermissionsForRank(rank);
 
@@ -386,18 +389,20 @@ export async function getMRInfo(
 		rawData.email ? auditLoginMap.get(rawData.email.toLowerCase()) : undefined,
 	);
 
-	let rank: MRRank = 3;
-	if (rawData.rank === 1 || rawData.rank === 2 || rawData.rank === 3) {
-		rank = rawData.rank;
+	let explicitRank: MRRank | null = null;
+	const explicit = (rawData as any).explicitRank;
+	if (explicit === 1 || explicit === 2 || explicit === 3) {
+		explicitRank = explicit as MRRank;
 	} else if (rawData.JobProfile) {
 		const jp = rawData.JobProfile.toUpperCase().trim();
-		if (jp === "MR") rank = 1;
-		else if (jp === "ABM" || jp === "BO") rank = 2;
-		else if (jp === "ASM" || jp === "RSM" || jp === "ZSM" || jp === "NSM") rank = 3;
-		else rank = 3;
-	} else if (override.rank === 1 || override.rank === 2 || override.rank === 3) {
-		rank = override.rank;
+		if (jp === "MR") explicitRank = 1;
+		else if (jp === "ABM" || jp === "BO") explicitRank = 2;
+		else if (jp === "ASM" || jp === "RSM" || jp === "ZSM" || jp === "NSM") explicitRank = 3;
+	} else if (rawData.rank === 1 || rawData.rank === 2) {
+		explicitRank = rawData.rank as MRRank;
 	}
+
+	const rank: MRRank = explicitRank ?? override.rank ?? rawData.rank ?? 3;
 
 	const perms = getPermissionsForRank(rank);
 
