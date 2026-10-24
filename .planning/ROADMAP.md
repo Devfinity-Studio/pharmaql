@@ -257,3 +257,13 @@
 - [x] **Security Hardening (Reverse Proxy IP Sanitization & Impersonation Audit)**: Enforce strict IP resolution in `src/middleware.ts` to prevent header spoofing when deployed behind reverse proxies, and strengthen developer impersonation session auditing with high-visibility audit trails.
 - [x] **Verification & Validation**: Execute Vitest test suite, verify parameter validation guards against simulated query faults, benchmark PDF generation with mock 5,000-row datasets, and validate clean production build.
 
+## Phase 32: Strict CORS Ingress Protection & API Security Hardening [COMPLETED]
+
+- [x] **Environment-Driven Origin Whitelist**: Configure strict CORS middleware in `api-server` driven by `ALLOWED_ORIGINS` (comma-separated origins) rejecting wildcards (`*`). Reject disallowed origins with HTTP 403 or omit CORS headers to trigger browser blocking.
+- [x] **Non-Browser / Server-to-Server Origin Handling**: Safely allow health checks and server-to-server calls without `Origin` headers while strictly enforcing CORS validation on all browser cross-origin requests.
+- [x] **HTTP Methods & Headers Whitelisting**: Explicitly restrict allowed methods (`GET`, `POST`, `PUT`, `PATCH`, `DELETE`, `OPTIONS`) and headers (`Content-Type`, `Authorization`, `x-api-key`, correlation/client headers).
+- [x] **Credentials & Dynamic Echoing**: Enable `credentials: true` with dynamic matching of `Access-Control-Allow-Origin` to the verified whitelist entry.
+- [x] **Preflight (OPTIONS) Early Termination**: Catch preflight requests, return 200/204 with required CORS headers, and terminate early without invoking downstream routes or running DB queries.
+- [x] **Environment Documentation & Verification**: Update `api-server/.env.example` with `ALLOWED_ORIGINS` format and provide curl/fetch test scripts verifying whitelisted origins, rejected origins, and OPTIONS preflights.
+
+

@@ -2,7 +2,7 @@ import dotenv from "dotenv";
 dotenv.config();
 
 import express from "express";
-import cors from "cors";
+import { corsMiddleware } from "./middleware/cors";
 import { authMiddleware } from "./middleware/auth";
 import { reportsRouter } from "./routes/reports";
 import { masterRouter } from "./routes/master";
@@ -13,27 +13,8 @@ import { dbPool } from "./db";
 const app = express();
 const port = parseInt(process.env.PORT || "9443", 10);
 
-// Restrict CORS origins
-const allowedOrigins = process.env.ALLOWED_ORIGINS
-  ? process.env.ALLOWED_ORIGINS.split(",").map((s) => s.trim())
-  : ["http://localhost:3000", "http://127.0.0.1:3000"];
-
-app.use(
-  cors({
-    origin: (origin, callback) => {
-      // Allow requests with no origin (like server-to-server or curl)
-      if (!origin) return callback(null, true);
-      if (allowedOrigins.includes(origin) || allowedOrigins.includes("*")) {
-        return callback(null, true);
-      }
-      if (process.env.NODE_ENV === "production") {
-        return callback(new Error("CORS origin not allowed"), false);
-      }
-      return callback(null, true); // Permissive only in local development
-    },
-    credentials: true,
-  })
-);
+// Strict CORS Ingress Middleware (blocks non-whitelisted origins, terminates OPTIONS preflights early)
+app.use(corsMiddleware);
 
 app.use(express.json({ limit: "10mb" }));
 
