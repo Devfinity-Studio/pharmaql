@@ -25,6 +25,7 @@ export interface LegacyMRUser {
 	EmailId: string | null;
 	MobileNo: string | null;
 	JobProfile?: string | null;
+	Ranking?: string | number | null;
 	DivisionID?: number | null;
 	DivisionName?: string | null;
 	CompanyID?: number | null;
@@ -65,6 +66,7 @@ export interface MRDisplayItem {
 	isBlocked: boolean;
 	role: string;
 	rank: MRRank;
+	ranking?: string | number | null;
 	lastLogin?: string;
 	canViewStock: boolean;
 	canViewStockAndSales: boolean;
@@ -204,9 +206,12 @@ function consolidateMRProfiles(
 
 		for (const m of members) {
 			let r: MRRank | null = null;
-			const explicit = (m as any).explicitRank;
-			if (explicit === 1 || explicit === 2 || explicit === 3) {
-				r = explicit as MRRank;
+			const rawRanking = (m as any).Ranking ?? (m as any).ranking ?? (m as any).explicitRank;
+			if (rawRanking !== undefined && rawRanking !== null && String(rawRanking).trim() !== "") {
+				const parsed = Number(rawRanking);
+				if (parsed === 1 || parsed === 2 || parsed === 3) {
+					r = parsed as MRRank;
+				}
 			} else if (m.JobProfile) {
 				const jp = m.JobProfile.toUpperCase().trim();
 				if (jp === "MR") r = 1;
@@ -390,9 +395,12 @@ export async function getMRInfo(
 	);
 
 	let explicitRank: MRRank | null = null;
-	const explicit = (rawData as any).explicitRank;
-	if (explicit === 1 || explicit === 2 || explicit === 3) {
-		explicitRank = explicit as MRRank;
+	const rawRanking = (rawData as any).Ranking ?? (rawData as any).ranking ?? (rawData as any).explicitRank;
+	if (rawRanking !== undefined && rawRanking !== null && String(rawRanking).trim() !== "") {
+		const parsed = Number(rawRanking);
+		if (parsed === 1 || parsed === 2 || parsed === 3) {
+			explicitRank = parsed as MRRank;
+		}
 	} else if (rawData.JobProfile) {
 		const jp = rawData.JobProfile.toUpperCase().trim();
 		if (jp === "MR") explicitRank = 1;

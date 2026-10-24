@@ -12,6 +12,7 @@ const SELECT_MKT_MR_COLUMNS = `
   mr.EmailId AS EmailId,
   mr.MobileNo AS MobileNo,
   mr.JobProfile AS JobProfile,
+  mr.Ranking AS Ranking,
   mr.IsInActive AS IsInActive,
   mr.ShowDealerSalesinWeb AS ShowDealerSalesinWeb,
   l.Division AS DivisionName,
@@ -36,7 +37,8 @@ function normalizeLegacyMR(raw: any) {
   const companyCode = raw.CompanyCode ? String(raw.CompanyCode).trim() : undefined;
 
   // Determine Rank: 1, 2, or 3 directly from database
-  const rawRank = raw.Rank ?? raw.rank ?? raw.UserRank ?? raw.MRRank;
+  // Note: ERP column in pdyasvmaster.l_mktcompany_mr is named `Ranking`
+  const rawRank = raw.Ranking ?? raw.ranking ?? raw.Rank ?? raw.rank ?? raw.UserRank ?? raw.MRRank;
   let explicitRank: 1 | 2 | 3 | null = null;
   if (rawRank !== undefined && rawRank !== null && String(rawRank).trim() !== "") {
     const parsed = Number(rawRank);
@@ -68,6 +70,7 @@ function normalizeLegacyMR(raw: any) {
     EmailId: raw.EmailId || null,
     MobileNo: raw.MobileNo || null,
     JobProfile: raw.JobProfile || null,
+    Ranking: raw.Ranking ?? null,
     DivisionID: raw.DivisionID || null,
     DivisionName: division,
     CompanyID: raw.CompanyID || null,
