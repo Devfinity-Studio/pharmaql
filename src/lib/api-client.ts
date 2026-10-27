@@ -1,11 +1,12 @@
 import "server-only";
+import { decryptSecret } from "./crypto";
 
 const RAW_API_SERVER_URL = process.env.API_SERVER_URL;
-const API_SERVER_URL =
+const DEFAULT_API_SERVER_URL =
 	(RAW_API_SERVER_URL
 		? RAW_API_SERVER_URL.trim().replace(/^["']|["']$/g, "")
 		: "") || "https://api.asmeepharma.com";
-const API_SECRET_KEY = process.env.API_SECRET_KEY;
+const DEFAULT_API_SECRET_KEY = process.env.API_SECRET_KEY || "";
 
 interface ApiResponse<T> {
 	success: boolean;
@@ -18,10 +19,39 @@ interface ApiResponse<T> {
 	limit?: number;
 }
 
-function getHeaders(): HeadersInit {
+/**
+ * Resolves the dynamic API server URL and secret key for the active tenant.
+ */
+async function getDynamicApiConfig(): Promise<{ baseUrl: string; secretKey: string }> {
+	let baseUrl = DEFAULT_API_SERVER_URL;
+	let secretKey = DEFAULT_API_SECRET_KEY;
+
+	try {
+		const { headers } = await import("next/headers");
+		const h = await headers();
+		const dynamicUrl = h.get("x-tenant-api-url");
+		if (dynamicUrl) {
+			baseUrl = dynamicUrl.trim().replace(/^["']|["']$/g, "");
+		}
+		const encryptedKey = h.get("x-tenant-api-key-enc");
+		if (encryptedKey) {
+			try {
+				secretKey = decryptSecret(encryptedKey);
+			} catch (err: any) {
+				console.warn("[ApiClient] Failed to decrypt tenant API key:", err.message);
+			}
+		}
+	} catch {
+		// Not in active request context; fallback to environment defaults
+	}
+
+	return { baseUrl, secretKey };
+}
+
+function getHeaders(secretKey: string): HeadersInit {
 	return {
 		"Content-Type": "application/json",
-		Authorization: `Bearer ${API_SECRET_KEY}`,
+		Authorization: `Bearer ${secretKey}`,
 	};
 }
 
@@ -30,7 +60,8 @@ export async function apiGet<T>(
 	queryParams?: Record<string, string | number | undefined | null>,
 ): Promise<ApiResponse<T>> {
 	try {
-		const url = new URL(path, API_SERVER_URL);
+		const { baseUrl, secretKey } = await getDynamicApiConfig();
+		const url = new URL(path, baseUrl);
 		if (queryParams) {
 			Object.entries(queryParams).forEach(([key, val]) => {
 				if (val !== undefined && val !== null && val !== "") {
@@ -41,7 +72,7 @@ export async function apiGet<T>(
 
 		const response = await fetch(url.toString(), {
 			method: "GET",
-			headers: getHeaders(),
+			headers: getHeaders(secretKey),
 			cache: "no-store",
 		});
 
@@ -72,10 +103,11 @@ export async function apiPost<T>(
 	body: any,
 ): Promise<ApiResponse<T>> {
 	try {
-		const url = new URL(path, API_SERVER_URL);
+		const { baseUrl, secretKey } = await getDynamicApiConfig();
+		const url = new URL(path, baseUrl);
 		const response = await fetch(url.toString(), {
 			method: "POST",
-			headers: getHeaders(),
+			headers: getHeaders(secretKey),
 			body: JSON.stringify(body),
 			cache: "no-store",
 		});

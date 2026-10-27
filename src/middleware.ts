@@ -1,8 +1,10 @@
 import { type NextRequest, NextResponse } from "next/server";
 import { getClientIp, isIpAllowedForAdmin } from "@/lib/security";
+import { resolveTenantByHost } from "@/lib/tenant-resolver";
 
-export function middleware(request: NextRequest) {
+export async function middleware(request: NextRequest) {
 	const requestHeaders = new Headers(request.headers);
+	const pathname = request.nextUrl.pathname;
 
 	// 1. Assign unique Correlation ID for request tracing
 	const requestId = crypto.randomUUID();
@@ -12,9 +14,43 @@ export function middleware(request: NextRequest) {
 	const clientIp = getClientIp(request.headers);
 	requestHeaders.set("x-client-ip", clientIp);
 
-	const pathname = request.nextUrl.pathname;
+	// 3. Resolve Tenant from Host Header (Edge Safe HTTP fetch)
+	const host = request.headers.get("host") || "";
+	const { tenant, isDevPortal } = await resolveTenantByHost(host, {
+		searchParams: request.nextUrl.searchParams,
+		headers: request.headers,
+	});
 
-	// 3. Admin Route IP Protection
+	if (isDevPortal) {
+		requestHeaders.set("x-is-dev-portal", "true");
+	}
+
+	if (tenant) {
+		requestHeaders.set("x-tenant-id", tenant.id);
+		requestHeaders.set("x-tenant-slug", tenant.slug);
+		requestHeaders.set("x-tenant-name", tenant.display_name);
+		requestHeaders.set("x-tenant-short-name", tenant.short_name || tenant.display_name);
+		requestHeaders.set("x-tenant-domain", tenant.custom_domain || host);
+		if (tenant.logo_url) requestHeaders.set("x-tenant-logo", tenant.logo_url);
+		if (tenant.address) requestHeaders.set("x-tenant-address", tenant.address);
+		if (tenant.contact_phone) requestHeaders.set("x-tenant-phone", tenant.contact_phone);
+		if (tenant.contact_email) requestHeaders.set("x-tenant-email", tenant.contact_email);
+		if (tenant.gstin) requestHeaders.set("x-tenant-gstin", tenant.gstin);
+		requestHeaders.set("x-tenant-db-type", tenant.db_type);
+		if (tenant.api_server_url) requestHeaders.set("x-tenant-api-url", tenant.api_server_url);
+		if (tenant.api_server_key_encrypted) requestHeaders.set("x-tenant-api-key-enc", tenant.api_server_key_encrypted);
+	} else if (!isDevPortal && !pathname.startsWith("/tenant-not-found") && !pathname.startsWith("/api/health")) {
+		// Domain is unmapped / unknown and not dev portal: rewrite to 404 tenant not found
+		const url = request.nextUrl.clone();
+		url.pathname = "/tenant-not-found";
+		return NextResponse.rewrite(url, {
+			headers: {
+				"x-request-id": requestId,
+			},
+		});
+	}
+
+	// 4. Admin Route IP Protection
 	if (pathname.startsWith("/admin")) {
 		if (!isIpAllowedForAdmin(clientIp)) {
 			console.warn(`[Security] Blocked unauthorized IP access to ${pathname}: ${clientIp}`);
@@ -31,7 +67,7 @@ export function middleware(request: NextRequest) {
 		}
 	}
 
-	// 4. Protect /api/debug in production environments
+	// 5. Protect /api/debug in production environments
 	if (pathname.startsWith("/api/debug")) {
 		if (process.env.NODE_ENV === "production" && process.env.ENABLE_DEBUG_ENDPOINT !== "true") {
 			return new NextResponse(
@@ -51,6 +87,9 @@ export function middleware(request: NextRequest) {
 	});
 
 	response.headers.set("x-request-id", requestId);
+	if (tenant) {
+		response.headers.set("x-tenant-slug", tenant.slug);
+	}
 	return response;
 }
 

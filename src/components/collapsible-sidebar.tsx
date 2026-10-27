@@ -19,6 +19,7 @@ import {
 } from "lucide-react";
 import { LogoutButton } from "@/components/logout-button";
 import { NotificationCenter } from "@/components/notification-center";
+import { useTenant } from "@/lib/tenant-context";
 
 interface CollapsibleSidebarProps {
 	portal: "mr" | "admin";
@@ -33,6 +34,7 @@ export function CollapsibleSidebar({
 	userEmail,
 	userRole,
 }: CollapsibleSidebarProps) {
+	const tenant = useTenant();
 	const [isCollapsed, setIsCollapsed] = useState(false);
 	const [isMobileOpen, setIsMobileOpen] = useState(false);
 	const pathname = usePathname();
@@ -138,9 +140,8 @@ export function CollapsibleSidebar({
 						<div className="flex items-center gap-1.5 font-black text-xl md:text-2xl tracking-tight truncate">
 							<Link className="flex items-center gap-1.5 truncate" href="/">
 								<span className={isDark ? "text-white" : "text-[#0B2545]"}>
-									Asmee
+									{tenant.displayName}
 								</span>
-								<span className="text-[#0071BC]">Pharma</span>
 							</Link>
 						</div>
 						<div className="mt-0.5 md:mt-1 flex items-center gap-1.5 font-bold text-gray-400 text-xs uppercase tracking-widest truncate">
@@ -159,15 +160,15 @@ export function CollapsibleSidebar({
 						</div>
 					</div>
 				) : (
-					/* When Collapsed on Desktop: show "A" mark */
+					/* When Collapsed on Desktop: show initial mark */
 					<div className="hidden md:flex flex-col items-center justify-center w-full">
 						<Link
 							className="flex h-10 w-10 items-center justify-center rounded-xl font-black text-lg text-white"
 							href="/"
-							title="Asmee Pharma"
+							title={tenant.displayName}
 						>
-							<span className="flex h-9 w-9 items-center justify-center rounded-lg bg-[#0071BC] font-bold text-white shadow-sm hover:scale-105 transition-transform">
-								A
+							<span className="flex h-9 w-9 items-center justify-center rounded-lg bg-[#0071BC] font-bold text-white shadow-sm hover:scale-105 transition-transform uppercase">
+								{tenant.shortName.charAt(0) || "P"}
 							</span>
 						</Link>
 					</div>
@@ -178,9 +179,8 @@ export function CollapsibleSidebar({
 					<div className="flex md:hidden items-center gap-1.5 font-black text-xl tracking-tight min-w-0 flex-1 truncate">
 						<Link className="flex items-center gap-1.5 truncate" href="/">
 							<span className={isDark ? "text-white" : "text-[#0B2545]"}>
-								Asmee
+								{tenant.displayName}
 							</span>
-							<span className="text-[#0071BC]">Pharma</span>
 						</Link>
 					</div>
 				)}
@@ -365,7 +365,7 @@ export function CollapsibleSidebar({
 							isCollapsed ? "md:hidden" : ""
 						} mt-1 text-center text-[10px] text-gray-400`}
 					>
-						<p>© {new Date().getFullYear()} Asmee Pharma Pvt. Ltd.</p>
+						<p>© {new Date().getFullYear()} {tenant.displayName}</p>
 						<p className="mt-0.5 flex items-center justify-center gap-1">
 							Made with <span className="text-red-500">❤️</span> by{" "}
 							<a

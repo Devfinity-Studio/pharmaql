@@ -138,6 +138,7 @@ function drawReportStationeryHeader(
 	fromDate?: string,
 	toDate?: string,
 	summaryRight?: string,
+	branding?: { companyName?: string; address?: string; contactInfo?: string },
 ): number {
 	let currentY = 12;
 
@@ -151,25 +152,35 @@ function drawReportStationeryHeader(
 		textX = 40;
 	}
 
-	doc.text("ASMEE PHARMA PRIVATE LIMITED", textX, currentY);
+	const companyName = (branding?.companyName || "ASMEE PHARMA PRIVATE LIMITED").toUpperCase();
+	doc.text(companyName, textX, currentY);
 
 	currentY += 4.5;
 	doc.setFontSize(7.5);
 	doc.setFont("helvetica", "normal");
 	doc.setTextColor(75, 85, 99); // text-gray-600
-	doc.text(
-		"BASEMENT-GF, 11/2 ASHOK HOUSE, B/S SANSTHA VASAHAT GATE,",
-		textX,
-		currentY,
-	);
-	currentY += 3.2;
-	doc.text("PRATAP ROAD, RAOPURA, VADODARA - 390001, GUJARAT - 390024", textX, currentY);
-	currentY += 3.2;
-	doc.text(
-		"Contact: 9409789800, 9409789700 Mobile: 9409789700 Email: asmeepharma2022@gmail.com",
-		textX,
-		currentY,
-	);
+
+	if (branding?.address) {
+		const addressLines = doc.splitTextToSize(branding.address, 150);
+		for (const line of addressLines) {
+			doc.text(line, textX, currentY);
+			currentY += 3.2;
+		}
+	} else {
+		doc.text(
+			"BASEMENT-GF, 11/2 ASHOK HOUSE, B/S SANSTHA VASAHAT GATE,",
+			textX,
+			currentY,
+		);
+		currentY += 3.2;
+		doc.text("PRATAP ROAD, RAOPURA, VADODARA - 390001, GUJARAT - 390024", textX, currentY);
+		currentY += 3.2;
+	}
+
+	const contactInfo =
+		branding?.contactInfo ||
+		"Contact: 9409789800, 9409789700 Mobile: 9409789700 Email: asmeepharma2022@gmail.com";
+	doc.text(contactInfo, textX, currentY);
 
 	const rightMargin = doc.internal.pageSize.width - 14;
 

@@ -1,5 +1,8 @@
+"use client";
+
 import Image from "next/image";
 import React from "react";
+import { useTenant } from "@/lib/tenant-context";
 
 export interface ReportStationeryHeaderProps {
 	title: string;
@@ -18,30 +21,36 @@ export function ReportStationeryHeader({
 	summaryRight,
 	className = "",
 }: ReportStationeryHeaderProps) {
+	const tenant = useTenant();
+
 	return (
 		<div className={`border-gray-900 border-b-2 pb-2 ${className}`}>
 			<div className="flex flex-col items-start justify-between gap-3 md:flex-row">
 				<div className="flex items-start gap-4">
 					<div className="flex-shrink-0">
 						<Image
-							alt="Asmee Pharma Logo"
+							alt={`${tenant.displayName} Logo`}
 							className="object-contain pt-0.5"
 							height={45}
 							priority
-							src="/logo.png"
+							src={tenant.logoUrl || "/logo.png"}
 							width={140}
 						/>
 					</div>
 					<div>
 						<h1 className="font-extrabold text-base text-gray-900 uppercase tracking-tight">
-							ASMEE PHARMA PRIVATE LIMITED
+							{tenant.displayName}
 						</h1>
-						<p className="mt-0.5 text-[11px] text-gray-700 leading-tight">
-							BASEMENT-GF, 11/2 ASHOK HOUSE, B/S SANSTHA VASAHAT GATE,, PRATAP ROAD,
-							<br />
-							RAOPURA, VADODARA - 390001, GUJARAT - 24
-							<br />
-							Contact: 9409789800, 9409789700 Mobile: 9409789700 Email: asmeepharma2022@gmail.com
+						<p className="mt-0.5 text-[11px] text-gray-700 leading-tight whitespace-pre-line">
+							{tenant.address}
+							{tenant.phone || tenant.email || tenant.gstin ? (
+								<>
+									<br />
+									{tenant.phone ? `Contact: ${tenant.phone} ` : ""}
+									{tenant.email ? `Email: ${tenant.email} ` : ""}
+									{tenant.gstin ? `GSTIN: ${tenant.gstin}` : ""}
+								</>
+							) : null}
 						</p>
 					</div>
 				</div>

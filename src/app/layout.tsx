@@ -3,9 +3,11 @@ import "@/styles/globals.css";
 import { Analytics } from "@vercel/analytics/next";
 import type { Metadata, Viewport } from "next";
 import { Geist, Inter } from "next/font/google";
+import { headers } from "next/headers";
 import { cn } from "@/lib/utils";
 import { TRPCReactProvider } from "@/trpc/react";
 import { PwaRegister } from "@/components/pwa-register";
+import { TenantProvider, type TenantContextValue } from "@/lib/tenant-context";
 
 const inter = Inter({ subsets: ["latin"], variable: "--font-sans" });
 
@@ -18,7 +20,7 @@ export const viewport: Viewport = {
 };
 
 export const metadata: Metadata = {
-	title: "Asmee Pharma Pvt. Ltd. | PharmaQL",
+	title: "PharmaQL | Modern Medicine Portal",
 	description:
 		"The Modern Medicine Portal empowering medical representatives and distributors with real-time insights, effortless ordering and intelligent inventory tracking.",
 	authors: [{ name: "Devfinity" }],
@@ -51,15 +53,36 @@ const geist = Geist({
 	variable: "--font-geist-sans",
 });
 
-export default function RootLayout({
+export default async function RootLayout({
 	children,
 }: Readonly<{ children: React.ReactNode }>) {
+	const h = await headers();
+	const tenantValue: Partial<TenantContextValue> = {
+		id: h.get("x-tenant-id") || undefined,
+		slug: h.get("x-tenant-slug") || "asmee",
+		displayName: h.get("x-tenant-name") || "Asmee Pharma Pvt. Ltd.",
+		shortName: h.get("x-tenant-short-name") || "Asmee Pharma",
+		logoUrl: h.get("x-tenant-logo") || "/logo.png",
+		address: h.get("x-tenant-address") || "Plot No. 12, GIDC Industrial Estate, Ankleshwar, Gujarat - 393002",
+		phone: h.get("x-tenant-phone") || "+91 98765 43210",
+		email: h.get("x-tenant-email") || "info@asmeepharma.com",
+		gstin: h.get("x-tenant-gstin") || "24AAAAA0000A1Z5",
+		customDomain: h.get("x-tenant-domain") || "portal.asmeepharma.com",
+		isDevPortal: h.get("x-is-dev-portal") === "true",
+	};
+
 	return (
 		<html className={cn(geist.variable, "font-sans", inter.variable)} lang="en">
+			<head>
+				<title>{`${tenantValue.displayName} | PharmaQL`}</title>
+				<link rel="icon" href={tenantValue.logoUrl || "/favicons/favicon.ico"} />
+			</head>
 			<body>
-				<PwaRegister />
-				<Analytics />
-				<TRPCReactProvider>{children}</TRPCReactProvider>
+				<TenantProvider value={tenantValue}>
+					<PwaRegister />
+					<Analytics />
+					<TRPCReactProvider>{children}</TRPCReactProvider>
+				</TenantProvider>
 			</body>
 		</html>
 	);

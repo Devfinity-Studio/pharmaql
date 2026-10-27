@@ -2,7 +2,7 @@ import type { MetadataRoute } from "next";
 
 export default function manifest(): MetadataRoute.Manifest {
 	return {
-		name: "PharmaQL | Asmee Pharma MR Portal",
+		name: "PharmaQL | Medical Representative Portal",
 		short_name: "PharmaQL",
 		description:
 			"Enterprise MR portal empowering medical representatives with live stock movement, sales statements, and order tracking.",
