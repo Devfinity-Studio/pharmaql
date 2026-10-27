@@ -285,6 +285,15 @@
 - [x] **Dynamic White-Label UI Branding**: Abstracted hardcoded branding across [`src/lib/tenant-context.tsx`](file:///e:/work/pharmaql/src/lib/tenant-context.tsx), [`src/app/layout.tsx`](file:///e:/work/pharmaql/src/app/layout.tsx), [`src/components/Header.tsx`](file:///e:/work/pharmaql/src/components/Header.tsx), [`src/components/collapsible-sidebar.tsx`](file:///e:/work/pharmaql/src/components/collapsible-sidebar.tsx), [`src/components/report-stationery-header.tsx`](file:///e:/work/pharmaql/src/components/report-stationery-header.tsx), [`src/lib/pdf.ts`](file:///e:/work/pharmaql/src/lib/pdf.ts), and [`src/lib/excel.ts`](file:///e:/work/pharmaql/src/lib/excel.ts).
 - [x] **Verification & Validation**: All 12 Vitest suites passed (58/58 tests), TypeScript validation passed with zero errors (`tsc --noEmit`), and Next.js production build (`next build`) compiled successfully.
 
+## Phase 35: Superuser Dev Control Center Package & Integration (DevfinityFrontend)
+
+- [ ] **Control Plane Server Actions & Validation**: Implement server actions in `src/modules/control-plane/tenantActions.ts` (`listTenantsAction`, `createTenantAction`, `updateTenantAction`, `toggleTenantActiveAction`, `testDbConnectionAction`) with Zod schema validation, AES-256-GCM symmetric credential encryption using `CONTROL_PLANE_ENCRYPTION_KEY`, and Neon queries.
+- [ ] **Live Connectivity Ping Probe**: Build database connectivity testing in `testDbConnectionAction` supporting direct PostgreSQL connection handshake and on-premise API server `/health` probe with latency metrics.
+- [ ] **Superuser Management UI (`TenantsControlCenter.tsx`)**: Build modern dark-theme React component for tenant registration, custom domain configuration, white-label stationery editing (address, phone, GSTIN, logo), connectivity toggle, active switch, and live ping badges.
+- [ ] **Integration Package & Mounting Documentation**: Assemble the portable control plane package in `src/modules/control-plane/` with exportable components, types, and a comprehensive `README.md` guide for mounting into the user's `DevfinityFrontend` repo (`devfinity.net` / `pharmaql.devfinity.net`).
+- [ ] **Verification & Validation**: Create unit tests for tenant actions and credential encryption, run typecheck (`tsc --noEmit`), and verify clean production build.
+
+
 
 
 

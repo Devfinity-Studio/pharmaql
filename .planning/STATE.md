@@ -1,8 +1,8 @@
 # State
 
 **Current Milestone:** Milestone 1 - Production Hardening & Optimization
-**Active Phase:** Phase 34 - PharmaQL Client Multi-Tenant Consumption & Edge-Safe Routing [COMPLETED]
-**Status:** Phase 34 fully implemented and verified! Multi-tenant client consumer refactored with Edge-safe tenant routing, normalized relational Neon state storage (fixing Vercel state loss), AES-256-GCM secret decryption, server-isolated read-only dynamic PostgreSQL client pooling, dynamic API proxying, and white-label UI branding across layouts and reports. 58/58 Vitest tests pass, typecheck passes with 0 errors, and production build compiles cleanly.
+**Active Phase:** Phase 35 - Superuser Dev Control Center Package & Integration (DevfinityFrontend) [PLANNING]
+**Status:** Added Phase 35 to roadmap. Ready to plan and build the standalone superuser management package (tenant registration, AES-256-GCM secret encryption, live DB ping probes, and DevfinityFrontend integration).
 
 ## Accumulated Context
 
@@ -23,4 +23,5 @@
 - Phase 31 added: Architectural Hardening, Testing Suite & Production Resilience
 - Phase 32 added: Strict CORS Ingress Protection & API Security Hardening
 - Phase 33 added: Standalone Windows x64 Executable (.exe) & NSSM Packaging
-- Phase 34 added: Multi-Tenant Control Plane & Dynamic Client DB Resolution
+- Phase 34 added: PharmaQL Client Multi-Tenant Consumption & Edge-Safe Routing
+- Phase 35 added: Superuser Dev Control Center Package & Integration (DevfinityFrontend)
