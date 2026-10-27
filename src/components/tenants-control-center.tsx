@@ -19,6 +19,7 @@ import {
 	Loader2,
 	Globe,
 	Sparkles,
+	Sliders,
 } from "lucide-react";
 import {
 	type TenantListItem,
@@ -152,18 +153,18 @@ export function TenantsControlCenter({
 				<div>
 					<div className="flex items-center gap-2">
 						<span className="px-2.5 py-0.5 text-[11px] font-bold uppercase tracking-wider bg-blue-500/10 text-blue-400 border border-blue-500/20 rounded-md">
-							Dev Control Center
+							Dev Portal Suite
 						</span>
 						<span className="flex items-center gap-1.5 text-xs text-emerald-400 font-medium">
 							<span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-							Neon Control Plane Active
+							Control Plane Active (Dual Mode)
 						</span>
 					</div>
 					<h1 className="text-2xl font-extrabold text-white mt-1 tracking-tight">
-						Multi-Tenant Control Center
+						Master Tenant Control Center
 					</h1>
 					<p className="text-xs text-gray-400">
-						Manage client organizations, configure white-label branding, domain routing, and encrypted database connections
+						Manage client organizations, configure dynamic branding, ERP databases, CompNo/LocNo, and domain routing
 					</p>
 				</div>
 
@@ -183,7 +184,7 @@ export function TenantsControlCenter({
 						className="flex items-center gap-2 px-4 py-2 text-xs font-bold bg-blue-600 hover:bg-blue-500 text-white rounded-xl shadow-lg shadow-blue-600/20 transition-all hover:scale-[1.02]"
 					>
 						<Plus className="w-4 h-4" />
-						Register Client Tenant
+						Onboard Client Tenant
 					</button>
 				</div>
 			</div>
@@ -222,10 +223,10 @@ export function TenantsControlCenter({
 
 				<div className="p-4 rounded-2xl bg-gray-900 border border-gray-800 shadow-sm flex items-center justify-between">
 					<div>
-						<p className="text-xs font-medium text-gray-400">Control Plane Database</p>
+						<p className="text-xs font-medium text-gray-400">Control Plane Storage</p>
 						<h3 className="text-sm font-bold text-white mt-1 flex items-center gap-1.5">
 							<ShieldCheck className="w-4 h-4 text-emerald-400" />
-							Neon Postgres Relational
+							Dual-Mode Store
 						</h3>
 					</div>
 					<div className="p-3 rounded-xl bg-purple-500/10 text-purple-400 border border-purple-500/20">
@@ -289,7 +290,7 @@ export function TenantsControlCenter({
 						<p className="text-xs text-gray-400 max-w-sm mx-auto">
 							{searchQuery
 								? `No tenants match your search "${searchQuery}". Try clearing the filter.`
-								: "Get started by registering your first white-labeled client tenant."}
+								: "Get started by onboarding your first client organization."}
 						</p>
 						{!searchQuery && (
 							<button
@@ -298,7 +299,7 @@ export function TenantsControlCenter({
 								className="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-bold bg-blue-600 hover:bg-blue-500 text-white rounded-xl shadow-lg transition-all"
 							>
 								<Plus className="w-3.5 h-3.5" />
-								Register Client Tenant
+								Onboard Client Tenant
 							</button>
 						)}
 					</div>
@@ -307,11 +308,12 @@ export function TenantsControlCenter({
 						<table className="w-full text-left text-xs">
 							<thead className="bg-gray-950/70 border-b border-gray-800 text-gray-400 uppercase tracking-wider font-semibold text-[10px]">
 								<tr>
-									<th className="px-5 py-3.5">Organization / Tenant</th>
-									<th className="px-5 py-3.5">Domain Routing</th>
-									<th className="px-5 py-3.5">Architecture</th>
+									<th className="px-5 py-3.5">Organization & Brand</th>
+									<th className="px-5 py-3.5">Domain Ingress</th>
+									<th className="px-5 py-3.5">ERP & SQL Config</th>
+									<th className="px-5 py-3.5">Overdue Policy</th>
 									<th className="px-5 py-3.5">Status</th>
-									<th className="px-5 py-3.5">Database Diagnostics</th>
+									<th className="px-5 py-3.5">Live Ping</th>
 									<th className="px-5 py-3.5 text-right">Actions</th>
 								</tr>
 							</thead>
@@ -323,7 +325,7 @@ export function TenantsControlCenter({
 
 									return (
 										<tr key={tenant.id} className="hover:bg-gray-800/30 transition-colors">
-											{/* Name & Slug */}
+											{/* Name, Brand Color & Slug */}
 											<td className="px-5 py-4">
 												<div className="flex items-center gap-3">
 													{tenant.logo_url ? (
@@ -333,23 +335,34 @@ export function TenantsControlCenter({
 															className="w-8 h-8 rounded-lg object-contain bg-white/5 border border-gray-800 p-0.5"
 														/>
 													) : (
-														<div className="w-8 h-8 rounded-lg bg-blue-500/10 border border-blue-500/20 text-blue-400 font-black flex items-center justify-center text-xs">
+														<div
+															className="w-8 h-8 rounded-lg border text-white font-black flex items-center justify-center text-xs"
+															style={{
+																backgroundColor: tenant.primary_color || "#0B2545",
+																borderColor: tenant.accent_color || "#134074",
+															}}
+														>
 															{tenant.display_name.charAt(0)}
 														</div>
 													)}
 													<div>
 														<div className="font-bold text-white text-sm flex items-center gap-1.5">
 															{tenant.display_name}
-															{tenant.short_name && (
-																<span className="text-[10px] text-gray-400 font-normal">
-																	({tenant.short_name})
-																</span>
-															)}
+															<span
+																className="w-2.5 h-2.5 rounded-full inline-block border border-white/20"
+																style={{ backgroundColor: tenant.primary_color || "#0B2545" }}
+																title={`Brand Color: ${tenant.primary_color}`}
+															/>
 														</div>
 														<div className="flex items-center gap-2 mt-0.5">
 															<span className="font-mono text-[10px] px-1.5 py-0.5 rounded bg-gray-800 text-gray-400 border border-gray-700/60">
 																{tenant.slug}
 															</span>
+															{tenant.short_name && (
+																<span className="text-[10px] text-gray-400">
+																	({tenant.short_name})
+																</span>
+															)}
 															{tenant.gstin && (
 																<span className="font-mono text-[10px] text-gray-500">
 																	GST: {tenant.gstin}
@@ -362,50 +375,65 @@ export function TenantsControlCenter({
 
 											{/* Domain Routing */}
 											<td className="px-5 py-4">
-												{tenant.custom_domain ? (
-													<a
-														href={`https://${tenant.custom_domain}`}
-														target="_blank"
-														rel="noopener noreferrer"
-														className="inline-flex items-center gap-1 font-mono text-xs text-blue-400 hover:text-blue-300 hover:underline"
-													>
-														<Globe className="w-3.5 h-3.5" />
-														{tenant.custom_domain}
-														<ExternalLink className="w-3 h-3 opacity-60" />
-													</a>
-												) : (
-													<span className="text-gray-500 italic text-[11px]">Unmapped host</span>
-												)}
+												<div className="space-y-1">
+													{tenant.custom_domain ? (
+														<a
+															href={`https://${tenant.custom_domain}`}
+															target="_blank"
+															rel="noopener noreferrer"
+															className="inline-flex items-center gap-1 font-mono text-xs text-blue-400 hover:text-blue-300 hover:underline"
+														>
+															<Globe className="w-3.5 h-3.5" />
+															{tenant.custom_domain}
+															<ExternalLink className="w-3 h-3 opacity-60" />
+														</a>
+													) : (
+														<span className="text-gray-500 italic text-[11px]">Unmapped production</span>
+													)}
+													<div>
+														<a
+															href={`http://${tenant.slug}.localhost:3000`}
+															target="_blank"
+															rel="noopener noreferrer"
+															className="inline-flex items-center gap-1 font-mono text-[11px] text-gray-400 hover:text-gray-200"
+														>
+															{tenant.slug}.localhost:3000
+															<ExternalLink className="w-2.5 h-2.5 opacity-50" />
+														</a>
+													</div>
+												</div>
 											</td>
 
-											{/* Architecture */}
+											{/* ERP & SQL Parameters */}
 											<td className="px-5 py-4">
 												<div className="space-y-1">
-													<span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md text-[11px] font-medium bg-gray-800 border border-gray-700 text-gray-300">
-														{tenant.db_type === "postgres" ? (
-															<>
-																<Database className="w-3 h-3 text-purple-400" />
-																Postgres
-															</>
-														) : (
-															<>
-																<Server className="w-3 h-3 text-cyan-400" />
-																API Server
-															</>
-														)}
-													</span>
-													<div>
-														{tenant.has_db_connection ? (
-															<span className="text-[10px] text-emerald-400 flex items-center gap-1">
-																<CheckCircle2 className="w-3 h-3" />
-																URI Encrypted
-															</span>
-														) : (
-															<span className="text-[10px] text-amber-400 flex items-center gap-1">
-																<XCircle className="w-3 h-3" />
-																No URI configured
-															</span>
-														)}
+													<div className="flex items-center gap-1.5">
+														<span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium bg-gray-800 border border-gray-700 text-gray-300">
+															{tenant.erp_software_type || "Technomax"}
+														</span>
+														<span className="text-[10px] font-mono text-gray-400">
+															{tenant.legacy_db_name || "pdyasvmaster"}
+														</span>
+													</div>
+													<div className="flex items-center gap-2 text-[10px] font-mono text-gray-400">
+														<span className="px-1 py-0.2 bg-gray-800/80 rounded border border-gray-700/60">
+															Comp: {tenant.comp_no ?? 11}
+														</span>
+														<span className="px-1 py-0.2 bg-gray-800/80 rounded border border-gray-700/60">
+															Loc: {tenant.loc_no ?? 11}
+														</span>
+													</div>
+												</div>
+											</td>
+
+											{/* Overdue Policies */}
+											<td className="px-5 py-4">
+												<div className="space-y-0.5 text-[11px]">
+													<div className="text-gray-300">
+														Direct: <span className="font-mono font-bold text-amber-400">{tenant.overdue_direct_block_days ?? 90}d</span>
+													</div>
+													<div className="text-gray-400 text-[10px]">
+														Division: <span className="font-mono text-rose-400">{tenant.overdue_division_block_days ?? 95}d</span>
 													</div>
 												</div>
 											</td>

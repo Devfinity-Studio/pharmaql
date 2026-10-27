@@ -75,11 +75,6 @@ export function CollapsibleSidebar({
 
 	const baseAdminNavItems = [
 		{
-			label: "Tenant Control",
-			href: "/admin/tenants",
-			icon: Database,
-		},
-		{
 			label: "Global Dashboard",
 			href: "/admin/dashboard",
 			icon: LayoutDashboard,
@@ -102,6 +97,16 @@ export function CollapsibleSidebar({
 	];
 
 	const adminNavItems = [
+		// Show Tenant Control Center strictly when on the Dev Portal for Developers
+		...(tenant.isDevPortal && userRole === "DEVELOPER"
+			? [
+					{
+						label: "Tenant Control Center",
+						href: "/admin/tenants",
+						icon: Database,
+					},
+				]
+			: []),
 		...baseAdminNavItems,
 		...(userRole === "DEVELOPER"
 			? [

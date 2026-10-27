@@ -8,14 +8,24 @@ export interface TenantRecord {
 	display_name: string;
 	short_name?: string | null;
 	logo_url?: string | null;
+	primary_color?: string | null;
+	accent_color?: string | null;
 	address?: string | null;
 	contact_phone?: string | null;
 	contact_email?: string | null;
+	support_email?: string | null;
+	user_email_domain?: string | null;
 	gstin?: string | null;
 	db_type: "postgres" | "api_server";
 	db_connection_encrypted?: string | null;
 	api_server_url?: string | null;
 	api_server_key_encrypted?: string | null;
+	legacy_db_name?: string | null;
+	erp_software_type?: string | null;
+	comp_no?: number | null;
+	loc_no?: number | null;
+	overdue_direct_block_days?: number | null;
+	overdue_division_block_days?: number | null;
 	created_at?: string;
 	updated_at?: string;
 }
@@ -86,17 +96,41 @@ export async function initControlPlaneRelationalSchema(): Promise<boolean> {
 				display_name VARCHAR(255) NOT NULL,
 				short_name VARCHAR(64),
 				logo_url TEXT,
+				primary_color VARCHAR(32),
+				accent_color VARCHAR(32),
 				address TEXT,
 				contact_phone VARCHAR(64),
 				contact_email VARCHAR(128),
+				support_email VARCHAR(128),
+				user_email_domain VARCHAR(128),
 				gstin VARCHAR(64),
 				db_type VARCHAR(32) NOT NULL DEFAULT 'postgres',
 				db_connection_encrypted TEXT,
 				api_server_url TEXT,
 				api_server_key_encrypted TEXT,
+				legacy_db_name VARCHAR(128),
+				erp_software_type VARCHAR(64),
+				comp_no INTEGER,
+				loc_no INTEGER,
+				overdue_direct_block_days INTEGER DEFAULT 90,
+				overdue_division_block_days INTEGER DEFAULT 95,
 				created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
 				updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 			);
+		`;
+
+		// Ensure columns exist if table was previously created
+		await sql`
+			ALTER TABLE tenants ADD COLUMN IF NOT EXISTS primary_color VARCHAR(32);
+			ALTER TABLE tenants ADD COLUMN IF NOT EXISTS accent_color VARCHAR(32);
+			ALTER TABLE tenants ADD COLUMN IF NOT EXISTS support_email VARCHAR(128);
+			ALTER TABLE tenants ADD COLUMN IF NOT EXISTS user_email_domain VARCHAR(128);
+			ALTER TABLE tenants ADD COLUMN IF NOT EXISTS legacy_db_name VARCHAR(128);
+			ALTER TABLE tenants ADD COLUMN IF NOT EXISTS erp_software_type VARCHAR(64);
+			ALTER TABLE tenants ADD COLUMN IF NOT EXISTS comp_no INTEGER;
+			ALTER TABLE tenants ADD COLUMN IF NOT EXISTS loc_no INTEGER;
+			ALTER TABLE tenants ADD COLUMN IF NOT EXISTS overdue_direct_block_days INTEGER DEFAULT 90;
+			ALTER TABLE tenants ADD COLUMN IF NOT EXISTS overdue_division_block_days INTEGER DEFAULT 95;
 		`;
 
 		// 2. Tenant Notices

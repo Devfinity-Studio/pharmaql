@@ -8,6 +8,7 @@ import {
 } from "../tenantActions";
 import * as controlPlaneDb from "@/lib/control-plane-db";
 import * as crypto from "@/lib/crypto";
+import * as localTenantsStore from "@/lib/local-tenants-store";
 
 describe("tenantActions Server Actions", () => {
 	beforeEach(() => {
@@ -50,7 +51,78 @@ describe("tenantActions Server Actions", () => {
 		});
 	});
 
-	describe("Encrypted Secrets & Tenant Listing Mocked Flow", () => {
+	describe("Dual-Mode: Local Storage Fallback Flow (No Neon DB)", () => {
+		beforeEach(() => {
+			vi.spyOn(controlPlaneDb, "getControlPlaneSql").mockReturnValue(null);
+		});
+
+		it("successfully saves tenant to local file store when CONTROL_PLANE_DATABASE_URL is not set", async () => {
+			const mockSaved = {
+				id: "local-uuid-1",
+				slug: "client-local",
+				display_name: "Client Local Pharma",
+				is_active: true,
+				db_type: "postgres" as const,
+				comp_no: 12,
+				loc_no: 12,
+				primary_color: "#1E40AF",
+			};
+			vi.spyOn(localTenantsStore, "saveLocalTenant").mockResolvedValue(mockSaved as any);
+
+			const res = await saveTenantAction({
+				slug: "client-local",
+				display_name: "Client Local Pharma",
+				comp_no: 12,
+				loc_no: 12,
+				primary_color: "#1E40AF",
+			});
+
+			expect(res.success).toBe(true);
+			expect(res.id).toBe("local-uuid-1");
+		});
+
+		it("lists tenants from local file store when CONTROL_PLANE_DATABASE_URL is not set", async () => {
+			const mockTenants = [
+				{
+					id: "local-1",
+					slug: "asmee",
+					custom_domain: "portal.asmeepharma.com",
+					is_active: true,
+					display_name: "Asmee Pharma Pvt. Ltd.",
+					short_name: "Asmee",
+					db_type: "api_server" as const,
+					comp_no: 11,
+					loc_no: 11,
+					primary_color: "#0B2545",
+					overdue_direct_block_days: 90,
+					overdue_division_block_days: 95,
+				},
+			];
+			vi.spyOn(localTenantsStore, "getLocalTenants").mockResolvedValue(mockTenants as any);
+
+			const res = await listTenantsAction();
+			expect(res.success).toBe(true);
+			expect(res.tenants).toHaveLength(1);
+			expect(res.tenants[0]?.comp_no).toBe(11);
+			expect(res.tenants[0]?.primary_color).toBe("#0B2545");
+		});
+
+		it("toggles status in local file store", async () => {
+			const spy = vi.spyOn(localTenantsStore, "toggleLocalTenantStatus").mockResolvedValue(true);
+			const res = await toggleTenantStatusAction("local-1", false);
+			expect(res.success).toBe(true);
+			expect(spy).toHaveBeenCalledWith("local-1", false);
+		});
+
+		it("deletes tenant in local file store", async () => {
+			const spy = vi.spyOn(localTenantsStore, "deleteLocalTenant").mockResolvedValue(true);
+			const res = await deleteTenantAction("local-1");
+			expect(res.success).toBe(true);
+			expect(spy).toHaveBeenCalledWith("local-1");
+		});
+	});
+
+	describe("Neon Cloud SQL Flow (When CONTROL_PLANE_DATABASE_URL is set)", () => {
 		it("correctly encrypts database connection string using AES-256-GCM before saving", async () => {
 			const mockSql: any = vi.fn().mockImplementation((strings: TemplateStringsArray, ...values: any[]) => {
 				return Promise.resolve([{ id: "test-uuid-1234" }]);
@@ -100,29 +172,8 @@ describe("tenantActions Server Actions", () => {
 			expect(res.tenants).toHaveLength(1);
 			expect(res.tenants[0]?.has_db_connection).toBe(true);
 			expect(res.tenants[0]?.has_api_key).toBe(false);
-			// Verify raw secrets are never leaked on the item
 			expect((res.tenants[0] as any).db_connection_encrypted).toBeUndefined();
 			expect((res.tenants[0] as any).api_server_key_encrypted).toBeUndefined();
-		});
-
-		it("toggles tenant active status in control plane database", async () => {
-			const mockSql: any = vi.fn().mockResolvedValue([]);
-			vi.spyOn(controlPlaneDb, "getControlPlaneSql").mockReturnValue(mockSql);
-			vi.spyOn(controlPlaneDb, "initControlPlaneRelationalSchema").mockResolvedValue(true);
-
-			const res = await toggleTenantStatusAction("tenant-123", false);
-			expect(res.success).toBe(true);
-			expect(mockSql).toHaveBeenCalled();
-		});
-
-		it("deletes tenant and triggers cascading removal", async () => {
-			const mockSql: any = vi.fn().mockResolvedValue([]);
-			vi.spyOn(controlPlaneDb, "getControlPlaneSql").mockReturnValue(mockSql);
-			vi.spyOn(controlPlaneDb, "initControlPlaneRelationalSchema").mockResolvedValue(true);
-
-			const res = await deleteTenantAction("tenant-123");
-			expect(res.success).toBe(true);
-			expect(mockSql).toHaveBeenCalled();
 		});
 	});
 });

@@ -14,6 +14,9 @@ import {
 	EyeOff,
 	Globe,
 	Activity,
+	Palette,
+	ShieldAlert,
+	Sliders,
 } from "lucide-react";
 import {
 	saveTenantAction,
@@ -37,23 +40,27 @@ export function TenantModal({
 	initialTenant,
 }: TenantModalProps) {
 	const isEdit = Boolean(initialTenant?.id);
-	const [activeTab, setActiveTab] = useState<"general" | "stationery" | "database">("general");
+	const [activeTab, setActiveTab] = useState<"general" | "stationery" | "erp" | "policies">("general");
 
-	// Form Fields
+	// 1. General & Domain
 	const [slug, setSlug] = useState(initialTenant?.slug || "");
 	const [displayName, setDisplayName] = useState(initialTenant?.display_name || "");
 	const [shortName, setShortName] = useState(initialTenant?.short_name || "");
 	const [customDomain, setCustomDomain] = useState(initialTenant?.custom_domain || "");
+	const [primaryColor, setPrimaryColor] = useState(initialTenant?.primary_color || "#0B2545");
+	const [accentColor, setAccentColor] = useState(initialTenant?.accent_color || "#134074");
 	const [isActive, setIsActive] = useState(initialTenant ? initialTenant.is_active : true);
 
-	// Stationery
+	// 2. Stationery & Contacts
 	const [logoUrl, setLogoUrl] = useState(initialTenant?.logo_url || "");
 	const [address, setAddress] = useState(initialTenant?.address || "");
 	const [contactPhone, setContactPhone] = useState(initialTenant?.contact_phone || "");
 	const [contactEmail, setContactEmail] = useState(initialTenant?.contact_email || "");
+	const [supportEmail, setSupportEmail] = useState(initialTenant?.support_email || "");
+	const [userEmailDomain, setUserEmailDomain] = useState(initialTenant?.user_email_domain || "");
 	const [gstin, setGstin] = useState(initialTenant?.gstin || "");
 
-	// Database & API
+	// 3. ERP & Database Integration
 	const [dbType, setDbType] = useState<"postgres" | "api_server">(
 		initialTenant?.db_type || "postgres",
 	);
@@ -62,6 +69,18 @@ export function TenantModal({
 	const [apiServerUrl, setApiServerUrl] = useState(initialTenant?.api_server_url || "");
 	const [apiServerKey, setApiServerKey] = useState("");
 	const [showApiKey, setShowApiKey] = useState(false);
+	const [erpSoftwareType, setErpSoftwareType] = useState(initialTenant?.erp_software_type || "Technomax");
+	const [legacyDbName, setLegacyDbName] = useState(initialTenant?.legacy_db_name || "pdyasvmaster");
+	const [compNo, setCompNo] = useState<number>(initialTenant?.comp_no ?? 11);
+	const [locNo, setLocNo] = useState<number>(initialTenant?.loc_no ?? 11);
+
+	// 4. Policies & Overdue
+	const [overdueDirectBlockDays, setOverdueDirectBlockDays] = useState<number>(
+		initialTenant?.overdue_direct_block_days ?? 90,
+	);
+	const [overdueDivisionBlockDays, setOverdueDivisionBlockDays] = useState<number>(
+		initialTenant?.overdue_division_block_days ?? 95,
+	);
 
 	// Diagnostics & Submission state
 	const [isTestingDb, setIsTestingDb] = useState(false);
@@ -110,16 +129,26 @@ export function TenantModal({
 				display_name: displayName.trim(),
 				short_name: shortName.trim() || null,
 				custom_domain: customDomain.trim() || null,
+				primary_color: primaryColor.trim() || "#0B2545",
+				accent_color: accentColor.trim() || "#134074",
 				is_active: isActive,
 				logo_url: logoUrl.trim() || null,
 				address: address.trim() || null,
 				contact_phone: contactPhone.trim() || null,
 				contact_email: contactEmail.trim() || null,
+				support_email: supportEmail.trim() || null,
+				user_email_domain: userEmailDomain.trim() || null,
 				gstin: gstin.trim() || null,
 				db_type: dbType,
 				db_connection: dbConnection.trim() || null,
 				api_server_url: apiServerUrl.trim() || null,
 				api_server_key: apiServerKey.trim() || null,
+				legacy_db_name: legacyDbName.trim() || "pdyasvmaster",
+				erp_software_type: erpSoftwareType.trim() || "Technomax",
+				comp_no: Number(compNo),
+				loc_no: Number(locNo),
+				overdue_direct_block_days: Number(overdueDirectBlockDays),
+				overdue_division_block_days: Number(overdueDivisionBlockDays),
 			};
 
 			const res = await saveTenantAction(payload);
@@ -142,15 +171,18 @@ export function TenantModal({
 				{/* Header */}
 				<div className="flex items-center justify-between border-b border-gray-800 px-6 py-4 bg-gray-950/60">
 					<div className="flex items-center gap-3">
-						<div className="p-2 rounded-xl bg-blue-500/10 text-blue-400 border border-blue-500/20">
-							<Building className="w-5 h-5" />
+						<div
+							className="p-2 rounded-xl border"
+							style={{ backgroundColor: `${primaryColor}20`, borderColor: `${primaryColor}50` }}
+						>
+							<Building className="w-5 h-5 text-blue-400" />
 						</div>
 						<div>
 							<h3 className="text-lg font-bold">
-								{isEdit ? `Edit Tenant: ${initialTenant?.display_name}` : "Register New Client Tenant"}
+								{isEdit ? `Edit Tenant: ${initialTenant?.display_name}` : "Onboard New Client Tenant"}
 							</h3>
 							<p className="text-xs text-gray-400">
-								Configure white-label branding, domain routing, and encrypted database credentials
+								Configure dynamic branding, domain routing, ERP integration, CompNo/LocNo, and policies
 							</p>
 						</div>
 					</div>
@@ -163,48 +195,60 @@ export function TenantModal({
 					</button>
 				</div>
 
-				{/* Tabs */}
-				<div className="flex border-b border-gray-800 bg-gray-950/30 px-6 pt-2 gap-2">
+				{/* Navigation Tabs */}
+				<div className="flex border-b border-gray-800 bg-gray-950/40 px-6 pt-2 gap-2 overflow-x-auto">
 					<button
 						type="button"
 						onClick={() => setActiveTab("general")}
-						className={`flex items-center gap-2 px-4 py-2.5 text-xs font-semibold rounded-t-lg transition-all border-b-2 ${
+						className={`flex items-center gap-1.5 px-3 py-2 text-xs font-semibold rounded-t-lg transition-all border-b-2 whitespace-nowrap ${
 							activeTab === "general"
 								? "border-blue-500 text-blue-400 bg-gray-800/50"
 								: "border-transparent text-gray-400 hover:text-gray-200"
 						}`}
 					>
 						<Globe className="w-3.5 h-3.5" />
-						General & Domain
+						1. General & Domain
 					</button>
 					<button
 						type="button"
 						onClick={() => setActiveTab("stationery")}
-						className={`flex items-center gap-2 px-4 py-2.5 text-xs font-semibold rounded-t-lg transition-all border-b-2 ${
+						className={`flex items-center gap-1.5 px-3 py-2 text-xs font-semibold rounded-t-lg transition-all border-b-2 whitespace-nowrap ${
 							activeTab === "stationery"
 								? "border-blue-500 text-blue-400 bg-gray-800/50"
 								: "border-transparent text-gray-400 hover:text-gray-200"
 						}`}
 					>
 						<FileText className="w-3.5 h-3.5" />
-						Stationery & Branding
+						2. Stationery & Contacts
 					</button>
 					<button
 						type="button"
-						onClick={() => setActiveTab("database")}
-						className={`flex items-center gap-2 px-4 py-2.5 text-xs font-semibold rounded-t-lg transition-all border-b-2 ${
-							activeTab === "database"
+						onClick={() => setActiveTab("erp")}
+						className={`flex items-center gap-1.5 px-3 py-2 text-xs font-semibold rounded-t-lg transition-all border-b-2 whitespace-nowrap ${
+							activeTab === "erp"
 								? "border-blue-500 text-blue-400 bg-gray-800/50"
 								: "border-transparent text-gray-400 hover:text-gray-200"
 						}`}
 					>
 						<Database className="w-3.5 h-3.5" />
-						Database & Connectivity
+						3. ERP & Database
+					</button>
+					<button
+						type="button"
+						onClick={() => setActiveTab("policies")}
+						className={`flex items-center gap-1.5 px-3 py-2 text-xs font-semibold rounded-t-lg transition-all border-b-2 whitespace-nowrap ${
+							activeTab === "policies"
+								? "border-blue-500 text-blue-400 bg-gray-800/50"
+								: "border-transparent text-gray-400 hover:text-gray-200"
+						}`}
+					>
+						<ShieldAlert className="w-3.5 h-3.5" />
+						4. Overdue Policies
 					</button>
 				</div>
 
-				{/* Form */}
-				<form onSubmit={handleSubmit} className="p-6 space-y-4">
+				{/* Form Body */}
+				<form onSubmit={handleSubmit} className="p-6 space-y-4 max-h-[70vh] overflow-y-auto">
 					{formError && (
 						<div className="flex items-center gap-2 p-3 text-xs text-rose-300 bg-rose-500/10 border border-rose-500/30 rounded-xl">
 							<AlertCircle className="w-4 h-4 shrink-0" />
@@ -212,18 +256,18 @@ export function TenantModal({
 						</div>
 					)}
 
-					{/* Tab 1: General */}
+					{/* Tab 1: General & Domain */}
 					{activeTab === "general" && (
 						<div className="space-y-4">
 							<div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
 								<div>
 									<label className="block text-xs font-medium text-gray-300 mb-1">
-										Display Name <span className="text-rose-400">*</span>
+										Display / Legal Company Name <span className="text-rose-400">*</span>
 									</label>
 									<input
 										type="text"
 										required
-										placeholder="e.g. Asmee Pharma Pvt Ltd"
+										placeholder="e.g. Asmee Pharma Pvt. Ltd."
 										value={displayName}
 										onChange={(e) => setDisplayName(e.target.value)}
 										className="w-full px-3 py-2 bg-gray-950 border border-gray-800 rounded-xl text-sm focus:outline-none focus:border-blue-500 text-white placeholder-gray-500"
@@ -232,11 +276,11 @@ export function TenantModal({
 
 								<div>
 									<label className="block text-xs font-medium text-gray-300 mb-1">
-										Short Name
+										Short Name (Brand Label)
 									</label>
 									<input
 										type="text"
-										placeholder="e.g. Asmee Pharma"
+										placeholder="e.g. Asmee"
 										value={shortName}
 										onChange={(e) => setShortName(e.target.value)}
 										className="w-full px-3 py-2 bg-gray-950 border border-gray-800 rounded-xl text-sm focus:outline-none focus:border-blue-500 text-white placeholder-gray-500"
@@ -257,12 +301,14 @@ export function TenantModal({
 										onChange={(e) => setSlug(e.target.value.toLowerCase())}
 										className="w-full px-3 py-2 bg-gray-950 border border-gray-800 rounded-xl text-sm focus:outline-none focus:border-blue-500 text-white placeholder-gray-500 font-mono"
 									/>
-									<p className="text-[11px] text-gray-500 mt-1">Unique subdomain key or internal identifier</p>
+									<p className="text-[11px] text-gray-500 mt-1">
+										Local URL: <span className="text-blue-400 font-mono">{slug ? `${slug}.localhost:3000` : "slug.localhost:3000"}</span>
+									</p>
 								</div>
 
 								<div>
 									<label className="block text-xs font-medium text-gray-300 mb-1">
-										Custom Domain
+										Custom Production Domain
 									</label>
 									<input
 										type="text"
@@ -271,7 +317,51 @@ export function TenantModal({
 										onChange={(e) => setCustomDomain(e.target.value.toLowerCase())}
 										className="w-full px-3 py-2 bg-gray-950 border border-gray-800 rounded-xl text-sm focus:outline-none focus:border-blue-500 text-white placeholder-gray-500 font-mono"
 									/>
-									<p className="text-[11px] text-gray-500 mt-1">Incoming host header used for Edge routing</p>
+									<p className="text-[11px] text-gray-500 mt-1">Production incoming host header</p>
+								</div>
+							</div>
+
+							{/* Dynamic Color Scheme */}
+							<div className="p-3 bg-gray-950/70 border border-gray-800 rounded-xl space-y-3">
+								<div className="flex items-center gap-2 text-xs font-semibold text-gray-300">
+									<Palette className="w-4 h-4 text-purple-400" />
+									Client Brand Color Scheme
+								</div>
+								<div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+									<div>
+										<label className="block text-[11px] text-gray-400 mb-1">Primary Brand Color</label>
+										<div className="flex items-center gap-2">
+											<input
+												type="color"
+												value={primaryColor}
+												onChange={(e) => setPrimaryColor(e.target.value)}
+												className="w-9 h-9 rounded-lg border border-gray-700 bg-transparent cursor-pointer p-0.5"
+											/>
+											<input
+												type="text"
+												value={primaryColor}
+												onChange={(e) => setPrimaryColor(e.target.value)}
+												className="flex-1 px-3 py-1.5 bg-gray-900 border border-gray-800 rounded-lg text-xs font-mono text-white"
+											/>
+										</div>
+									</div>
+									<div>
+										<label className="block text-[11px] text-gray-400 mb-1">Accent Color</label>
+										<div className="flex items-center gap-2">
+											<input
+												type="color"
+												value={accentColor}
+												onChange={(e) => setAccentColor(e.target.value)}
+												className="w-9 h-9 rounded-lg border border-gray-700 bg-transparent cursor-pointer p-0.5"
+											/>
+											<input
+												type="text"
+												value={accentColor}
+												onChange={(e) => setAccentColor(e.target.value)}
+												className="flex-1 px-3 py-1.5 bg-gray-900 border border-gray-800 rounded-lg text-xs font-mono text-white"
+											/>
+										</div>
+									</div>
 								</div>
 							</div>
 
@@ -284,13 +374,13 @@ export function TenantModal({
 									className="w-4 h-4 rounded border-gray-700 bg-gray-800 text-blue-600 focus:ring-blue-500"
 								/>
 								<label htmlFor="is-active-check" className="text-xs text-gray-300 font-medium cursor-pointer">
-									Active Status (Enables client domain resolution and access)
+									Active Status (Enables client domain resolution and user login)
 								</label>
 							</div>
 						</div>
 					)}
 
-					{/* Tab 2: Stationery */}
+					{/* Tab 2: Stationery & Contacts */}
 					{activeTab === "stationery" && (
 						<div className="space-y-4">
 							<div>
@@ -304,7 +394,7 @@ export function TenantModal({
 									onChange={(e) => setLogoUrl(e.target.value)}
 									className="w-full px-3 py-2 bg-gray-950 border border-gray-800 rounded-xl text-sm focus:outline-none focus:border-blue-500 text-white placeholder-gray-500"
 								/>
-								<p className="text-[11px] text-gray-500 mt-1">Rendered on printable headers, sidebar, and PDF exports</p>
+								<p className="text-[11px] text-gray-500 mt-1">Rendered on printable headers, sidebar, and PDF reports</p>
 							</div>
 
 							<div>
@@ -353,19 +443,104 @@ export function TenantModal({
 									</label>
 									<input
 										type="email"
-										placeholder="e.g. admin@asmeepharma.com"
+										placeholder="e.g. info@client.com"
 										value={contactEmail}
 										onChange={(e) => setContactEmail(e.target.value)}
 										className="w-full px-3 py-2 bg-gray-950 border border-gray-800 rounded-xl text-sm focus:outline-none focus:border-blue-500 text-white placeholder-gray-500"
 									/>
 								</div>
 							</div>
+
+							<div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2 border-t border-gray-800">
+								<div>
+									<label className="block text-xs font-medium text-gray-300 mb-1">
+										Support / Notification Email
+									</label>
+									<input
+										type="email"
+										placeholder="e.g. asmeepharma2022@gmail.com"
+										value={supportEmail}
+										onChange={(e) => setSupportEmail(e.target.value)}
+										className="w-full px-3 py-2 bg-gray-950 border border-gray-800 rounded-xl text-sm focus:outline-none focus:border-blue-500 text-white placeholder-gray-500"
+									/>
+									<p className="text-[11px] text-gray-500 mt-1">Receives alerts, license notices, and feedback</p>
+								</div>
+
+								<div>
+									<label className="block text-xs font-medium text-gray-300 mb-1">
+										Default MR User Email Domain
+									</label>
+									<input
+										type="text"
+										placeholder="e.g. @asmeepharma.com"
+										value={userEmailDomain}
+										onChange={(e) => setUserEmailDomain(e.target.value)}
+										className="w-full px-3 py-2 bg-gray-950 border border-gray-800 rounded-xl text-sm focus:outline-none focus:border-blue-500 text-white placeholder-gray-500 font-mono"
+									/>
+									<p className="text-[11px] text-gray-500 mt-1">Appended when MR logs in with numeric username</p>
+								</div>
+							</div>
 						</div>
 					)}
 
-					{/* Tab 3: Database & API */}
-					{activeTab === "database" && (
+					{/* Tab 3: ERP & Database Integration */}
+					{activeTab === "erp" && (
 						<div className="space-y-4">
+							{/* ERP SQL Parameter Identifiers */}
+							<div className="p-3 bg-gray-950/70 border border-gray-800 rounded-xl space-y-3">
+								<div className="flex items-center gap-2 text-xs font-semibold text-gray-300">
+									<Sliders className="w-4 h-4 text-emerald-400" />
+									ERP System & Stored Procedure SQL Parameters
+								</div>
+								<div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+									<div>
+										<label className="block text-[11px] text-gray-400 mb-1">ERP Software Platform</label>
+										<input
+											type="text"
+											placeholder="Technomax / Marg / Busy"
+											value={erpSoftwareType}
+											onChange={(e) => setErpSoftwareType(e.target.value)}
+											className="w-full px-3 py-1.5 bg-gray-900 border border-gray-800 rounded-lg text-xs text-white"
+										/>
+									</div>
+									<div>
+										<label className="block text-[11px] text-gray-400 mb-1">Primary Legacy DB Name</label>
+										<input
+											type="text"
+											placeholder="e.g. pdyasvmaster"
+											value={legacyDbName}
+											onChange={(e) => setLegacyDbName(e.target.value)}
+											className="w-full px-3 py-1.5 bg-gray-900 border border-gray-800 rounded-lg text-xs font-mono text-white"
+										/>
+									</div>
+								</div>
+								<div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+									<div>
+										<label className="block text-[11px] text-gray-400 mb-1">Company No (`CompNo`)</label>
+										<input
+											type="number"
+											placeholder="11"
+											value={compNo}
+											onChange={(e) => setCompNo(Number(e.target.value))}
+											className="w-full px-3 py-1.5 bg-gray-900 border border-gray-800 rounded-lg text-xs font-mono text-white"
+										/>
+										<p className="text-[10px] text-gray-500 mt-0.5">Passed as first parameter to stored procedures</p>
+									</div>
+									<div>
+										<label className="block text-[11px] text-gray-400 mb-1">Location No (`LocNo`)</label>
+										<input
+											type="number"
+											placeholder="11"
+											value={locNo}
+											onChange={(e) => setLocNo(Number(e.target.value))}
+											className="w-full px-3 py-1.5 bg-gray-900 border border-gray-800 rounded-lg text-xs font-mono text-white"
+										/>
+										<p className="text-[10px] text-gray-500 mt-0.5">Passed as location parameter to stored procedures</p>
+									</div>
+								</div>
+							</div>
+
+							{/* Architecture Type */}
 							<div>
 								<label className="block text-xs font-medium text-gray-300 mb-1">
 									Database Architecture Type
@@ -399,7 +574,7 @@ export function TenantModal({
 							<div>
 								<div className="flex items-center justify-between mb-1">
 									<label className="block text-xs font-medium text-gray-300">
-										PostgreSQL Connection URI (Encrypted with AES-256-GCM)
+										PostgreSQL Connection URI (AES-256-GCM Encrypted)
 									</label>
 									{isEdit && initialTenant?.has_db_connection && (
 										<span className="text-[11px] text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20">
@@ -412,8 +587,8 @@ export function TenantModal({
 										type={showDbConnection ? "text" : "password"}
 										placeholder={
 											isEdit && initialTenant?.has_db_connection
-												? "•••••••• (Leave blank to keep current encrypted secret)"
-												: "postgresql://user:password@host.aws.neon.tech:5432/dbname?sslmode=require"
+												? "•••••••• (Leave blank to keep current secret)"
+												: "postgresql://user:password@host.postgres.database:5432/dbname"
 										}
 										value={dbConnection}
 										onChange={(e) => setDbConnection(e.target.value)}
@@ -427,9 +602,6 @@ export function TenantModal({
 										{showDbConnection ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
 									</button>
 								</div>
-								<p className="text-[11px] text-gray-500 mt-1">
-									Automatically encrypted using `CONTROL_PLANE_ENCRYPTION_KEY`. Always queried with `SET SESSION CHARACTERISTICS AS TRANSACTION READ ONLY`.
-								</p>
 							</div>
 
 							{/* Connection Test Diagnostics */}
@@ -510,7 +682,7 @@ export function TenantModal({
 											placeholder={
 												isEdit && initialTenant?.has_api_key
 													? "•••••••• (Leave blank to keep current key)"
-													: "Encrypted API Auth Key"
+													: "API Auth Secret Key"
 											}
 											value={apiServerKey}
 											onChange={(e) => setApiServerKey(e.target.value)}
@@ -529,31 +701,90 @@ export function TenantModal({
 						</div>
 					)}
 
-					{/* Modal Footer */}
-					<div className="flex items-center justify-end gap-3 pt-4 border-t border-gray-800">
-						<button
-							type="button"
-							onClick={onClose}
-							className="px-4 py-2 text-xs font-medium text-gray-400 hover:text-white hover:bg-gray-800 rounded-xl transition-colors"
-						>
-							Cancel
-						</button>
-						<button
-							type="submit"
-							disabled={isSubmitting}
-							className="flex items-center gap-2 px-5 py-2 text-xs font-bold bg-blue-600 hover:bg-blue-500 text-white rounded-xl shadow-lg shadow-blue-600/20 transition-all disabled:opacity-50"
-						>
-							{isSubmitting ? (
-								<>
-									<Loader2 className="w-3.5 h-3.5 animate-spin" />
-									Saving Tenant...
-								</>
-							) : isEdit ? (
-								"Update Tenant"
-							) : (
-								"Register Tenant"
-							)}
-						</button>
+					{/* Tab 4: Policies & Overdue */}
+					{activeTab === "policies" && (
+						<div className="space-y-4">
+							<div className="p-4 bg-gray-950/70 border border-gray-800 rounded-xl space-y-4">
+								<div className="flex items-center gap-2 text-xs font-semibold text-gray-300">
+									<ShieldAlert className="w-4 h-4 text-amber-400" />
+									Automated MR Overdue Blocking Thresholds
+								</div>
+								<div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+									<div>
+										<label className="block text-xs font-medium text-gray-300 mb-1">
+											Direct MR Overdue Block Days
+										</label>
+										<input
+											type="number"
+											min={30}
+											max={180}
+											value={overdueDirectBlockDays}
+											onChange={(e) => setOverdueDirectBlockDays(Number(e.target.value))}
+											className="w-full px-3 py-2 bg-gray-900 border border-gray-800 rounded-xl text-sm font-mono text-white focus:outline-none focus:border-blue-500"
+										/>
+										<p className="text-[11px] text-gray-500 mt-1">
+											Individual MR blocked from login when any pending invoice exceeds this number of days (default: 90)
+										</p>
+									</div>
+
+									<div>
+										<label className="block text-xs font-medium text-gray-300 mb-1">
+											Division Cascading Block Days
+										</label>
+										<input
+											type="number"
+											min={30}
+											max={180}
+											value={overdueDivisionBlockDays}
+											onChange={(e) => setOverdueDivisionBlockDays(Number(e.target.value))}
+											className="w-full px-3 py-2 bg-gray-900 border border-gray-800 rounded-xl text-sm font-mono text-white focus:outline-none focus:border-blue-500"
+										/>
+										<p className="text-[11px] text-gray-500 mt-1">
+											All peer MRs in the division blocked when an invoice exceeds this threshold (default: 95)
+										</p>
+									</div>
+								</div>
+							</div>
+						</div>
+					)}
+
+					{/* Footer Buttons */}
+					<div className="flex items-center justify-between pt-4 border-t border-gray-800">
+						<div className="flex items-center gap-2">
+							<span
+								className="w-4 h-4 rounded-full border border-white/20"
+								style={{ backgroundColor: primaryColor }}
+								title="Theme Preview"
+							/>
+							<span className="text-xs text-gray-400">
+								Color: <span className="font-mono">{primaryColor}</span>
+							</span>
+						</div>
+						<div className="flex items-center gap-3">
+							<button
+								type="button"
+								onClick={onClose}
+								className="px-4 py-2 text-xs font-medium text-gray-400 hover:text-white hover:bg-gray-800 rounded-xl transition-colors"
+							>
+								Cancel
+							</button>
+							<button
+								type="submit"
+								disabled={isSubmitting}
+								className="flex items-center gap-2 px-5 py-2 text-xs font-bold bg-blue-600 hover:bg-blue-500 text-white rounded-xl shadow-lg shadow-blue-600/20 transition-all disabled:opacity-50"
+							>
+								{isSubmitting ? (
+									<>
+										<Loader2 className="w-3.5 h-3.5 animate-spin" />
+										Saving Tenant...
+									</>
+								) : isEdit ? (
+									"Update Tenant"
+								) : (
+									"Onboard Tenant"
+								)}
+							</button>
+						</div>
 					</div>
 				</form>
 			</div>
