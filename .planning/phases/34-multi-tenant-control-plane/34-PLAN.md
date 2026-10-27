@@ -78,26 +78,22 @@ Transition PharmaQL from a single-tenant on-premise application to an enterprise
   - Update [`src/app/layout.tsx`](file:///e:/work/pharmaql/src/app/layout.tsx) to wrap the app in `TenantProvider` and render dynamic tenant title, favicon, and meta tags.
   - Update [`src/components/ReportHeader.tsx`](file:///e:/work/pharmaql/src/components/ReportHeader.tsx) and report generators to dynamically display tenant logo and company name instead of hardcoded "Asmee Pharma".
 
-### Task 6: Developer Control Center Tenant Management Tab & Server Actions
+### Task 6: Modular Control Plane Package for DevfinityFrontend Integration
 - **Files**:
+  - [`src/modules/control-plane/index.ts`](file:///e:/work/pharmaql/src/modules/control-plane/index.ts)
+  - [`src/modules/control-plane/tenantActions.ts`](file:///e:/work/pharmaql/src/modules/control-plane/tenantActions.ts)
+  - [`src/modules/control-plane/TenantsControlCenter.tsx`](file:///e:/work/pharmaql/src/modules/control-plane/TenantsControlCenter.tsx)
+  - [`src/modules/control-plane/schema.sql`](file:///e:/work/pharmaql/src/modules/control-plane/schema.sql)
+  - [`src/modules/control-plane/README.md`](file:///e:/work/pharmaql/src/modules/control-plane/README.md)
   - [`src/server/actions/tenantActions.ts`](file:///e:/work/pharmaql/src/server/actions/tenantActions.ts)
   - [`src/components/dev-control-center.tsx`](file:///e:/work/pharmaql/src/components/dev-control-center.tsx)
-  - [`src/app/admin/dev/page.tsx`](file:///e:/work/pharmaql/src/app/admin/dev/page.tsx)
 - **Description**:
-  - Create [`src/server/actions/tenantActions.ts`](file:///e:/work/pharmaql/src/server/actions/tenantActions.ts):
-    - `listTenantsAction()`
-    - `createTenantAction(data)`: Encrypts secrets, invalidates resolver cache, inserts record into Neon.
-    - `updateTenantAction(id, data)`: Re-encrypts secrets if changed, updates Neon, invalidates cache.
-    - `toggleTenantActiveAction(id, isActive)`: Toggles active status.
-    - `pingTenantDbAction(id)`: Tests connectivity (PostgreSQL handshake or API server `/health` probe) and reports latency/status.
-  - Update [`src/components/dev-control-center.tsx`](file:///e:/work/pharmaql/src/components/dev-control-center.tsx):
-    - Add `"tenants"` to `activeTab` union.
-    - Build rich UI tab:
-      - Tenant list with status pills (🟢 Active / ⚪ Inactive), domain badges, DB type indicators.
-      - "Add New Tenant" modal with encrypted secret inputs and DB type selector (`postgres` vs `api_server`).
-      - "Test Connection" button triggering `pingTenantDbAction`.
-      - Edit and Toggle Active controls.
-  - Pass initial tenant list from [`src/app/admin/dev/page.tsx`](file:///e:/work/pharmaql/src/app/admin/dev/page.tsx).
+  - Package the full Control Plane & Tenant Management suite as a portable module in [`src/modules/control-plane/`](file:///e:/work/pharmaql/src/modules/control-plane/):
+    - Server actions: `listTenantsAction()`, `createTenantAction(payload)`, `updateTenantAction(id, payload)`, `toggleTenantActiveAction(id, isActive)`, `pingTenantDbAction(id)`, `validateTenantDomainAction(id)`.
+    - UI Component: `TenantsControlCenter.tsx` with tenant registration modal, encrypted secret inputs, DB type toggle (`postgres` vs `api_server`), active toggles, and live connectivity ping tests.
+    - Exportable for direct drop-in integration into the user's `DevfinityFrontend` repository (to run on `dev.yourdomain.com`).
+    - Clear documentation in `README.md` with environment variables (`CONTROL_PLANE_DATABASE_URL`, `CONTROL_PLANE_ENCRYPTION_KEY`) and route mounting steps.
+  - Also wire the module into the local `DevControlCenter` in [`src/components/dev-control-center.tsx`](file:///e:/work/pharmaql/src/components/dev-control-center.tsx) under a new `"tenants"` tab for local development and parity.
 
 ### Task 7: Verification, Automated Vitest Suite & Build Validation
 - **Files**:

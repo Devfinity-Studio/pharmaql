@@ -46,16 +46,18 @@ The Dev Portal is isolated to the developer's private domain (`DEV_PORTAL_DOMAIN
   - Printable reports (Stock, Sales, Product Wise, Free Scheme, Overdue) stationery headers.
   - Page titles, metadata, and mobile PWA manifests.
 
-### 6. Developer Control Center (`/admin/dev`)
-- Tenant onboarding and management:
-  - Register new tenant (slug, name, domain, logo, DB type, connection credentials / API server config).
-  - Edit tenant configuration and toggle active status (`is_active`).
-  - "Ping Test" connectivity to client DB (tests direct Postgres read-only handshake or API server health check).
-  - Inspect encrypted secret health without leaking raw credentials.
+### 6. Developer Control Center (Hosted in DevfinityFrontend)
+- The developer control plane is completely decoupled from the tenant-facing `pharmaql` app.
+- Instead of exposing superuser management inside client builds, the Dev Control Center is integrated directly as a dedicated module inside the user's existing `DevfinityFrontend` repo, hosted on `dev.yourdomain.com` (or developer subdomain).
+- `DevfinityFrontend` and `pharmaql` share:
+  - `CONTROL_PLANE_DATABASE_URL` (Neon Serverless Postgres)
+  - `CONTROL_PLANE_ENCRYPTION_KEY` (AES-256-GCM master key)
+- A standalone exportable module (`packages/control-plane` or `src/modules/dev-control-center/`) with all server actions, UI components, and Neon client schemas will be generated so it can be dropped directly into `DevfinityFrontend`.
 
 ### 7. Initial State & Onboarding
 - **Blank Slate**: Starts with empty `tenants` table.
-- Developer logs into Dev Portal on `DEV_PORTAL_DOMAIN` to configure the first tenant(s).
+- Developer logs into their Dev Control Center in `DevfinityFrontend` on `dev.yourdomain.com` to configure tenants.
+- Tenant portal (`pharmaql`) checks incoming `Host` against Neon `tenants.custom_domain`. Unknown domains receive a clean 404 / "Tenant Not Found".
 - Existing JSON files serve as seed templates or local development fallbacks when `CONTROL_PLANE_DATABASE_URL` is not configured.
 
 ---
