@@ -1,0 +1,66 @@
+# Phase 34: Multi-Tenant Control Plane & Dynamic Client DB Resolution - Context & Decisions
+
+## Context Summary
+PharmaQL is transitioning from a single-tenant on-premise model into a multi-tenant cloud control plane. The control plane runs on Vercel backed by Neon Serverless Postgres (`@neondatabase/serverless`) for metadata, tenant routing, and state persistence. This permanently resolves the Vercel serverless `/tmp` ephemeral storage bug (where notices, feature toggles, and subscriptions were wiped on instance cold starts or logouts).
+
+The Dev Portal is isolated to the developer's private domain (`DEV_PORTAL_DOMAIN`) where tenants are registered and managed securely without public exposure.
+
+---
+
+## Key Locked Decisions
+
+### 1. Control Plane Architecture (Neon Serverless Postgres)
+- **Database Engine**: Neon Serverless Postgres (`@neondatabase/serverless`).
+- **Connection Environment Variable**: `CONTROL_PLANE_DATABASE_URL`.
+- **Database Tables Managed**:
+  - `tenants`: Primary tenant registry containing `id`, `slug`, `name`, `logo_url`, `custom_domain`, `db_type` (`postgres` | `api_server`), `db_connection_encrypted`, `api_server_url`, `api_server_key_encrypted`, `is_active`, `created_at`, `updated_at`.
+  - `tenant_notices`: Replaces ephemeral `data/notices.json`, scoped by `tenant_id`.
+  - `tenant_features`: Replaces ephemeral `data/maintenance.json` (feature toggles and maintenance mode), scoped by `tenant_id`.
+  - `tenant_licenses`: Replaces ephemeral `data/license.json` (subscription status, expiration, killswitch), scoped by `tenant_id`.
+  - `tenant_feedback`: Replaces ephemeral `data/feedback_reports.json`, scoped by `tenant_id`.
+  - `tenant_runtime_config`: Replaces ephemeral `data/runtime-config.json`, scoped by `tenant_id`.
+
+### 2. Secret Encryption (`src/lib/crypto.ts`)
+- **Algorithm**: AES-256-GCM authenticated symmetric encryption.
+- **Master Key**: `CONTROL_PLANE_ENCRYPTION_KEY` (32-byte hexadecimal or base64 key).
+- **Scope**: All client database passwords, full connection URIs, and API server secret keys stored in `tenants` are encrypted at rest with random IV and authentication tag (`iv:authTag:encryptedData`).
+
+### 3. Tenant Resolution & Routing Middleware
+- **Domain Matching**: Incoming `Host` header matched against `tenants.custom_domain`.
+- **Dev Portal Domain**: Requests on `DEV_PORTAL_DOMAIN` (or developer portal host) bypass public tenant matching and allow tenant context switching via `x-tenant-slug` header or `?tenant=` query parameter.
+- **Unmapped / Unknown Domains**: Returns a clean HTTP 404 / "Tenant Not Found" page. Public visitors cannot discover the Dev Portal.
+- **Caching**: Resolved tenant metadata is cached in an in-memory TTL cache (5 minutes) to avoid repetitive queries to Neon on every incoming request. Cache is invalidated on tenant update.
+
+### 4. Hybrid Client Database Resolution Model
+- **Direct PostgreSQL Connection Pools**:
+  - For cloud/accessible PostgreSQL client databases, `tenant-pool.ts` instantiates connection pools keyed by `tenant.id`.
+  - Enforces `SET SESSION CHARACTERISTICS AS TRANSACTION READ ONLY` on pool checkout to guarantee ERP read-only safety.
+  - Automatically evicts idle pools after 15 minutes of inactivity to prevent connection leaks.
+- **On-Premise API Server (.exe) Proxying**:
+  - For client ERPs residing behind corporate firewalls (such as Windows MySQL servers running `api-server.exe` managed by NSSM), the app routes requests to the tenant's configured `api_server_url` using decrypted `api_server_key_encrypted`.
+
+### 5. Dynamic UI Branding & Identity Context
+- Hardcoded logos, titles, and portal headers (formerly hardcoded to "Asmee Pharma") are abstracted into dynamic tenant branding.
+- A central `useTenant()` context / server-side tenant resolver provides `name`, `logo_url`, `slug`, and styling tokens to:
+  - Root layout and navigation headers.
+  - Printable reports (Stock, Sales, Product Wise, Free Scheme, Overdue) stationery headers.
+  - Page titles, metadata, and mobile PWA manifests.
+
+### 6. Developer Control Center (`/admin/dev`)
+- Tenant onboarding and management:
+  - Register new tenant (slug, name, domain, logo, DB type, connection credentials / API server config).
+  - Edit tenant configuration and toggle active status (`is_active`).
+  - "Ping Test" connectivity to client DB (tests direct Postgres read-only handshake or API server health check).
+  - Inspect encrypted secret health without leaking raw credentials.
+
+### 7. Initial State & Onboarding
+- **Blank Slate**: Starts with empty `tenants` table.
+- Developer logs into Dev Portal on `DEV_PORTAL_DOMAIN` to configure the first tenant(s).
+- Existing JSON files serve as seed templates or local development fallbacks when `CONTROL_PLANE_DATABASE_URL` is not configured.
+
+---
+
+## Out of Scope for Phase 34
+- Kinde Auth integration (Better Auth / JWT authentication remains active and unchanged).
+- Automated customer billing/invoicing (handled manually or via existing license toggles).
+- Client write-back to ERP (remains strictly 100% read-only).
