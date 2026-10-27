@@ -1,121 +1,133 @@
-# Phase 34 Plan: Multi-Tenant Control Plane & Dynamic Client DB Resolution
+# Phase 34 Plan: Multi-Tenant Architecture, Dynamic White-Labeling & Dev Portal Isolation
 
 ## Objective
-Transition PharmaQL from a single-tenant on-premise application to an enterprise multi-tenant cloud control plane powered by Neon Serverless Postgres (`@neondatabase/serverless`). Symmetrically encrypt all client credentials with AES-256-GCM (`CONTROL_PLANE_ENCRYPTION_KEY`), dynamically route tenants via custom domains with in-memory TTL caching, provide dynamic read-only PostgreSQL pools alongside on-premise API server proxying, abstract white-label UI branding, fix Vercel `/tmp` state wipe bugs permanently, and build a dedicated tenant management suite in the Dev Control Center.
+Refactor PharmaQL from a single-tenant on-premise application to an enterprise multi-tenant cloud control plane backed by Neon Postgres (`@neondatabase/serverless`):
+1. **Developer Control Panel (`devfinity.net` / `pharmaql.devfinity.net`):** An administrative suite to register and manage client tenants, configure branding, encrypt and store credentials, test connectivity, and toggle active status.
+2. **Client Frontends (e.g., `portal.asmeepharma.com`, `clientb.com`):** Identical core portal codebase dynamically white-labeled per domain with client-specific branding (name, logo, address, contact, GSTIN, report stationery), connecting exclusively to each client's dedicated read-only database or on-premise API server.
+3. **State Persistence:** Replace ephemeral local file/JSON writes with tenant-scoped storage in Neon (`control_plane_store`) to permanently resolve Vercel serverless `/tmp` cold-start wipes.
 
 ---
 
-## Tasks
+## Strict Constraints & Safety Guardrails
+1. **No Kinde Auth:** Retain the existing authentication system (Better Auth / session headers). Do NOT install, import, or assume Kinde Auth.
+2. **Read-Only Safety:** All dynamic client PostgreSQL connection pools must strictly enforce `SET SESSION CHARACTERISTICS AS TRANSACTION READ ONLY` upon connection checkout.
+3. **Edge / Serverless Compatibility:**
+   - Do NOT import `pg` or Node.js native `net` inside Next.js Edge Middleware.
+   - Run tenant metadata queries using `@neondatabase/serverless` over HTTP (`neon(process.env.CONTROL_PLANE_DATABASE_URL)`).
+   - Restrict dynamic client `pg.Pool` sizes to `max: 2` per lambda container (`idleTimeoutMillis: 300000`) to prevent exhausting client database connection limits.
+4. **Offline Dev Fallback:** If `CONTROL_PLANE_DATABASE_URL` is omitted, fallback cleanly to local `.env` and disk JSON storage (`data/` or `/tmp`) without throwing runtime errors.
 
-### Task 1: Package Dependencies, AES-256-GCM Secret Encryption & Unit Tests
+---
+
+## Tasks & Implementation Plan
+
+### Task 1: Package Dependencies & Authenticated Secret Encryption
 - **Files**:
   - [`package.json`](file:///e:/work/pharmaql/package.json)
   - [`src/lib/crypto.ts`](file:///e:/work/pharmaql/src/lib/crypto.ts)
   - [`src/lib/__tests__/crypto.test.ts`](file:///e:/work/pharmaql/src/lib/__tests__/crypto.test.ts)
-- **Description**:
-  - Install `@neondatabase/serverless`, `pg`, and `@types/pg`.
-  - Create [`src/lib/crypto.ts`](file:///e:/work/pharmaql/src/lib/crypto.ts) implementing:
-    - `encryptSecret(plaintext: string, masterKey?: string): string` using Node.js native `crypto.createCipheriv("aes-256-gcm", key, iv)`.
-    - `decryptSecret(ciphertext: string, masterKey?: string): string` validating auth tag before decryption.
-    - `getEncryptionKey()` loading `CONTROL_PLANE_ENCRYPTION_KEY` (32 bytes from hex or base64) with deterministic fallback generation for local development.
-  - Create Vitest test suite in [`src/lib/__tests__/crypto.test.ts`](file:///e:/work/pharmaql/src/lib/__tests__/crypto.test.ts) testing round-trip encryption, tampered ciphertext rejection, and invalid key lengths.
+- **Details**:
+  - Install dependencies: `pnpm add @neondatabase/serverless pg && pnpm add -D @types/pg`.
+  - Create [`src/lib/crypto.ts`](file:///e:/work/pharmaql/src/lib/crypto.ts):
+    - Implement `encryptSecret(plainText: string): string` and `decryptSecret(cipherPayload: string): string` using Node.js `node:crypto` with `aes-256-gcm`.
+    - Read `CONTROL_PLANE_ENCRYPTION_KEY` (32 bytes from hex or base64), with deterministic fallback generation for local development.
+    - Serialize payloads as `ivHex:authTagHex:encryptedHex` and validate authentication tags prior to decryption.
+  - Create Vitest test suite in [`src/lib/__tests__/crypto.test.ts`](file:///e:/work/pharmaql/src/lib/__tests__/crypto.test.ts) validating encryption round-trips, key length validation, and tampering rejection.
 
-### Task 2: Neon Control Plane Client & Persistent Server Storage Adapter
+### Task 2: Neon Control Plane Client & Persistent Storage Adapter
 - **Files**:
   - [`src/lib/control-plane-db.ts`](file:///e:/work/pharmaql/src/lib/control-plane-db.ts)
   - [`src/lib/server-storage.ts`](file:///e:/work/pharmaql/src/lib/server-storage.ts)
   - [`src/lib/__tests__/server-storage.test.ts`](file:///e:/work/pharmaql/src/lib/__tests__/server-storage.test.ts)
-- **Description**:
-  - Build [`src/lib/control-plane-db.ts`](file:///e:/work/pharmaql/src/lib/control-plane-db.ts) using `@neondatabase/serverless` connected via `CONTROL_PLANE_DATABASE_URL`:
-    - Automatically run idempotent DDL migrations to ensure `tenants` and `control_plane_store` tables exist:
-      - `tenants` (`id UUID PRIMARY KEY`, `slug VARCHAR(64) UNIQUE NOT NULL`, `name VARCHAR(255) NOT NULL`, `logo_url TEXT`, `custom_domain VARCHAR(255) UNIQUE`, `db_type VARCHAR(32) NOT NULL DEFAULT 'postgres'`, `db_connection_encrypted TEXT`, `api_server_url TEXT`, `api_server_key_encrypted TEXT`, `is_active BOOLEAN NOT NULL DEFAULT true`, `created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()`, `updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()`)
+- **Details**:
+  - Build [`src/lib/control-plane-db.ts`](file:///e:/work/pharmaql/src/lib/control-plane-db.ts) utilizing `@neondatabase/serverless` connected via `CONTROL_PLANE_DATABASE_URL`:
+    - Handle initialization checks and idempotent migrations for `tenants` and `control_plane_store` records:
+      - `tenants` (`id UUID PRIMARY KEY`, `slug VARCHAR(64) UNIQUE NOT NULL`, `name VARCHAR(255) NOT NULL`, `short_name VARCHAR(64)`, `logo_url TEXT`, `address TEXT`, `contact_phone VARCHAR(64)`, `contact_email VARCHAR(128)`, `gstin VARCHAR(64)`, `custom_domain VARCHAR(255) UNIQUE`, `db_type VARCHAR(32) NOT NULL DEFAULT 'postgres'`, `db_connection_encrypted TEXT`, `api_server_url TEXT`, `api_server_key_encrypted TEXT`, `is_active BOOLEAN NOT NULL DEFAULT true`, `created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()`, `updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()`)
       - `control_plane_store` (`tenant_id VARCHAR(64) NOT NULL DEFAULT 'global'`, `key VARCHAR(128) NOT NULL`, `data JSONB NOT NULL`, `updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()`, `PRIMARY KEY (tenant_id, key)`)
   - Refactor [`src/lib/server-storage.ts`](file:///e:/work/pharmaql/src/lib/server-storage.ts):
-    - When `CONTROL_PLANE_DATABASE_URL` is set, `readServerJson` and `writeServerJson` read/write to `control_plane_store` scoped by current tenant ID (or `'global'`).
-    - If `CONTROL_PLANE_DATABASE_URL` is unset, automatically fall back to local disk (`/tmp` / `data/`) for offline development.
-    - This permanently fixes Vercel serverless cold-start state loss for notices, feature toggles, licenses/subscriptions, and feedback reports!
+    - Route `readServerJson(key)` and `writeServerJson(key, data)` to `control_plane_store` scoped by current tenant ID (or `'global'`) when `CONTROL_PLANE_DATABASE_URL` is configured.
+    - Fall back automatically to local filesystem storage (`/tmp` or `data/`) when offline.
+    - Permanently resolves Vercel cold-start wipes for notices, feature toggles, licenses/subscriptions, and feedback.
 
-### Task 3: Tenant Resolution Middleware & In-Memory TTL Cache
+### Task 3: Host Resolution Middleware & Multi-Layer Caching
 - **Files**:
   - [`src/lib/tenant-resolver.ts`](file:///e:/work/pharmaql/src/lib/tenant-resolver.ts)
   - [`src/middleware.ts`](file:///e:/work/pharmaql/src/middleware.ts)
   - [`src/lib/__tests__/tenant-resolver.test.ts`](file:///e:/work/pharmaql/src/lib/__tests__/tenant-resolver.test.ts)
-- **Description**:
-  - Create [`src/lib/tenant-resolver.ts`](file:///e:/work/pharmaql/src/lib/tenant-resolver.ts):
-    - Maintains an in-memory cache mapping domain/slug to tenant metadata with a 5-minute TTL.
-    - Exposes `resolveTenantByHost(host: string, searchParams?: URLSearchParams, headers?: Headers): Promise<TenantRecord | null>`.
-    - Handles `DEV_PORTAL_DOMAIN`: allows tenant switching via `x-tenant-slug` header or `?tenant=` query parameter.
-    - Exposes `invalidateTenantCache(slugOrDomain?: string)` to immediately flush cache on tenant updates.
+- **Details**:
+  - Build [`src/lib/tenant-resolver.ts`](file:///e:/work/pharmaql/src/lib/tenant-resolver.ts):
+    - Inspect incoming `Host` header.
+    - **Developer Portal Context:** If `host` matches `process.env.DEV_PORTAL_DOMAIN` (e.g., `devfinity.net`, `pharmaql.devfinity.net`, or `localhost`), set `isDevPortal: true`. Support tenant simulation via `x-tenant-slug` header or `?tenant=` query parameter.
+    - **Client Custom Domain Context:** Query active tenant record matching the incoming custom domain.
+    - Implement caching: combine an in-memory TTL map (5 minutes) with Next.js `unstable_cache` tagged with `tenant-lookup`.
+    - Expose `invalidateTenantCache(slugOrDomain?: string)` utilizing `revalidateTag`.
   - Update [`src/middleware.ts`](file:///e:/work/pharmaql/src/middleware.ts):
-    - Intercept requests, resolve tenant via `resolveTenantByHost`.
-    - For non-dev-portal domains: if tenant not found or inactive, return a branded 404 "Tenant Not Found".
-    - Forward `x-tenant-id`, `x-tenant-slug`, `x-tenant-name`, and `x-is-dev-portal` headers downstream.
+    - Ensure zero `pg` / `net` imports in middleware (Edge/serverless safe).
+    - For Dev Portal requests: forward `x-is-dev-portal: "true"` downstream.
+    - For client domains: forward `x-tenant-id`, `x-tenant-slug`, `x-tenant-name`, and `x-tenant-domain` headers downstream.
+    - For unknown or inactive domains: rewrite or respond with a clean 404 "Tenant Not Found" page to avoid leaking routes or portal structure.
 
-### Task 4: Dynamic Hybrid Client DB Pool Manager
+### Task 4: Dynamic Client DB Connection Pool & API Proxy
 - **Files**:
   - [`src/lib/db/tenant-pool.ts`](file:///e:/work/pharmaql/src/lib/db/tenant-pool.ts)
   - [`src/lib/api-client.ts`](file:///e:/work/pharmaql/src/lib/api-client.ts)
   - [`src/lib/__tests__/tenant-pool.test.ts`](file:///e:/work/pharmaql/src/lib/__tests__/tenant-pool.test.ts)
-- **Description**:
+- **Details**:
   - Implement [`src/lib/db/tenant-pool.ts`](file:///e:/work/pharmaql/src/lib/db/tenant-pool.ts):
-    - `getTenantDbPool(tenant: TenantRecord): Promise<Pool>`
-    - Decrypts `db_connection_encrypted` using `decryptSecret`.
-    - Instantiates and caches a `pg.Pool` with connection pool limits (`max: 10`, `idleTimeoutMillis: 900000`).
-    - Enforces read-only safety on connection acquire: `client.query("SET SESSION CHARACTERISTICS AS TRANSACTION READ ONLY")`.
-    - Implements periodic and on-demand pool eviction for pools idle > 15 minutes.
-  - Enhance [`src/lib/api-client.ts`](file:///e:/work/pharmaql/src/lib/api-client.ts):
-    - Support dynamic tenant targeting: when a tenant specifies `db_type === 'api_server'`, resolve `api_server_url` and decrypted `api_server_key_encrypted` per tenant.
+    - Maintain an in-memory connection pool registry: `Map<string, { pool: Pool, lastUsed: number }>`.
+    - If tenant uses direct PostgreSQL:
+      - Decrypt database credentials with `decryptSecret`.
+      - Instantiate a `pg.Pool` with serverless bounds (`max: 2`, `idleTimeoutMillis: 300000`).
+      - Listen to pool `'connect'` event and enforce `SET SESSION CHARACTERISTICS AS TRANSACTION READ ONLY`.
+      - Evict pools idle for > 15 minutes.
+  - Update [`src/lib/api-client.ts`](file:///e:/work/pharmaql/src/lib/api-client.ts):
+    - If tenant uses an on-premise proxy server, proxy queries through the tenant's API server URL using the decrypted API key.
 
-### Task 5: Dynamic UI Branding & Identity Context
+### Task 5: Dynamic White-Label UI Branding & Identity Context
 - **Files**:
   - [`src/lib/tenant-context.tsx`](file:///e:/work/pharmaql/src/lib/tenant-context.tsx)
   - [`src/app/layout.tsx`](file:///e:/work/pharmaql/src/app/layout.tsx)
   - [`src/components/ReportHeader.tsx`](file:///e:/work/pharmaql/src/components/ReportHeader.tsx)
   - [`src/app/manifest.ts`](file:///e:/work/pharmaql/src/app/manifest.ts)
-- **Description**:
-  - Create [`src/lib/tenant-context.tsx`](file:///e:/work/pharmaql/src/lib/tenant-context.tsx) exposing `TenantProvider` and `useTenant()` hook.
-  - Create server-side helper `getCurrentTenant()` reading from incoming headers (`x-tenant-slug`, `x-tenant-name`, `x-tenant-id`).
-  - Update [`src/app/layout.tsx`](file:///e:/work/pharmaql/src/app/layout.tsx) to wrap the app in `TenantProvider` and render dynamic tenant title, favicon, and meta tags.
-  - Update [`src/components/ReportHeader.tsx`](file:///e:/work/pharmaql/src/components/ReportHeader.tsx) and report generators to dynamically display tenant logo and company name instead of hardcoded "Asmee Pharma".
+- **Details**:
+  - Create [`src/lib/tenant-context.tsx`](file:///e:/work/pharmaql/src/lib/tenant-context.tsx):
+    - Export `TenantProvider` and `useTenant()` hook exposing tenant identity, white-label details, and portal flags.
+  - Update [`src/app/layout.tsx`](file:///e:/work/pharmaql/src/app/layout.tsx):
+    - Resolve tenant context server-side from headers and inject into `<TenantProvider>`.
+    - Dynamically generate HTML `<title>` (`{pageTitle} | {tenant.shortName}`) and favicon `<link>`.
+  - De-hardcode branding:
+    - Replace all hardcoded occurrences of "Asmee Pharma" with dynamic tenant naming properties.
+    - In [`ReportHeader.tsx`](file:///e:/work/pharmaql/src/components/ReportHeader.tsx), printable invoices, and PDF exports, render tenant logo, address, phone, email, and tax identification dynamically.
 
-### Task 6: Modular Control Plane Package for DevfinityFrontend Integration
+### Task 6: Dev Portal Management Suite
 - **Files**:
-  - [`src/modules/control-plane/index.ts`](file:///e:/work/pharmaql/src/modules/control-plane/index.ts)
   - [`src/modules/control-plane/tenantActions.ts`](file:///e:/work/pharmaql/src/modules/control-plane/tenantActions.ts)
   - [`src/modules/control-plane/TenantsControlCenter.tsx`](file:///e:/work/pharmaql/src/modules/control-plane/TenantsControlCenter.tsx)
-  - [`src/modules/control-plane/schema.sql`](file:///e:/work/pharmaql/src/modules/control-plane/schema.sql)
-  - [`src/modules/control-plane/README.md`](file:///e:/work/pharmaql/src/modules/control-plane/README.md)
-  - [`src/server/actions/tenantActions.ts`](file:///e:/work/pharmaql/src/server/actions/tenantActions.ts)
   - [`src/components/dev-control-center.tsx`](file:///e:/work/pharmaql/src/components/dev-control-center.tsx)
-- **Description**:
-  - Package the full Control Plane & Tenant Management suite as a portable module in [`src/modules/control-plane/`](file:///e:/work/pharmaql/src/modules/control-plane/):
-    - Server actions: `listTenantsAction()`, `createTenantAction(payload)`, `updateTenantAction(id, payload)`, `toggleTenantActiveAction(id, isActive)`, `pingTenantDbAction(id)`, `validateTenantDomainAction(id)`.
-    - UI Component: `TenantsControlCenter.tsx` with tenant registration modal, encrypted secret inputs, DB type toggle (`postgres` vs `api_server`), active toggles, and live connectivity ping tests.
-    - Exportable for direct drop-in integration into the user's `DevfinityFrontend` repository (to run on `dev.yourdomain.com`).
-    - Clear documentation in `README.md` with environment variables (`CONTROL_PLANE_DATABASE_URL`, `CONTROL_PLANE_ENCRYPTION_KEY`) and route mounting steps.
-  - Also wire the module into the local `DevControlCenter` in [`src/components/dev-control-center.tsx`](file:///e:/work/pharmaql/src/components/dev-control-center.tsx) under a new `"tenants"` tab for local development and parity.
+  - [`src/modules/control-plane/README.md`](file:///e:/work/pharmaql/src/modules/control-plane/README.md)
+- **Details**:
+  - Mount tenant management controls when `isDevPortal === true`:
+    - Server actions: `listTenantsAction`, `createTenantAction`, `updateTenantAction`, `toggleTenantActiveAction`, `testDbConnectionAction`.
+    - Management UI: list registered tenants, configure custom domains, edit white-label details (branding, address, contact, tax/registration details), select connectivity type (direct Postgres vs. on-premise API server), input encrypted credentials, and run live ping connectivity checks.
+  - Provide a portable, drop-in integration package and `README.md` for mounting directly into `DevfinityFrontend` (`devfinity.net`).
 
 ### Task 7: Verification, Automated Vitest Suite & Build Validation
 - **Files**:
   - Vitest test suites (`src/lib/__tests__/*.test.ts`)
   - Integration sanity checks
-- **Description**:
-  - Run all Vitest suites testing encryption, server storage, tenant resolution, and connection pooling.
-  - Verify clean TypeScript check (`pnpm run typecheck`).
-  - Verify production Next.js build (`pnpm run build`).
-  - Validate that existing local dev remains fully functional even when `CONTROL_PLANE_DATABASE_URL` is omitted.
+- **Details**:
+  - Run Vitest unit tests verifying AES-256-GCM encryption/decryption, server storage fallback, and pool lifecycle (`pnpm test`).
+  - Run type safety validation (`pnpm run typecheck`).
+  - Run production build validation (`pnpm run build`).
 
 ---
 
-## Success Criteria
-- [ ] `@neondatabase/serverless` and `pg` installed and configured.
-- [ ] AES-256-GCM authenticated encryption securely handles all client DB credentials.
-- [ ] Control plane tables in Neon seamlessly auto-migrate on first connection.
-- [ ] `readServerJson`/`writeServerJson` persist data in Neon Postgres, solving Vercel state loss for notices, toggles, and subscriptions.
-- [ ] Host-based tenant resolution works with 5-minute in-memory TTL caching.
-- [ ] Dev Portal domain supports tenant switching via header or query param.
-- [ ] Unknown domains are safely stopped with a 404 page.
-- [ ] Dynamic client DB connection pool enforces read-only safety (`SET SESSION CHARACTERISTICS AS TRANSACTION READ ONLY`) and evicts idle pools.
-- [ ] Dynamic white-label branding renders tenant name and logo.
-- [ ] Full Tenant Management tab operational in Developer Control Center.
-- [ ] All Vitest tests pass and `pnpm run build` succeeds without type errors.
+## Verification & Acceptance Criteria
+1. **Vitest Unit Tests:** Run `pnpm test` (verify AES-256-GCM encryption/decryption, server storage fallback, and pool lifecycle).
+2. **Type Safety:** Run `pnpm run typecheck` (zero TypeScript errors).
+3. **Build:** Run `pnpm run build` (Next.js production build succeeds cleanly).
+4. **Behavioral Checks:**
+   - Navigating to `process.env.DEV_PORTAL_DOMAIN` (`devfinity.net`, `pharmaql.devfinity.net`, or `localhost`) loads the Developer Control Center.
+   - Navigating to a registered client domain (e.g., `portal.asmeepharma.com`) loads the application with that client's specific branding, stationery, and read-only data.
+   - Navigating to an unmapped domain returns an HTTP 404 page.
+   - Dynamic client database transactions are strictly read-only (`SET SESSION CHARACTERISTICS AS TRANSACTION READ ONLY`).

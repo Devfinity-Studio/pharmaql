@@ -27,15 +27,17 @@ The Dev Portal is isolated to the developer's private domain (`DEV_PORTAL_DOMAIN
 
 ### 3. Tenant Resolution & Routing Middleware
 - **Domain Matching**: Incoming `Host` header matched against `tenants.custom_domain`.
-- **Dev Portal Domain**: Requests on `DEV_PORTAL_DOMAIN` (or developer portal host) bypass public tenant matching and allow tenant context switching via `x-tenant-slug` header or `?tenant=` query parameter.
-- **Unmapped / Unknown Domains**: Returns a clean HTTP 404 / "Tenant Not Found" page. Public visitors cannot discover the Dev Portal.
-- **Caching**: Resolved tenant metadata is cached in an in-memory TTL cache (5 minutes) to avoid repetitive queries to Neon on every incoming request. Cache is invalidated on tenant update.
+- **Developer Portal Domain**: Requests on `process.env.DEV_PORTAL_DOMAIN` (`devfinity.net`, `pharmaql.devfinity.net`, or `localhost`) set `isDevPortal: true` and allow tenant switching via `x-tenant-slug` header or `?tenant=` query parameter.
+- **Edge Middleware Safety**: Strictly zero `pg` or Node.js native `net` imports in middleware. Queries run via `@neondatabase/serverless` over HTTP (`neon(process.env.CONTROL_PLANE_DATABASE_URL)`).
+- **Unmapped / Unknown Domains**: Returns a clean HTTP 404 / "Tenant Not Found" page to avoid leaking routes or portal structure.
+- **Caching**: Multi-layer caching combines an in-memory TTL map (5 minutes) with Next.js `unstable_cache` tagged with `tenant-lookup`. Cache is invalidated via `revalidateTag` upon tenant updates.
 
 ### 4. Hybrid Client Database Resolution Model
 - **Direct PostgreSQL Connection Pools**:
   - For cloud/accessible PostgreSQL client databases, `tenant-pool.ts` instantiates connection pools keyed by `tenant.id`.
-  - Enforces `SET SESSION CHARACTERISTICS AS TRANSACTION READ ONLY` on pool checkout to guarantee ERP read-only safety.
-  - Automatically evicts idle pools after 15 minutes of inactivity to prevent connection leaks.
+  - Configures serverless pool bounds: `max: 2` per lambda container and `idleTimeoutMillis: 300000` (5 min).
+  - Enforces `SET SESSION CHARACTERISTICS AS TRANSACTION READ ONLY` on `'connect'` event to guarantee 100% ERP read-only safety.
+  - Automatically evicts idle pools after 15 minutes of inactivity to prevent connection exhaustion.
 - **On-Premise API Server (.exe) Proxying**:
   - For client ERPs residing behind corporate firewalls (such as Windows MySQL servers running `api-server.exe` managed by NSSM), the app routes requests to the tenant's configured `api_server_url` using decrypted `api_server_key_encrypted`.
 
