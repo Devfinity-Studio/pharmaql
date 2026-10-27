@@ -50,8 +50,27 @@ export async function middleware(request: NextRequest) {
 		});
 	}
 
-	// 4. Admin Route IP Protection
+	// 4. Dev Portal Root Navigation: Redirect / on Dev Portal domain directly to /admin/tenants
+	if (isDevPortal && pathname === "/") {
+		const url = request.nextUrl.clone();
+		url.pathname = "/admin/tenants";
+		return NextResponse.redirect(url, {
+			headers: { "x-request-id": requestId },
+		});
+	}
+
+	// 5. Admin Route & Dev Portal Protection
 	if (pathname.startsWith("/admin")) {
+		// Strict isolation: Client domains CANNOT access /admin
+		if (!isDevPortal) {
+			console.warn(`[Security] Blocked non-dev-portal host (${host}) from accessing admin route: ${pathname}`);
+			const url = request.nextUrl.clone();
+			url.pathname = "/tenant-not-found";
+			return NextResponse.rewrite(url, {
+				headers: { "x-request-id": requestId },
+			});
+		}
+
 		if (!isIpAllowedForAdmin(clientIp)) {
 			console.warn(`[Security] Blocked unauthorized IP access to ${pathname}: ${clientIp}`);
 			return new NextResponse(

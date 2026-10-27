@@ -9,6 +9,7 @@ import {
 	Building2,
 	ChevronLeft,
 	ChevronRight,
+	Database,
 	LayoutDashboard,
 	LogOut,
 	Menu,
@@ -73,6 +74,11 @@ export function CollapsibleSidebar({
 	];
 
 	const baseAdminNavItems = [
+		{
+			label: "Tenant Control",
+			href: "/admin/tenants",
+			icon: Database,
+		},
 		{
 			label: "Global Dashboard",
 			href: "/admin/dashboard",
