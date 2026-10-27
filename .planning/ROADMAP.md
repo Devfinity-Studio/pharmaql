@@ -274,5 +274,15 @@
 - [x] **Graceful Process Lifecycle & Error Handling**: Implement robust `SIGINT`, `SIGTERM`, `uncaughtException`, and `unhandledRejection` handlers in `api-server` to ensure clean database pool shutdown and reliable `stdout`/`stderr` logging when managed by NSSM.
 - [x] **Automated Build Scripts & NSSM Service Runbook**: Add `"build:exe"` pipeline script to `api-server/package.json` and document exact NSSM commands for service registration, working directory configuration, auto-restart on failure, and log redirection.
 
+## Phase 34: Multi-Tenant Control Plane & Dynamic Client DB Resolution
+
+- [ ] **Neon Control Plane Setup & Secret Encryption**: Define `tenants` table schema in Neon Serverless Postgres (`@neondatabase/serverless`) and implement AES-256-GCM symmetric encryption utility (`src/lib/crypto.ts`) using `CONTROL_PLANE_ENCRYPTION_KEY` for secure storage of client DB passwords and API keys.
+- [ ] **Dynamic Tenant Resolution Middleware & Caching**: Implement central tenant resolution in middleware/context checking `Host` headers, supporting `DEV_PORTAL_DOMAIN` tenant switching via `x-tenant-slug` header or `?tenant=` query parameter, with an in-memory 5-minute TTL cache to minimize control plane queries.
+- [ ] **Dynamic Read-Only Client Connection Pool**: Build `tenant-pool.ts` to dynamically instantiate and cache external client PostgreSQL connection pools keyed by `tenant.id` (15-min idle eviction) enforcing `SET SESSION CHARACTERISTICS AS TRANSACTION READ ONLY`.
+- [ ] **Dynamic UI Branding & Metadata Context**: Abstract hardcoded logos, titles, and portal labels across root layout and reports, dynamically rendering tenant branding and identity based on the resolved context.
+- [ ] **Developer Portal Control Plane Management**: Add tenant registration, status toggling (`is_active`), client DB connectivity pinging, and domain resolution validation tools in the Dev Control Center.
+- [ ] **Verification & Validation**: Verify custom domain resolution, Dev Portal tenant switching, secret encryption/decryption integrity, and clean production build.
+
+
 
 
