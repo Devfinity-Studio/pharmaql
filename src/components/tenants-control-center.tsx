@@ -26,7 +26,7 @@ import {
 	listTenantsAction,
 	toggleTenantStatusAction,
 	deleteTenantAction,
-	testDbConnectionAction,
+	testApiServerConnectionAction,
 } from "@/modules/control-plane/tenantActions";
 import { TenantModal } from "@/components/tenant-modal";
 
@@ -97,10 +97,10 @@ export function TenantsControlCenter({
 		}
 	};
 
-	const handlePingDb = async (tenant: TenantListItem) => {
+	const handlePingApiServer = async (tenant: TenantListItem) => {
 		setPingingId(tenant.id);
 		try {
-			const res = await testDbConnectionAction({ tenantId: tenant.id });
+			const res = await testApiServerConnectionAction({ tenantId: tenant.id });
 			setPingResults((prev) => ({
 				...prev,
 				[tenant.id]: {
@@ -459,13 +459,13 @@ export function TenantsControlCenter({
 												</button>
 											</td>
 
-											{/* Database Diagnostics */}
+											{/* API Server Diagnostics */}
 											<td className="px-5 py-4">
 												<div className="flex items-center gap-2">
 													<button
 														type="button"
-														onClick={() => handlePingDb(tenant)}
-														disabled={isPinging || !tenant.has_db_connection}
+														onClick={() => handlePingApiServer(tenant)}
+														disabled={isPinging || !tenant.api_server_url}
 														className="flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium bg-gray-800 hover:bg-gray-750 text-blue-400 border border-blue-500/30 rounded-lg transition-colors disabled:opacity-40"
 													>
 														{isPinging ? (
@@ -476,7 +476,7 @@ export function TenantsControlCenter({
 														) : (
 															<>
 																<Activity className="w-3 h-3" />
-																Ping DB
+																Ping API
 															</>
 														)}
 													</button>

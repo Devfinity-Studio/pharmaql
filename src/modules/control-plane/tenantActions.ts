@@ -1,6 +1,5 @@
 "use server";
 
-import { Client } from "pg";
 import { revalidatePath } from "next/cache";
 
 function safeRevalidatePath(path: string) {
@@ -40,7 +39,7 @@ export interface TenantListItem {
 	support_email?: string | null;
 	user_email_domain?: string | null;
 	gstin?: string | null;
-	db_type: "postgres" | "api_server";
+	db_type: "api_server";
 	api_server_url?: string | null;
 	legacy_db_name?: string | null;
 	erp_software_type?: string | null;
@@ -48,7 +47,6 @@ export interface TenantListItem {
 	loc_no?: number | null;
 	overdue_direct_block_days?: number | null;
 	overdue_division_block_days?: number | null;
-	has_db_connection: boolean;
 	has_api_key: boolean;
 	created_at?: string;
 	updated_at?: string;
@@ -70,8 +68,6 @@ export interface SaveTenantInput {
 	support_email?: string | null;
 	user_email_domain?: string | null;
 	gstin?: string | null;
-	db_type?: "postgres" | "api_server";
-	db_connection?: string | null; // Raw plaintext to be encrypted
 	api_server_url?: string | null;
 	api_server_key?: string | null; // Raw plaintext to be encrypted
 	legacy_db_name?: string | null;
@@ -82,10 +78,10 @@ export interface SaveTenantInput {
 	overdue_division_block_days?: number | null;
 }
 
-export interface DbPingResult {
+export interface ApiServerPingResult {
 	success: boolean;
+	status?: string;
 	db?: string;
-	version?: string;
 	latencyMs?: number;
 	error?: string;
 }
@@ -122,7 +118,7 @@ export async function listTenantsAction(): Promise<{
 				support_email: r.support_email,
 				user_email_domain: r.user_email_domain,
 				gstin: r.gstin,
-				db_type: r.db_type,
+				db_type: "api_server",
 				api_server_url: r.api_server_url,
 				legacy_db_name: r.legacy_db_name || "pdyasvmaster",
 				erp_software_type: r.erp_software_type || "Technomax",
@@ -130,7 +126,6 @@ export async function listTenantsAction(): Promise<{
 				loc_no: r.loc_no ?? 11,
 				overdue_direct_block_days: r.overdue_direct_block_days ?? 90,
 				overdue_division_block_days: r.overdue_division_block_days ?? 95,
-				has_db_connection: Boolean(r.db_connection_encrypted),
 				has_api_key: Boolean(r.api_server_key_encrypted),
 				created_at: r.created_at,
 				updated_at: r.updated_at,
@@ -164,7 +159,6 @@ export async function listTenantsAction(): Promise<{
 				loc_no,
 				overdue_direct_block_days,
 				overdue_division_block_days,
-				(db_connection_encrypted IS NOT NULL AND db_connection_encrypted != '') AS has_db_connection,
 				(api_server_key_encrypted IS NOT NULL AND api_server_key_encrypted != '') AS has_api_key,
 				created_at,
 				updated_at
@@ -188,7 +182,7 @@ export async function listTenantsAction(): Promise<{
 			support_email: r.support_email ? String(r.support_email) : null,
 			user_email_domain: r.user_email_domain ? String(r.user_email_domain) : null,
 			gstin: r.gstin ? String(r.gstin) : null,
-			db_type: (r.db_type as "postgres" | "api_server") || "postgres",
+			db_type: "api_server",
 			api_server_url: r.api_server_url ? String(r.api_server_url) : null,
 			legacy_db_name: r.legacy_db_name ? String(r.legacy_db_name) : "pdyasvmaster",
 			erp_software_type: r.erp_software_type ? String(r.erp_software_type) : "Technomax",
@@ -196,7 +190,6 @@ export async function listTenantsAction(): Promise<{
 			loc_no: r.loc_no !== null && r.loc_no !== undefined ? Number(r.loc_no) : 11,
 			overdue_direct_block_days: Number(r.overdue_direct_block_days) || 90,
 			overdue_division_block_days: Number(r.overdue_division_block_days) || 95,
-			has_db_connection: Boolean(r.has_db_connection),
 			has_api_key: Boolean(r.has_api_key),
 			created_at: r.created_at ? new Date(r.created_at).toISOString() : undefined,
 			updated_at: r.updated_at ? new Date(r.updated_at).toISOString() : undefined,
@@ -211,7 +204,7 @@ export async function listTenantsAction(): Promise<{
 
 /**
  * Creates or updates a tenant.
- * Encrypts sensitive secrets (db_connection, api_server_key) before saving.
+ * Encrypts API server secret keys before saving.
  * Works seamlessly both with Neon Postgres and local data/tenants.json.
  */
 export async function saveTenantAction(
@@ -238,7 +231,7 @@ export async function saveTenantAction(
 		const supportEmail = input.support_email?.trim() || null;
 		const userEmailDomain = input.user_email_domain?.trim() || null;
 		const gstin = input.gstin?.trim().toUpperCase() || null;
-		const dbType = input.db_type || "postgres";
+		const dbType = "api_server";
 		const apiServerUrl = input.api_server_url?.trim() || null;
 		const legacyDbName = input.legacy_db_name?.trim() || "pdyasvmaster";
 		const erpSoftwareType = input.erp_software_type?.trim() || "Technomax";
@@ -247,10 +240,6 @@ export async function saveTenantAction(
 		const directBlockDays = Number(input.overdue_direct_block_days) || 90;
 		const divisionBlockDays = Number(input.overdue_division_block_days) || 95;
 		const isActive = input.is_active ?? true;
-
-		const dbConnEncrypted = input.db_connection?.trim()
-			? encryptSecret(input.db_connection.trim())
-			: null;
 
 		const apiKeyEncrypted = input.api_server_key?.trim()
 			? encryptSecret(input.api_server_key.trim())
@@ -277,7 +266,7 @@ export async function saveTenantAction(
 				user_email_domain: userEmailDomain,
 				gstin,
 				db_type: dbType,
-				db_connection_encrypted: dbConnEncrypted,
+				db_connection_encrypted: null,
 				api_server_url: apiServerUrl,
 				api_server_key_encrypted: apiKeyEncrypted,
 				legacy_db_name: legacyDbName,
@@ -321,7 +310,6 @@ export async function saveTenantAction(
 					loc_no = ${locNo},
 					overdue_direct_block_days = ${directBlockDays},
 					overdue_division_block_days = ${divisionBlockDays},
-					${dbConnEncrypted ? sql`db_connection_encrypted = ${dbConnEncrypted},` : sql``}
 					${apiKeyEncrypted ? sql`api_server_key_encrypted = ${apiKeyEncrypted},` : sql``}
 					updated_at = NOW()
 				WHERE id = ${input.id};
@@ -348,7 +336,6 @@ export async function saveTenantAction(
 					user_email_domain,
 					gstin,
 					db_type,
-					db_connection_encrypted,
 					api_server_url,
 					api_server_key_encrypted,
 					legacy_db_name,
@@ -373,7 +360,6 @@ export async function saveTenantAction(
 					${userEmailDomain},
 					${gstin},
 					${dbType},
-					${dbConnEncrypted},
 					${apiServerUrl},
 					${apiKeyEncrypted},
 					${legacyDbName},
@@ -453,75 +439,101 @@ export async function deleteTenantAction(
 }
 
 /**
- * Diagnoses and benchmarks connectivity to a client PostgreSQL database.
+ * Diagnoses and benchmarks connectivity to a client On-Premises API Server.
+ * Sends a GET request to ${apiServerUrl}/health with authentication header.
+ * Measures roundtrip latency (ms) and reports server health.
  */
-export async function testDbConnectionAction(params: {
+export async function testApiServerConnectionAction(params: {
 	tenantId?: string;
-	rawDbConnection?: string;
-}): Promise<DbPingResult> {
-	let connectionString = params.rawDbConnection?.trim();
+	rawApiServerUrl?: string;
+	rawApiKey?: string;
+	apiServerUrl?: string;
+	apiKey?: string;
+}): Promise<ApiServerPingResult> {
+	let targetUrl = (params.rawApiServerUrl || params.apiServerUrl)?.trim();
+	let apiKey = (params.rawApiKey || params.apiKey)?.trim();
 
-	if (!connectionString && params.tenantId) {
+	if ((!targetUrl || !apiKey) && params.tenantId) {
 		try {
 			const sql = getControlPlaneSql();
 			if (!sql) {
 				const localTenants = await getLocalTenants();
 				const target = localTenants.find((t) => t.id === params.tenantId);
-				if (target?.db_connection_encrypted) {
-					connectionString = decryptSecret(target.db_connection_encrypted);
+				if (target) {
+					targetUrl = targetUrl || target.api_server_url || undefined;
+					if (!apiKey && target.api_server_key_encrypted) {
+						apiKey = decryptSecret(target.api_server_key_encrypted);
+					}
 				}
 			} else {
 				await initControlPlaneRelationalSchema();
 				const rows = await sql`
-					SELECT db_connection_encrypted FROM tenants WHERE id = ${params.tenantId};
+					SELECT api_server_url, api_server_key_encrypted FROM tenants WHERE id = ${params.tenantId};
 				`;
 				const first = rows[0];
-				if (first?.db_connection_encrypted) {
-					connectionString = decryptSecret(first.db_connection_encrypted);
+				if (first) {
+					targetUrl = targetUrl || first.api_server_url || undefined;
+					if (!apiKey && first.api_server_key_encrypted) {
+						apiKey = decryptSecret(first.api_server_key_encrypted);
+					}
 				}
 			}
 		} catch (err: any) {
 			return {
 				success: false,
-				error: `Failed to decrypt tenant connection secret: ${err.message}`,
+				error: `Failed to resolve tenant API credentials: ${err.message}`,
 			};
 		}
 	}
 
-	if (!connectionString) {
+	if (!targetUrl) {
 		return {
 			success: false,
-			error: "No database connection URI provided.",
+			error: "No API Server URL configured for this tenant.",
 		};
 	}
 
+	const cleanBase = targetUrl.replace(/\/$/, "");
+	const healthEndpoint = `${cleanBase}/health`;
 	const startTime = Date.now();
-	const client = new Client({
-		connectionString,
-		connectionTimeoutMillis: 5000,
-		statement_timeout: 5000,
-	});
 
 	try {
-		await client.connect();
-		const res = await client.query<{ db: string; version: string }>(
-			"SELECT current_database() as db, version() as version;",
-		);
+		const headers: HeadersInit = {};
+		if (apiKey) {
+			headers["Authorization"] = `Bearer ${apiKey}`;
+		}
+
+		const response = await fetch(healthEndpoint, {
+			method: "GET",
+			headers,
+			signal: AbortSignal.timeout(5000),
+		});
+
 		const latencyMs = Date.now() - startTime;
-		const row = res.rows[0];
+
+		if (!response.ok) {
+			return {
+				success: false,
+				latencyMs,
+				error: `HTTP ${response.status}: ${response.statusText}`,
+			};
+		}
+
+		const data = (await response.json().catch(() => ({}))) as any;
 
 		return {
 			success: true,
-			db: row?.db || "postgres",
-			version: row?.version?.split(" ")[0] || "PostgreSQL",
+			status: data.status || "healthy",
+			db: data.db || "connected",
 			latencyMs,
 		};
 	} catch (err: any) {
 		return {
 			success: false,
-			error: err.message || "Failed to establish database connection.",
+			error: err.name === "TimeoutError" ? "Connection timed out after 5000ms" : err.message || "Failed to reach API server",
 		};
-	} finally {
-		await client.end().catch(() => {});
 	}
 }
+
+// Backward-compatible alias
+export const testDbConnectionAction = testApiServerConnectionAction;

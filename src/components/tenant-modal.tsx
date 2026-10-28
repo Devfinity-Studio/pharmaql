@@ -3,7 +3,6 @@
 import React, { useState } from "react";
 import {
 	X,
-	Database,
 	Server,
 	Building,
 	FileText,
@@ -20,10 +19,10 @@ import {
 } from "lucide-react";
 import {
 	saveTenantAction,
-	testDbConnectionAction,
+	testApiServerConnectionAction,
 	type TenantListItem,
 	type SaveTenantInput,
-	type DbPingResult,
+	type ApiServerPingResult,
 } from "@/modules/control-plane/tenantActions";
 
 interface TenantModalProps {
@@ -60,12 +59,7 @@ export function TenantModal({
 	const [userEmailDomain, setUserEmailDomain] = useState(initialTenant?.user_email_domain || "");
 	const [gstin, setGstin] = useState(initialTenant?.gstin || "");
 
-	// 3. ERP & Database Integration
-	const [dbType, setDbType] = useState<"postgres" | "api_server">(
-		initialTenant?.db_type || "postgres",
-	);
-	const [dbConnection, setDbConnection] = useState("");
-	const [showDbConnection, setShowDbConnection] = useState(false);
+	// 3. ERP & API Server Integration
 	const [apiServerUrl, setApiServerUrl] = useState(initialTenant?.api_server_url || "");
 	const [apiServerKey, setApiServerKey] = useState("");
 	const [showApiKey, setShowApiKey] = useState(false);
@@ -83,26 +77,27 @@ export function TenantModal({
 	);
 
 	// Diagnostics & Submission state
-	const [isTestingDb, setIsTestingDb] = useState(false);
-	const [testResult, setTestResult] = useState<DbPingResult | null>(null);
+	const [isTestingApi, setIsTestingApi] = useState(false);
+	const [testResult, setTestResult] = useState<ApiServerPingResult | null>(null);
 	const [isSubmitting, setIsSubmitting] = useState(false);
 	const [formError, setFormError] = useState<string | null>(null);
 
 	if (!isOpen) return null;
 
-	const handleTestDb = async () => {
+	const handleTestApi = async () => {
 		setTestResult(null);
-		setIsTestingDb(true);
+		setIsTestingApi(true);
 		try {
-			const res = await testDbConnectionAction({
+			const res = await testApiServerConnectionAction({
 				tenantId: initialTenant?.id,
-				rawDbConnection: dbConnection.trim() || undefined,
+				rawApiServerUrl: apiServerUrl.trim() || undefined,
+				rawApiKey: apiServerKey.trim() || undefined,
 			});
 			setTestResult(res);
 		} catch (err: any) {
-			setTestResult({ success: false, error: err.message || "Failed to run ping test." });
+			setTestResult({ success: false, error: err.message || "Failed to reach API server." });
 		} finally {
-			setIsTestingDb(false);
+			setIsTestingApi(false);
 		}
 	};
 
@@ -139,8 +134,6 @@ export function TenantModal({
 				support_email: supportEmail.trim() || null,
 				user_email_domain: userEmailDomain.trim() || null,
 				gstin: gstin.trim() || null,
-				db_type: dbType,
-				db_connection: dbConnection.trim() || null,
 				api_server_url: apiServerUrl.trim() || null,
 				api_server_key: apiServerKey.trim() || null,
 				legacy_db_name: legacyDbName.trim() || "pdyasvmaster",
@@ -179,10 +172,10 @@ export function TenantModal({
 						</div>
 						<div>
 							<h3 className="text-lg font-bold">
-								{isEdit ? `Edit Tenant: ${initialTenant?.display_name}` : "Onboard New Client Tenant"}
+								{isEdit ? `Edit Tenant: ${initialTenant?.display_name}` : "Onboard New Client Organization"}
 							</h3>
 							<p className="text-xs text-gray-400">
-								Configure dynamic branding, domain routing, ERP integration, CompNo/LocNo, and policies
+								Configure dynamic branding, domain routing, API Server credentials, CompNo/LocNo, and policies
 							</p>
 						</div>
 					</div>
@@ -230,8 +223,8 @@ export function TenantModal({
 								: "border-transparent text-gray-400 hover:text-gray-200"
 						}`}
 					>
-						<Database className="w-3.5 h-3.5" />
-						3. ERP & Database
+						<Server className="w-3.5 h-3.5" />
+						3. ERP & API Server
 					</button>
 					<button
 						type="button"
@@ -483,9 +476,122 @@ export function TenantModal({
 						</div>
 					)}
 
-					{/* Tab 3: ERP & Database Integration */}
+					{/* Tab 3: ERP & API Server Integration */}
 					{activeTab === "erp" && (
 						<div className="space-y-4">
+							{/* Client API Server Configuration */}
+							<div className="p-4 bg-gray-950/80 border border-gray-800 rounded-xl space-y-4">
+								<div className="flex items-center justify-between">
+									<div className="flex items-center gap-2">
+										<Server className="w-4 h-4 text-cyan-400" />
+										<span className="text-xs font-bold text-white">Client On-Premises API Server</span>
+									</div>
+									{isEdit && initialTenant?.has_api_key && (
+										<span className="text-[11px] text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20 font-medium">
+											✓ API Key Configured
+										</span>
+									)}
+								</div>
+
+								<div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+									<div>
+										<label className="block text-xs font-medium text-gray-300 mb-1">
+											API Server Base URL
+										</label>
+										<input
+											type="text"
+											placeholder="https://api.asmeepharma.com"
+											value={apiServerUrl}
+											onChange={(e) => setApiServerUrl(e.target.value)}
+											className="w-full px-3 py-2 bg-gray-900 border border-gray-800 rounded-xl text-sm focus:outline-none focus:border-blue-500 text-white placeholder-gray-500 font-mono"
+										/>
+										<p className="text-[10px] text-gray-500 mt-1">
+											Hosts Technomax queries and runs native api-server.exe
+										</p>
+									</div>
+
+									<div>
+										<label className="block text-xs font-medium text-gray-300 mb-1">
+											API Secret Key (AES-256-GCM Encrypted)
+										</label>
+										<div className="relative">
+											<input
+												type={showApiKey ? "text" : "password"}
+												placeholder={
+													isEdit && initialTenant?.has_api_key
+														? "•••••••• (Leave blank to keep current key)"
+														: "Enter API authentication key"
+												}
+												value={apiServerKey}
+												onChange={(e) => setApiServerKey(e.target.value)}
+												className="w-full px-3 py-2 pr-10 bg-gray-900 border border-gray-800 rounded-xl text-sm focus:outline-none focus:border-blue-500 text-white placeholder-gray-500 font-mono"
+											/>
+											<button
+												type="button"
+												onClick={() => setShowApiKey(!showApiKey)}
+												className="absolute right-2.5 top-2.5 text-gray-400 hover:text-white"
+											>
+												{showApiKey ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+											</button>
+										</div>
+										<p className="text-[10px] text-gray-500 mt-1">
+											Encrypted in Neon using CONTROL_PLANE_ENCRYPTION_KEY
+										</p>
+									</div>
+								</div>
+
+								{/* Inline API Server Test Diagnostics */}
+								<div className="pt-2 border-t border-gray-800/80 flex items-center justify-between">
+									<div className="flex items-center gap-1.5 text-xs text-gray-400">
+										<Activity className="w-3.5 h-3.5 text-cyan-400" />
+										Test endpoint: <span className="font-mono text-gray-300">/health</span>
+									</div>
+									<button
+										type="button"
+										onClick={handleTestApi}
+										disabled={isTestingApi || (!apiServerUrl.trim() && !initialTenant?.api_server_url)}
+										className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-gray-800 hover:bg-gray-750 text-cyan-400 hover:text-cyan-300 border border-cyan-500/30 rounded-lg transition-colors disabled:opacity-50"
+									>
+										{isTestingApi ? (
+											<>
+												<Loader2 className="w-3.5 h-3.5 animate-spin" />
+												Pinging API...
+											</>
+										) : (
+											<>
+												<Activity className="w-3.5 h-3.5" />
+												Test API Server
+											</>
+										)}
+									</button>
+								</div>
+
+								{testResult && (
+									<div
+										className={`p-2.5 rounded-lg text-xs flex items-center gap-2 border ${
+											testResult.success
+												? "bg-emerald-500/10 border-emerald-500/30 text-emerald-300"
+												: "bg-rose-500/10 border-rose-500/30 text-rose-300"
+										}`}
+									>
+										{testResult.success ? (
+											<>
+												<CheckCircle2 className="w-4 h-4 shrink-0" />
+												<span>
+													<strong>Connected:</strong> API status <span className="font-mono">{testResult.status}</span> (DB: {testResult.db}) in{" "}
+													<span className="font-mono">{testResult.latencyMs}ms</span>
+												</span>
+											</>
+										) : (
+											<>
+												<AlertCircle className="w-4 h-4 shrink-0" />
+												<span>{testResult.error}</span>
+											</>
+										)}
+									</div>
+								)}
+							</div>
+
 							{/* ERP SQL Parameter Identifiers */}
 							<div className="p-3 bg-gray-950/70 border border-gray-800 rounded-xl space-y-3">
 								<div className="flex items-center gap-2 text-xs font-semibold text-gray-300">
@@ -536,165 +642,6 @@ export function TenantModal({
 											className="w-full px-3 py-1.5 bg-gray-900 border border-gray-800 rounded-lg text-xs font-mono text-white"
 										/>
 										<p className="text-[10px] text-gray-500 mt-0.5">Passed as location parameter to stored procedures</p>
-									</div>
-								</div>
-							</div>
-
-							{/* Architecture Type */}
-							<div>
-								<label className="block text-xs font-medium text-gray-300 mb-1">
-									Database Architecture Type
-								</label>
-								<div className="flex gap-4">
-									<label className="flex items-center gap-2 cursor-pointer text-xs text-gray-300">
-										<input
-											type="radio"
-											name="dbType"
-											value="postgres"
-											checked={dbType === "postgres"}
-											onChange={() => setDbType("postgres")}
-											className="text-blue-600 focus:ring-blue-500"
-										/>
-										Direct Dedicated Postgres
-									</label>
-									<label className="flex items-center gap-2 cursor-pointer text-xs text-gray-300">
-										<input
-											type="radio"
-											name="dbType"
-											value="api_server"
-											checked={dbType === "api_server"}
-											onChange={() => setDbType("api_server")}
-											className="text-blue-600 focus:ring-blue-500"
-										/>
-										On-Premises Windows API Server (.exe)
-									</label>
-								</div>
-							</div>
-
-							<div>
-								<div className="flex items-center justify-between mb-1">
-									<label className="block text-xs font-medium text-gray-300">
-										PostgreSQL Connection URI (AES-256-GCM Encrypted)
-									</label>
-									{isEdit && initialTenant?.has_db_connection && (
-										<span className="text-[11px] text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20">
-											✓ Credential Configured
-										</span>
-									)}
-								</div>
-								<div className="relative">
-									<input
-										type={showDbConnection ? "text" : "password"}
-										placeholder={
-											isEdit && initialTenant?.has_db_connection
-												? "•••••••• (Leave blank to keep current secret)"
-												: "postgresql://user:password@host.postgres.database:5432/dbname"
-										}
-										value={dbConnection}
-										onChange={(e) => setDbConnection(e.target.value)}
-										className="w-full px-3 py-2 pr-10 bg-gray-950 border border-gray-800 rounded-xl text-sm focus:outline-none focus:border-blue-500 text-white placeholder-gray-500 font-mono"
-									/>
-									<button
-										type="button"
-										onClick={() => setShowDbConnection(!showDbConnection)}
-										className="absolute right-2.5 top-2.5 text-gray-400 hover:text-white"
-									>
-										{showDbConnection ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-									</button>
-								</div>
-							</div>
-
-							{/* Connection Test Diagnostics */}
-							<div className="p-3 bg-gray-950/80 border border-gray-800 rounded-xl space-y-2">
-								<div className="flex items-center justify-between">
-									<span className="text-xs font-medium text-gray-300 flex items-center gap-1.5">
-										<Activity className="w-3.5 h-3.5 text-blue-400" />
-										Live Connectivity Diagnostic
-									</span>
-									<button
-										type="button"
-										onClick={handleTestDb}
-										disabled={isTestingDb || (!dbConnection.trim() && !initialTenant?.has_db_connection)}
-										className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-gray-800 hover:bg-gray-750 text-blue-400 hover:text-blue-300 border border-blue-500/30 rounded-lg transition-colors disabled:opacity-50"
-									>
-										{isTestingDb ? (
-											<>
-												<Loader2 className="w-3.5 h-3.5 animate-spin" />
-												Pinging DB...
-											</>
-										) : (
-											<>
-												<Server className="w-3.5 h-3.5" />
-												Test Connection
-											</>
-										)}
-									</button>
-								</div>
-
-								{testResult && (
-									<div
-										className={`p-2.5 rounded-lg text-xs flex items-center gap-2 border ${
-											testResult.success
-												? "bg-emerald-500/10 border-emerald-500/30 text-emerald-300"
-												: "bg-rose-500/10 border-rose-500/30 text-rose-300"
-										}`}
-									>
-										{testResult.success ? (
-											<>
-												<CheckCircle2 className="w-4 h-4 shrink-0" />
-												<span>
-													<strong>Connected:</strong> {testResult.db} ({testResult.version}) in{" "}
-													<span className="font-mono">{testResult.latencyMs}ms</span>
-												</span>
-											</>
-										) : (
-											<>
-												<AlertCircle className="w-4 h-4 shrink-0" />
-												<span>{testResult.error}</span>
-											</>
-										)}
-									</div>
-								)}
-							</div>
-
-							{/* API Server Section */}
-							<div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2 border-t border-gray-800">
-								<div>
-									<label className="block text-xs font-medium text-gray-300 mb-1">
-										API Server URL
-									</label>
-									<input
-										type="text"
-										placeholder="https://api.clientb.com:8443"
-										value={apiServerUrl}
-										onChange={(e) => setApiServerUrl(e.target.value)}
-										className="w-full px-3 py-2 bg-gray-950 border border-gray-800 rounded-xl text-sm focus:outline-none focus:border-blue-500 text-white placeholder-gray-500 font-mono"
-									/>
-								</div>
-
-								<div>
-									<label className="block text-xs font-medium text-gray-300 mb-1">
-										API Server Secret Key
-									</label>
-									<div className="relative">
-										<input
-											type={showApiKey ? "text" : "password"}
-											placeholder={
-												isEdit && initialTenant?.has_api_key
-													? "•••••••• (Leave blank to keep current key)"
-													: "API Auth Secret Key"
-											}
-											value={apiServerKey}
-											onChange={(e) => setApiServerKey(e.target.value)}
-											className="w-full px-3 py-2 pr-10 bg-gray-950 border border-gray-800 rounded-xl text-sm focus:outline-none focus:border-blue-500 text-white placeholder-gray-500 font-mono"
-										/>
-										<button
-											type="button"
-											onClick={() => setShowApiKey(!showApiKey)}
-											className="absolute right-2.5 top-2.5 text-gray-400 hover:text-white"
-										>
-											{showApiKey ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-										</button>
 									</div>
 								</div>
 							</div>

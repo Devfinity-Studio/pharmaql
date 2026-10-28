@@ -4,7 +4,7 @@ import {
 	saveTenantAction,
 	toggleTenantStatusAction,
 	deleteTenantAction,
-	testDbConnectionAction,
+	testApiServerConnectionAction,
 } from "../tenantActions";
 import * as controlPlaneDb from "@/lib/control-plane-db";
 import * as crypto from "@/lib/crypto";
@@ -35,19 +35,47 @@ describe("tenantActions Server Actions", () => {
 		});
 	});
 
-	describe("Database Ping Diagnostics", () => {
-		it("fails gracefully when no connection URI is supplied", async () => {
-			const res = await testDbConnectionAction({});
+	describe("API Server Ping Diagnostics", () => {
+		it("fails gracefully when no API server URL is supplied", async () => {
+			const res = await testApiServerConnectionAction({});
 			expect(res.success).toBe(false);
-			expect(res.error).toMatch(/No database connection URI/i);
+			expect(res.error).toMatch(/No API Server URL/i);
 		});
 
-		it("fails gracefully with connection error for unreachable database URI", async () => {
-			const res = await testDbConnectionAction({
-				rawDbConnection: "postgresql://fakeuser:fakepass@127.0.0.1:59999/fakedb",
+		it("returns success when API server responds with healthy status", async () => {
+			vi.stubGlobal(
+				"fetch",
+				vi.fn().mockResolvedValue({
+					ok: true,
+					status: 200,
+					json: vi.fn().mockResolvedValue({ status: "healthy", database: "connected" }),
+				}),
+			);
+
+			const res = await testApiServerConnectionAction({
+				apiServerUrl: "http://192.168.1.100:8000",
+				apiKey: "test-secret-key",
 			});
+
+			expect(res.success).toBe(true);
+			expect(res.status).toBe("healthy");
+			expect(res.db).toBe("connected");
+			vi.unstubAllGlobals();
+		});
+
+		it("fails gracefully with network timeout or error for unreachable API server", async () => {
+			vi.stubGlobal(
+				"fetch",
+				vi.fn().mockRejectedValue(new Error("connect ECONNREFUSED 192.168.1.999:8000")),
+			);
+
+			const res = await testApiServerConnectionAction({
+				apiServerUrl: "http://192.168.1.999:8000",
+			});
+
 			expect(res.success).toBe(false);
-			expect(res.error).toBeDefined();
+			expect(res.error).toMatch(/ECONNREFUSED/i);
+			vi.unstubAllGlobals();
 		});
 	});
 
@@ -62,7 +90,7 @@ describe("tenantActions Server Actions", () => {
 				slug: "client-local",
 				display_name: "Client Local Pharma",
 				is_active: true,
-				db_type: "postgres" as const,
+				db_type: "api_server" as const,
 				comp_no: 12,
 				loc_no: 12,
 				primary_color: "#1E40AF",
@@ -96,6 +124,7 @@ describe("tenantActions Server Actions", () => {
 					primary_color: "#0B2545",
 					overdue_direct_block_days: 90,
 					overdue_division_block_days: 95,
+					api_server_key_encrypted: "encrypted_key_sample",
 				},
 			];
 			vi.spyOn(localTenantsStore, "getLocalTenants").mockResolvedValue(mockTenants as any);
@@ -105,6 +134,7 @@ describe("tenantActions Server Actions", () => {
 			expect(res.tenants).toHaveLength(1);
 			expect(res.tenants[0]?.comp_no).toBe(11);
 			expect(res.tenants[0]?.primary_color).toBe("#0B2545");
+			expect(res.tenants[0]?.has_api_key).toBe(true);
 		});
 
 		it("toggles status in local file store", async () => {
@@ -123,7 +153,7 @@ describe("tenantActions Server Actions", () => {
 	});
 
 	describe("Neon Cloud SQL Flow (When CONTROL_PLANE_DATABASE_URL is set)", () => {
-		it("correctly encrypts database connection string using AES-256-GCM before saving", async () => {
+		it("correctly encrypts api server key using AES-256-GCM before saving", async () => {
 			const mockSql: any = vi.fn().mockImplementation((strings: TemplateStringsArray, ...values: any[]) => {
 				return Promise.resolve([{ id: "test-uuid-1234" }]);
 			});
@@ -136,11 +166,10 @@ describe("tenantActions Server Actions", () => {
 			const res = await saveTenantAction({
 				slug: "client-one",
 				display_name: "Client One Pharma",
-				db_connection: "postgresql://usr:secret@db.client.com:5432/pharma",
+				api_server_url: "http://192.168.1.50:8000",
 				api_server_key: "my-api-secret-key",
 			});
 
-			expect(encryptSpy).toHaveBeenCalledWith("postgresql://usr:secret@db.client.com:5432/pharma");
 			expect(encryptSpy).toHaveBeenCalledWith("my-api-secret-key");
 			expect(res.success).toBe(true);
 			expect(res.id).toBe("test-uuid-1234");
@@ -155,8 +184,7 @@ describe("tenantActions Server Actions", () => {
 					is_active: true,
 					display_name: "Asmee Pharma",
 					short_name: "Asmee",
-					db_type: "postgres",
-					has_db_connection: true,
+					db_type: "api_server",
 					has_api_key: false,
 					created_at: new Date().toISOString(),
 					updated_at: new Date().toISOString(),
@@ -170,9 +198,7 @@ describe("tenantActions Server Actions", () => {
 			const res = await listTenantsAction();
 			expect(res.success).toBe(true);
 			expect(res.tenants).toHaveLength(1);
-			expect(res.tenants[0]?.has_db_connection).toBe(true);
 			expect(res.tenants[0]?.has_api_key).toBe(false);
-			expect((res.tenants[0] as any).db_connection_encrypted).toBeUndefined();
 			expect((res.tenants[0] as any).api_server_key_encrypted).toBeUndefined();
 		});
 	});
