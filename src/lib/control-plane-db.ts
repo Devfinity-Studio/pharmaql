@@ -120,18 +120,16 @@ export async function initControlPlaneRelationalSchema(): Promise<boolean> {
 		`;
 
 		// Ensure columns exist if table was previously created
-		await sql`
-			ALTER TABLE tenants ADD COLUMN IF NOT EXISTS primary_color VARCHAR(32);
-			ALTER TABLE tenants ADD COLUMN IF NOT EXISTS accent_color VARCHAR(32);
-			ALTER TABLE tenants ADD COLUMN IF NOT EXISTS support_email VARCHAR(128);
-			ALTER TABLE tenants ADD COLUMN IF NOT EXISTS user_email_domain VARCHAR(128);
-			ALTER TABLE tenants ADD COLUMN IF NOT EXISTS legacy_db_name VARCHAR(128);
-			ALTER TABLE tenants ADD COLUMN IF NOT EXISTS erp_software_type VARCHAR(64);
-			ALTER TABLE tenants ADD COLUMN IF NOT EXISTS comp_no INTEGER;
-			ALTER TABLE tenants ADD COLUMN IF NOT EXISTS loc_no INTEGER;
-			ALTER TABLE tenants ADD COLUMN IF NOT EXISTS overdue_direct_block_days INTEGER DEFAULT 90;
-			ALTER TABLE tenants ADD COLUMN IF NOT EXISTS overdue_division_block_days INTEGER DEFAULT 95;
-		`;
+		await sql`ALTER TABLE tenants ADD COLUMN IF NOT EXISTS primary_color VARCHAR(32);`;
+		await sql`ALTER TABLE tenants ADD COLUMN IF NOT EXISTS accent_color VARCHAR(32);`;
+		await sql`ALTER TABLE tenants ADD COLUMN IF NOT EXISTS support_email VARCHAR(128);`;
+		await sql`ALTER TABLE tenants ADD COLUMN IF NOT EXISTS user_email_domain VARCHAR(128);`;
+		await sql`ALTER TABLE tenants ADD COLUMN IF NOT EXISTS legacy_db_name VARCHAR(128);`;
+		await sql`ALTER TABLE tenants ADD COLUMN IF NOT EXISTS erp_software_type VARCHAR(64);`;
+		await sql`ALTER TABLE tenants ADD COLUMN IF NOT EXISTS comp_no INTEGER;`;
+		await sql`ALTER TABLE tenants ADD COLUMN IF NOT EXISTS loc_no INTEGER;`;
+		await sql`ALTER TABLE tenants ADD COLUMN IF NOT EXISTS overdue_direct_block_days INTEGER DEFAULT 90;`;
+		await sql`ALTER TABLE tenants ADD COLUMN IF NOT EXISTS overdue_division_block_days INTEGER DEFAULT 95;`;
 
 		// 2. Tenant Notices
 		await sql`
