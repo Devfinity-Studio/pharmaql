@@ -29,6 +29,7 @@ import {
 	testApiServerConnectionAction,
 } from "@/modules/control-plane/tenantActions";
 import { TenantModal } from "@/components/tenant-modal";
+import { DomainDiagnosticModal } from "@/components/domain-diagnostic-modal";
 
 interface TenantsControlCenterProps {
 	initialTenants: TenantListItem[];
@@ -44,6 +45,13 @@ export function TenantsControlCenter({
 	// Modal State
 	const [isModalOpen, setIsModalOpen] = useState(false);
 	const [editingTenant, setEditingTenant] = useState<TenantListItem | null>(null);
+
+	// Diagnostic Modal State
+	const [diagnosticTenant, setDiagnosticTenant] = useState<{
+		id: string;
+		domain: string;
+		name: string;
+	} | null>(null);
 
 	// Action States
 	const [pingingId, setPingingId] = useState<string | null>(null);
@@ -513,6 +521,20 @@ export function TenantsControlCenter({
 												<div className="flex items-center justify-end gap-1.5">
 													<button
 														type="button"
+														onClick={() =>
+															setDiagnosticTenant({
+																id: tenant.id,
+																domain: tenant.custom_domain || "",
+																name: tenant.display_name,
+															})
+														}
+														className="p-1.5 rounded-lg text-gray-400 hover:text-cyan-400 hover:bg-cyan-500/10 transition-colors"
+														title="Check DNS & SSL Status"
+													>
+														<Globe className="w-4 h-4" />
+													</button>
+													<button
+														type="button"
 														onClick={() => openEditModal(tenant)}
 														className="p-1.5 rounded-lg text-gray-400 hover:text-white hover:bg-gray-800 transition-colors"
 														title="Edit Tenant"
@@ -538,7 +560,7 @@ export function TenantsControlCenter({
 				)}
 			</div>
 
-			{/* Modal Dialog */}
+			{/* Tenant Create/Edit Modal Dialog */}
 			{isModalOpen && (
 				<TenantModal
 					key={editingTenant ? `edit-${editingTenant.id}` : "create-new-tenant"}
@@ -549,6 +571,17 @@ export function TenantsControlCenter({
 					}}
 					onSaved={handleRefresh}
 					initialTenant={editingTenant}
+				/>
+			)}
+
+			{/* Domain Diagnostic Modal */}
+			{diagnosticTenant && (
+				<DomainDiagnosticModal
+					isOpen={Boolean(diagnosticTenant)}
+					onClose={() => setDiagnosticTenant(null)}
+					tenantId={diagnosticTenant.id}
+					customDomain={diagnosticTenant.domain}
+					tenantName={diagnosticTenant.name}
 				/>
 			)}
 		</div>

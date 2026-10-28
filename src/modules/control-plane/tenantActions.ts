@@ -24,6 +24,13 @@ import {
 } from "@/lib/local-tenants-store";
 import { normalizeApiUrl } from "@/lib/utils";
 import { invalidateTenantCache } from "@/lib/tenant-resolver";
+import dns from "node:dns/promises";
+import {
+	addDomainToVercel,
+	removeDomainFromVercel,
+	getDomainVerification,
+	isVercelConfigured,
+} from "@/lib/vercel-domain-service";
 
 export interface TenantListItem {
 	id: string;
@@ -211,7 +218,7 @@ export async function listTenantsAction(): Promise<{
  */
 export async function saveTenantAction(
 	input: SaveTenantInput,
-): Promise<{ success: boolean; id?: string; error?: string }> {
+): Promise<{ success: boolean; id?: string; error?: string; vercelMessage?: string }> {
 	try {
 		if (!input.slug || !input.slug.trim()) {
 			return { success: false, error: "Tenant slug is required." };
@@ -353,10 +360,18 @@ export async function saveTenantAction(
 				`;
 			}
 
+			let vercelMessage: string | undefined;
+			if (cleanDomain) {
+				try {
+					const vRes = await addDomainToVercel(cleanDomain);
+					if (vRes.message) vercelMessage = vRes.message;
+				} catch {}
+			}
+
 			invalidateTenantCache(cleanSlug);
 			if (cleanDomain) invalidateTenantCache(cleanDomain);
 			safeRevalidatePath("/admin/tenants");
-			return { success: true, id: input.id };
+			return { success: true, id: input.id, vercelMessage };
 		} else {
 			// Insert new tenant into Neon
 			const rows = await sql`
@@ -414,10 +429,19 @@ export async function saveTenantAction(
 
 			const first = rows[0];
 			const newId = first?.id ? String(first.id) : undefined;
+
+			let vercelMessage: string | undefined;
+			if (cleanDomain) {
+				try {
+					const vRes = await addDomainToVercel(cleanDomain);
+					if (vRes.message) vercelMessage = vRes.message;
+				} catch {}
+			}
+
 			invalidateTenantCache(cleanSlug);
 			if (cleanDomain) invalidateTenantCache(cleanDomain);
 			safeRevalidatePath("/admin/tenants");
-			return { success: true, id: newId };
+			return { success: true, id: newId, vercelMessage };
 		}
 	} catch (err: any) {
 		console.error("[TenantActions] saveTenantAction error:", err);
@@ -472,7 +496,16 @@ export async function deleteTenantAction(
 		}
 
 		await initControlPlaneRelationalSchema();
+		const rows = await sql`SELECT custom_domain FROM tenants WHERE id = ${tenantId} LIMIT 1;`;
+		const domainToDelete = rows[0]?.custom_domain;
+
 		await sql`DELETE FROM tenants WHERE id = ${tenantId};`;
+
+		if (domainToDelete) {
+			try {
+				await removeDomainFromVercel(domainToDelete);
+			} catch {}
+		}
 
 		invalidateTenantCache();
 		safeRevalidatePath("/admin/tenants");
@@ -627,3 +660,144 @@ export async function testApiServerConnectionAction(params: {
 
 // Backward-compatible alias
 export const testDbConnectionAction = testApiServerConnectionAction;
+
+export interface DomainStatusResult {
+	success: boolean;
+	domain: string;
+	dnsOk: boolean;
+	cnameTargets: string[];
+	ipv4Addresses: string[];
+	sslOk: boolean;
+	vercelConfigured: boolean;
+	vercelVerified: boolean;
+	recommendations: string[];
+	error?: string;
+}
+
+/**
+ * Live diagnostic check for a custom domain: DNS (CNAME & A), Vercel verification, and SSL handshake.
+ */
+export async function checkDomainStatusAction(input: {
+	tenantId?: string;
+	customDomain?: string;
+}): Promise<DomainStatusResult> {
+	let targetDomain = input.customDomain?.trim() || "";
+
+	if (!targetDomain && input.tenantId) {
+		const sql = getControlPlaneSql();
+		if (sql) {
+			const rows = await sql`SELECT custom_domain FROM tenants WHERE id = ${input.tenantId} LIMIT 1`;
+			targetDomain = rows[0]?.custom_domain || "";
+		} else {
+			const local = (await getLocalTenants()).find((t) => t.id === input.tenantId);
+			targetDomain = local?.custom_domain || "";
+		}
+	}
+
+	const cleanDomain = targetDomain.toLowerCase().replace(/^https?:\/\//i, "").replace(/\/+$/, "").trim();
+
+	if (!cleanDomain) {
+		return {
+			success: false,
+			domain: "",
+			dnsOk: false,
+			cnameTargets: [],
+			ipv4Addresses: [],
+			sslOk: false,
+			vercelConfigured: isVercelConfigured(),
+			vercelVerified: false,
+			recommendations: ["Tenant has no custom domain configured."],
+			error: "No custom domain provided or configured for this tenant.",
+		};
+	}
+
+	let cnameTargets: string[] = [];
+	let ipv4Addresses: string[] = [];
+	let isCnameToVercel = false;
+	let isAtoVercel = false;
+
+	// 1. DNS Resolution (CNAME & A records)
+	try {
+		const cnames = await dns.resolveCname(cleanDomain).catch(() => []);
+		cnameTargets = Array.isArray(cnames) ? cnames : [];
+		isCnameToVercel = cnameTargets.some(
+			(target) =>
+				target.toLowerCase().includes("vercel-dns.com") ||
+				target.toLowerCase().includes("vercel.app") ||
+				target.toLowerCase().endsWith("vercel.com"),
+		);
+	} catch {}
+
+	try {
+		const ips = await dns.resolve4(cleanDomain).catch(() => []);
+		ipv4Addresses = Array.isArray(ips) ? ips : [];
+		isAtoVercel = ipv4Addresses.some((ip) => ip === "76.76.21.21");
+	} catch {}
+
+	let dnsOk = isCnameToVercel || isAtoVercel;
+
+	// 2. Vercel Authoritative Verification
+	let vercelVerified = false;
+	const vercelConfigured = isVercelConfigured();
+	if (vercelConfigured) {
+		const vercelCheck = await getDomainVerification(cleanDomain).catch(() => null);
+		if (vercelCheck?.verified) {
+			vercelVerified = true;
+			dnsOk = true;
+		}
+	}
+
+	// 3. SSL / HTTPS Handshake Probe
+	let sslOk = false;
+	try {
+		const probe = await fetch(`https://${cleanDomain}`, {
+			method: "HEAD",
+			signal: AbortSignal.timeout(5000),
+			redirect: "manual",
+		});
+		if (probe.status >= 200 && probe.status < 500) {
+			sslOk = true;
+		}
+	} catch (sslErr: any) {
+		if (vercelVerified) {
+			sslOk = true;
+		}
+	}
+
+	// 4. Actionable Recommendations Generation
+	const recommendations: string[] = [];
+	if (!dnsOk) {
+		recommendations.push(
+			`For subdomains (e.g. portal.domain.com): Add a DNS CNAME record pointing to 'cname.vercel-dns.com'.`,
+			`For apex domains (e.g. domain.com): Add a DNS A record pointing to '76.76.21.21'.`,
+			`If using Cloudflare: Set Proxy Status to 'DNS Only' (Gray Cloud icon) during initial verification.`,
+		);
+	} else if (!sslOk) {
+		recommendations.push(
+			`DNS is pointing correctly! Vercel Let's Encrypt SSL certificate generation is typically completed within 1 to 5 minutes.`,
+		);
+	} else {
+		recommendations.push(
+			`Domain is fully configured and secured with an active SSL certificate.`,
+		);
+	}
+
+	if (!vercelConfigured) {
+		recommendations.push(
+			`Tip: Configure VERCEL_API_TOKEN and VERCEL_PROJECT_ID in .env to enable instant automatic domain provisioning.`,
+		);
+	}
+
+	return {
+		success: true,
+		domain: cleanDomain,
+		dnsOk,
+		cnameTargets,
+		ipv4Addresses,
+		sslOk,
+		vercelConfigured,
+		vercelVerified,
+		recommendations,
+	};
+}
+

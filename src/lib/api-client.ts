@@ -7,15 +7,30 @@ const DEFAULT_API_SERVER_URL =
 	normalizeApiUrl(RAW_API_SERVER_URL) || "https://api.asmeepharma.com";
 const DEFAULT_API_SECRET_KEY = process.env.API_SECRET_KEY || "";
 
-interface ApiResponse<T> {
+export interface ApiResponse<T> {
 	success: boolean;
 	data?: T;
 	error?: string;
+	isOffline?: boolean;
 	debugSql?: string;
 	total?: number;
 	hasMore?: boolean;
 	page?: number;
 	limit?: number;
+}
+
+export function isOfflineError(error: any): boolean {
+	if (!error) return false;
+	const msg = typeof error === "string" ? error : error.message || "";
+	return (
+		error.name === "TimeoutError" ||
+		msg.includes("TimeoutError") ||
+		msg.includes("ECONNREFUSED") ||
+		msg.includes("ETIMEDOUT") ||
+		msg.includes("Failed to fetch") ||
+		msg.includes("API Server unreachable") ||
+		msg.includes("offline")
+	);
 }
 
 /**
@@ -78,13 +93,18 @@ export async function apiGet<T>(
 			method: "GET",
 			headers: getHeaders(secretKey),
 			cache: "no-store",
+			signal: AbortSignal.timeout(6000),
 		});
 
 		if (!response.ok) {
 			const errText = await response.text();
+			const offline = response.status >= 502 && response.status <= 504;
 			return {
 				success: false,
-				error: `API Server HTTP ${response.status}: ${errText}`,
+				isOffline: offline,
+				error: offline
+					? "On-premise ERP bridge is currently offline or unreachable."
+					: `API Server HTTP ${response.status}: ${errText}`,
 			};
 		}
 
@@ -95,9 +115,13 @@ export async function apiGet<T>(
 		return { success: true, data: json };
 	} catch (error: any) {
 		console.error(`[API Client GET Error] ${path}:`, error.message);
+		const offline = isOfflineError(error);
 		return {
 			success: false,
-			error: error.message || "Failed to communicate with Database API",
+			isOffline: offline,
+			error: offline
+				? "On-premise ERP bridge is unreachable or connection timed out after 6000ms."
+				: error.message || "Failed to communicate with Database API",
 		};
 	}
 }
@@ -116,13 +140,18 @@ export async function apiPost<T>(
 			headers: getHeaders(secretKey),
 			body: JSON.stringify(body),
 			cache: "no-store",
+			signal: AbortSignal.timeout(6000),
 		});
 
 		if (!response.ok) {
 			const errText = await response.text();
+			const offline = response.status >= 502 && response.status <= 504;
 			return {
 				success: false,
-				error: `API Server HTTP ${response.status}: ${errText}`,
+				isOffline: offline,
+				error: offline
+					? "On-premise ERP bridge is currently offline or unreachable."
+					: `API Server HTTP ${response.status}: ${errText}`,
 			};
 		}
 
@@ -133,9 +162,13 @@ export async function apiPost<T>(
 		return { success: true, data: json };
 	} catch (error: any) {
 		console.error(`[API Client POST Error] ${path}:`, error.message);
+		const offline = isOfflineError(error);
 		return {
 			success: false,
-			error: error.message || "Failed to communicate with Database API",
+			isOffline: offline,
+			error: offline
+				? "On-premise ERP bridge is unreachable or connection timed out after 6000ms."
+				: error.message || "Failed to communicate with Database API",
 		};
 	}
 }
