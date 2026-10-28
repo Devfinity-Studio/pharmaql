@@ -21,6 +21,7 @@ import {
 	Sparkles,
 	Sliders,
 } from "lucide-react";
+import Link from "next/link";
 import {
 	type TenantListItem,
 	listTenantsAction,
@@ -28,7 +29,6 @@ import {
 	deleteTenantAction,
 	testApiServerConnectionAction,
 } from "@/modules/control-plane/tenantActions";
-import { TenantModal } from "@/components/tenant-modal";
 import { DomainDiagnosticModal } from "@/components/domain-diagnostic-modal";
 
 interface TenantsControlCenterProps {
@@ -41,10 +41,6 @@ export function TenantsControlCenter({
 	const [tenants, setTenants] = useState<TenantListItem[]>(initialTenants);
 	const [searchQuery, setSearchQuery] = useState("");
 	const [statusFilter, setStatusFilter] = useState<"all" | "active" | "inactive">("all");
-
-	// Modal State
-	const [isModalOpen, setIsModalOpen] = useState(false);
-	const [editingTenant, setEditingTenant] = useState<TenantListItem | null>(null);
 
 	// Diagnostic Modal State
 	const [diagnosticTenant, setDiagnosticTenant] = useState<{
@@ -136,16 +132,6 @@ export function TenantsControlCenter({
 		}
 	};
 
-	const openCreateModal = () => {
-		setEditingTenant(null);
-		setIsModalOpen(true);
-	};
-
-	const openEditModal = (tenant: TenantListItem) => {
-		setEditingTenant(tenant);
-		setIsModalOpen(true);
-	};
-
 	// Metrics
 	const totalCount = tenants.length;
 	const activeCount = useMemo(() => tenants.filter((t) => t.is_active).length, [tenants]);
@@ -200,14 +186,13 @@ export function TenantsControlCenter({
 						<RefreshCw className={`w-3.5 h-3.5 ${isRefreshing ? "animate-spin" : ""}`} />
 						Refresh
 					</button>
-					<button
-						type="button"
-						onClick={openCreateModal}
-						className="flex items-center gap-2 px-4 py-2 text-xs font-bold bg-blue-600 hover:bg-blue-500 text-white rounded-xl shadow-lg shadow-blue-600/20 transition-all hover:scale-[1.02]"
+					<Link
+						href="/admin/tenants/new"
+						className="flex items-center gap-2 px-4 py-2 text-xs font-bold bg-teal-500 hover:bg-teal-400 text-slate-950 rounded-xl shadow-lg shadow-teal-500/20 transition-all hover:scale-[1.02]"
 					>
 						<Plus className="w-4 h-4" />
 						Onboard Client Tenant
-					</button>
+					</Link>
 				</div>
 			</div>
 
@@ -315,14 +300,13 @@ export function TenantsControlCenter({
 								: "Get started by onboarding your first client organization."}
 						</p>
 						{!searchQuery && (
-							<button
-								type="button"
-								onClick={openCreateModal}
-								className="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-bold bg-blue-600 hover:bg-blue-500 text-white rounded-xl shadow-lg transition-all"
+							<Link
+								href="/admin/tenants/new"
+								className="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-bold bg-teal-500 hover:bg-teal-400 text-slate-950 rounded-xl shadow-lg transition-all"
 							>
 								<Plus className="w-3.5 h-3.5" />
 								Onboard Client Tenant
-							</button>
+							</Link>
 						)}
 					</div>
 				) : (
@@ -564,14 +548,13 @@ export function TenantsControlCenter({
 													>
 														<Globe className="w-4 h-4" />
 													</button>
-													<button
-														type="button"
-														onClick={() => openEditModal(tenant)}
+													<Link
+														href={`/admin/tenants/${tenant.id}`}
 														className="p-1.5 rounded-lg text-gray-400 hover:text-white hover:bg-gray-800 transition-colors"
 														title="Edit Tenant"
 													>
 														<Edit2 className="w-4 h-4" />
-													</button>
+													</Link>
 													<button
 														type="button"
 														onClick={() => handleDelete(tenant)}
@@ -590,20 +573,6 @@ export function TenantsControlCenter({
 					</div>
 				)}
 			</div>
-
-			{/* Tenant Create/Edit Modal Dialog */}
-			{isModalOpen && (
-				<TenantModal
-					key={editingTenant ? `edit-${editingTenant.id}` : "create-new-tenant"}
-					isOpen={isModalOpen}
-					onClose={() => {
-						setIsModalOpen(false);
-						setEditingTenant(null);
-					}}
-					onSaved={handleRefresh}
-					initialTenant={editingTenant}
-				/>
-			)}
 
 			{/* Domain Diagnostic Modal */}
 			{diagnosticTenant && (

@@ -2,8 +2,8 @@
 
 import { revalidatePath } from "next/cache";
 import { headers } from "next/headers";
+import { deleteServerNotice, readServerJson, writeServerJson } from "@/lib/server-storage";
 import { auth } from "@/server/auth";
-import { readServerJson, writeServerJson } from "@/lib/server-storage";
 
 export type NoticeTargetAudience =
 	| "MR"
@@ -22,10 +22,11 @@ export interface NoticeItem {
 	expiresAt: string | null;
 	createdAt: string;
 	updatedAt: string;
+	tenantId?: string | null;
 }
 
-async function ensureNoticesFile(): Promise<NoticeItem[]> {
-	const data = await readServerJson<NoticeItem[]>("notices.json", []);
+async function ensureNoticesFile(overrideTenantId?: string): Promise<NoticeItem[]> {
+	const data = await readServerJson<NoticeItem[]>("notices.json", [], overrideTenantId);
 	return Array.isArray(data) ? data : [];
 }
 
@@ -33,8 +34,17 @@ async function writeNoticesFile(notices: NoticeItem[]) {
 	await writeServerJson("notices.json", notices);
 }
 
-export async function getNotices(): Promise<NoticeItem[]> {
-	return await ensureNoticesFile();
+export async function getNotices(options?: { overrideTenantId?: string }): Promise<NoticeItem[]> {
+	let overrideTenantId = options?.overrideTenantId;
+	if (!overrideTenantId) {
+		try {
+			const reqHeaders = await headers();
+			if (reqHeaders.get("x-is-dev-portal") === "true") {
+				overrideTenantId = "ALL";
+			}
+		} catch {}
+	}
+	return await ensureNoticesFile(overrideTenantId);
 }
 
 export async function getActiveNotices(role?: string): Promise<NoticeItem[]> {
@@ -92,9 +102,11 @@ export async function saveNotice(
 	content: string,
 	variant: string,
 	targetAudience: NoticeTargetAudience = "MR",
+	targetTenantId?: string | null,
 ) {
+	const reqHeaders = await headers();
 	const session = await auth.api.getSession({
-		headers: await headers(),
+		headers: reqHeaders,
 	});
 
 	if (
@@ -107,6 +119,15 @@ export async function saveNotice(
 	// Admins cannot send notices to developers
 	if (session.user.role === "ADMIN" && (targetAudience === "DEVELOPER" || targetAudience === "ALL")) {
 		throw new Error("Admins are not permitted to send notices to developers.");
+	}
+
+	// Determine tenant scope
+	let assignedTenantId: string | null = null;
+	if (session.user.role === "DEVELOPER") {
+		assignedTenantId = targetTenantId ? targetTenantId : null;
+	} else {
+		// Client admin is locked to their client tenant
+		assignedTenantId = (session.user as any).tenantId || reqHeaders.get("x-tenant-id") || null;
 	}
 
 	const list = await ensureNoticesFile();
@@ -122,6 +143,7 @@ export async function saveNotice(
 				content,
 				variant,
 				targetAudience,
+				tenantId: assignedTenantId,
 				updatedAt: nowStr,
 			};
 		}
@@ -132,6 +154,7 @@ export async function saveNotice(
 			content,
 			variant,
 			targetAudience,
+			tenantId: assignedTenantId,
 			isActive: false,
 			expiresAt: null,
 			createdAt: nowStr,
@@ -271,6 +294,7 @@ export async function deleteNotice(id: string) {
 		throw new Error("Unauthorized");
 	}
 
+	await deleteServerNotice(id);
 	const list = await ensureNoticesFile();
 	const filtered = list.filter((n) => n.id !== id);
 

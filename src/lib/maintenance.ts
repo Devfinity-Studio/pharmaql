@@ -48,10 +48,11 @@ const DEFAULT_MAINTENANCE: MaintenanceConfig = {
 /**
  * Retrieve current feature toggles from server storage safely.
  */
-export async function getFeatureToggles(): Promise<Record<FeatureKey, FeatureScope>> {
+export async function getFeatureToggles(tenantId?: string): Promise<Record<FeatureKey, FeatureScope>> {
 	const data = await readServerJson<Record<FeatureKey, FeatureScope>>(
 		"feature_toggles.json",
 		DEFAULT_TOGGLES,
+		tenantId,
 	);
 	return { ...DEFAULT_TOGGLES, ...data };
 }
@@ -63,10 +64,11 @@ export async function updateFeatureToggle(
 	key: FeatureKey,
 	scope: FeatureScope,
 	updatedBy: string,
+	tenantId?: string,
 ): Promise<Record<FeatureKey, FeatureScope>> {
-	const current = await getFeatureToggles();
+	const current = await getFeatureToggles(tenantId);
 	current[key] = scope;
-	await writeServerJson("feature_toggles.json", current);
+	await writeServerJson("feature_toggles.json", current, tenantId);
 	return current;
 }
 
@@ -112,10 +114,11 @@ export async function isFeatureEnabledForRole(
 /**
  * Retrieve global maintenance mode status.
  */
-export async function getMaintenanceConfig(): Promise<MaintenanceConfig> {
+export async function getMaintenanceConfig(tenantId?: string): Promise<MaintenanceConfig> {
 	const data = await readServerJson<MaintenanceConfig>(
 		"maintenance.json",
 		DEFAULT_MAINTENANCE,
+		tenantId,
 	);
 	return { ...DEFAULT_MAINTENANCE, ...data };
 }
@@ -126,15 +129,16 @@ export async function getMaintenanceConfig(): Promise<MaintenanceConfig> {
 export async function updateMaintenanceConfig(
 	update: Partial<MaintenanceConfig>,
 	updatedBy: string,
+	tenantId?: string,
 ): Promise<MaintenanceConfig> {
-	const current = await getMaintenanceConfig();
+	const current = await getMaintenanceConfig(tenantId);
 	const next: MaintenanceConfig = {
 		...current,
 		...update,
 		updatedAt: new Date().toISOString(),
 		updatedBy,
 	};
-	await writeServerJson("maintenance.json", next);
+	await writeServerJson("maintenance.json", next, tenantId);
 	return next;
 }
 

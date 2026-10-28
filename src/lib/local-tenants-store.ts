@@ -39,6 +39,8 @@ const DEFAULT_ASMEE_TENANT: TenantRecord = {
 	loc_no: 11,
 	overdue_direct_block_days: 90,
 	overdue_division_block_days: 95,
+	admin_email: "asmeepharma2022@gmail.com",
+	admin_password_encrypted: null,
 	created_at: new Date("2026-01-01T00:00:00.000Z").toISOString(),
 	updated_at: new Date("2026-01-01T00:00:00.000Z").toISOString(),
 };
@@ -192,3 +194,21 @@ export async function deleteLocalTenant(id: string): Promise<boolean> {
 	await writeTenantsFile(filtered);
 	return true;
 }
+
+/**
+ * Gets a single tenant by ID.
+ */
+export async function getLocalTenantById(id: string): Promise<TenantRecord | null> {
+	const current = await getLocalTenants();
+	return current.find((t) => t.id === id) || null;
+}
+
+/**
+ * Gets a single tenant by slug.
+ */
+export async function getLocalTenantBySlug(slug: string): Promise<TenantRecord | null> {
+	const current = await getLocalTenants();
+	const clean = slug.toLowerCase().trim();
+	return current.find((t) => t.slug.toLowerCase().trim() === clean) || null;
+}
+

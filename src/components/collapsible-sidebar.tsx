@@ -76,6 +76,11 @@ export function CollapsibleSidebar({
 	// Dev Portal Navigation Items (Master platform control center: excludes client ERP reports)
 	const devPortalNavItems = [
 		{
+			label: "Platform Dashboard",
+			href: "/admin/dashboard",
+			icon: LayoutDashboard,
+		},
+		{
 			label: "Tenant Control Center",
 			href: "/admin/tenants",
 			icon: Database,

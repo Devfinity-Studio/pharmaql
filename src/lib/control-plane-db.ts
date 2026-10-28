@@ -26,13 +26,15 @@ export interface TenantRecord {
 	loc_no?: number | null;
 	overdue_direct_block_days?: number | null;
 	overdue_division_block_days?: number | null;
+	admin_email?: string | null;
+	admin_password_encrypted?: string | null;
 	created_at?: string;
 	updated_at?: string;
 }
 
 export interface TenantNoticeRecord {
 	id: string;
-	tenant_id: string;
+	tenant_id?: string | null;
 	title: string;
 	content: string;
 	is_active: boolean;
@@ -114,6 +116,8 @@ export async function initControlPlaneRelationalSchema(): Promise<boolean> {
 				loc_no INTEGER,
 				overdue_direct_block_days INTEGER DEFAULT 90,
 				overdue_division_block_days INTEGER DEFAULT 95,
+				admin_email VARCHAR(128),
+				admin_password_encrypted TEXT,
 				created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
 				updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 			);
@@ -130,6 +134,8 @@ export async function initControlPlaneRelationalSchema(): Promise<boolean> {
 		await sql`ALTER TABLE tenants ADD COLUMN IF NOT EXISTS loc_no INTEGER;`;
 		await sql`ALTER TABLE tenants ADD COLUMN IF NOT EXISTS overdue_direct_block_days INTEGER DEFAULT 90;`;
 		await sql`ALTER TABLE tenants ADD COLUMN IF NOT EXISTS overdue_division_block_days INTEGER DEFAULT 95;`;
+		await sql`ALTER TABLE tenants ADD COLUMN IF NOT EXISTS admin_email VARCHAR(128);`;
+		await sql`ALTER TABLE tenants ADD COLUMN IF NOT EXISTS admin_password_encrypted TEXT;`;
 
 		// 2. Tenant Notices
 		await sql`
@@ -142,6 +148,11 @@ export async function initControlPlaneRelationalSchema(): Promise<boolean> {
 				created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 			);
 		`;
+		await sql`ALTER TABLE tenant_notices ALTER COLUMN tenant_id DROP NOT NULL;`;
+		await sql`ALTER TABLE tenant_notices ADD COLUMN IF NOT EXISTS variant VARCHAR(32) DEFAULT 'info';`;
+		await sql`ALTER TABLE tenant_notices ADD COLUMN IF NOT EXISTS target_audience VARCHAR(32) DEFAULT 'MR';`;
+		await sql`ALTER TABLE tenant_notices ADD COLUMN IF NOT EXISTS expires_at TIMESTAMPTZ;`;
+		await sql`ALTER TABLE tenant_notices ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ DEFAULT NOW();`;
 
 		// 3. Tenant Feature Toggles & Maintenance
 		await sql`

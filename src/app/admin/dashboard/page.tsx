@@ -3,10 +3,15 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { apiGet } from "@/lib/api-client";
 import { auth } from "@/server/auth";
+import { DevPlatformDashboard } from "@/components/dev-platform-dashboard";
+import { listTenantsAction } from "@/modules/control-plane/tenantActions";
+import { getControlPlaneSql } from "@/lib/control-plane-db";
+import { getNotices } from "@/server/actions/notices";
 
 export default async function AdminDashboardPage() {
+	const reqHeaders = await headers();
 	const session = await auth.api.getSession({
-		headers: await headers(),
+		headers: reqHeaders,
 	});
 
 	if (
@@ -16,7 +21,47 @@ export default async function AdminDashboardPage() {
 		redirect("/login");
 	}
 
-	// Fetch live counts from standalone Database API
+	const isDevPortal = reqHeaders.get("x-is-dev-portal") === "true";
+
+	if (isDevPortal) {
+		const tenantsRes = await listTenantsAction();
+		const tenants = tenantsRes.success ? tenantsRes.tenants : [];
+
+		let neonConnected = false;
+		let neonLatency = 0;
+		const sql = getControlPlaneSql();
+		if (sql) {
+			const start = Date.now();
+			try {
+				await sql`SELECT 1;`;
+				neonConnected = true;
+				neonLatency = Date.now() - start;
+			} catch {}
+		}
+
+		const notices = await getNotices().catch(() => []);
+
+		const host = reqHeaders.get("host") || "localhost:3000";
+		const proto = reqHeaders.get("x-forwarded-proto") || "http";
+		const clientOrigin = `${proto}://${host}`;
+
+		return (
+			<div className="mt-4">
+				<DevPlatformDashboard
+					tenants={tenants}
+					neonStatus={{
+						connected: neonConnected,
+						latencyMs: neonLatency,
+						storageType: sql ? "Neon Postgres" : "Local Data Store",
+					}}
+					totalNotices={notices.length}
+					clientOrigin={clientOrigin}
+				/>
+			</div>
+		);
+	}
+
+	// Fetch live counts from standalone Database API for Client Portal
 	const statsRes = await apiGet<{
 		totalMRs: number;
 		totalCompanies: number;

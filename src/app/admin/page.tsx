@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 
 export default function AdminRootPage() {
-	redirect("/admin/tenants");
+	redirect("/admin/dashboard");
 }
+

@@ -27,7 +27,8 @@ export function getServerDataFilePath(filename: string): string {
  * 1. From request headers (`x-tenant-id`) set by middleware.
  * 2. Fallback to first active tenant in Neon Postgres if outside request context.
  */
-async function getActiveTenantId(): Promise<string | null> {
+async function getActiveTenantId(overrideTenantId?: string): Promise<string | null> {
+	if (overrideTenantId) return overrideTenantId;
 	try {
 		const { headers } = await import("next/headers");
 		const h = await headers();
@@ -60,27 +61,49 @@ async function getActiveTenantId(): Promise<string | null> {
  * - If CONTROL_PLANE_DATABASE_URL is set, queries normalized Neon tables (`tenant_notices`, `tenant_features`, `tenant_licenses`, `tenant_runtime_config`).
  * - Otherwise falls back to local disk storage (data/ or /tmp) with dual-location resolution.
  */
-export async function readServerJson<T>(filename: string, fallback: T): Promise<T> {
+export async function readServerJson<T>(
+	filename: string,
+	fallback: T,
+	overrideTenantId?: string,
+): Promise<T> {
 	const sql = getControlPlaneSql();
 
 	if (sql) {
 		try {
 			await initControlPlaneRelationalSchema();
-			const tenantId = await getActiveTenantId();
+			const isAllTenants = overrideTenantId === "ALL";
+			const tenantId = isAllTenants ? null : await getActiveTenantId(overrideTenantId);
 
-			if (tenantId) {
-				// 1. Relational Mapping for Notices
-				if (filename === "notices.json") {
-					const rows = await sql`
-						SELECT id, title, content, is_active AS "isActive", created_at AS "createdAt"
+			// 1. Relational Mapping for Notices
+			if (filename === "notices.json") {
+				let rows;
+				if (isAllTenants) {
+					rows = await sql`
+						SELECT id, tenant_id AS "tenantId", title, content, COALESCE(variant, 'info') AS variant, COALESCE(target_audience, 'MR') AS "targetAudience", is_active AS "isActive", expires_at AS "expiresAt", created_at AS "createdAt", COALESCE(updated_at, created_at) AS "updatedAt"
 						FROM tenant_notices
-						WHERE tenant_id = ${tenantId}
 						ORDER BY created_at DESC
 					`;
-					if (rows && rows.length > 0) {
-						return rows as unknown as T;
-					}
+				} else if (tenantId) {
+					rows = await sql`
+						SELECT id, tenant_id AS "tenantId", title, content, COALESCE(variant, 'info') AS variant, COALESCE(target_audience, 'MR') AS "targetAudience", is_active AS "isActive", expires_at AS "expiresAt", created_at AS "createdAt", COALESCE(updated_at, created_at) AS "updatedAt"
+						FROM tenant_notices
+						WHERE tenant_id IS NULL OR tenant_id = ${tenantId}
+						ORDER BY created_at DESC
+					`;
+				} else {
+					rows = await sql`
+						SELECT id, tenant_id AS "tenantId", title, content, COALESCE(variant, 'info') AS variant, COALESCE(target_audience, 'MR') AS "targetAudience", is_active AS "isActive", expires_at AS "expiresAt", created_at AS "createdAt", COALESCE(updated_at, created_at) AS "updatedAt"
+						FROM tenant_notices
+						WHERE tenant_id IS NULL
+						ORDER BY created_at DESC
+					`;
 				}
+				if (rows && rows.length > 0) {
+					return rows as unknown as T;
+				}
+			}
+
+			if (tenantId) {
 
 				// 2. Relational Mapping for Feature Toggles
 				if (filename === "feature_toggles.json") {
@@ -190,30 +213,41 @@ export async function readServerJson<T>(filename: string, fallback: T): Promise<
  * - If CONTROL_PLANE_DATABASE_URL is set, writes into normalized relational tables.
  * - Otherwise writes atomically to local disk storage.
  */
-export async function writeServerJson<T>(filename: string, data: T): Promise<void> {
+export async function writeServerJson<T>(
+	filename: string,
+	data: T,
+	overrideTenantId?: string,
+): Promise<void> {
 	const sql = getControlPlaneSql();
 
 	if (sql) {
 		try {
 			await initControlPlaneRelationalSchema();
-			const tenantId = await getActiveTenantId();
+			const tenantId = await getActiveTenantId(overrideTenantId);
+
+			// 1. Relational Notices Sync (supports global notices where tenant_id is null or specific tenant)
+			if (filename === "notices.json" && Array.isArray(data)) {
+				for (const notice of data as any[]) {
+					const noticeId = notice.id || crypto.randomUUID();
+					const nTenantId = notice.tenantId !== undefined ? notice.tenantId : (overrideTenantId || tenantId || null);
+					await sql`
+						INSERT INTO tenant_notices (id, tenant_id, title, content, variant, target_audience, is_active, expires_at, created_at, updated_at)
+						VALUES (${noticeId}, ${nTenantId}, ${notice.title || "Notice"}, ${notice.content || ""}, ${notice.variant || "info"}, ${notice.targetAudience || "MR"}, ${notice.isActive ?? true}, ${notice.expiresAt ? new Date(notice.expiresAt) : null}, NOW(), NOW())
+						ON CONFLICT (id) DO UPDATE SET
+							tenant_id = EXCLUDED.tenant_id,
+							title = EXCLUDED.title,
+							content = EXCLUDED.content,
+							variant = EXCLUDED.variant,
+							target_audience = EXCLUDED.target_audience,
+							is_active = EXCLUDED.is_active,
+							expires_at = EXCLUDED.expires_at,
+							updated_at = NOW();
+					`;
+				}
+				return;
+			}
 
 			if (tenantId) {
-				// 1. Relational Notices Sync
-				if (filename === "notices.json" && Array.isArray(data)) {
-					for (const notice of data as any[]) {
-						const noticeId = notice.id || crypto.randomUUID();
-						await sql`
-							INSERT INTO tenant_notices (id, tenant_id, title, content, is_active, created_at)
-							VALUES (${noticeId}, ${tenantId}, ${notice.title || "Notice"}, ${notice.content || ""}, ${notice.isActive ?? true}, NOW())
-							ON CONFLICT (id) DO UPDATE SET
-								title = EXCLUDED.title,
-								content = EXCLUDED.content,
-								is_active = EXCLUDED.is_active;
-						`;
-					}
-					return;
-				}
 
 				// 2. Relational Feature Toggles Sync
 				if (filename === "feature_toggles.json") {
@@ -294,5 +328,19 @@ export async function writeServerJson<T>(filename: string, data: T): Promise<voi
 			return;
 		}
 		console.warn(`[ServerStorage] Write error for ${filename}:`, err?.message || err);
+	}
+}
+
+/**
+ * Delete a notice from Neon database if available.
+ */
+export async function deleteServerNotice(id: string): Promise<void> {
+	const sql = getControlPlaneSql();
+	if (sql) {
+		try {
+			await sql`DELETE FROM tenant_notices WHERE id = ${id}`;
+		} catch (err: any) {
+			console.warn("[ServerStorage] Failed to delete notice from database:", err.message);
+		}
 	}
 }

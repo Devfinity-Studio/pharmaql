@@ -18,9 +18,13 @@ import {
 export default function NoticeListClient({
 	initialNotices,
 	userRole = "ADMIN",
+	tenants = [],
+	isDevPortal = false,
 }: {
 	initialNotices: any[];
 	userRole?: string;
+	tenants?: { id: string; name: string; slug: string }[];
+	isDevPortal?: boolean;
 }) {
 	const [notices, setNotices] = useState(initialNotices);
 
@@ -33,6 +37,7 @@ export default function NoticeListClient({
 	const [targetAudience, setTargetAudience] = useState<
 		"MR" | "ADMIN" | "MR_AND_ADMIN" | "DEVELOPER" | "ALL"
 	>("MR");
+	const [targetTenantId, setTargetTenantId] = useState<string>("");
 	const [isSaving, setIsSaving] = useState(false);
 
 	// Activate Modal
@@ -52,12 +57,14 @@ export default function NoticeListClient({
 			setContent(notice.content);
 			setVariant(notice.variant || "info");
 			setTargetAudience(notice.targetAudience || "MR");
+			setTargetTenantId(notice.tenantId || "");
 		} else {
 			setEditId(null);
 			setTitle("");
 			setContent("");
 			setVariant("info");
 			setTargetAudience("MR");
+			setTargetTenantId("");
 		}
 		setIsEditModalOpen(true);
 	};
@@ -69,7 +76,7 @@ export default function NoticeListClient({
 		}
 		setIsSaving(true);
 		try {
-			await saveNotice(editId, title, content, variant, targetAudience);
+			await saveNotice(editId, title, content, variant, targetAudience, targetTenantId || null);
 			window.location.reload();
 		} catch (error) {
 			console.error(error);
@@ -196,6 +203,21 @@ export default function NoticeListClient({
 									Variant: <span className="capitalize font-bold text-gray-800">{notice.variant}</span>
 								</span>
 								<span className="text-gray-300">•</span>
+								{notice.tenantId ? (
+									(() => {
+										const t = tenants.find((item) => item.id === notice.tenantId);
+										return (
+											<span className="rounded-full bg-cyan-50 px-2.5 py-0.5 font-bold text-xs text-cyan-800 border border-cyan-200">
+												🏢 Tenant: {t ? `${t.name} (${t.slug})` : notice.tenantId.slice(0, 8)}
+											</span>
+										);
+									})()
+								) : (
+									<span className="rounded-full bg-slate-100 px-2.5 py-0.5 font-bold text-xs text-slate-700 border border-slate-300">
+										🌐 Global Broadcast (All Tenants)
+									</span>
+								)}
+								<span className="text-gray-300">•</span>
 								{notice.targetAudience === "ADMIN" ? (
 									<span className="rounded-full bg-purple-50 px-2.5 py-0.5 font-bold text-xs text-purple-700 border border-purple-200">
 										Audience: Admins Only
@@ -301,6 +323,29 @@ export default function NoticeListClient({
 								)}
 							</select>
 						</div>
+
+						{userRole === "DEVELOPER" && (
+							<div>
+								<label className="mb-1 block font-bold text-gray-700 text-sm">
+									Target Tenant Scope
+								</label>
+								<p className="mb-1.5 text-xs text-gray-500">
+									Select whether this notice broadcasts globally to all client tenants or targets a specific tenant:
+								</p>
+								<select
+									className="w-full rounded-lg border p-2 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+									onChange={(e) => setTargetTenantId(e.target.value)}
+									value={targetTenantId}
+								>
+									<option value="">🌐 Global Broadcast (All Tenants)</option>
+									{tenants.map((t) => (
+										<option key={t.id} value={t.id}>
+											🏢 {t.name} ({t.slug})
+										</option>
+									))}
+								</select>
+							</div>
+						)}
 
 						<div>
 							<label className="mb-1 block font-bold text-gray-700 text-sm">

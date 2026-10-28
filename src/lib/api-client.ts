@@ -34,11 +34,20 @@ export function isOfflineError(error: any): boolean {
 }
 
 /**
- * Resolves the dynamic API server URL and secret key for the active tenant.
+ * Resolves the dynamic API server URL, secret key, and tenant ERP parameters.
  */
-async function getDynamicApiConfig(): Promise<{ baseUrl: string; secretKey: string }> {
+async function getDynamicApiConfig(): Promise<{
+	baseUrl: string;
+	secretKey: string;
+	compNo?: number;
+	locNo?: number;
+	legacyDbName?: string;
+}> {
 	let baseUrl = DEFAULT_API_SERVER_URL;
 	let secretKey = DEFAULT_API_SECRET_KEY;
+	let compNo: number | undefined;
+	let locNo: number | undefined;
+	let legacyDbName: string | undefined;
 
 	try {
 		const { headers } = await import("next/headers");
@@ -58,11 +67,26 @@ async function getDynamicApiConfig(): Promise<{ baseUrl: string; secretKey: stri
 				console.warn("[ApiClient] Failed to decrypt tenant API key:", err.message);
 			}
 		}
+
+		const rawComp = h.get("x-tenant-comp-no");
+		if (rawComp && !isNaN(Number(rawComp))) {
+			compNo = Number(rawComp);
+		}
+
+		const rawLoc = h.get("x-tenant-loc-no");
+		if (rawLoc && !isNaN(Number(rawLoc))) {
+			locNo = Number(rawLoc);
+		}
+
+		const rawDb = h.get("x-tenant-legacy-db");
+		if (rawDb) {
+			legacyDbName = rawDb;
+		}
 	} catch {
 		// Not in active request context; fallback to environment defaults
 	}
 
-	return { baseUrl, secretKey };
+	return { baseUrl, secretKey, compNo, locNo, legacyDbName };
 }
 
 function getHeaders(secretKey: string): HeadersInit {
@@ -77,17 +101,24 @@ export async function apiGet<T>(
 	queryParams?: Record<string, string | number | undefined | null>,
 ): Promise<ApiResponse<T>> {
 	try {
-		const { baseUrl: rawBase, secretKey } = await getDynamicApiConfig();
+		const { baseUrl: rawBase, secretKey, compNo, locNo, legacyDbName } = await getDynamicApiConfig();
 		const baseUrl = normalizeApiUrl(rawBase) || DEFAULT_API_SERVER_URL;
 		const cleanPath = path.startsWith("/") ? path : `/${path}`;
 		const url = new URL(cleanPath, baseUrl);
-		if (queryParams) {
-			Object.entries(queryParams).forEach(([key, val]) => {
-				if (val !== undefined && val !== null && val !== "") {
-					url.searchParams.set(key, String(val));
-				}
-			});
-		}
+
+		// Merge injected tenant defaults with explicit query params
+		const mergedParams: Record<string, string | number | undefined | null> = {
+			...(compNo !== undefined ? { compNo } : {}),
+			...(locNo !== undefined ? { locNo } : {}),
+			...(legacyDbName ? { dbName: legacyDbName } : {}),
+			...queryParams,
+		};
+
+		Object.entries(mergedParams).forEach(([key, val]) => {
+			if (val !== undefined && val !== null && val !== "") {
+				url.searchParams.set(key, String(val));
+			}
+		});
 
 		const response = await fetch(url.toString(), {
 			method: "GET",
@@ -131,14 +162,26 @@ export async function apiPost<T>(
 	body: any,
 ): Promise<ApiResponse<T>> {
 	try {
-		const { baseUrl: rawBase, secretKey } = await getDynamicApiConfig();
+		const { baseUrl: rawBase, secretKey, compNo, locNo, legacyDbName } = await getDynamicApiConfig();
 		const baseUrl = normalizeApiUrl(rawBase) || DEFAULT_API_SERVER_URL;
 		const cleanPath = path.startsWith("/") ? path : `/${path}`;
 		const url = new URL(cleanPath, baseUrl);
+
+		// Automatically inject tenant ERP parameters if body is an object
+		let finalBody = body;
+		if (body && typeof body === "object" && !Array.isArray(body)) {
+			finalBody = {
+				...(compNo !== undefined ? { compNo } : {}),
+				...(locNo !== undefined ? { locNo } : {}),
+				...(legacyDbName ? { dbName: legacyDbName } : {}),
+				...body,
+			};
+		}
+
 		const response = await fetch(url.toString(), {
 			method: "POST",
 			headers: getHeaders(secretKey),
-			body: JSON.stringify(body),
+			body: JSON.stringify(finalBody),
 			cache: "no-store",
 			signal: AbortSignal.timeout(6000),
 		});
@@ -172,3 +215,4 @@ export async function apiPost<T>(
 		};
 	}
 }
+

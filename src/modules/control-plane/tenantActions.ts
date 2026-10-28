@@ -18,6 +18,8 @@ import {
 import { encryptSecret, decryptSecret } from "@/lib/crypto";
 import {
 	getLocalTenants,
+	getLocalTenantById,
+	getLocalTenantBySlug,
 	saveLocalTenant,
 	toggleLocalTenantStatus,
 	deleteLocalTenant,
@@ -57,6 +59,8 @@ export interface TenantListItem {
 	overdue_direct_block_days?: number | null;
 	overdue_division_block_days?: number | null;
 	has_api_key: boolean;
+	admin_email?: string | null;
+	has_admin_password?: boolean;
 	created_at?: string;
 	updated_at?: string;
 }
@@ -85,6 +89,8 @@ export interface SaveTenantInput {
 	loc_no?: number | null;
 	overdue_direct_block_days?: number | null;
 	overdue_division_block_days?: number | null;
+	admin_email?: string | null;
+	admin_password?: string | null; // Raw plaintext to be encrypted
 }
 
 export interface ApiServerPingResult {
@@ -136,6 +142,8 @@ export async function listTenantsAction(): Promise<{
 				overdue_direct_block_days: r.overdue_direct_block_days ?? 90,
 				overdue_division_block_days: r.overdue_division_block_days ?? 95,
 				has_api_key: Boolean(r.api_server_key_encrypted),
+				admin_email: r.admin_email,
+				has_admin_password: Boolean(r.admin_password_encrypted),
 				created_at: r.created_at,
 				updated_at: r.updated_at,
 			}));
@@ -168,6 +176,8 @@ export async function listTenantsAction(): Promise<{
 				loc_no,
 				overdue_direct_block_days,
 				overdue_division_block_days,
+				admin_email,
+				(admin_password_encrypted IS NOT NULL AND admin_password_encrypted != '') AS has_admin_password,
 				(api_server_key_encrypted IS NOT NULL AND api_server_key_encrypted != '') AS has_api_key,
 				created_at,
 				updated_at
@@ -200,6 +210,8 @@ export async function listTenantsAction(): Promise<{
 			overdue_direct_block_days: Number(r.overdue_direct_block_days) || 90,
 			overdue_division_block_days: Number(r.overdue_division_block_days) || 95,
 			has_api_key: Boolean(r.has_api_key),
+			admin_email: r.admin_email ? String(r.admin_email) : null,
+			has_admin_password: Boolean(r.has_admin_password),
 			created_at: r.created_at ? new Date(r.created_at).toISOString() : undefined,
 			updated_at: r.updated_at ? new Date(r.updated_at).toISOString() : undefined,
 		}));
@@ -258,10 +270,16 @@ export async function saveTenantAction(
 			? encryptSecret(input.api_server_key.trim())
 			: null;
 
+		const adminEmail = input.admin_email?.trim() || null;
+		const adminPasswordEncrypted = input.admin_password?.trim()
+			? encryptSecret(input.admin_password.trim())
+			: null;
+
 		const sql = getControlPlaneSql();
 
 		if (!sql) {
 			// Save to local data/tenants.json
+			const existingLocal = input.id ? await getLocalTenantById(input.id) : null;
 			const record: TenantRecord = {
 				id: input.id || crypto.randomUUID(),
 				slug: cleanSlug,
@@ -281,13 +299,15 @@ export async function saveTenantAction(
 				db_type: dbType,
 				db_connection_encrypted: null,
 				api_server_url: apiServerUrl,
-				api_server_key_encrypted: apiKeyEncrypted,
+				api_server_key_encrypted: apiKeyEncrypted ?? existingLocal?.api_server_key_encrypted ?? null,
 				legacy_db_name: legacyDbName,
 				erp_software_type: erpSoftwareType,
 				comp_no: compNo,
 				loc_no: locNo,
 				overdue_direct_block_days: directBlockDays,
 				overdue_division_block_days: divisionBlockDays,
+				admin_email: adminEmail ?? existingLocal?.admin_email ?? null,
+				admin_password_encrypted: adminPasswordEncrypted ?? existingLocal?.admin_password_encrypted ?? null,
 			};
 
 			const saved = await saveLocalTenant(record);
@@ -301,7 +321,7 @@ export async function saveTenantAction(
 
 		if (input.id) {
 			// Update existing tenant in Neon
-			if (apiKeyEncrypted) {
+			if (apiKeyEncrypted && adminPasswordEncrypted) {
 				await sql`
 					UPDATE tenants SET
 						slug = ${cleanSlug},
@@ -327,6 +347,68 @@ export async function saveTenantAction(
 						loc_no = ${locNo},
 						overdue_direct_block_days = ${directBlockDays},
 						overdue_division_block_days = ${divisionBlockDays},
+						admin_email = ${adminEmail},
+						admin_password_encrypted = ${adminPasswordEncrypted},
+						updated_at = NOW()
+					WHERE id = ${input.id};
+				`;
+			} else if (apiKeyEncrypted) {
+				await sql`
+					UPDATE tenants SET
+						slug = ${cleanSlug},
+						custom_domain = ${cleanDomain},
+						is_active = ${isActive},
+						display_name = ${displayName},
+						short_name = ${shortName},
+						logo_url = ${logoUrl},
+						primary_color = ${primaryColor},
+						accent_color = ${accentColor},
+						address = ${address},
+						contact_phone = ${phone},
+						contact_email = ${email},
+						support_email = ${supportEmail},
+						user_email_domain = ${userEmailDomain},
+						gstin = ${gstin},
+						db_type = ${dbType},
+						api_server_url = ${apiServerUrl},
+						api_server_key_encrypted = ${apiKeyEncrypted},
+						legacy_db_name = ${legacyDbName},
+						erp_software_type = ${erpSoftwareType},
+						comp_no = ${compNo},
+						loc_no = ${locNo},
+						overdue_direct_block_days = ${directBlockDays},
+						overdue_division_block_days = ${divisionBlockDays},
+						admin_email = ${adminEmail},
+						updated_at = NOW()
+					WHERE id = ${input.id};
+				`;
+			} else if (adminPasswordEncrypted) {
+				await sql`
+					UPDATE tenants SET
+						slug = ${cleanSlug},
+						custom_domain = ${cleanDomain},
+						is_active = ${isActive},
+						display_name = ${displayName},
+						short_name = ${shortName},
+						logo_url = ${logoUrl},
+						primary_color = ${primaryColor},
+						accent_color = ${accentColor},
+						address = ${address},
+						contact_phone = ${phone},
+						contact_email = ${email},
+						support_email = ${supportEmail},
+						user_email_domain = ${userEmailDomain},
+						gstin = ${gstin},
+						db_type = ${dbType},
+						api_server_url = ${apiServerUrl},
+						legacy_db_name = ${legacyDbName},
+						erp_software_type = ${erpSoftwareType},
+						comp_no = ${compNo},
+						loc_no = ${locNo},
+						overdue_direct_block_days = ${directBlockDays},
+						overdue_division_block_days = ${divisionBlockDays},
+						admin_email = ${adminEmail},
+						admin_password_encrypted = ${adminPasswordEncrypted},
 						updated_at = NOW()
 					WHERE id = ${input.id};
 				`;
@@ -355,6 +437,7 @@ export async function saveTenantAction(
 						loc_no = ${locNo},
 						overdue_direct_block_days = ${directBlockDays},
 						overdue_division_block_days = ${divisionBlockDays},
+						admin_email = ${adminEmail},
 						updated_at = NOW()
 					WHERE id = ${input.id};
 				`;
@@ -398,7 +481,9 @@ export async function saveTenantAction(
 					comp_no,
 					loc_no,
 					overdue_direct_block_days,
-					overdue_division_block_days
+					overdue_division_block_days,
+					admin_email,
+					admin_password_encrypted
 				) VALUES (
 					${cleanSlug},
 					${cleanDomain},
@@ -422,7 +507,9 @@ export async function saveTenantAction(
 					${compNo},
 					${locNo},
 					${directBlockDays},
-					${divisionBlockDays}
+					${divisionBlockDays},
+					${adminEmail},
+					${adminPasswordEncrypted}
 				)
 				RETURNING id;
 			`;
@@ -800,4 +887,88 @@ export async function checkDomainStatusAction(input: {
 		recommendations,
 	};
 }
+
+/**
+ * Fetches a single tenant by UUID or slug with decrypted secrets for the editor.
+ */
+export async function getTenantAction(
+	id: string,
+): Promise<{ success: boolean; tenant?: any; error?: string }> {
+	try {
+		const sql = getControlPlaneSql();
+		let raw: any = null;
+
+		if (!sql) {
+			const local = await getLocalTenantById(id);
+			if (local) raw = local;
+			else {
+				const bySlug = await getLocalTenantBySlug(id);
+				if (bySlug) raw = bySlug;
+			}
+		} else {
+			await initControlPlaneRelationalSchema();
+			const rows = await sql`
+				SELECT * FROM tenants WHERE id::text = ${id} OR slug = ${id} LIMIT 1;
+			`;
+			if (rows.length > 0) raw = rows[0];
+		}
+
+		if (!raw) {
+			return { success: false, error: "Tenant not found." };
+		}
+
+		let decryptedApiKey = "";
+		if (raw.api_server_key_encrypted) {
+			try {
+				decryptedApiKey = decryptSecret(raw.api_server_key_encrypted);
+			} catch {}
+		}
+
+		let decryptedAdminPassword = "";
+		if (raw.admin_password_encrypted) {
+			try {
+				decryptedAdminPassword = decryptSecret(raw.admin_password_encrypted);
+			} catch {}
+		}
+
+		const tenant = {
+			id: String(raw.id),
+			slug: String(raw.slug),
+			custom_domain: raw.custom_domain ? String(raw.custom_domain) : null,
+			is_active: Boolean(raw.is_active),
+			display_name: String(raw.display_name),
+			short_name: raw.short_name ? String(raw.short_name) : null,
+			logo_url: raw.logo_url ? String(raw.logo_url) : null,
+			primary_color: raw.primary_color ? String(raw.primary_color) : "#0B2545",
+			accent_color: raw.accent_color ? String(raw.accent_color) : "#134074",
+			address: raw.address ? String(raw.address) : null,
+			contact_phone: raw.contact_phone ? String(raw.contact_phone) : null,
+			contact_email: raw.contact_email ? String(raw.contact_email) : null,
+			support_email: raw.support_email ? String(raw.support_email) : null,
+			user_email_domain: raw.user_email_domain ? String(raw.user_email_domain) : null,
+			gstin: raw.gstin ? String(raw.gstin) : null,
+			db_type: "api_server",
+			api_server_url: raw.api_server_url ? String(raw.api_server_url) : null,
+			api_server_key: decryptedApiKey,
+			has_api_key: Boolean(raw.api_server_key_encrypted),
+			legacy_db_name: raw.legacy_db_name ? String(raw.legacy_db_name) : "pdyasvmaster",
+			erp_software_type: raw.erp_software_type ? String(raw.erp_software_type) : "Technomax",
+			comp_no: raw.comp_no !== null && raw.comp_no !== undefined ? Number(raw.comp_no) : 11,
+			loc_no: raw.loc_no !== null && raw.loc_no !== undefined ? Number(raw.loc_no) : 11,
+			overdue_direct_block_days: Number(raw.overdue_direct_block_days) || 90,
+			overdue_division_block_days: Number(raw.overdue_division_block_days) || 95,
+			admin_email: raw.admin_email ? String(raw.admin_email) : null,
+			admin_password: decryptedAdminPassword,
+			has_admin_password: Boolean(raw.admin_password_encrypted),
+			created_at: raw.created_at ? new Date(raw.created_at).toISOString() : undefined,
+			updated_at: raw.updated_at ? new Date(raw.updated_at).toISOString() : undefined,
+		};
+
+		return { success: true, tenant };
+	} catch (err: any) {
+		console.error("[TenantActions] getTenantAction error:", err);
+		return { success: false, error: err.message };
+	}
+}
+
 
