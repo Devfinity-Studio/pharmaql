@@ -1,6 +1,7 @@
 import { type NextRequest, NextResponse } from "next/server";
 import { getClientIp, isIpAllowedForAdmin } from "@/lib/security";
 import { resolveTenantByHost } from "@/lib/tenant-resolver";
+import { normalizeApiUrl } from "@/lib/utils";
 
 export async function middleware(request: NextRequest) {
 	const requestHeaders = new Headers(request.headers);
@@ -41,7 +42,7 @@ export async function middleware(request: NextRequest) {
 		if (tenant.user_email_domain) requestHeaders.set("x-tenant-email-domain", tenant.user_email_domain);
 		if (tenant.gstin) requestHeaders.set("x-tenant-gstin", tenant.gstin);
 		requestHeaders.set("x-tenant-db-type", tenant.db_type);
-		if (tenant.api_server_url) requestHeaders.set("x-tenant-api-url", tenant.api_server_url);
+		if (tenant.api_server_url) requestHeaders.set("x-tenant-api-url", normalizeApiUrl(tenant.api_server_url));
 		if (tenant.api_server_key_encrypted) requestHeaders.set("x-tenant-api-key-enc", tenant.api_server_key_encrypted);
 		if (tenant.legacy_db_name) requestHeaders.set("x-tenant-legacy-db", tenant.legacy_db_name);
 		if (tenant.erp_software_type) requestHeaders.set("x-tenant-erp-type", tenant.erp_software_type);

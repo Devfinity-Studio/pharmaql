@@ -1,11 +1,10 @@
 import "server-only";
 import { decryptSecret } from "./crypto";
+import { normalizeApiUrl } from "./utils";
 
 const RAW_API_SERVER_URL = process.env.API_SERVER_URL;
 const DEFAULT_API_SERVER_URL =
-	(RAW_API_SERVER_URL
-		? RAW_API_SERVER_URL.trim().replace(/^["']|["']$/g, "")
-		: "") || "https://api.asmeepharma.com";
+	normalizeApiUrl(RAW_API_SERVER_URL) || "https://api.asmeepharma.com";
 const DEFAULT_API_SECRET_KEY = process.env.API_SECRET_KEY || "";
 
 interface ApiResponse<T> {
@@ -31,7 +30,10 @@ async function getDynamicApiConfig(): Promise<{ baseUrl: string; secretKey: stri
 		const h = await headers();
 		const dynamicUrl = h.get("x-tenant-api-url");
 		if (dynamicUrl) {
-			baseUrl = dynamicUrl.trim().replace(/^["']|["']$/g, "");
+			const normalized = normalizeApiUrl(dynamicUrl);
+			if (normalized) {
+				baseUrl = normalized;
+			}
 		}
 		const encryptedKey = h.get("x-tenant-api-key-enc");
 		if (encryptedKey) {
@@ -60,8 +62,10 @@ export async function apiGet<T>(
 	queryParams?: Record<string, string | number | undefined | null>,
 ): Promise<ApiResponse<T>> {
 	try {
-		const { baseUrl, secretKey } = await getDynamicApiConfig();
-		const url = new URL(path, baseUrl);
+		const { baseUrl: rawBase, secretKey } = await getDynamicApiConfig();
+		const baseUrl = normalizeApiUrl(rawBase) || DEFAULT_API_SERVER_URL;
+		const cleanPath = path.startsWith("/") ? path : `/${path}`;
+		const url = new URL(cleanPath, baseUrl);
 		if (queryParams) {
 			Object.entries(queryParams).forEach(([key, val]) => {
 				if (val !== undefined && val !== null && val !== "") {
@@ -103,8 +107,10 @@ export async function apiPost<T>(
 	body: any,
 ): Promise<ApiResponse<T>> {
 	try {
-		const { baseUrl, secretKey } = await getDynamicApiConfig();
-		const url = new URL(path, baseUrl);
+		const { baseUrl: rawBase, secretKey } = await getDynamicApiConfig();
+		const baseUrl = normalizeApiUrl(rawBase) || DEFAULT_API_SERVER_URL;
+		const cleanPath = path.startsWith("/") ? path : `/${path}`;
+		const url = new URL(cleanPath, baseUrl);
 		const response = await fetch(url.toString(), {
 			method: "POST",
 			headers: getHeaders(secretKey),

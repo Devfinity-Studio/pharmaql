@@ -22,6 +22,7 @@ import {
 	toggleLocalTenantStatus,
 	deleteLocalTenant,
 } from "@/lib/local-tenants-store";
+import { normalizeApiUrl } from "@/lib/utils";
 
 export interface TenantListItem {
 	id: string;
@@ -232,7 +233,7 @@ export async function saveTenantAction(
 		const userEmailDomain = input.user_email_domain?.trim() || null;
 		const gstin = input.gstin?.trim().toUpperCase() || null;
 		const dbType = "api_server";
-		const apiServerUrl = input.api_server_url?.trim() || null;
+		const apiServerUrl = input.api_server_url ? normalizeApiUrl(input.api_server_url) : null;
 		const legacyDbName = input.legacy_db_name?.trim() || "pdyasvmaster";
 		const erpSoftwareType = input.erp_software_type?.trim() || "Technomax";
 		const compNo = input.comp_no !== undefined && input.comp_no !== null ? Number(input.comp_no) : 11;
@@ -523,8 +524,15 @@ export async function testApiServerConnectionAction(params: {
 		};
 	}
 
-	const cleanBase = targetUrl.replace(/\/$/, "");
-	const healthEndpoint = `${cleanBase}/health`;
+	const normalizedBase = normalizeApiUrl(targetUrl);
+	if (!normalizedBase) {
+		return {
+			success: false,
+			error: "Invalid API Server URL.",
+		};
+	}
+
+	const healthEndpoint = `${normalizedBase}/health`;
 	const startTime = Date.now();
 
 	try {

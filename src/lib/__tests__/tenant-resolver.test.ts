@@ -5,6 +5,7 @@ import {
 	resolveTenantByHost,
 	invalidateTenantCache,
 } from "../tenant-resolver";
+import { normalizeApiUrl } from "../utils";
 
 describe("tenant-resolver (Edge compatible)", () => {
 	it("should normalize hostnames properly", () => {
@@ -49,5 +50,17 @@ describe("tenant-resolver (Edge compatible)", () => {
 	it("should invalidate tenant cache cleanly", () => {
 		expect(() => invalidateTenantCache()).not.toThrow();
 		expect(() => invalidateTenantCache("asmee")).not.toThrow();
+	});
+
+	it("should normalize API server URLs properly", () => {
+		expect(normalizeApiUrl("api.asmeepharma.com")).toBe("https://api.asmeepharma.com");
+		expect(normalizeApiUrl("https://api.asmeepharma.com/")).toBe("https://api.asmeepharma.com");
+		expect(normalizeApiUrl("http://api.asmeepharma.com")).toBe("http://api.asmeepharma.com");
+		expect(normalizeApiUrl("192.168.1.100:8000")).toBe("http://192.168.1.100:8000");
+		expect(normalizeApiUrl("localhost:8000")).toBe("http://localhost:8000");
+		expect(normalizeApiUrl("127.0.0.1:9000")).toBe("http://127.0.0.1:9000");
+		expect(normalizeApiUrl("")).toBe("");
+		expect(normalizeApiUrl(null)).toBe("");
+		expect(normalizeApiUrl(undefined)).toBe("");
 	});
 });
