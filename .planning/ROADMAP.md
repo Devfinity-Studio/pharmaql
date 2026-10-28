@@ -293,3 +293,12 @@
 - [x] **Superuser Dev Control Center UI**: Built the master administrative dashboard ([`src/app/admin/tenants/page.tsx`](file:///e:/work/pharmaql/src/app/admin/tenants/page.tsx) and [`src/components/tenants-control-center.tsx`](file:///e:/work/pharmaql/src/components/tenants-control-center.tsx)) featuring platform overview metric cards, searchable & filterable tenant data table, status toggling, and multi-tab modal forms ([`src/components/tenant-modal.tsx`](file:///e:/work/pharmaql/src/components/tenant-modal.tsx)) with inline database ping testing.
 - [x] **Verification & Validation**: Validated Edge route separation (verifying client domains cannot route to `/admin`), tested database connectivity diagnostics, verified credential encryption roundtrip, executed all 13 Vitest suites (66/66 tests passing), passed TypeScript typecheck (`tsc --noEmit`), and compiled clean Next.js production build (`next build`).
 
+## Phase 36: Production Deployment & Multi-Tenant Custom Domain Verification
+
+- [ ] **Production Environment & Secrets Auditing**: Verify and document all production environment variables on Vercel (`CONTROL_PLANE_DATABASE_URL`, `CONTROL_PLANE_ENCRYPTION_KEY`, `DEV_PORTAL_DOMAIN`, developer SMTP, VAPID) ensuring zero missing keys and enforcing strict SSL mode on database queries.
+- [ ] **Neon Schema Auto-Provisioning in Production**: Validate that `initControlPlaneRelationalSchema()` runs idempotently in production Neon Postgres without migration drift or blocking edge requests.
+- [ ] **Vercel Custom Domain & SSL Verification Loop**: Verify DNS CNAME and A record resolution for master domain (`pharmaql.devfinity.net`) and custom client domains (e.g. `portal.asmeepharma.com`), confirming Let's Encrypt SSL certificate issuance.
+- [ ] **Edge Host Resolution & Security Partitioning**: Test live edge middleware resolution across master dev portal and client domains, ensuring proper white-label headers injection, client portal route blocking (`/admin/tenants` -> 404), and unmapped domain routing to branded 404.
+- [ ] **End-to-End Onboarding & ERP Bridge Smoke Test**: Perform end-to-end smoke test creating a live tenant in the Dev Control Center, testing connection to client on-premise API server, and verifying seamless MR login and stock reporting on the client domain.
+
+
