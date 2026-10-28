@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
 	X,
 	Server,
@@ -81,6 +81,42 @@ export function TenantModal({
 	const [testResult, setTestResult] = useState<ApiServerPingResult | null>(null);
 	const [isSubmitting, setIsSubmitting] = useState(false);
 	const [formError, setFormError] = useState<string | null>(null);
+
+	// Synchronize form fields whenever modal opens or editing tenant changes
+	useEffect(() => {
+		if (isOpen) {
+			setSlug(initialTenant?.slug || "");
+			setDisplayName(initialTenant?.display_name || "");
+			setShortName(initialTenant?.short_name || "");
+			setCustomDomain(initialTenant?.custom_domain || "");
+			setPrimaryColor(initialTenant?.primary_color || "#0B2545");
+			setAccentColor(initialTenant?.accent_color || "#134074");
+			setIsActive(initialTenant ? initialTenant.is_active : true);
+
+			setLogoUrl(initialTenant?.logo_url || "");
+			setAddress(initialTenant?.address || "");
+			setContactPhone(initialTenant?.contact_phone || "");
+			setContactEmail(initialTenant?.contact_email || "");
+			setSupportEmail(initialTenant?.support_email || "");
+			setUserEmailDomain(initialTenant?.user_email_domain || "");
+			setGstin(initialTenant?.gstin || "");
+
+			setApiServerUrl(initialTenant?.api_server_url || "");
+			setApiServerKey("");
+			setShowApiKey(false);
+			setErpSoftwareType(initialTenant?.erp_software_type || "Technomax");
+			setLegacyDbName(initialTenant?.legacy_db_name || "pdyasvmaster");
+			setCompNo(initialTenant?.comp_no ?? 11);
+			setLocNo(initialTenant?.loc_no ?? 11);
+
+			setOverdueDirectBlockDays(initialTenant?.overdue_direct_block_days ?? 90);
+			setOverdueDivisionBlockDays(initialTenant?.overdue_division_block_days ?? 95);
+
+			setTestResult(null);
+			setFormError(null);
+			setActiveTab("general");
+		}
+	}, [isOpen, initialTenant]);
 
 	if (!isOpen) return null;
 

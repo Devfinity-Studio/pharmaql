@@ -527,12 +527,18 @@ export function TenantsControlCenter({
 			</div>
 
 			{/* Modal Dialog */}
-			<TenantModal
-				isOpen={isModalOpen}
-				onClose={() => setIsModalOpen(false)}
-				onSaved={handleRefresh}
-				initialTenant={editingTenant}
-			/>
+			{isModalOpen && (
+				<TenantModal
+					key={editingTenant ? `edit-${editingTenant.id}` : "create-new-tenant"}
+					isOpen={isModalOpen}
+					onClose={() => {
+						setIsModalOpen(false);
+						setEditingTenant(null);
+					}}
+					onSaved={handleRefresh}
+					initialTenant={editingTenant}
+				/>
+			)}
 		</div>
 	);
 }
