@@ -23,6 +23,7 @@ import {
 	deleteLocalTenant,
 } from "@/lib/local-tenants-store";
 import { normalizeApiUrl } from "@/lib/utils";
+import { invalidateTenantCache } from "@/lib/tenant-resolver";
 
 export interface TenantListItem {
 	id: string;
@@ -220,7 +221,11 @@ export async function saveTenantAction(
 		}
 
 		const cleanSlug = input.slug.trim().toLowerCase().replace(/[^a-z0-9-]/g, "-");
-		const cleanDomain = input.custom_domain?.trim().toLowerCase() || null;
+		const cleanDomain = input.custom_domain
+			?.trim()
+			.toLowerCase()
+			.replace(/^https?:\/\//i, "")
+			.replace(/\/+$/, "") || null;
 		const displayName = input.display_name.trim();
 		const shortName = input.short_name?.trim() || null;
 		const logoUrl = input.logo_url?.trim() || null;
@@ -279,6 +284,8 @@ export async function saveTenantAction(
 			};
 
 			const saved = await saveLocalTenant(record);
+			invalidateTenantCache(cleanSlug);
+			if (cleanDomain) invalidateTenantCache(cleanDomain);
 			safeRevalidatePath("/admin/tenants");
 			return { success: true, id: saved.id };
 		}
@@ -346,6 +353,8 @@ export async function saveTenantAction(
 				`;
 			}
 
+			invalidateTenantCache(cleanSlug);
+			if (cleanDomain) invalidateTenantCache(cleanDomain);
 			safeRevalidatePath("/admin/tenants");
 			return { success: true, id: input.id };
 		} else {
@@ -405,6 +414,8 @@ export async function saveTenantAction(
 
 			const first = rows[0];
 			const newId = first?.id ? String(first.id) : undefined;
+			invalidateTenantCache(cleanSlug);
+			if (cleanDomain) invalidateTenantCache(cleanDomain);
 			safeRevalidatePath("/admin/tenants");
 			return { success: true, id: newId };
 		}
@@ -436,6 +447,7 @@ export async function toggleTenantStatusAction(
 			WHERE id = ${tenantId};
 		`;
 
+		invalidateTenantCache();
 		safeRevalidatePath("/admin/tenants");
 		return { success: true };
 	} catch (err: any) {
@@ -454,6 +466,7 @@ export async function deleteTenantAction(
 		const sql = getControlPlaneSql();
 		if (!sql) {
 			await deleteLocalTenant(tenantId);
+			invalidateTenantCache();
 			safeRevalidatePath("/admin/tenants");
 			return { success: true };
 		}
@@ -461,6 +474,7 @@ export async function deleteTenantAction(
 		await initControlPlaneRelationalSchema();
 		await sql`DELETE FROM tenants WHERE id = ${tenantId};`;
 
+		invalidateTenantCache();
 		safeRevalidatePath("/admin/tenants");
 		return { success: true };
 	} catch (err: any) {

@@ -390,14 +390,26 @@ export function TenantsControlCenter({
 													) : (
 														<span className="text-gray-500 italic text-[11px]">Unmapped production</span>
 													)}
-													<div>
+													<div className="flex items-center gap-2">
 														<a
 															href={`http://${tenant.slug}.localhost:3000`}
 															target="_blank"
 															rel="noopener noreferrer"
 															className="inline-flex items-center gap-1 font-mono text-[11px] text-gray-400 hover:text-gray-200"
+															title="Subdomain routing"
 														>
 															{tenant.slug}.localhost:3000
+															<ExternalLink className="w-2.5 h-2.5 opacity-50" />
+														</a>
+														<span className="text-gray-600">|</span>
+														<a
+															href={`http://localhost:3000/?tenant=${tenant.slug}`}
+															target="_blank"
+															rel="noopener noreferrer"
+															className="inline-flex items-center gap-1 font-mono text-[10px] text-cyan-400 hover:text-cyan-300"
+															title="Direct local test simulation"
+														>
+															Local Test
 															<ExternalLink className="w-2.5 h-2.5 opacity-50" />
 														</a>
 													</div>

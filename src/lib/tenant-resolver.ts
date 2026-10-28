@@ -1,15 +1,17 @@
 import { getControlPlaneSql, type TenantRecord } from "./control-plane-db";
+import staticTenants from "../../data/tenants.json";
 
 /**
  * In-memory TTL cache for tenant records (5 minutes).
- * Edge-compatible cache avoiding database round-trips for high-frequency requests.
+ * Negative hits (null) are cached for only 2 seconds to avoid stale 404s after tenant creation.
  */
 interface CachedTenant {
 	tenant: TenantRecord | null;
 	cachedAt: number;
 }
 
-const CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
+const CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes for positive hits
+const NEGATIVE_CACHE_TTL_MS = 2 * 1000; // 2 seconds for negative (null) hits
 const tenantMemoryCache = new Map<string, CachedTenant>();
 
 /**
@@ -48,7 +50,25 @@ export function isDevPortalHost(host: string): boolean {
 }
 
 /**
- * Resolves a tenant by custom domain or tenant slug with 5-minute memory caching.
+ * Finds a tenant in the bundled static JSON dataset.
+ */
+function findStaticTenant(targetSlug: string | null, host: string, strippedHost: string, rootDomain: string, firstSub: string | null): TenantRecord | null {
+	const match = (staticTenants as any[]).find((t) => {
+		if (!t.is_active) return false;
+		if (targetSlug && t.slug.toLowerCase() === targetSlug.toLowerCase()) return true;
+		if (t.custom_domain) {
+			const cleanCustom = t.custom_domain.toLowerCase().replace(/^https?:\/\//i, "").replace(/\/+$/, "");
+			if (cleanCustom === host || cleanCustom === strippedHost || cleanCustom === rootDomain) return true;
+			if (`portal.${cleanCustom}` === host || `www.${cleanCustom}` === host) return true;
+		}
+		if (firstSub && t.slug.toLowerCase() === firstSub.toLowerCase()) return true;
+		return false;
+	});
+	return match ? (match as unknown as TenantRecord) : null;
+}
+
+/**
+ * Resolves a tenant by custom domain or tenant slug with memory caching.
  * Strictly Edge-safe: executes purely via HTTP fetch (@neondatabase/serverless).
  */
 export async function resolveTenantByHost(
@@ -59,7 +79,6 @@ export async function resolveTenantByHost(
 	},
 ): Promise<{ tenant: TenantRecord | null; isDevPortal: boolean }> {
 	const host = normalizeHost(rawHost);
-	const isDev = isDevPortalHost(host);
 
 	// Extract slug if host is <slug>.localhost (e.g. asmee.localhost:3000 -> asmee)
 	let slugFromHost: string | null = null;
@@ -80,52 +99,36 @@ export async function resolveTenantByHost(
 		targetSlug = options.headers.get("x-tenant-slug") || null;
 	}
 
-	const cacheKey = targetSlug ? `slug:${targetSlug}` : `host:${host}`;
+	// If explicit targetSlug is provided (e.g. ?tenant=asmee or asmee.localhost), this is a CLIENT portal request
+	const isDev = !targetSlug && isDevPortalHost(host);
+
+	const cacheKey = targetSlug ? `slug:${targetSlug.toLowerCase()}` : `host:${host}`;
 	const cached = tenantMemoryCache.get(cacheKey);
 	const now = Date.now();
 
-	if (cached && now - cached.cachedAt < CACHE_TTL_MS) {
-		return { tenant: cached.tenant, isDevPortal: isDev };
+	if (cached) {
+		const ttl = cached.tenant ? CACHE_TTL_MS : NEGATIVE_CACHE_TTL_MS;
+		if (now - cached.cachedAt < ttl) {
+			return { tenant: cached.tenant, isDevPortal: isDev };
+		}
 	}
+
+	// Subdomain & root domain extraction for flexible matching
+	const hostParts = host.split(".");
+	const firstSubdomain = hostParts.length > 2 ? (hostParts[0] ?? null) : null;
+	const strippedHost = host.replace(/^(portal|www|app)\./i, "");
+	const rootDomain = hostParts.length >= 2 ? hostParts.slice(-2).join(".") : host;
 
 	const sql = getControlPlaneSql();
 
-	// Offline dev fallback: if no Neon URL configured or in local development
+	// If no Neon URL configured or in offline local environment
 	if (!sql) {
 		if (isDev && !targetSlug) {
-			// Bare localhost / dev portal: no client tenant bound
 			return { tenant: null, isDevPortal: true };
 		}
-
-		// Client Portal fallback (e.g. asmee.localhost or portal.asmeepharma.com)
-		const cleanSlug = targetSlug || "asmee";
-		const fallbackTenant: TenantRecord = {
-			id: "00000000-0000-0000-0000-000000000001",
-			slug: cleanSlug,
-			custom_domain: host,
-			is_active: true,
-			display_name: cleanSlug === "asmee" ? "Asmee Pharma Pvt. Ltd." : `${cleanSlug.toUpperCase()} Pharma`,
-			short_name: cleanSlug === "asmee" ? "Asmee" : cleanSlug.toUpperCase(),
-			logo_url: "/logo.png",
-			primary_color: "#0B2545",
-			accent_color: "#134074",
-			address: "Plot No. 12, GIDC Industrial Estate, Ankleshwar, Gujarat - 393002",
-			contact_phone: "+91 98765 43210",
-			contact_email: `info@${cleanSlug}.com`,
-			support_email: `support@${cleanSlug}.com`,
-			user_email_domain: `@${cleanSlug}.com`,
-			gstin: "24AAAAA0000A1Z5",
-			db_type: "api_server",
-			api_server_url: process.env.API_SERVER_URL || "https://api.asmeepharma.com",
-			api_server_key_encrypted: null,
-			legacy_db_name: "pdyasvmaster",
-			erp_software_type: "Technomax",
-			comp_no: 11,
-			loc_no: 11,
-			overdue_direct_block_days: 90,
-			overdue_division_block_days: 95,
-		};
-		return { tenant: fallbackTenant, isDevPortal: isDev };
+		const fallback = findStaticTenant(targetSlug, host, strippedHost, rootDomain, firstSubdomain);
+		tenantMemoryCache.set(cacheKey, { tenant: fallback, cachedAt: now });
+		return { tenant: fallback, isDevPortal: isDev };
 	}
 
 	try {
@@ -133,25 +136,40 @@ export async function resolveTenantByHost(
 
 		if (targetSlug) {
 			rows = await sql`
-				SELECT * FROM tenants WHERE slug = ${targetSlug} AND is_active = true LIMIT 1
+				SELECT * FROM tenants WHERE slug = ${targetSlug.toLowerCase()} AND is_active = true LIMIT 1
 			`;
 		} else if (isDev) {
-			// On Dev Portal without explicit tenant simulation, tenant is null
 			return { tenant: null, isDevPortal: true };
 		} else {
-			// Match exact custom domain
+			// Flexible custom domain matching (exact, stripped portal/www, root domain, or subdomain matching slug)
 			rows = await sql`
-				SELECT * FROM tenants WHERE custom_domain = ${host} AND is_active = true LIMIT 1
+				SELECT * FROM tenants 
+				WHERE is_active = true 
+				  AND (
+				    custom_domain = ${host}
+				    OR custom_domain = ${strippedHost}
+				    OR custom_domain = ${rootDomain}
+				    OR ('portal.' || custom_domain) = ${host}
+				    OR ('www.' || custom_domain) = ${host}
+				    OR slug = ${firstSubdomain || ""}
+				  )
+				LIMIT 1
 			`;
 		}
 
-		const tenant: TenantRecord | null = rows.length > 0 ? (rows[0] as TenantRecord) : null;
+		let tenant: TenantRecord | null = rows.length > 0 ? (rows[0] as TenantRecord) : null;
+
+		// Secondary fallback to bundled static tenants if Neon didn't match
+		if (!tenant) {
+			tenant = findStaticTenant(targetSlug, host, strippedHost, rootDomain, firstSubdomain);
+		}
 
 		tenantMemoryCache.set(cacheKey, { tenant, cachedAt: now });
 		return { tenant, isDevPortal: isDev };
 	} catch (err: any) {
 		console.warn(`[TenantResolver] Resolution error for ${host}:`, err.message);
-		return { tenant: null, isDevPortal: isDev };
+		const fallback = findStaticTenant(targetSlug, host, strippedHost, rootDomain, firstSubdomain);
+		return { tenant: fallback, isDevPortal: isDev };
 	}
 }
 
@@ -163,6 +181,7 @@ export function invalidateTenantCache(slugOrDomain?: string): void {
 		tenantMemoryCache.clear();
 		return;
 	}
-	tenantMemoryCache.delete(`slug:${slugOrDomain}`);
-	tenantMemoryCache.delete(`host:${normalizeHost(slugOrDomain)}`);
+	const clean = slugOrDomain.toLowerCase().trim();
+	tenantMemoryCache.delete(`slug:${clean}`);
+	tenantMemoryCache.delete(`host:${normalizeHost(clean)}`);
 }
