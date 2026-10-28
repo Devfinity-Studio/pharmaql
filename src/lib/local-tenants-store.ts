@@ -1,9 +1,17 @@
 import fs from "fs/promises";
+import os from "os";
 import path from "path";
 import type { TenantRecord } from "./control-plane-db";
 
-const DATA_DIR = path.join(process.cwd(), "data");
-const TENANTS_FILE = path.join(DATA_DIR, "tenants.json");
+const BUNDLED_DATA_DIR = path.join(process.cwd(), "data");
+const BUNDLED_TENANTS_FILE = path.join(BUNDLED_DATA_DIR, "tenants.json");
+
+// On Vercel / AWS Lambda, only /tmp is writable
+const TMP_DATA_DIR = path.join(os.tmpdir(), "pharmaql-data");
+const TMP_TENANTS_FILE = path.join(TMP_DATA_DIR, "tenants.json");
+
+// In-memory cache for fast read/writes within serverless execution contexts
+let localTenantsMemoryCache: TenantRecord[] | null = null;
 
 const DEFAULT_ASMEE_TENANT: TenantRecord = {
 	id: "00000000-0000-0000-0000-000000000001",
@@ -36,32 +44,86 @@ const DEFAULT_ASMEE_TENANT: TenantRecord = {
 };
 
 /**
- * Reads tenants from data/tenants.json.
- * If file does not exist, seeds it with DEFAULT_ASMEE_TENANT and returns it.
+ * Safely writes tenant records to disk with EROFS /tmp fallback.
  */
-export async function getLocalTenants(): Promise<TenantRecord[]> {
-	try {
-		await fs.mkdir(DATA_DIR, { recursive: true });
-		const content = await fs.readFile(TENANTS_FILE, "utf-8");
-		const parsed = JSON.parse(content);
-		if (Array.isArray(parsed) && parsed.length > 0) {
-			return parsed as TenantRecord[];
+async function writeTenantsFile(records: TenantRecord[]): Promise<void> {
+	localTenantsMemoryCache = records;
+	const payload = JSON.stringify(records, null, 2);
+
+	const isServerless = Boolean(process.env.VERCEL || process.env.AWS_LAMBDA_FUNCTION_NAME);
+
+	// In serverless environments, write directly to /tmp
+	if (isServerless) {
+		try {
+			await fs.mkdir(TMP_DATA_DIR, { recursive: true });
+			await fs.writeFile(TMP_TENANTS_FILE, payload, "utf-8");
+			return;
+		} catch (err: any) {
+			console.warn("[LocalTenantsStore] /tmp write warning:", err.message);
+			return;
 		}
-	} catch (err: any) {
-		// File missing or invalid JSON: write default seed
 	}
 
-	const initial = [DEFAULT_ASMEE_TENANT];
+	// In local dev, try writing to project root data directory first
 	try {
-		await fs.writeFile(TENANTS_FILE, JSON.stringify(initial, null, 2), "utf-8");
-	} catch {
-		// ignore write failure in read-only environments
+		await fs.mkdir(BUNDLED_DATA_DIR, { recursive: true });
+		await fs.writeFile(BUNDLED_TENANTS_FILE, payload, "utf-8");
+	} catch (err: any) {
+		// If EROFS or permission denied, fallback to /tmp
+		if (err?.code === "EROFS" || err?.code === "EACCES" || err?.code === "EPERM") {
+			try {
+				await fs.mkdir(TMP_DATA_DIR, { recursive: true });
+				await fs.writeFile(TMP_TENANTS_FILE, payload, "utf-8");
+			} catch (tmpErr: any) {
+				console.warn("[LocalTenantsStore] /tmp fallback write warning:", tmpErr.message);
+			}
+			return;
+		}
+		console.warn("[LocalTenantsStore] Write warning:", err?.message || err);
 	}
+}
+
+/**
+ * Reads tenants from disk or in-memory cache.
+ * Checks in-memory cache -> /tmp -> bundled data/tenants.json.
+ */
+export async function getLocalTenants(): Promise<TenantRecord[]> {
+	if (localTenantsMemoryCache && localTenantsMemoryCache.length > 0) {
+		return localTenantsMemoryCache;
+	}
+
+	// 1. Try reading from /tmp (most recent modifications in serverless)
+	try {
+		const tmpContent = await fs.readFile(TMP_TENANTS_FILE, "utf-8");
+		const parsedTmp = JSON.parse(tmpContent);
+		if (Array.isArray(parsedTmp) && parsedTmp.length > 0) {
+			localTenantsMemoryCache = parsedTmp as TenantRecord[];
+			return localTenantsMemoryCache;
+		}
+	} catch {
+		// Ignore /tmp missing
+	}
+
+	// 2. Try reading from bundled project file
+	try {
+		const bundledContent = await fs.readFile(BUNDLED_TENANTS_FILE, "utf-8");
+		const parsedBundled = JSON.parse(bundledContent);
+		if (Array.isArray(parsedBundled) && parsedBundled.length > 0) {
+			localTenantsMemoryCache = parsedBundled as TenantRecord[];
+			return localTenantsMemoryCache;
+		}
+	} catch {
+		// Ignore bundled missing
+	}
+
+	// 3. Seed default tenant
+	const initial = [DEFAULT_ASMEE_TENANT];
+	await writeTenantsFile(initial).catch(() => {});
 	return initial;
 }
 
 /**
- * Saves or updates a tenant in data/tenants.json.
+ * Saves or updates a tenant in local store.
  */
 export async function saveLocalTenant(tenant: TenantRecord): Promise<TenantRecord> {
 	const current = await getLocalTenants();
@@ -94,12 +156,12 @@ export async function saveLocalTenant(tenant: TenantRecord): Promise<TenantRecor
 		current.unshift(savedTenant);
 	}
 
-	await fs.writeFile(TENANTS_FILE, JSON.stringify(current, null, 2), "utf-8");
+	await writeTenantsFile(current);
 	return savedTenant;
 }
 
 /**
- * Toggles a tenant's active status in data/tenants.json.
+ * Toggles a tenant's active status.
  */
 export async function toggleLocalTenantStatus(
 	id: string,
@@ -115,18 +177,18 @@ export async function toggleLocalTenantStatus(
 		target.updated_at = new Date().toISOString();
 	}
 
-	await fs.writeFile(TENANTS_FILE, JSON.stringify(current, null, 2), "utf-8");
+	await writeTenantsFile(current);
 	return true;
 }
 
 /**
- * Deletes a tenant by ID from data/tenants.json.
+ * Deletes a tenant by ID.
  */
 export async function deleteLocalTenant(id: string): Promise<boolean> {
 	const current = await getLocalTenants();
 	const filtered = current.filter((t) => t.id !== id);
 	if (filtered.length === current.length) return false;
 
-	await fs.writeFile(TENANTS_FILE, JSON.stringify(filtered, null, 2), "utf-8");
+	await writeTenantsFile(filtered);
 	return true;
 }

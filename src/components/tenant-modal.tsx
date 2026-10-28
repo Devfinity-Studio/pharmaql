@@ -41,6 +41,20 @@ export function TenantModal({
 	const isEdit = Boolean(initialTenant?.id);
 	const [activeTab, setActiveTab] = useState<"general" | "stationery" | "erp" | "policies">("general");
 
+	// Dynamic Host and Protocol Detection
+	const [clientOrigin, setClientOrigin] = useState("http://localhost:3000");
+	const [clientHost, setClientHost] = useState("localhost:3000");
+	const [isLocalHost, setIsLocalHost] = useState(true);
+
+	useEffect(() => {
+		if (typeof window !== "undefined") {
+			setClientOrigin(window.location.origin);
+			setClientHost(window.location.host);
+			const h = window.location.hostname.toLowerCase();
+			setIsLocalHost(h === "localhost" || h === "127.0.0.1");
+		}
+	}, []);
+
 	// 1. General & Domain
 	const [slug, setSlug] = useState(initialTenant?.slug || "");
 	const [displayName, setDisplayName] = useState(initialTenant?.display_name || "");
@@ -331,7 +345,14 @@ export function TenantModal({
 										className="w-full px-3 py-2 bg-gray-950 border border-gray-800 rounded-xl text-sm focus:outline-none focus:border-blue-500 text-white placeholder-gray-500 font-mono"
 									/>
 									<p className="text-[11px] text-gray-500 mt-1">
-										Local URL: <span className="text-blue-400 font-mono">{slug ? `${slug}.localhost:3000` : "slug.localhost:3000"}</span>
+										Access URL:{" "}
+										<span className="text-blue-400 font-mono">
+											{isLocalHost
+												? `${slug || "slug"}.${clientHost}`
+												: clientHost.endsWith(".vercel.app")
+													? `${clientOrigin}/?tenant=${slug || "slug"}`
+													: `${slug || "slug"}.${clientHost}`}
+										</span>
 									</p>
 								</div>
 

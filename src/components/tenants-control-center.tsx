@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import {
 	Building,
 	Search,
@@ -52,6 +52,20 @@ export function TenantsControlCenter({
 		domain: string;
 		name: string;
 	} | null>(null);
+
+	// Dynamic Host and Protocol Detection
+	const [clientOrigin, setClientOrigin] = useState("http://localhost:3000");
+	const [clientHost, setClientHost] = useState("localhost:3000");
+	const [isLocalHost, setIsLocalHost] = useState(true);
+
+	useEffect(() => {
+		if (typeof window !== "undefined") {
+			setClientOrigin(window.location.origin);
+			setClientHost(window.location.host);
+			const h = window.location.hostname.toLowerCase();
+			setIsLocalHost(h === "localhost" || h === "127.0.0.1");
+		}
+	}, []);
 
 	// Action States
 	const [pingingId, setPingingId] = useState<string | null>(null);
@@ -398,29 +412,46 @@ export function TenantsControlCenter({
 													) : (
 														<span className="text-gray-500 italic text-[11px]">Unmapped production</span>
 													)}
-													<div className="flex items-center gap-2">
-														<a
-															href={`http://${tenant.slug}.localhost:3000`}
-															target="_blank"
-															rel="noopener noreferrer"
-															className="inline-flex items-center gap-1 font-mono text-[11px] text-gray-400 hover:text-gray-200"
-															title="Subdomain routing"
-														>
-															{tenant.slug}.localhost:3000
-															<ExternalLink className="w-2.5 h-2.5 opacity-50" />
-														</a>
-														<span className="text-gray-600">|</span>
-														<a
-															href={`http://localhost:3000/?tenant=${tenant.slug}`}
-															target="_blank"
-															rel="noopener noreferrer"
-															className="inline-flex items-center gap-1 font-mono text-[10px] text-cyan-400 hover:text-cyan-300"
-															title="Direct local test simulation"
-														>
-															Local Test
-															<ExternalLink className="w-2.5 h-2.5 opacity-50" />
-														</a>
-													</div>
+													{(() => {
+														const simulationUrl = `${clientOrigin}/?tenant=${tenant.slug}`;
+														const protocol = clientOrigin ? clientOrigin.split("//")[0] + "//" : "http://";
+														const subdomainUrl = isLocalHost
+															? `${protocol}${tenant.slug}.${clientHost}`
+															: clientHost.endsWith(".vercel.app")
+																? simulationUrl
+																: `${protocol}${tenant.slug}.${clientHost}`;
+														const subdomainLabel = isLocalHost
+															? `${tenant.slug}.${clientHost}`
+															: clientHost.endsWith(".vercel.app")
+																? `?tenant=${tenant.slug}`
+																: `${tenant.slug}.${clientHost}`;
+
+														return (
+															<div className="flex items-center gap-2">
+																<a
+																	href={subdomainUrl}
+																	target="_blank"
+																	rel="noopener noreferrer"
+																	className="inline-flex items-center gap-1 font-mono text-[11px] text-gray-400 hover:text-gray-200"
+																	title="Tenant portal address"
+																>
+																	{subdomainLabel}
+																	<ExternalLink className="w-2.5 h-2.5 opacity-50" />
+																</a>
+																<span className="text-gray-600">|</span>
+																<a
+																	href={simulationUrl}
+																	target="_blank"
+																	rel="noopener noreferrer"
+																	className="inline-flex items-center gap-1 font-mono text-[10px] text-cyan-400 hover:text-cyan-300"
+																	title="Live portal preview"
+																>
+																	Preview
+																	<ExternalLink className="w-2.5 h-2.5 opacity-50" />
+																</a>
+															</div>
+														);
+													})()}
 												</div>
 											</td>
 

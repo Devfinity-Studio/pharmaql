@@ -41,11 +41,17 @@ export function isDevPortalHost(host: string): boolean {
 		? normalizeHost(process.env.DEV_PORTAL_DOMAIN)
 		: "pharmaql.devfinity.net";
 
+	const vercelUrl = process.env.VERCEL_URL ? normalizeHost(process.env.VERCEL_URL) : "";
+	const vercelBranchUrl = process.env.VERCEL_BRANCH_URL ? normalizeHost(process.env.VERCEL_BRANCH_URL) : "";
+
 	return (
 		normalized === devPortalDomain ||
 		normalized === "devfinity.net" ||
 		normalized === "localhost" ||
-		normalized === "127.0.0.1"
+		normalized === "127.0.0.1" ||
+		(Boolean(vercelUrl) && normalized === vercelUrl) ||
+		(Boolean(vercelBranchUrl) && normalized === vercelBranchUrl) ||
+		normalized.endsWith(".vercel.app")
 	);
 }
 
