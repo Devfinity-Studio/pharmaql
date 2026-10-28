@@ -532,43 +532,81 @@ export async function testApiServerConnectionAction(params: {
 		};
 	}
 
-	const healthEndpoint = `${normalizedBase}/health`;
+	if (!apiKey) {
+		return {
+			success: false,
+			error: "API secret key is required to verify server authentication.",
+		};
+	}
+
 	const startTime = Date.now();
 
 	try {
-		const headers: HeadersInit = {};
-		if (apiKey) {
-			headers["Authorization"] = `Bearer ${apiKey}`;
+		// 1. Health & Database Connectivity Check
+		const healthResponse = await fetch(`${normalizedBase}/health`, {
+			method: "GET",
+			signal: AbortSignal.timeout(5000),
+		});
+
+		if (!healthResponse.ok) {
+			return {
+				success: false,
+				latencyMs: Date.now() - startTime,
+				error: `API Server unreachable: HTTP ${healthResponse.status} ${healthResponse.statusText}`,
+			};
 		}
 
-		const response = await fetch(healthEndpoint, {
+		const healthData = (await healthResponse.json().catch(() => ({}))) as any;
+		if (healthData.status === "unhealthy") {
+			return {
+				success: false,
+				latencyMs: Date.now() - startTime,
+				error: `API Server reachable but database is offline: ${healthData.dbError || "Database error"}`,
+			};
+		}
+
+		// 2. Authentication Check with provided API Key
+		const authResponse = await fetch(`${normalizedBase}/api/master/companies`, {
 			method: "GET",
-			headers,
+			headers: {
+				Authorization: `Bearer ${apiKey}`,
+				"Content-Type": "application/json",
+			},
 			signal: AbortSignal.timeout(5000),
 		});
 
 		const latencyMs = Date.now() - startTime;
 
-		if (!response.ok) {
+		if (authResponse.status === 401) {
 			return {
 				success: false,
 				latencyMs,
-				error: `HTTP ${response.status}: ${response.statusText}`,
+				error: "Authentication failed: Invalid API secret key (HTTP 401 Unauthorized)",
 			};
 		}
 
-		const data = (await response.json().catch(() => ({}))) as any;
+		if (!authResponse.ok) {
+			const errText = await authResponse.text().catch(() => "");
+			return {
+				success: false,
+				latencyMs,
+				error: `Authentication check failed: HTTP ${authResponse.status} ${errText || authResponse.statusText}`,
+			};
+		}
 
 		return {
 			success: true,
-			status: data.status || "healthy",
-			db: data.db || "connected",
+			status: "healthy",
+			db: healthData.db || "connected",
 			latencyMs,
 		};
 	} catch (err: any) {
 		return {
 			success: false,
-			error: err.name === "TimeoutError" ? "Connection timed out after 5000ms" : err.message || "Failed to reach API server",
+			error:
+				err.name === "TimeoutError"
+					? "Connection timed out after 5000ms"
+					: err.message || "Failed to reach API server",
 		};
 	}
 }

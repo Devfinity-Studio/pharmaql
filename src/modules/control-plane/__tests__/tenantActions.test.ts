@@ -42,19 +42,64 @@ describe("tenantActions Server Actions", () => {
 			expect(res.error).toMatch(/No API Server URL/i);
 		});
 
-		it("returns success when API server responds with healthy status", async () => {
-			vi.stubGlobal(
-				"fetch",
-				vi.fn().mockResolvedValue({
+		it("fails gracefully when no API secret key is supplied", async () => {
+			const res = await testApiServerConnectionAction({
+				apiServerUrl: "https://api.asmeepharma.com",
+			});
+			expect(res.success).toBe(false);
+			expect(res.error).toMatch(/API secret key is required/i);
+		});
+
+		it("fails with authentication error when API secret key is wrong (HTTP 401)", async () => {
+			const mockFetch = vi
+				.fn()
+				// 1. /health succeeds
+				.mockResolvedValueOnce({
 					ok: true,
 					status: 200,
-					json: vi.fn().mockResolvedValue({ status: "healthy", database: "connected" }),
-				}),
-			);
+					json: vi.fn().mockResolvedValue({ status: "healthy", db: "connected" }),
+				})
+				// 2. /api/master/companies returns 401
+				.mockResolvedValueOnce({
+					ok: false,
+					status: 401,
+					statusText: "Unauthorized",
+					json: vi.fn().mockResolvedValue({ error: "Unauthorized: Invalid API secret key" }),
+				});
+
+			vi.stubGlobal("fetch", mockFetch);
+
+			const res = await testApiServerConnectionAction({
+				apiServerUrl: "https://api.asmeepharma.com",
+				apiKey: "wrong-api-key",
+			});
+
+			expect(res.success).toBe(false);
+			expect(res.error).toMatch(/Invalid API secret key/i);
+			vi.unstubAllGlobals();
+		});
+
+		it("returns success when both health and authenticated endpoints succeed", async () => {
+			const mockFetch = vi
+				.fn()
+				// 1. /health check
+				.mockResolvedValueOnce({
+					ok: true,
+					status: 200,
+					json: vi.fn().mockResolvedValue({ status: "healthy", db: "connected" }),
+				})
+				// 2. /api/master/companies check
+				.mockResolvedValueOnce({
+					ok: true,
+					status: 200,
+					json: vi.fn().mockResolvedValue({ success: true, data: [] }),
+				});
+
+			vi.stubGlobal("fetch", mockFetch);
 
 			const res = await testApiServerConnectionAction({
 				apiServerUrl: "http://192.168.1.100:8000",
-				apiKey: "test-secret-key",
+				apiKey: "correct-secret-key",
 			});
 
 			expect(res.success).toBe(true);
@@ -71,6 +116,7 @@ describe("tenantActions Server Actions", () => {
 
 			const res = await testApiServerConnectionAction({
 				apiServerUrl: "http://192.168.1.999:8000",
+				apiKey: "some-key",
 			});
 
 			expect(res.success).toBe(false);

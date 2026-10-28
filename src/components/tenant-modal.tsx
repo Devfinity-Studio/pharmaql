@@ -580,7 +580,7 @@ export function TenantModal({
 								<div className="pt-2 border-t border-gray-800/80 flex items-center justify-between">
 									<div className="flex items-center gap-1.5 text-xs text-gray-400">
 										<Activity className="w-3.5 h-3.5 text-cyan-400" />
-										Test endpoint: <span className="font-mono text-gray-300">/health</span>
+										Verification: <span className="font-mono text-gray-300">Health & Auth Token</span>
 									</div>
 									<button
 										type="button"
