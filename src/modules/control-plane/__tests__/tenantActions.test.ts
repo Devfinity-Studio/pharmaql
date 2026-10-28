@@ -201,5 +201,46 @@ describe("tenantActions Server Actions", () => {
 			expect(res.tenants[0]?.has_api_key).toBe(false);
 			expect((res.tenants[0] as any).api_server_key_encrypted).toBeUndefined();
 		});
+
+		it("updates existing tenant in Neon with clean SQL syntax when API key is not modified", async () => {
+			const mockSql: any = vi.fn().mockImplementation((strings: TemplateStringsArray, ...values: any[]) => {
+				// Verify no syntax error or invalid parameter
+				return Promise.resolve([]);
+			});
+
+			vi.spyOn(controlPlaneDb, "getControlPlaneSql").mockReturnValue(mockSql);
+			vi.spyOn(controlPlaneDb, "initControlPlaneRelationalSchema").mockResolvedValue(true);
+
+			const res = await saveTenantAction({
+				id: "tenant-existing-1",
+				slug: "client-one",
+				display_name: "Client One Updated",
+				api_server_url: "http://192.168.1.50:8000",
+			});
+
+			expect(res.success).toBe(true);
+			expect(res.id).toBe("tenant-existing-1");
+			expect(mockSql).toHaveBeenCalled();
+		});
+
+		it("updates existing tenant in Neon including encrypted API key when provided", async () => {
+			const mockSql: any = vi.fn().mockResolvedValue([]);
+			vi.spyOn(controlPlaneDb, "getControlPlaneSql").mockReturnValue(mockSql);
+			vi.spyOn(controlPlaneDb, "initControlPlaneRelationalSchema").mockResolvedValue(true);
+
+			const encryptSpy = vi.spyOn(crypto, "encryptSecret");
+
+			const res = await saveTenantAction({
+				id: "tenant-existing-2",
+				slug: "client-two",
+				display_name: "Client Two Updated",
+				api_server_url: "http://192.168.1.60:8000",
+				api_server_key: "new-super-secret-key",
+			});
+
+			expect(encryptSpy).toHaveBeenCalledWith("new-super-secret-key");
+			expect(res.success).toBe(true);
+			expect(res.id).toBe("tenant-existing-2");
+		});
 	});
 });

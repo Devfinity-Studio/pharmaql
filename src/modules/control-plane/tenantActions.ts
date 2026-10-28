@@ -286,34 +286,64 @@ export async function saveTenantAction(
 
 		if (input.id) {
 			// Update existing tenant in Neon
-			await sql`
-				UPDATE tenants SET
-					slug = ${cleanSlug},
-					custom_domain = ${cleanDomain},
-					is_active = ${isActive},
-					display_name = ${displayName},
-					short_name = ${shortName},
-					logo_url = ${logoUrl},
-					primary_color = ${primaryColor},
-					accent_color = ${accentColor},
-					address = ${address},
-					contact_phone = ${phone},
-					contact_email = ${email},
-					support_email = ${supportEmail},
-					user_email_domain = ${userEmailDomain},
-					gstin = ${gstin},
-					db_type = ${dbType},
-					api_server_url = ${apiServerUrl},
-					legacy_db_name = ${legacyDbName},
-					erp_software_type = ${erpSoftwareType},
-					comp_no = ${compNo},
-					loc_no = ${locNo},
-					overdue_direct_block_days = ${directBlockDays},
-					overdue_division_block_days = ${divisionBlockDays},
-					${apiKeyEncrypted ? sql`api_server_key_encrypted = ${apiKeyEncrypted},` : sql``}
-					updated_at = NOW()
-				WHERE id = ${input.id};
-			`;
+			if (apiKeyEncrypted) {
+				await sql`
+					UPDATE tenants SET
+						slug = ${cleanSlug},
+						custom_domain = ${cleanDomain},
+						is_active = ${isActive},
+						display_name = ${displayName},
+						short_name = ${shortName},
+						logo_url = ${logoUrl},
+						primary_color = ${primaryColor},
+						accent_color = ${accentColor},
+						address = ${address},
+						contact_phone = ${phone},
+						contact_email = ${email},
+						support_email = ${supportEmail},
+						user_email_domain = ${userEmailDomain},
+						gstin = ${gstin},
+						db_type = ${dbType},
+						api_server_url = ${apiServerUrl},
+						api_server_key_encrypted = ${apiKeyEncrypted},
+						legacy_db_name = ${legacyDbName},
+						erp_software_type = ${erpSoftwareType},
+						comp_no = ${compNo},
+						loc_no = ${locNo},
+						overdue_direct_block_days = ${directBlockDays},
+						overdue_division_block_days = ${divisionBlockDays},
+						updated_at = NOW()
+					WHERE id = ${input.id};
+				`;
+			} else {
+				await sql`
+					UPDATE tenants SET
+						slug = ${cleanSlug},
+						custom_domain = ${cleanDomain},
+						is_active = ${isActive},
+						display_name = ${displayName},
+						short_name = ${shortName},
+						logo_url = ${logoUrl},
+						primary_color = ${primaryColor},
+						accent_color = ${accentColor},
+						address = ${address},
+						contact_phone = ${phone},
+						contact_email = ${email},
+						support_email = ${supportEmail},
+						user_email_domain = ${userEmailDomain},
+						gstin = ${gstin},
+						db_type = ${dbType},
+						api_server_url = ${apiServerUrl},
+						legacy_db_name = ${legacyDbName},
+						erp_software_type = ${erpSoftwareType},
+						comp_no = ${compNo},
+						loc_no = ${locNo},
+						overdue_direct_block_days = ${directBlockDays},
+						overdue_division_block_days = ${divisionBlockDays},
+						updated_at = NOW()
+					WHERE id = ${input.id};
+				`;
+			}
 
 			safeRevalidatePath("/admin/tenants");
 			return { success: true, id: input.id };
