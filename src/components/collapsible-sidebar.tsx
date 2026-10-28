@@ -73,7 +73,32 @@ export function CollapsibleSidebar({
 		},
 	];
 
-	const baseAdminNavItems = [
+	// Dev Portal Navigation Items (Master platform control center: excludes client ERP reports)
+	const devPortalNavItems = [
+		{
+			label: "Tenant Control Center",
+			href: "/admin/tenants",
+			icon: Database,
+		},
+		{
+			label: "Notice Board",
+			href: "/admin/notices",
+			icon: Bell,
+		},
+		{
+			label: "Security & Audit",
+			href: "/admin/audit",
+			icon: Shield,
+		},
+		{
+			label: "Developer Options",
+			href: "/admin/dev",
+			icon: Terminal,
+		},
+	];
+
+	// Client Portal Navigation Items (ERP reports & settings)
+	const clientAdminNavItems = [
 		{
 			label: "Global Dashboard",
 			href: "/admin/dashboard",
@@ -94,20 +119,6 @@ export function CollapsibleSidebar({
 			href: "/admin/notices",
 			icon: Bell,
 		},
-	];
-
-	const adminNavItems = [
-		// Show Tenant Control Center strictly when on the Dev Portal for Developers
-		...(tenant.isDevPortal && userRole === "DEVELOPER"
-			? [
-					{
-						label: "Tenant Control Center",
-						href: "/admin/tenants",
-						icon: Database,
-					},
-				]
-			: []),
-		...baseAdminNavItems,
 		...(userRole === "DEVELOPER"
 			? [
 					{
@@ -123,6 +134,8 @@ export function CollapsibleSidebar({
 				]
 			: []),
 	];
+
+	const adminNavItems = tenant.isDevPortal ? devPortalNavItems : clientAdminNavItems;
 
 	const navItems = portal === "mr" ? mrNavItems : adminNavItems;
 	const isDark = portal === "admin";
@@ -151,7 +164,7 @@ export function CollapsibleSidebar({
 						<div className="flex items-center gap-1.5 font-black text-xl md:text-2xl tracking-tight truncate">
 							<Link className="flex items-center gap-1.5 truncate" href="/">
 								<span className={isDark ? "text-white" : "text-[#0B2545]"}>
-									{tenant.displayName}
+									{tenant.isDevPortal ? "Devfinity" : tenant.displayName}
 								</span>
 							</Link>
 						</div>
@@ -159,9 +172,11 @@ export function CollapsibleSidebar({
 							<span className="truncate">
 								{portal === "mr"
 									? "MR Portal"
-									: userRole === "DEVELOPER"
-										? "Developer Panel"
-										: "Admin Panel"}
+									: tenant.isDevPortal
+										? "Cloud Control Center"
+										: userRole === "DEVELOPER"
+											? "Developer Panel"
+											: "Admin Panel"}
 							</span>
 							{userRole === "DEVELOPER" && (
 								<span className="shrink-0 rounded border border-purple-500/40 bg-purple-500/20 px-1 py-0.2 font-mono text-[9px] text-purple-300">
@@ -176,10 +191,10 @@ export function CollapsibleSidebar({
 						<Link
 							className="flex h-10 w-10 items-center justify-center rounded-xl font-black text-lg text-white"
 							href="/"
-							title={tenant.displayName}
+							title={tenant.isDevPortal ? "Devfinity" : tenant.displayName}
 						>
 							<span className="flex h-9 w-9 items-center justify-center rounded-lg bg-[#0071BC] font-bold text-white shadow-sm hover:scale-105 transition-transform uppercase">
-								{tenant.shortName.charAt(0) || "P"}
+								{tenant.isDevPortal ? "D" : tenant.shortName.charAt(0) || "P"}
 							</span>
 						</Link>
 					</div>
@@ -190,7 +205,7 @@ export function CollapsibleSidebar({
 					<div className="flex md:hidden items-center gap-1.5 font-black text-xl tracking-tight min-w-0 flex-1 truncate">
 						<Link className="flex items-center gap-1.5 truncate" href="/">
 							<span className={isDark ? "text-white" : "text-[#0B2545]"}>
-								{tenant.displayName}
+								{tenant.isDevPortal ? "Devfinity" : tenant.displayName}
 							</span>
 						</Link>
 					</div>
@@ -376,7 +391,7 @@ export function CollapsibleSidebar({
 							isCollapsed ? "md:hidden" : ""
 						} mt-1 text-center text-[10px] text-gray-400`}
 					>
-						<p>© {new Date().getFullYear()} {tenant.displayName}</p>
+						<p>© {new Date().getFullYear()} {tenant.isDevPortal ? "Devfinity Pvt. Ltd." : tenant.displayName}</p>
 						<p className="mt-0.5 flex items-center justify-center gap-1">
 							Made with <span className="text-red-500">❤️</span> by{" "}
 							<a
