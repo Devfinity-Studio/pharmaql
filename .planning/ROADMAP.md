@@ -302,4 +302,13 @@
 - [x] **ERP Bridge Offline Safeguards**: Added 6-second timeout (`AbortSignal.timeout(6000)`) and offline detection in [`src/lib/api-client.ts`](file:///e:/work/pharmaql/src/lib/api-client.ts) alongside [`src/components/erp-offline-banner.tsx`](file:///e:/work/pharmaql/src/components/erp-offline-banner.tsx) to inform field reps and block conflicting order submissions.
 - [x] **Verification & Validation**: All 16 Vitest suites passed (92/92 tests), TypeScript typecheck passed (`tsc --noEmit`), Next.js production build (`next build`) compiled cleanly, and results documented in [`36-UAT.md`](file:///e:/work/pharmaql/.planning/phases/36-production-deployment-and-domain-verification/36-UAT.md).
 
+## Phase 37: Centralized Dev Platform Dashboard & Multi-Tenant Resource Isolation
+
+- [ ] **Centralized Dev Platform Dashboard (`/admin/dashboard`)**: Implement partitioned dashboard rendering: on Dev Portal hosts (`pharmaql.devfinity.net` / `localhost:3000`), render the master platform overview with cross-tenant analytics (total tenants, active/suspended ratios, Neon cloud DB latency, platform MR distribution, and quick developer tools); on client hosts, render client-isolated ERP metrics.
+- [ ] **Multi-Tenant Tenant Selector on Developer Panel (`/admin/dev`)**: Build an interactive tenant selector allowing developers on the Dev Portal to switch between tenants to inspect and update tenant-specific licenses, feature toggles, maintenance states, and runtime configs. Clean up hardcoded brand metadata.
+- [ ] **Multi-Tenant Notice Board (`/admin/notices`)**: Add tenant scoping to notices in Neon `tenant_notices` table, enabling developers on Dev Portal to broadcast announcements globally to "All Tenants" or target specific client organizations.
+- [ ] **Multi-Tenant Audit Logging & Route Partitioning**: Ensure `/admin/audit` supports filtering by tenant, and fix `/admin` root redirect to navigate to `/admin/dashboard` on client portals and `/admin/tenants` on Dev Portal.
+- [ ] **Verification & Validation**: Run complete Vitest suite, TypeScript validation (`tsc --noEmit`), and Next.js production build (`next build`).
+
+
 
