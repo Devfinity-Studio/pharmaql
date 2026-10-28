@@ -2,7 +2,7 @@
 
 **Current Milestone:** Milestone 1 - Production Hardening & Optimization
 **Active Phase:** Phase 37 - Centralized Dev Platform Dashboard & Multi-Tenant Resource Isolation
-**Status:** Phase 37 added to roadmap. Ready for discuss/plan phase.
+**Status:** Discussed & Locked with user specifications. Ready for plan phase (`/gsd-plan-phase 37`).
 
 ## Accumulated Context
 
