@@ -597,9 +597,14 @@ export async function triggerSubscriptionReminderEmails(
 /**
  * 8. Feature Switchboard Server Action
  */
-export async function saveFeatureToggleAction(key: FeatureKey, scope: FeatureScope) {
+export async function saveFeatureToggleAction(
+	key: FeatureKey,
+	scope: FeatureScope,
+	tenantId?: string,
+) {
 	const session = await assertDeveloperSession();
-	const result = await updateFeatureToggle(key, scope, session.user.email);
+	const cleanTenantId = tenantId && tenantId !== "global" ? tenantId : undefined;
+	const result = await updateFeatureToggle(key, scope, session.user.email, cleanTenantId);
 	await recordAuditEvent({
 		event: "SECURITY_WARNING",
 		userId: session.user.id,
@@ -610,6 +615,7 @@ export async function saveFeatureToggleAction(key: FeatureKey, scope: FeatureSco
 			action: "saveFeatureToggleAction",
 			key,
 			scope,
+			tenantId: cleanTenantId,
 		},
 	});
 	return result;
@@ -618,9 +624,13 @@ export async function saveFeatureToggleAction(key: FeatureKey, scope: FeatureSco
 /**
  * 9. Maintenance Mode Server Action
  */
-export async function saveMaintenanceConfigAction(update: Partial<MaintenanceConfig>) {
+export async function saveMaintenanceConfigAction(
+	update: Partial<MaintenanceConfig>,
+	tenantId?: string,
+) {
 	const session = await assertDeveloperSession();
-	const result = await updateMaintenanceConfig(update, session.user.email);
+	const cleanTenantId = tenantId && tenantId !== "global" ? tenantId : undefined;
+	const result = await updateMaintenanceConfig(update, session.user.email, cleanTenantId);
 
 	try {
 		revalidatePath("/", "layout");
@@ -631,7 +641,6 @@ export async function saveMaintenanceConfigAction(update: Partial<MaintenanceCon
 	} catch {
 		// Ignore revalidation errors outside request context
 	}
-
 	await recordAuditEvent({
 		event: "SECURITY_WARNING",
 		userId: session.user.id,
@@ -641,6 +650,7 @@ export async function saveMaintenanceConfigAction(update: Partial<MaintenanceCon
 		details: {
 			action: "saveMaintenanceConfigAction",
 			update,
+			tenantId: cleanTenantId,
 		},
 	});
 	return result;

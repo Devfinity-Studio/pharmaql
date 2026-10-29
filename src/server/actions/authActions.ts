@@ -22,6 +22,13 @@ import { recordMRLastLogin } from "@/server/actions/mrs";
 import { AUTH_COOKIE_NAME, getSession } from "@/server/auth";
 import { kvStore } from "@/lib/kv-store";
 import { isUnderMaintenance } from "@/lib/maintenance";
+import {
+	getControlPlaneSql,
+	initControlPlaneRelationalSchema,
+	type TenantRecord,
+} from "@/lib/control-plane-db";
+import { getLocalTenantById, getLocalTenantBySlug } from "@/lib/local-tenants-store";
+import { decryptSecret } from "@/lib/crypto";
 
 interface StoredOtpRecord {
 	otp: string;
@@ -447,7 +454,64 @@ export async function loginAdminOrDev(email: string, pass: string) {
 
 		let sessionUser: SessionUser | null = null;
 
-		if (
+		// 1. Check for tenant-specific admin credentials on client portals
+		const currentTenantId = reqHeaders ? reqHeaders.get("x-tenant-id") : null;
+		const currentTenantSlug = reqHeaders ? reqHeaders.get("x-tenant-slug") : null;
+		const currentTenantName = reqHeaders?.get("x-tenant-name") || "Client";
+		const currentTenantLocNo = reqHeaders?.get("x-tenant-loc-no") || "11";
+
+		if (currentTenantId || currentTenantSlug) {
+			try {
+				let tenantRecord: TenantRecord | null = null;
+				const sql = getControlPlaneSql();
+				if (!sql) {
+					if (currentTenantId) tenantRecord = await getLocalTenantById(currentTenantId);
+					if (!tenantRecord && currentTenantSlug) tenantRecord = await getLocalTenantBySlug(currentTenantSlug);
+				} else {
+					await initControlPlaneRelationalSchema();
+					const queryKey = currentTenantId || currentTenantSlug;
+					const rows = await sql`
+						SELECT * FROM tenants
+						WHERE (id::text = ${queryKey} OR slug = ${queryKey})
+						LIMIT 1;
+					`;
+					if (rows.length > 0) tenantRecord = rows[0] as TenantRecord;
+				}
+
+				if (tenantRecord?.admin_email && tenantRecord?.admin_password_encrypted) {
+					let decryptedTenantPass = "";
+					try {
+						decryptedTenantPass = decryptSecret(tenantRecord.admin_password_encrypted);
+					} catch {}
+
+					const tenantAdminEmail = tenantRecord.admin_email.trim().toLowerCase();
+					if (
+						cleanEmail === tenantAdminEmail &&
+						decryptedTenantPass &&
+						timingSafeMatch(cleanPass, decryptedTenantPass)
+					) {
+						sessionUser = {
+							id: `admin-${tenantRecord.id || tenantRecord.slug}`,
+							name: `${tenantRecord.display_name || currentTenantName} Administrator`,
+							email: tenantAdminEmail,
+							role: "ADMIN",
+							locNo: String(tenantRecord.loc_no ?? currentTenantLocNo),
+							canViewStock: true,
+							canViewSales: true,
+							canViewFreeScheme: true,
+							canViewPartyWise: true,
+							canViewProductWise: true,
+						};
+					}
+				}
+			} catch (err: any) {
+				console.warn("[AuthActions] Error checking tenant-specific admin credentials:", err.message);
+			}
+		}
+
+		if (sessionUser) {
+			// Successfully authenticated with tenant custom admin account
+		} else if (
 			adminEmail &&
 			adminPass &&
 			cleanEmail === adminEmail &&
@@ -455,10 +519,10 @@ export async function loginAdminOrDev(email: string, pass: string) {
 		) {
 			sessionUser = {
 				id: "admin-system",
-				name: "System Administrator",
+				name: `${currentTenantName} Administrator`,
 				email: adminEmail,
 				role: "ADMIN",
-				locNo: "11",
+				locNo: currentTenantLocNo,
 				canViewStock: true,
 				canViewSales: true,
 				canViewFreeScheme: true,

@@ -22,6 +22,8 @@ export interface AuditLogEntry {
 	userId?: string | null;
 	userEmail?: string | null;
 	role?: string | null;
+	tenantId?: string | null;
+	tenantSlug?: string | null;
 	ip: string;
 	userAgent?: string | null;
 	details?: Record<string, any>;
@@ -39,9 +41,20 @@ let writeQueue = Promise.resolve();
 export async function recordAuditEvent(
 	entry: Omit<AuditLogEntry, "id" | "timestamp">,
 ): Promise<void> {
+	let headerTenantId: string | null = null;
+	let headerTenantSlug: string | null = null;
+	try {
+		const { headers } = await import("next/headers");
+		const h = await headers();
+		headerTenantId = h.get("x-tenant-id");
+		headerTenantSlug = h.get("x-tenant-slug");
+	} catch {}
+
 	const logItem: AuditLogEntry = {
 		id: crypto.randomUUID(),
 		timestamp: new Date().toISOString(),
+		tenantId: entry.tenantId ?? headerTenantId,
+		tenantSlug: entry.tenantSlug ?? headerTenantSlug,
 		...entry,
 	};
 
@@ -76,6 +89,7 @@ export async function recordAuditEvent(
 export async function getRecentAuditLogs(options?: {
 	limit?: number;
 	event?: string;
+	tenantId?: string;
 }): Promise<AuditLogEntry[]> {
 	try {
 		let logs = await readServerJson<AuditLogEntry[]>("audit_logs.json", []);
@@ -83,6 +97,12 @@ export async function getRecentAuditLogs(options?: {
 
 		if (options?.event) {
 			logs = logs.filter((log) => log.event === options.event);
+		}
+
+		if (options?.tenantId) {
+			logs = logs.filter(
+				(log) => log.tenantId === options.tenantId || log.details?.tenantId === options.tenantId,
+			);
 		}
 
 		const limit = options?.limit || 100;

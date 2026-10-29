@@ -9,10 +9,11 @@ import {
 	getUnifiedSystemLogs,
 } from "@/server/actions/devDiagnostics";
 import { getAllMRsForDev, getAllMarketingCompaniesWithDivisions } from "@/server/actions/mrInfo";
+import { listTenantsAction } from "@/modules/control-plane/tenantActions";
 import { auth } from "@/server/auth";
 
 export const metadata = {
-	title: "Developer Control Center | PharmaQL | Asmee Pharma",
+	title: "Developer Platform Control Center | Devfinity PharmaQL",
 };
 
 export const dynamic = "force-dynamic";
@@ -35,6 +36,7 @@ export default async function DeveloperControlPage() {
 		initialLogs,
 		allDevMRs,
 		companiesData,
+		tenantsRes,
 	] = await Promise.all([
 		getServiceHealthTelemetry(),
 		getLicenseStatus(),
@@ -44,7 +46,10 @@ export default async function DeveloperControlPage() {
 		getUnifiedSystemLogs({ limit: 100 }),
 		getAllMRsForDev(),
 		getAllMarketingCompaniesWithDivisions().catch(() => []),
+		listTenantsAction(),
 	]);
+
+	const tenants = tenantsRes.success ? tenantsRes.tenants : [];
 
 	const maskedEnv = getMaskedEnvInspection();
 	const mrList = allDevMRs.map((m) => ({
@@ -146,6 +151,7 @@ export default async function DeveloperControlPage() {
 			maskedEnv={maskedEnv}
 			mrList={mrList}
 			runtimeConfig={runtimeConfig}
+			tenants={tenants}
 		/>
 	);
 }

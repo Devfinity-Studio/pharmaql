@@ -1,8 +1,8 @@
 # State
 
 **Current Milestone:** Milestone 1 - Production Hardening & Optimization
-**Active Phase:** Phase 33 - Standalone Windows x64 Executable (.exe) & NSSM Packaging [COMPLETED]
-**Status:** Completed. Fully automated bundling (tsup) and native Windows packaging (@yao-pkg/pkg) into a standalone release executable (release/api-server.exe) with process.execPath runtime anchoring, safe database pool drainage, and complete NSSM service runbook. All builds and tests passing. Ready for next phase.
+**Active Phase:** Phase 38 - Multi-Tenant Custom SMTP & Isolated Email Dispatch
+**Status:** Added to roadmap. Ready for discussion and planning (`/gsd-discuss-phase 38` or `/gsd-plan-phase 38`).
 
 ## Accumulated Context
 
@@ -23,3 +23,8 @@
 - Phase 31 added: Architectural Hardening, Testing Suite & Production Resilience
 - Phase 32 added: Strict CORS Ingress Protection & API Security Hardening
 - Phase 33 added: Standalone Windows x64 Executable (.exe) & NSSM Packaging
+- Phase 34 added: PharmaQL Client Multi-Tenant Consumption & Edge-Safe Routing
+- Phase 35 added: Monolithic Dev Control Center & Superuser Admin Portal
+- Phase 36 added: Production Deployment & Multi-Tenant Custom Domain Verification
+- Phase 37 added: Centralized Dev Platform Dashboard & Multi-Tenant Resource Isolation
+- Phase 38 added: Multi-Tenant Custom SMTP & Isolated Email Dispatch

@@ -17,10 +17,17 @@ import type { AuditLogEntry, AuditEventType } from "@/lib/audit-logger";
 
 interface AdminAuditTableProps {
 	initialLogs: AuditLogEntry[];
+	tenants?: { id: string; name: string; slug: string }[];
+	isDevPortal?: boolean;
 }
 
-export function AdminAuditTable({ initialLogs }: AdminAuditTableProps) {
+export function AdminAuditTable({
+	initialLogs,
+	tenants = [],
+	isDevPortal = false,
+}: AdminAuditTableProps) {
 	const [selectedEvent, setSelectedEvent] = useState<string>("ALL");
+	const [selectedTenant, setSelectedTenant] = useState<string>("ALL");
 	const [searchQuery, setSearchQuery] = useState<string>("");
 
 	// Filter logs
@@ -28,13 +35,25 @@ export function AdminAuditTable({ initialLogs }: AdminAuditTableProps) {
 		if (selectedEvent !== "ALL" && log.event !== selectedEvent) {
 			return false;
 		}
+		if (selectedTenant !== "ALL") {
+			const matchesTenant =
+				log.tenantId === selectedTenant ||
+				log.tenantSlug === selectedTenant ||
+				log.details?.tenantId === selectedTenant ||
+				log.details?.tenantSlug === selectedTenant;
+			if (!matchesTenant) return false;
+		}
 		if (searchQuery.trim()) {
 			const q = searchQuery.toLowerCase();
 			const matchIp = log.ip.toLowerCase().includes(q);
 			const matchEmail = log.userEmail?.toLowerCase().includes(q) || false;
 			const matchEvent = log.event.toLowerCase().includes(q);
+			const matchTenant =
+				log.tenantSlug?.toLowerCase().includes(q) ||
+				log.tenantId?.toLowerCase().includes(q) ||
+				false;
 			const matchDetails = JSON.stringify(log.details || {}).toLowerCase().includes(q);
-			return matchIp || matchEmail || matchEvent || matchDetails;
+			return matchIp || matchEmail || matchEvent || matchTenant || matchDetails;
 		}
 		return true;
 	});
@@ -176,7 +195,21 @@ export function AdminAuditTable({ initialLogs }: AdminAuditTableProps) {
 						value={searchQuery}
 					/>
 				</div>
-				<div className="flex items-center gap-2">
+				<div className="flex flex-wrap items-center gap-2">
+					{isDevPortal && tenants.length > 0 && (
+						<select
+							className="rounded-xl border border-gray-300 bg-white px-3 py-2.5 font-bold text-gray-700 text-sm shadow-xs focus:border-[#0071BC] focus:outline-none"
+							onChange={(e) => setSelectedTenant(e.target.value)}
+							value={selectedTenant}
+						>
+							<option value="ALL">🏢 All Tenants</option>
+							{tenants.map((t) => (
+								<option key={t.id} value={t.id}>
+									{t.name} ({t.slug})
+								</option>
+							))}
+						</select>
+					)}
 					<Filter className="h-4 w-4 text-gray-400" />
 					<select
 						className="rounded-xl border border-gray-300 bg-white px-3 py-2.5 font-bold text-gray-700 text-sm shadow-xs focus:border-[#0071BC] focus:outline-none"
@@ -238,8 +271,15 @@ export function AdminAuditTable({ initialLogs }: AdminAuditTableProps) {
 											</td>
 											<td className="px-4 py-3">{getEventBadge(log.event)}</td>
 											<td className="px-4 py-3">
-												<div className="font-bold text-gray-900 text-xs">
-													{log.userEmail || log.userId || "Anonymous"}
+												<div className="flex items-center gap-1.5 flex-wrap">
+													<span className="font-bold text-gray-900 text-xs">
+														{log.userEmail || log.userId || "Anonymous"}
+													</span>
+													{(log.tenantSlug || log.details?.tenantSlug) && (
+														<span className="rounded bg-cyan-50 px-1.5 py-0.5 text-[10px] font-bold text-cyan-800 border border-cyan-200">
+															{log.tenantSlug || log.details?.tenantSlug}
+														</span>
+													)}
 												</div>
 												{log.role && (
 													<span className="font-semibold text-[10px] text-gray-400">

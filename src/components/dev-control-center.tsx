@@ -98,6 +98,13 @@ interface DevControlCenterProps {
 		companyName: string;
 		divisionName?: string;
 	}>;
+	tenants?: Array<{
+		id: string;
+		slug: string;
+		display_name: string;
+		is_active: boolean;
+		custom_domain?: string | null;
+	}>;
 }
 
 export function DevControlCenter({
@@ -110,6 +117,7 @@ export function DevControlCenter({
 	initialLogs,
 	mrList,
 	companiesList = [],
+	tenants = [],
 }: DevControlCenterProps) {
 	const router = useRouter();
 	const searchParams = useSearchParams();
@@ -118,8 +126,15 @@ export function DevControlCenter({
 		"status" | "presence" | "debug" | "feedback" | "license" | "push" | "toggles" | "impersonate" | "logs" | "query" | "runtime" | "notices"
 	>((initialTabFromUrl as any) || "status");
 
+	// Multi-Tenant Scoping Context State
+	const [selectedTenantId, setSelectedTenantId] = useState<string>("global");
+	const activeTenant = useMemo(() => {
+		if (selectedTenantId === "global") return null;
+		return tenants.find((t) => t.id === selectedTenantId || t.slug === selectedTenantId) || null;
+	}, [selectedTenantId, tenants]);
+
 	// Debug Console states
-	const [debugEmailRecipient, setDebugEmailRecipient] = useState(initialLicense.developerEmail || "dev@asmeepharma.com");
+	const [debugEmailRecipient, setDebugEmailRecipient] = useState(initialLicense.developerEmail || "info@devfinity.net");
 	const [debugEmailTemplate, setDebugEmailTemplate] = useState<
 		"CUSTOM" | "OTP_PREVIEW" | "SUBSCRIPTION_PREVIEW" | "SYSTEM_ALERT_PREVIEW"
 	>("OTP_PREVIEW");
@@ -361,9 +376,15 @@ export function DevControlCenter({
 	// 2. Maintenance & Feature Switchboard Handlers
 	const handleSaveMaintenance = () => {
 		startTransition(async () => {
-			const updated = await saveMaintenanceConfigAction(maintenance);
+			const targetTenant = selectedTenantId !== "global" ? selectedTenantId : undefined;
+			const updated = await saveMaintenanceConfigAction(maintenance, targetTenant);
 			setMaintenance(updated);
-			showFeedback("success", "Global maintenance settings updated.");
+			showFeedback(
+				"success",
+				`Maintenance settings saved${
+					targetTenant ? ` for tenant [${activeTenant?.display_name || targetTenant}]` : " globally"
+				}.`,
+			);
 			router.refresh();
 		});
 	};
@@ -403,9 +424,15 @@ export function DevControlCenter({
 
 	const handleToggleFeature = (key: FeatureKey, scope: FeatureScope) => {
 		startTransition(async () => {
-			const next = await saveFeatureToggleAction(key, scope);
+			const targetTenant = selectedTenantId !== "global" ? selectedTenantId : undefined;
+			const next = await saveFeatureToggleAction(key, scope, targetTenant);
 			setToggles(next);
-			showFeedback("success", `Feature ${key.toUpperCase()} set to ${scope}.`);
+			showFeedback(
+				"success",
+				`Feature ${key.toUpperCase()} set to ${scope}${
+					targetTenant ? ` for tenant [${activeTenant?.display_name || targetTenant}]` : ""
+				}.`,
+			);
 		});
 	};
 
@@ -793,6 +820,59 @@ export function DevControlCenter({
 					<span>{feedbackMsg.text}</span>
 				</div>
 			)}
+
+			{/* Multi-Tenant Context Selector Bar */}
+			<div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 p-3.5 bg-slate-900 border border-slate-800 rounded-2xl shadow-xl text-white">
+				<div className="flex items-center gap-3">
+					<div className="p-2 rounded-xl bg-purple-500/10 text-purple-400">
+						<Building2 className="w-5 h-5" />
+					</div>
+					<div>
+						<p className="text-[10px] font-bold uppercase tracking-wider text-purple-400">
+							Active Tenant Scoping Context
+						</p>
+						<h2 className="text-sm font-extrabold text-white">
+							{selectedTenantId === "global"
+								? "Platform Infrastructure (Global Defaults)"
+								: `Client Tenant: ${activeTenant?.display_name || selectedTenantId}`}
+						</h2>
+					</div>
+				</div>
+
+				<div className="flex items-center gap-3 w-full sm:w-auto">
+					<div className="flex-1 sm:w-72">
+						<select
+							value={selectedTenantId}
+							onChange={(e) => setSelectedTenantId(e.target.value)}
+							className="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-xl text-white text-xs font-semibold focus:border-purple-500 focus:outline-none"
+						>
+							<option value="global">🌐 Platform-Wide (Global Options)</option>
+							{tenants.map((t) => (
+								<option key={t.id} value={t.id}>
+									🏢 {t.display_name} ({t.slug})
+								</option>
+							))}
+						</select>
+					</div>
+
+					{activeTenant && (
+						<a
+							href={
+								activeTenant.custom_domain
+									? `https://${activeTenant.custom_domain}`
+									: `http://${activeTenant.slug}.localhost:3000`
+							}
+							target="_blank"
+							rel="noreferrer"
+							className="px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-purple-300 text-xs font-semibold flex items-center gap-1.5 transition-colors"
+							title="Open Client Portal in New Tab"
+						>
+							<ExternalLink className="w-3.5 h-3.5" />
+							Launch Portal
+						</a>
+					)}
+				</div>
+			</div>
 
 			{/* Tab Navigation Navigation */}
 			<div className="flex overflow-x-auto border-b border-gray-200 pb-px">

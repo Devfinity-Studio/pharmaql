@@ -5,7 +5,11 @@ import { LogoutButton } from "@/components/logout-button";
 import { auth } from "@/server/auth";
 
 export default async function Header() {
-	const session = await auth.api.getSession({ headers: await headers() });
+	const h = await headers();
+	const shortName = h.get("x-tenant-short-name") || "Asmee Pharma";
+	const logoUrl = h.get("x-tenant-logo") || "/logo.png";
+
+	const session = await auth.api.getSession({ headers: h });
 	const isAdminOrDev =
 		session?.user?.role === "ADMIN" || session?.user?.role === "DEVELOPER";
 
@@ -15,19 +19,19 @@ export default async function Header() {
 				{/* Brand Link */}
 				<Link href="/" className="flex items-center gap-3 transition-opacity hover:opacity-90">
 					<Image
-						alt="Asmee Pharma Logo"
+						alt={`${shortName} Logo`}
 						className="h-8 w-auto object-contain"
 						height={36}
 						priority
-						src="/logo.png"
+						src={logoUrl}
 						width={140}
 					/>
 					<div className="flex flex-col">
-						<span className="font-extrabold text-slate-900 text-lg tracking-wider leading-tight">
-							ASMEE <span className="text-cyan-600">PHARMA</span>
+						<span className="font-extrabold text-slate-900 text-lg tracking-wider leading-tight uppercase">
+							{shortName}
 						</span>
 						<span className="font-semibold text-[10px] text-cyan-700 tracking-widest uppercase">
-							LOGISTICS PORTAL
+							CLIENT PORTAL
 						</span>
 					</div>
 				</Link>

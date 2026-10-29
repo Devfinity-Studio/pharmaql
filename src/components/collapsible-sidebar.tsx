@@ -9,6 +9,7 @@ import {
 	Building2,
 	ChevronLeft,
 	ChevronRight,
+	Database,
 	LayoutDashboard,
 	LogOut,
 	Menu,
@@ -19,6 +20,7 @@ import {
 } from "lucide-react";
 import { LogoutButton } from "@/components/logout-button";
 import { NotificationCenter } from "@/components/notification-center";
+import { useTenant } from "@/lib/tenant-context";
 
 interface CollapsibleSidebarProps {
 	portal: "mr" | "admin";
@@ -33,6 +35,7 @@ export function CollapsibleSidebar({
 	userEmail,
 	userRole,
 }: CollapsibleSidebarProps) {
+	const tenant = useTenant();
 	const [isCollapsed, setIsCollapsed] = useState(false);
 	const [isMobileOpen, setIsMobileOpen] = useState(false);
 	const pathname = usePathname();
@@ -70,7 +73,37 @@ export function CollapsibleSidebar({
 		},
 	];
 
-	const baseAdminNavItems = [
+	// Dev Portal Navigation Items (Master platform control center: excludes client ERP reports)
+	const devPortalNavItems = [
+		{
+			label: "Platform Dashboard",
+			href: "/admin/dashboard",
+			icon: LayoutDashboard,
+		},
+		{
+			label: "Tenant Control Center",
+			href: "/admin/tenants",
+			icon: Database,
+		},
+		{
+			label: "Notice Board",
+			href: "/admin/notices",
+			icon: Bell,
+		},
+		{
+			label: "Security & Audit",
+			href: "/admin/audit",
+			icon: Shield,
+		},
+		{
+			label: "Developer Options",
+			href: "/admin/dev",
+			icon: Terminal,
+		},
+	];
+
+	// Client Portal Navigation Items (ERP reports & settings)
+	const clientAdminNavItems = [
 		{
 			label: "Global Dashboard",
 			href: "/admin/dashboard",
@@ -91,10 +124,6 @@ export function CollapsibleSidebar({
 			href: "/admin/notices",
 			icon: Bell,
 		},
-	];
-
-	const adminNavItems = [
-		...baseAdminNavItems,
 		...(userRole === "DEVELOPER"
 			? [
 					{
@@ -110,6 +139,8 @@ export function CollapsibleSidebar({
 				]
 			: []),
 	];
+
+	const adminNavItems = tenant.isDevPortal ? devPortalNavItems : clientAdminNavItems;
 
 	const navItems = portal === "mr" ? mrNavItems : adminNavItems;
 	const isDark = portal === "admin";
@@ -138,18 +169,19 @@ export function CollapsibleSidebar({
 						<div className="flex items-center gap-1.5 font-black text-xl md:text-2xl tracking-tight truncate">
 							<Link className="flex items-center gap-1.5 truncate" href="/">
 								<span className={isDark ? "text-white" : "text-[#0B2545]"}>
-									Asmee
+									{tenant.isDevPortal ? "Devfinity" : tenant.displayName}
 								</span>
-								<span className="text-[#0071BC]">Pharma</span>
 							</Link>
 						</div>
 						<div className="mt-0.5 md:mt-1 flex items-center gap-1.5 font-bold text-gray-400 text-xs uppercase tracking-widest truncate">
 							<span className="truncate">
 								{portal === "mr"
 									? "MR Portal"
-									: userRole === "DEVELOPER"
-										? "Developer Panel"
-										: "Admin Panel"}
+									: tenant.isDevPortal
+										? "Cloud Control Center"
+										: userRole === "DEVELOPER"
+											? "Developer Panel"
+											: "Admin Panel"}
 							</span>
 							{userRole === "DEVELOPER" && (
 								<span className="shrink-0 rounded border border-purple-500/40 bg-purple-500/20 px-1 py-0.2 font-mono text-[9px] text-purple-300">
@@ -159,15 +191,15 @@ export function CollapsibleSidebar({
 						</div>
 					</div>
 				) : (
-					/* When Collapsed on Desktop: show "A" mark */
+					/* When Collapsed on Desktop: show initial mark */
 					<div className="hidden md:flex flex-col items-center justify-center w-full">
 						<Link
 							className="flex h-10 w-10 items-center justify-center rounded-xl font-black text-lg text-white"
 							href="/"
-							title="Asmee Pharma"
+							title={tenant.isDevPortal ? "Devfinity" : tenant.displayName}
 						>
-							<span className="flex h-9 w-9 items-center justify-center rounded-lg bg-[#0071BC] font-bold text-white shadow-sm hover:scale-105 transition-transform">
-								A
+							<span className="flex h-9 w-9 items-center justify-center rounded-lg bg-[#0071BC] font-bold text-white shadow-sm hover:scale-105 transition-transform uppercase">
+								{tenant.isDevPortal ? "D" : tenant.shortName.charAt(0) || "P"}
 							</span>
 						</Link>
 					</div>
@@ -178,9 +210,8 @@ export function CollapsibleSidebar({
 					<div className="flex md:hidden items-center gap-1.5 font-black text-xl tracking-tight min-w-0 flex-1 truncate">
 						<Link className="flex items-center gap-1.5 truncate" href="/">
 							<span className={isDark ? "text-white" : "text-[#0B2545]"}>
-								Asmee
+								{tenant.isDevPortal ? "Devfinity" : tenant.displayName}
 							</span>
-							<span className="text-[#0071BC]">Pharma</span>
 						</Link>
 					</div>
 				)}
@@ -365,7 +396,7 @@ export function CollapsibleSidebar({
 							isCollapsed ? "md:hidden" : ""
 						} mt-1 text-center text-[10px] text-gray-400`}
 					>
-						<p>© {new Date().getFullYear()} Asmee Pharma Pvt. Ltd.</p>
+						<p>© {new Date().getFullYear()} {tenant.isDevPortal ? "Devfinity Pvt. Ltd." : tenant.displayName}</p>
 						<p className="mt-0.5 flex items-center justify-center gap-1">
 							Made with <span className="text-red-500">❤️</span> by{" "}
 							<a

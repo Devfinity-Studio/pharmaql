@@ -18,6 +18,8 @@ export async function buildStyledExcelBuffer(options: {
 	metadata?: {
 		mrName?: string;
 		company?: string;
+		companyName?: string;
+		address?: string;
 		division?: string;
 		period?: string;
 		year?: string;
@@ -34,7 +36,7 @@ export async function buildStyledExcelBuffer(options: {
 	} = options;
 
 	const workbook = new ExcelJS.Workbook();
-	workbook.creator = "Asmee Pharma - PharmaQL";
+	workbook.creator = `${options.metadata?.companyName || "PharmaQL"} - Export`;
 	workbook.created = new Date();
 
 	const worksheet = workbook.addWorksheet(sheetName, {
@@ -45,11 +47,12 @@ export async function buildStyledExcelBuffer(options: {
 
 	// 1. Company Letterhead
 	const companyRow = worksheet.getRow(rowIndex++);
-	companyRow.getCell(1).value = "ASMEE PHARMA PRIVATE LIMITED";
+	companyRow.getCell(1).value = (options.metadata?.companyName || "ASMEE PHARMA PRIVATE LIMITED").toUpperCase();
 	companyRow.getCell(1).font = { name: "Calibri", size: 14, bold: true, color: { argb: "0B2545" } };
 
 	const addressRow = worksheet.getRow(rowIndex++);
 	addressRow.getCell(1).value =
+		options.metadata?.address ||
 		"BASEMENT-GF, 11/2 ASHOK HOUSE, B/S SANSTHA VASAHAT GATE, PRATAP ROAD, RAOPURA, VADODARA - 390001";
 	addressRow.getCell(1).font = { name: "Calibri", size: 9, italic: true, color: { argb: "555555" } };
 

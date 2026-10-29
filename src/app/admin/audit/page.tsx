@@ -12,15 +12,31 @@ export const metadata = {
 export const dynamic = "force-dynamic";
 
 export default async function AdminAuditPage() {
+	const reqHeaders = await headers();
 	const session = await auth.api.getSession({
-		headers: await headers(),
+		headers: reqHeaders,
 	});
 
 	if (!session || session.user.role !== "DEVELOPER") {
 		redirect("/admin/dashboard");
 	}
 
-	const initialLogs = await getRecentAuditLogs({ limit: 500 });
+	const isDevPortal = reqHeaders.get("x-is-dev-portal") === "true";
+	const activeTenantId = reqHeaders.get("x-tenant-id");
+
+	let tenants: { id: string; name: string; slug: string }[] = [];
+	if (isDevPortal) {
+		const { listTenantsAction } = await import("@/modules/control-plane/tenantActions");
+		const res = await listTenantsAction();
+		if (res.success && res.tenants) {
+			tenants = res.tenants.map((t) => ({ id: t.id, name: t.display_name, slug: t.slug }));
+		}
+	}
+
+	const initialLogs = await getRecentAuditLogs({
+		limit: 500,
+		tenantId: isDevPortal ? undefined : (activeTenantId || undefined),
+	});
 
 	return (
 		<div className="space-y-6">
@@ -32,7 +48,7 @@ export default async function AdminAuditPage() {
 							<Shield className="h-5 w-5" />
 						</div>
 						<h1 className="font-black text-2xl text-gray-900 tracking-tight">
-							Security & Audit Trail
+							Security &amp; Audit Trail
 						</h1>
 					</div>
 					<p className="mt-1 font-medium text-gray-500 text-sm">
@@ -42,7 +58,11 @@ export default async function AdminAuditPage() {
 			</div>
 
 			{/* Interactive Table */}
-			<AdminAuditTable initialLogs={initialLogs} />
+			<AdminAuditTable
+				initialLogs={initialLogs}
+				isDevPortal={isDevPortal}
+				tenants={tenants}
+			/>
 		</div>
 	);
 }
