@@ -443,6 +443,40 @@ export async function saveTenantAction(
 				`;
 			}
 
+			// Mirror to local store for offline and dev synchronization
+			try {
+				const existingLocal = await getLocalTenantById(input.id);
+				await saveLocalTenant({
+					id: input.id,
+					slug: cleanSlug,
+					custom_domain: cleanDomain,
+					is_active: isActive,
+					display_name: displayName,
+					short_name: shortName,
+					logo_url: logoUrl,
+					primary_color: primaryColor,
+					accent_color: accentColor,
+					address,
+					contact_phone: phone,
+					contact_email: email,
+					support_email: supportEmail,
+					user_email_domain: userEmailDomain,
+					gstin,
+					db_type: dbType,
+					db_connection_encrypted: null,
+					api_server_url: apiServerUrl,
+					api_server_key_encrypted: apiKeyEncrypted ?? existingLocal?.api_server_key_encrypted ?? null,
+					legacy_db_name: legacyDbName,
+					erp_software_type: erpSoftwareType,
+					comp_no: compNo,
+					loc_no: locNo,
+					overdue_direct_block_days: directBlockDays,
+					overdue_division_block_days: divisionBlockDays,
+					admin_email: adminEmail ?? existingLocal?.admin_email ?? null,
+					admin_password_encrypted: adminPasswordEncrypted ?? existingLocal?.admin_password_encrypted ?? null,
+				});
+			} catch {}
+
 			let vercelMessage: string | undefined;
 			if (cleanDomain) {
 				try {
@@ -516,6 +550,41 @@ export async function saveTenantAction(
 
 			const first = rows[0];
 			const newId = first?.id ? String(first.id) : undefined;
+
+			// Mirror to local store for offline and dev synchronization
+			if (newId) {
+				try {
+					await saveLocalTenant({
+						id: newId,
+						slug: cleanSlug,
+						custom_domain: cleanDomain,
+						is_active: isActive,
+						display_name: displayName,
+						short_name: shortName,
+						logo_url: logoUrl,
+						primary_color: primaryColor,
+						accent_color: accentColor,
+						address,
+						contact_phone: phone,
+						contact_email: email,
+						support_email: supportEmail,
+						user_email_domain: userEmailDomain,
+						gstin,
+						db_type: dbType,
+						db_connection_encrypted: null,
+						api_server_url: apiServerUrl,
+						api_server_key_encrypted: apiKeyEncrypted,
+						legacy_db_name: legacyDbName,
+						erp_software_type: erpSoftwareType,
+						comp_no: compNo,
+						loc_no: locNo,
+						overdue_direct_block_days: directBlockDays,
+						overdue_division_block_days: divisionBlockDays,
+						admin_email: adminEmail,
+						admin_password_encrypted: adminPasswordEncrypted,
+					});
+				} catch {}
+			}
 
 			let vercelMessage: string | undefined;
 			if (cleanDomain) {

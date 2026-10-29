@@ -212,7 +212,9 @@ export async function initControlPlaneRelationalSchema(): Promise<boolean> {
 						comp_no,
 						loc_no,
 						overdue_direct_block_days,
-						overdue_division_block_days
+						overdue_division_block_days,
+						admin_email,
+						admin_password_encrypted
 					) VALUES (
 						${t.id},
 						${t.slug},
@@ -236,11 +238,15 @@ export async function initControlPlaneRelationalSchema(): Promise<boolean> {
 						${t.comp_no ?? 11},
 						${t.loc_no ?? 11},
 						${t.overdue_direct_block_days ?? 90},
-						${t.overdue_division_block_days ?? 95}
+						${t.overdue_division_block_days ?? 95},
+						${t.admin_email || null},
+						${t.admin_password_encrypted || null}
 					)
 					ON CONFLICT (id) DO UPDATE SET
 						api_server_key_encrypted = COALESCE(EXCLUDED.api_server_key_encrypted, tenants.api_server_key_encrypted),
-						custom_domain = COALESCE(EXCLUDED.custom_domain, tenants.custom_domain);
+						custom_domain = COALESCE(EXCLUDED.custom_domain, tenants.custom_domain),
+						admin_email = COALESCE(tenants.admin_email, EXCLUDED.admin_email),
+						admin_password_encrypted = COALESCE(tenants.admin_password_encrypted, EXCLUDED.admin_password_encrypted);
 				`;
 			}
 		}

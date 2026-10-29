@@ -31,14 +31,14 @@
   {
     "id": "00000000-0000-0000-0000-000000000001",
     "slug": "asmee",
-    "custom_domain": "asmeepharma.com",
+    "custom_domain": null,
     "is_active": true,
-    "display_name": "Asmee pharma",
-    "short_name": "asmee",
+    "display_name": "Asmee Pharma Updated",
+    "short_name": null,
     "logo_url": null,
     "primary_color": "#0B2545",
     "accent_color": "#134074",
-    "address": "tst",
+    "address": null,
     "contact_phone": null,
     "contact_email": null,
     "support_email": null,
@@ -46,7 +46,7 @@
     "gstin": null,
     "db_type": "api_server",
     "db_connection_encrypted": null,
-    "api_server_url": "https://api.asmeepharma.com",
+    "api_server_url": null,
     "api_server_key_encrypted": "3bd9d7105bc4defa2f59f92e:02fd5599815e78191b3d9467b1114c3b:53f29d85a20e03e6b140944ae933022ab0cfc95daeda29343efbcd8e7d6e4b0bd764a0a2267df0d3a3cbe80008e1c806b0282b79dd14b02c8beed3c6fc702354",
     "legacy_db_name": "pdyasvmaster",
     "erp_software_type": "Technomax",
@@ -55,6 +55,8 @@
     "overdue_direct_block_days": 90,
     "overdue_division_block_days": 95,
     "created_at": "2026-01-01T00:00:00.000Z",
-    "updated_at": "2026-10-28T13:21:33.460Z"
+    "updated_at": "2026-10-29T19:50:32.843Z",
+    "admin_email": "asmeepharma2022@gmail.com",
+    "admin_password_encrypted": "3bdcbe8c6528b0e8c1975c1a:fb457909ffddfdf480ced8f60a8dc3c6:7657026a3ad90b88bcd2dcf4bb9589eae4"
   }
 ]
