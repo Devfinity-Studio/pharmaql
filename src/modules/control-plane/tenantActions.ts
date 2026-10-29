@@ -109,6 +109,7 @@ export interface ApiServerPingResult {
 export async function listTenantsAction(): Promise<{
 	success: boolean;
 	tenants: TenantListItem[];
+	isCloudConnected?: boolean;
 	error?: string;
 }> {
 	try {
@@ -147,7 +148,7 @@ export async function listTenantsAction(): Promise<{
 				created_at: r.created_at,
 				updated_at: r.updated_at,
 			}));
-			return { success: true, tenants };
+			return { success: true, tenants, isCloudConnected: false };
 		}
 
 		await initControlPlaneRelationalSchema();
@@ -216,7 +217,7 @@ export async function listTenantsAction(): Promise<{
 			updated_at: r.updated_at ? new Date(r.updated_at).toISOString() : undefined,
 		}));
 
-		return { success: true, tenants };
+		return { success: true, tenants, isCloudConnected: true };
 	} catch (err: any) {
 		console.error("[TenantActions] listTenantsAction error:", err);
 		return { success: false, tenants: [], error: err.message };
@@ -278,6 +279,17 @@ export async function saveTenantAction(
 		const sql = getControlPlaneSql();
 
 		if (!sql) {
+			if (process.env.VERCEL) {
+				return {
+					success: false,
+					error:
+						"Control Plane database is not connected. CONTROL_PLANE_DATABASE_URL is not set in this environment.",
+				};
+			}
+
+			console.warn(
+				"[TenantActions] CONTROL_PLANE_DATABASE_URL is not set. Saving tenant locally to data/tenants.json (Neon database will not receive this tenant).",
+			);
 			// Save to local data/tenants.json
 			const existingLocal = input.id ? await getLocalTenantById(input.id) : null;
 			const record: TenantRecord = {
@@ -615,6 +627,13 @@ export async function toggleTenantStatusAction(
 	try {
 		const sql = getControlPlaneSql();
 		if (!sql) {
+			if (process.env.VERCEL) {
+				return {
+					success: false,
+					error:
+						"Control Plane database is not connected. CONTROL_PLANE_DATABASE_URL is not set in this environment.",
+				};
+			}
 			await toggleLocalTenantStatus(tenantId, isActive);
 			safeRevalidatePath("/admin/tenants");
 			return { success: true };
@@ -645,6 +664,13 @@ export async function deleteTenantAction(
 	try {
 		const sql = getControlPlaneSql();
 		if (!sql) {
+			if (process.env.VERCEL) {
+				return {
+					success: false,
+					error:
+						"Control Plane database is not connected. CONTROL_PLANE_DATABASE_URL is not set in this environment.",
+				};
+			}
 			await deleteLocalTenant(tenantId);
 			invalidateTenantCache();
 			safeRevalidatePath("/admin/tenants");

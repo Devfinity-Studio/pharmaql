@@ -33,12 +33,15 @@ import { DomainDiagnosticModal } from "@/components/domain-diagnostic-modal";
 
 interface TenantsControlCenterProps {
 	initialTenants: TenantListItem[];
+	isCloudConnected?: boolean;
 }
 
 export function TenantsControlCenter({
 	initialTenants,
+	isCloudConnected = false,
 }: TenantsControlCenterProps) {
 	const [tenants, setTenants] = useState<TenantListItem[]>(initialTenants);
+	const [isCloud, setIsCloud] = useState(isCloudConnected);
 	const [searchQuery, setSearchQuery] = useState("");
 	const [statusFilter, setStatusFilter] = useState<"all" | "active" | "inactive">("all");
 
@@ -75,6 +78,9 @@ export function TenantsControlCenter({
 			const res = await listTenantsAction();
 			if (res.success) {
 				setTenants(res.tenants);
+				if (typeof res.isCloudConnected === "boolean") {
+					setIsCloud(res.isCloudConnected);
+				}
 			}
 		} finally {
 			setIsRefreshing(false);
@@ -163,10 +169,20 @@ export function TenantsControlCenter({
 						<span className="px-2.5 py-0.5 text-[11px] font-bold uppercase tracking-wider bg-blue-500/10 text-blue-400 border border-blue-500/20 rounded-md">
 							Dev Portal Suite
 						</span>
-						<span className="flex items-center gap-1.5 text-xs text-emerald-400 font-medium">
-							<span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-							Control Plane Active (Dual Mode)
-						</span>
+						{isCloud ? (
+							<span className="flex items-center gap-1.5 text-xs text-emerald-400 font-medium">
+								<span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+								Neon Cloud Active
+							</span>
+						) : (
+							<span
+								className="flex items-center gap-1.5 text-xs text-amber-400 font-medium"
+								title="CONTROL_PLANE_DATABASE_URL is not set. Operating in offline/local fallback mode."
+							>
+								<span className="w-2 h-2 rounded-full bg-amber-400" />
+								Local Fallback (No Neon DB)
+							</span>
+						)}
 					</div>
 					<h1 className="text-2xl font-extrabold text-white mt-1 tracking-tight">
 						Master Tenant Control Center
