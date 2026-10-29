@@ -24,10 +24,14 @@ export default async function AdminTenantsPage() {
 
 	const res = await listTenantsAction();
 	const initialTenants = res.success ? res.tenants : [];
+	const isCloudConnected = res.isCloudConnected ?? false;
 
 	return (
 		<div className="max-w-7xl mx-auto py-2">
-			<TenantsControlCenter initialTenants={initialTenants} />
+			<TenantsControlCenter
+				initialTenants={initialTenants}
+				isCloudConnected={isCloudConnected}
+			/>
 		</div>
 	);
 }
