@@ -27,7 +27,7 @@ import {
 	initControlPlaneRelationalSchema,
 	type TenantRecord,
 } from "@/lib/control-plane-db";
-import { getLocalTenantById, getLocalTenantBySlug } from "@/lib/local-tenants-store";
+import { getLocalTenantById, getLocalTenantBySlug, getLocalTenants } from "@/lib/local-tenants-store";
 import { decryptSecret } from "@/lib/crypto";
 
 interface StoredOtpRecord {
@@ -454,16 +454,18 @@ export async function loginAdminOrDev(email: string, pass: string) {
 
 		let sessionUser: SessionUser | null = null;
 
-		// 1. Check for tenant-specific admin credentials on client portals
+		// 1. Check for tenant-specific admin credentials
 		const currentTenantId = reqHeaders ? reqHeaders.get("x-tenant-id") : null;
 		const currentTenantSlug = reqHeaders ? reqHeaders.get("x-tenant-slug") : null;
 		const currentTenantName = reqHeaders?.get("x-tenant-name") || "Client";
 		const currentTenantLocNo = reqHeaders?.get("x-tenant-loc-no") || "11";
 
-		if (currentTenantId || currentTenantSlug) {
-			try {
-				let tenantRecord: TenantRecord | null = null;
-				const sql = getControlPlaneSql();
+		try {
+			let tenantRecord: TenantRecord | null = null;
+			const sql = getControlPlaneSql();
+
+			// 1a. Try finding tenant from request headers first (if on a specific tenant custom domain/subdomain)
+			if (currentTenantId || currentTenantSlug) {
 				if (!sql) {
 					if (currentTenantId) tenantRecord = await getLocalTenantById(currentTenantId);
 					if (!tenantRecord && currentTenantSlug) tenantRecord = await getLocalTenantBySlug(currentTenantSlug);
@@ -477,36 +479,56 @@ export async function loginAdminOrDev(email: string, pass: string) {
 					`;
 					if (rows.length > 0) tenantRecord = rows[0] as TenantRecord;
 				}
-
-				if (tenantRecord?.admin_email && tenantRecord?.admin_password_encrypted) {
-					let decryptedTenantPass = "";
-					try {
-						decryptedTenantPass = decryptSecret(tenantRecord.admin_password_encrypted);
-					} catch {}
-
-					const tenantAdminEmail = tenantRecord.admin_email.trim().toLowerCase();
-					if (
-						cleanEmail === tenantAdminEmail &&
-						decryptedTenantPass &&
-						timingSafeMatch(cleanPass, decryptedTenantPass)
-					) {
-						sessionUser = {
-							id: `admin-${tenantRecord.id || tenantRecord.slug}`,
-							name: `${tenantRecord.display_name || currentTenantName} Administrator`,
-							email: tenantAdminEmail,
-							role: "ADMIN",
-							locNo: String(tenantRecord.loc_no ?? currentTenantLocNo),
-							canViewStock: true,
-							canViewSales: true,
-							canViewFreeScheme: true,
-							canViewPartyWise: true,
-							canViewProductWise: true,
-						};
-					}
-				}
-			} catch (err: any) {
-				console.warn("[AuthActions] Error checking tenant-specific admin credentials:", err.message);
 			}
+
+			// 1b. If no tenant matched via headers, or if the header tenant's admin email does not match cleanEmail,
+			// query active tenants by admin_email directly (enables admin login on localhost, dev portal, or direct sign-in)
+			if (!tenantRecord || tenantRecord.admin_email?.trim().toLowerCase() !== cleanEmail) {
+				if (!sql) {
+					const localTenants = await getLocalTenants();
+					const matched = localTenants.find(
+						(t) => t.is_active && t.admin_email?.trim().toLowerCase() === cleanEmail,
+					);
+					if (matched) tenantRecord = matched;
+				} else {
+					await initControlPlaneRelationalSchema();
+					const rows = await sql`
+						SELECT * FROM tenants
+						WHERE LOWER(admin_email) = ${cleanEmail} AND is_active = true
+						LIMIT 1;
+					`;
+					if (rows.length > 0) tenantRecord = rows[0] as TenantRecord;
+				}
+			}
+
+			if (tenantRecord?.admin_email && tenantRecord?.admin_password_encrypted) {
+				let decryptedTenantPass = "";
+				try {
+					decryptedTenantPass = decryptSecret(tenantRecord.admin_password_encrypted);
+				} catch {}
+
+				const tenantAdminEmail = tenantRecord.admin_email.trim().toLowerCase();
+				const isPasswordMatch =
+					(Boolean(decryptedTenantPass) && timingSafeMatch(cleanPass, decryptedTenantPass)) ||
+					timingSafeMatch(cleanPass, tenantRecord.admin_password_encrypted);
+
+				if (cleanEmail === tenantAdminEmail && isPasswordMatch) {
+					sessionUser = {
+						id: `admin-${tenantRecord.id || tenantRecord.slug}`,
+						name: `${tenantRecord.display_name || currentTenantName} Administrator`,
+						email: tenantAdminEmail,
+						role: "ADMIN",
+						locNo: String(tenantRecord.loc_no ?? currentTenantLocNo),
+						canViewStock: true,
+						canViewSales: true,
+						canViewFreeScheme: true,
+						canViewPartyWise: true,
+						canViewProductWise: true,
+					};
+				}
+			}
+		} catch (err: any) {
+			console.warn("[AuthActions] Error checking tenant-specific admin credentials:", err.message);
 		}
 
 		if (sessionUser) {
