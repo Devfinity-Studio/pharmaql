@@ -64,7 +64,9 @@ async function getDynamicApiConfig(): Promise<{
 			try {
 				secretKey = decryptSecret(encryptedKey);
 			} catch (err: any) {
-				console.warn("[ApiClient] Failed to decrypt tenant API key:", err.message);
+				if (process.env.NODE_ENV === "development") {
+					console.warn("[ApiClient] Failed to decrypt tenant API key:", err.message);
+				}
 			}
 		}
 

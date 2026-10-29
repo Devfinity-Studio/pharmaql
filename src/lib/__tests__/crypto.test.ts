@@ -72,4 +72,20 @@ describe("crypto utility (AES-256-GCM)", () => {
 		expect(encryptSecret("")).toBe("");
 		expect(decryptSecret("")).toBe("");
 	});
+
+	it("should decrypt legacy payload encrypted with fallback dev key even when custom master key is in env", () => {
+		const originalEnv = process.env.CONTROL_PLANE_ENCRYPTION_KEY;
+		try {
+			// Encrypt with dev fallback key
+			const devEncrypted = "2e4af394ab601ff9198dbdfd:d9773e742b94515135fa6c2ae5701710:0cfcf41b"; // 'test'
+			
+			// Set a distinct master key in env
+			process.env.CONTROL_PLANE_ENCRYPTION_KEY = "c29c4b52f90203dc7854f4d1e5e1d21f8b76c269587503d91f4a7559c2f9325d";
+			
+			const decrypted = decryptSecret(devEncrypted);
+			expect(decrypted).toBe("test");
+		} finally {
+			process.env.CONTROL_PLANE_ENCRYPTION_KEY = originalEnv;
+		}
+	});
 });

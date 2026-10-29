@@ -8,6 +8,17 @@ const AUTH_TAG_LENGTH = 16; // 128-bit authentication tag
  * Resolves the 32-byte master key from CONTROL_PLANE_ENCRYPTION_KEY.
  * Accepts 64-char hex, base64, or generates a deterministic development key with a warning.
  */
+export function getDevelopmentFallbackKey(): Buffer {
+	return crypto
+		.createHash("sha256")
+		.update("pharmaql-local-dev-fallback-key-do-not-use-in-production")
+		.digest();
+}
+
+/**
+ * Resolves the 32-byte master key from CONTROL_PLANE_ENCRYPTION_KEY.
+ * Accepts 64-char hex, base64, or generates a deterministic development key with a warning.
+ */
 export function getMasterKey(): Buffer {
 	const rawKey = process.env.CONTROL_PLANE_ENCRYPTION_KEY?.trim();
 
@@ -30,10 +41,7 @@ export function getMasterKey(): Buffer {
 	}
 
 	// Local development fallback: deterministic test key so local offline dev never crashes
-	return crypto
-		.createHash("sha256")
-		.update("pharmaql-local-dev-fallback-key-do-not-use-in-production")
-		.digest();
+	return getDevelopmentFallbackKey();
 }
 
 /**
@@ -59,11 +67,9 @@ export function encryptSecret(plainText: string, customKey?: Buffer): string {
 }
 
 /**
- * Decrypts an AES-256-GCM encrypted payload (`ivHex:authTagHex:ciphertextHex`).
- * Validates authentication tag integrity; throws an error if ciphertext or tag was tampered with.
+ * Helper to decrypt an AES-256-GCM payload with a specific key.
  */
-export function decryptSecret(cipherPayload: string, customKey?: Buffer): string {
-	if (!cipherPayload) return "";
+function decryptWithKey(cipherPayload: string, key: Buffer): string {
 	const parts = cipherPayload.split(":");
 	if (parts.length !== 3) {
 		throw new Error(
@@ -81,7 +87,6 @@ export function decryptSecret(cipherPayload: string, customKey?: Buffer): string
 		);
 	}
 
-	const key = customKey || getMasterKey();
 	const iv = Buffer.from(ivHex, "hex");
 	const authTag = Buffer.from(authTagHex, "hex");
 
@@ -106,4 +111,32 @@ export function decryptSecret(cipherPayload: string, customKey?: Buffer): string
 	]);
 
 	return decryptedBuf.toString("utf8");
+}
+
+/**
+ * Decrypts an AES-256-GCM encrypted payload (`ivHex:authTagHex:ciphertextHex`).
+ * Validates authentication tag integrity; throws an error if ciphertext or tag was tampered with.
+ * Transparently supports multi-key fallback: tries primary master key, then dev fallback key.
+ */
+export function decryptSecret(cipherPayload: string, customKey?: Buffer): string {
+	if (!cipherPayload) return "";
+	const primaryKey = customKey || getMasterKey();
+
+	try {
+		return decryptWithKey(cipherPayload, primaryKey);
+	} catch (primaryErr) {
+		// If customKey was not explicitly supplied and primaryKey is not already the fallback key,
+		// attempt fallback key in case the payload was encrypted in local development or legacy seed
+		if (!customKey) {
+			const fallbackKey = getDevelopmentFallbackKey();
+			if (!primaryKey.equals(fallbackKey)) {
+				try {
+					return decryptWithKey(cipherPayload, fallbackKey);
+				} catch {
+					// Fallback failed, throw original primary error below
+				}
+			}
+		}
+		throw primaryErr;
+	}
 }
