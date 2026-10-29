@@ -305,7 +305,10 @@ export async function writeServerJson<T>(
 				}
 			}
 		} catch (err: any) {
-			console.warn(`[ServerStorage] Neon relational write error for ${filename}:`, err.message);
+			const isFkError = err?.code === "23503" || err?.message?.includes("foreign key constraint");
+			if (!isFkError) {
+				console.warn(`[ServerStorage] Neon relational write error for ${filename}:`, err.message);
+			}
 		}
 	}
 
