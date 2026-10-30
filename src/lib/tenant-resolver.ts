@@ -37,21 +37,24 @@ export function isDevPortalHost(host: string): boolean {
 		return false;
 	}
 
-	const devPortalDomain = process.env.DEV_PORTAL_DOMAIN
-		? normalizeHost(process.env.DEV_PORTAL_DOMAIN)
-		: "pharmaql.devfinity.net";
+	const rawDevPortalDomains = process.env.DEV_PORTAL_DOMAIN || "pharmaql.devfinity.net";
+	const devPortalDomains = rawDevPortalDomains
+		.split(",")
+		.map((d) => normalizeHost(d.trim()))
+		.filter(Boolean);
 
 	const vercelUrl = process.env.VERCEL_URL ? normalizeHost(process.env.VERCEL_URL) : "";
 	const vercelBranchUrl = process.env.VERCEL_BRANCH_URL ? normalizeHost(process.env.VERCEL_BRANCH_URL) : "";
 
 	return (
-		normalized === devPortalDomain ||
+		devPortalDomains.includes(normalized) ||
 		normalized === "devfinity.net" ||
 		normalized === "localhost" ||
 		normalized === "127.0.0.1" ||
 		(Boolean(vercelUrl) && normalized === vercelUrl) ||
 		(Boolean(vercelBranchUrl) && normalized === vercelBranchUrl) ||
-		normalized.endsWith(".vercel.app")
+		normalized.endsWith(".vercel.app") ||
+		normalized.startsWith("pharmaql.")
 	);
 }
 
