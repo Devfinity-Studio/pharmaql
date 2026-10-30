@@ -20,6 +20,7 @@ export async function buildStyledExcelBuffer(options: {
 		company?: string;
 		companyName?: string;
 		address?: string;
+		contactInfo?: string;
 		division?: string;
 		period?: string;
 		year?: string;
