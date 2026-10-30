@@ -20,6 +20,7 @@ describe("tenant-resolver (Edge compatible)", () => {
 		expect(isDevPortalHost("127.0.0.1:3000")).toBe(true);
 		expect(isDevPortalHost("devfinity.net")).toBe(true);
 		expect(isDevPortalHost("pharmaql.devfinity.net:443")).toBe(true);
+		expect(isDevPortalHost("pharmaql.asmeepharma.com")).toBe(true);
 		// Vercel preview URLs are treated as Dev Portal instances
 		expect(isDevPortalHost("pharmaql-git-localdb-devfinity.vercel.app")).toBe(true);
 		expect(isDevPortalHost("my-preview-123.vercel.app:443")).toBe(true);
