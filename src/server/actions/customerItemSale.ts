@@ -53,10 +53,12 @@ export async function getItemCustomerSale(params: {
 	location?: string;
 	reportType?: string;
 	city?: string;
+	forceRefresh?: boolean;
 }): Promise<ItemCustomerSaleResult> {
 	const res = await apiPost<ItemCustomerSaleRow[]>(
 		"/api/reports/customer-item-sale",
 		params,
+		{ forceRefresh: params.forceRefresh, ttlSeconds: 180 },
 	);
 
 	if (!res.success || !res.data) {

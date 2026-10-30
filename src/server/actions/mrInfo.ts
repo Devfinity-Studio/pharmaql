@@ -449,7 +449,11 @@ export async function getMRInfo(
  * Fetch all raw MR users from API server
  */
 export async function getAllMRUsers(): Promise<LegacyMRUser[]> {
-	const res = await apiGet<LegacyMRUser[]>("/api/master/mrs");
+	const res = await apiGet<LegacyMRUser[]>(
+		"/api/master/mrs",
+		undefined,
+		{ ttlSeconds: 300 },
+	);
 	if (!res.success || !res.data) {
 		return [];
 	}

@@ -34,13 +34,19 @@ export async function getStockMovement(
 	fromDate?: string,
 	toDate?: string,
 	locNo?: string,
+	forceRefresh?: boolean,
 ): Promise<StockMovementResult> {
-	const res = await apiPost<StockMovementRow[]>("/api/reports/stock-movement", {
-		companyCode,
-		fromDate,
-		toDate,
-		locNo,
-	});
+	const res = await apiPost<StockMovementRow[]>(
+		"/api/reports/stock-movement",
+		{
+			companyCode,
+			fromDate,
+			toDate,
+			locNo,
+			forceRefresh,
+		},
+		{ forceRefresh, ttlSeconds: 180 },
+	);
 
 	if (!res.success || !res.data) {
 		return {

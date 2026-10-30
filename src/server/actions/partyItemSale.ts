@@ -55,10 +55,12 @@ export async function getCompanyCustomerItemwiseSales(params: {
 	itemIds?: string;
 	isChallan?: string;
 	seriesIds?: string;
+	forceRefresh?: boolean;
 }): Promise<PartyCustomerItemSaleResult> {
 	const res = await apiPost<PartyCustomerItemSaleRow[]>(
 		"/api/reports/party-item-sale",
 		params,
+		{ forceRefresh: params.forceRefresh, ttlSeconds: 180 },
 	);
 
 	if (!res.success || !res.data) {

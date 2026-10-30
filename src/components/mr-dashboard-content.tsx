@@ -1,5 +1,6 @@
 import Link from "next/link";
 import React, { Suspense } from "react";
+import { DataSyncButton } from "@/components/data-sync-button";
 import { DateRangePicker } from "@/components/date-range-picker";
 import { FilterSelect } from "@/components/filter-select";
 import { FreeSchemeReportView } from "@/components/free-scheme-report-view";
@@ -569,7 +570,10 @@ export async function MrDashboardContent({
 								);
 							})}
 						</div>
-						<DateRangePicker />
+						<div className="flex items-center gap-2">
+							<DataSyncButton />
+							<DateRangePicker />
+						</div>
 					</div>
 					{/* RENDER THE CORRECT DOWNLOAD BUTTON CONDITIONALLY AT THE TOP FILTER BAR */}
 					{exportFeature.enabled ? (

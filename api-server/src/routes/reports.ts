@@ -1,5 +1,6 @@
 import { Router, Request, Response } from "express";
 import { dbPool } from "../db";
+import { getOrSetCache } from "../cache";
 import { formatDateToOdbc } from "../utils/dateUtils";
 import { formatCompanyCodeParam, resolveCompanyCodeParam } from "../utils/companyCodeUtils";
 import {
@@ -22,7 +23,7 @@ reportsRouter.post("/stock-movement", async (req: Request, res: Response) => {
     return res.status(400).json({ success: false, error: "Validation Error", details: val.errors });
   }
 
-  let conn;
+  let conn: any;
   try {
     const { companyCode, fromDate, toDate, locNo } = req.body || {};
 
@@ -54,8 +55,18 @@ reportsRouter.post("/stock-movement", async (req: Request, res: Response) => {
     ].join(", ");
 
     const sql = `CALL \`pdyasvtrans\`.\`rptStockMovementStatement\`(${formattedParams})`;
-    const [rows] = await conn.query({ sql, timeout: SP_TIMEOUT_MS } as any);
-    const reportData = ((rows as any)?.[0] || []);
+    const cacheKey = `report:stock-movement:${compNo}:${locParam}:${compCodeParam}:${effectiveFrom}:${effectiveTo}`;
+    const bypassCache = req.headers["x-bypass-cache"] === "true" || req.body?.forceRefresh === true;
+
+    const reportData = await getOrSetCache(
+      cacheKey,
+      180, // 3 minutes TTL
+      async () => {
+        const [rows] = await conn.query({ sql, timeout: SP_TIMEOUT_MS } as any);
+        return ((rows as any)?.[0] || []);
+      },
+      { bypassCache }
+    );
 
     res.json({ success: true, data: reportData, debugSql: sql });
   } catch (error: any) {
@@ -76,7 +87,7 @@ reportsRouter.post("/stock-and-sales", async (req: Request, res: Response) => {
     return res.status(400).json({ success: false, error: "Validation Error", details: val.errors });
   }
 
-  let conn;
+  let conn: any;
   try {
     const { companyCode, fromDate, toDate, locNo, div, divId, itemIds, itemCategory, includeBr, showFree } = req.body || {};
 
@@ -137,15 +148,26 @@ reportsRouter.post("/stock-and-sales", async (req: Request, res: Response) => {
     ].join(", ");
 
     const sql = `CALL \`pdyasvtrans\`.\`rptStockandSalesStatementReport\`(${formattedParams})`;
-    let reportData: any[] = [];
-    try {
-      const [rows] = await conn.query({ sql, timeout: SP_TIMEOUT_MS } as any);
-      reportData = Array.isArray(rows) && Array.isArray((rows as any)[0]) ? (rows as any)[0] : (rows as any) || [];
-    } catch (callErr: any) {
-      const altSql = `CALL \`rptStockandSalesStatementReport\`(${formattedParams})`;
-      const [rows] = await conn.query({ sql: altSql, timeout: SP_TIMEOUT_MS } as any);
-      reportData = Array.isArray(rows) && Array.isArray((rows as any)[0]) ? (rows as any)[0] : (rows as any) || [];
-    }
+    const cacheKey = `report:stock-and-sales:${compNo}:${locParam}:${compCodeParam}:${divIdParam}:${itemIdsParam}:${itemCatParam}:${includeBrParam}:${showFreeParam}:${effectiveFrom}:${effectiveTo}`;
+    const bypassCache = req.headers["x-bypass-cache"] === "true" || req.body?.forceRefresh === true;
+
+    const reportData = await getOrSetCache(
+      cacheKey,
+      180, // 3 minutes TTL
+      async () => {
+        let data: any[] = [];
+        try {
+          const [rows] = await conn.query({ sql, timeout: SP_TIMEOUT_MS } as any);
+          data = Array.isArray(rows) && Array.isArray((rows as any)[0]) ? (rows as any)[0] : (rows as any) || [];
+        } catch (callErr: any) {
+          const altSql = `CALL \`rptStockandSalesStatementReport\`(${formattedParams})`;
+          const [rows] = await conn.query({ sql: altSql, timeout: SP_TIMEOUT_MS } as any);
+          data = Array.isArray(rows) && Array.isArray((rows as any)[0]) ? (rows as any)[0] : (rows as any) || [];
+        }
+        return data;
+      },
+      { bypassCache }
+    );
 
     res.json({ success: true, data: reportData, debugSql: sql });
   } catch (error: any) {
@@ -161,7 +183,7 @@ reportsRouter.post("/stock-and-sales", async (req: Request, res: Response) => {
  * Procedure: rptItemCustomerSale
  */
 reportsRouter.post("/customer-item-sale", async (req: Request, res: Response) => {
-  let conn;
+  let conn: any;
   try {
     const params = req.body || {};
     conn = await dbPool.getConnection();
@@ -213,8 +235,18 @@ reportsRouter.post("/customer-item-sale", async (req: Request, res: Response) =>
       .join(", ");
 
     const sql = `CALL \`pdyasvtrans\`.\`rptItemCustomerSale\`(${odbcFromDate}, ${odbcToDate}, ${formattedRest})`;
-    const [callRes] = await conn.query(sql);
-    const rows = Array.isArray(callRes) ? callRes[0] : callRes;
+    const cacheKey = `report:customer-item-sale:${compNo}:${locNoParam}:${compCodeParam}:${custIdsParam}:${odbcFromDate}:${odbcToDate}:${seriesIdsParam}`;
+    const bypassCache = req.headers["x-bypass-cache"] === "true" || req.body?.forceRefresh === true;
+
+    const rows = await getOrSetCache(
+      cacheKey,
+      180,
+      async () => {
+        const [callRes] = await conn.query(sql);
+        return Array.isArray(callRes) ? callRes[0] : callRes;
+      },
+      { bypassCache }
+    );
 
     res.json({ success: true, data: rows || [], debugSql: sql });
   } catch (error: any) {
@@ -247,7 +279,7 @@ reportsRouter.post("/party-item-sale", async (req: Request, res: Response) => {
     return res.status(400).json({ success: false, error: "Validation Error", details: val.errors });
   }
 
-  let conn;
+  let conn: any;
   try {
     const params = req.body || {};
     conn = await dbPool.getConnection();
@@ -284,8 +316,18 @@ reportsRouter.post("/party-item-sale", async (req: Request, res: Response) => {
     ].join(", ");
 
     const sql = `CALL \`pdyasvtrans\`.\`rptCompanyCustomerItemwiseSales\`(${formattedParams})`;
-    const [callRes] = await conn.query({ sql, timeout: SP_TIMEOUT_MS } as any);
-    const rows = Array.isArray(callRes) ? callRes[0] : callRes;
+    const cacheKey = `report:party-item-sale:${compNo}:${locNo}:${finYear}:${compCodeParam}:${custIdsParam}:${divParam}:${itemIdsParam}:${isChallanParam}:${seriesIdsParam}:${odbcFromDate}:${odbcToDate}`;
+    const bypassCache = req.headers["x-bypass-cache"] === "true" || req.body?.forceRefresh === true;
+
+    const rows = await getOrSetCache(
+      cacheKey,
+      180,
+      async () => {
+        const [callRes] = await conn.query({ sql, timeout: SP_TIMEOUT_MS } as any);
+        return Array.isArray(callRes) ? callRes[0] : callRes;
+      },
+      { bypassCache }
+    );
 
     res.json({ success: true, data: rows || [], debugSql: sql });
   } catch (error: any) {
@@ -306,7 +348,7 @@ reportsRouter.post("/mr-overdue", async (req: Request, res: Response) => {
     return res.status(400).json({ success: false, error: "Validation Error", details: val.errors });
   }
 
-  let conn;
+  let conn: any;
   try {
     const params = req.body || {};
     conn = await dbPool.getConnection();
@@ -357,8 +399,18 @@ reportsRouter.post("/mr-overdue", async (req: Request, res: Response) => {
     ].join(", ");
 
     const sql = `CALL \`rptMRwisePeriodicalOutstanding\`(${formattedParams})`;
-    const [resData] = await conn.query({ sql, timeout: SP_TIMEOUT_MS } as any);
-    const rows = Array.isArray(resData) ? resData[0] : resData;
+    const cacheKey = `report:mr-overdue:${compNo}:${locNo}:${finYear}:${compCodeParam}:${divIdsParam}:${mrIdParam}:${custIdsParam}:${cityParam}:${areaParam}:${custTypeParam}:${odbcFromDate}:${odbcToDate}`;
+    const bypassCache = req.headers["x-bypass-cache"] === "true" || req.body?.forceRefresh === true;
+
+    const rows = await getOrSetCache(
+      cacheKey,
+      180,
+      async () => {
+        const [resData] = await conn.query({ sql, timeout: SP_TIMEOUT_MS } as any);
+        return Array.isArray(resData) ? resData[0] : resData;
+      },
+      { bypassCache }
+    );
 
     res.json({ success: true, data: rows || [], debugSql: sql });
   } catch (error: any) {
@@ -374,7 +426,7 @@ reportsRouter.post("/mr-overdue", async (req: Request, res: Response) => {
  * Procedure: rptClaimData
  */
 reportsRouter.post("/claim-data", async (req: Request, res: Response) => {
-  let conn;
+  let conn: any;
   try {
     const params = req.body || {};
     const uniqueCode =
@@ -531,7 +583,7 @@ reportsRouter.post("/claim-data", async (req: Request, res: Response) => {
  * 5. Developer Read-Only Procedure Sandbox & Benchmark
  */
 reportsRouter.post("/dev-procedure-sandbox", async (req: Request, res: Response) => {
-  let conn;
+  let conn: any;
   let sql = "";
   const start = Date.now();
   try {

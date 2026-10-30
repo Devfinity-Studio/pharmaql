@@ -91,16 +91,52 @@ async function getDynamicApiConfig(): Promise<{
 	return { baseUrl, secretKey, compNo, locNo, legacyDbName };
 }
 
-function getHeaders(secretKey: string): HeadersInit {
+export interface ApiRequestOptions {
+	ttlSeconds?: number;
+	forceRefresh?: boolean;
+	bypassCache?: boolean;
+}
+
+interface CacheItem<T> {
+	data: ApiResponse<T>;
+	expiresAt: number;
+}
+
+const serverCache = new Map<string, CacheItem<any>>();
+const inFlightRequests = new Map<string, Promise<ApiResponse<any>>>();
+const MAX_SERVER_CACHE = 500;
+
+/**
+ * Manually flushes cached API responses in Next.js runtime.
+ */
+export function invalidateApiClientCache(prefix?: string): number {
+	if (!prefix) {
+		const count = serverCache.size;
+		serverCache.clear();
+		return count;
+	}
+	let count = 0;
+	for (const key of serverCache.keys()) {
+		if (key.startsWith(prefix)) {
+			serverCache.delete(key);
+			count++;
+		}
+	}
+	return count;
+}
+
+function getHeaders(secretKey: string, forceRefresh?: boolean): HeadersInit {
 	return {
 		"Content-Type": "application/json",
 		Authorization: `Bearer ${secretKey}`,
+		...(forceRefresh ? { "x-bypass-cache": "true" } : {}),
 	};
 }
 
 export async function apiGet<T>(
 	path: string,
 	queryParams?: Record<string, string | number | undefined | null>,
+	options?: ApiRequestOptions,
 ): Promise<ApiResponse<T>> {
 	try {
 		const { baseUrl: rawBase, secretKey, compNo, locNo, legacyDbName } = await getDynamicApiConfig();
@@ -122,39 +158,84 @@ export async function apiGet<T>(
 			}
 		});
 
-		const response = await fetch(url.toString(), {
-			method: "GET",
-			headers: getHeaders(secretKey),
-			cache: "no-store",
-			signal: AbortSignal.timeout(6000),
-		});
+		const fullUrl = url.toString();
+		const cacheKey = `GET:${fullUrl}`;
+		const now = Date.now();
+		const effectiveTtl = options?.ttlSeconds ?? 60; // 60s default cache for GET queries
 
-		if (!response.ok) {
-			const errText = await response.text();
-			const offline = response.status >= 502 && response.status <= 504;
-			return {
-				success: false,
-				isOffline: offline,
-				error: offline
-					? "On-premise ERP bridge is currently offline or unreachable."
-					: `API Server HTTP ${response.status}: ${errText}`,
-			};
+		// 1. Serve from in-memory Tier-2 cache if valid and not forcing refresh
+		if (!options?.forceRefresh && !options?.bypassCache) {
+			const cached = serverCache.get(cacheKey);
+			if (cached && cached.expiresAt > now) {
+				return cached.data;
+			}
 		}
 
-		const json = await response.json();
-		if (json && typeof json === "object" && "success" in json) {
-			return json;
+		// 2. In-flight promise deduplication: join existing request if identical query is in-flight
+		if (!options?.forceRefresh && inFlightRequests.has(cacheKey)) {
+			return await inFlightRequests.get(cacheKey)!;
 		}
-		return { success: true, data: json };
+
+		const fetchPromise = (async (): Promise<ApiResponse<T>> => {
+			try {
+				const response = await fetch(fullUrl, {
+					method: "GET",
+					headers: getHeaders(secretKey, options?.forceRefresh),
+					cache: "no-store",
+					signal: AbortSignal.timeout(6000),
+				});
+
+				if (!response.ok) {
+					const errText = await response.text();
+					const offline = response.status >= 502 && response.status <= 504;
+					return {
+						success: false,
+						isOffline: offline,
+						error: offline
+							? "On-premise ERP bridge is currently offline or unreachable."
+							: `API Server HTTP ${response.status}: ${errText}`,
+					};
+				}
+
+				const json = await response.json();
+				const result: ApiResponse<T> =
+					json && typeof json === "object" && "success" in json ? json : { success: true, data: json };
+
+				// Cache successful responses
+				if (result.success && !options?.bypassCache && effectiveTtl > 0) {
+					if (serverCache.size >= MAX_SERVER_CACHE) {
+						const oldest = serverCache.keys().next().value;
+						if (oldest) serverCache.delete(oldest);
+					}
+					serverCache.set(cacheKey, {
+						data: result,
+						expiresAt: Date.now() + effectiveTtl * 1000,
+					});
+				}
+
+				return result;
+			} catch (error: any) {
+				console.error(`[API Client GET Error] ${path}:`, error.message);
+				const offline = isOfflineError(error);
+				return {
+					success: false,
+					isOffline: offline,
+					error: offline
+						? "On-premise ERP bridge is unreachable or connection timed out after 6000ms."
+						: error.message || "Failed to communicate with Database API",
+				};
+			} finally {
+				inFlightRequests.delete(cacheKey);
+			}
+		})();
+
+		inFlightRequests.set(cacheKey, fetchPromise);
+		return await fetchPromise;
 	} catch (error: any) {
-		console.error(`[API Client GET Error] ${path}:`, error.message);
-		const offline = isOfflineError(error);
+		console.error(`[API Client GET Setup Error] ${path}:`, error.message);
 		return {
 			success: false,
-			isOffline: offline,
-			error: offline
-				? "On-premise ERP bridge is unreachable or connection timed out after 6000ms."
-				: error.message || "Failed to communicate with Database API",
+			error: error.message || "Failed to configure database query",
 		};
 	}
 }
@@ -162,6 +243,7 @@ export async function apiGet<T>(
 export async function apiPost<T>(
 	path: string,
 	body: any,
+	options?: ApiRequestOptions,
 ): Promise<ApiResponse<T>> {
 	try {
 		const { baseUrl: rawBase, secretKey, compNo, locNo, legacyDbName } = await getDynamicApiConfig();
@@ -180,41 +262,95 @@ export async function apiPost<T>(
 			};
 		}
 
-		const response = await fetch(url.toString(), {
-			method: "POST",
-			headers: getHeaders(secretKey),
-			body: JSON.stringify(finalBody),
-			cache: "no-store",
-			signal: AbortSignal.timeout(6000),
-		});
+		const fullUrl = url.toString();
+		const bodyString = JSON.stringify(finalBody);
+		const cacheKey = `POST:${fullUrl}:${bodyString}`;
+		const now = Date.now();
 
-		if (!response.ok) {
-			const errText = await response.text();
-			const offline = response.status >= 502 && response.status <= 504;
-			return {
-				success: false,
-				isOffline: offline,
-				error: offline
-					? "On-premise ERP bridge is currently offline or unreachable."
-					: `API Server HTTP ${response.status}: ${errText}`,
-			};
+		// Reports and master reads are cacheable; mutations/auth bypass by default
+		const isReportEndpoint = cleanPath.startsWith("/api/reports") || cleanPath.startsWith("/api/master");
+		const shouldCache =
+			!options?.bypassCache && (options?.ttlSeconds !== undefined ? options.ttlSeconds > 0 : isReportEndpoint);
+		const effectiveTtl = options?.ttlSeconds ?? (isReportEndpoint ? 60 : 0);
+
+		// 1. Check in-memory cache
+		if (shouldCache && !options?.forceRefresh) {
+			const cached = serverCache.get(cacheKey);
+			if (cached && cached.expiresAt > now) {
+				return cached.data;
+			}
 		}
 
-		const json = await response.json();
-		if (json && typeof json === "object" && "success" in json) {
-			return json;
+		// 2. In-flight request deduplication
+		if (shouldCache && !options?.forceRefresh && inFlightRequests.has(cacheKey)) {
+			return await inFlightRequests.get(cacheKey)!;
 		}
-		return { success: true, data: json };
+
+		const fetchPromise = (async (): Promise<ApiResponse<T>> => {
+			try {
+				const response = await fetch(fullUrl, {
+					method: "POST",
+					headers: getHeaders(secretKey, options?.forceRefresh),
+					body: bodyString,
+					cache: "no-store",
+					signal: AbortSignal.timeout(6000),
+				});
+
+				if (!response.ok) {
+					const errText = await response.text();
+					const offline = response.status >= 502 && response.status <= 504;
+					return {
+						success: false,
+						isOffline: offline,
+						error: offline
+							? "On-premise ERP bridge is currently offline or unreachable."
+							: `API Server HTTP ${response.status}: ${errText}`,
+					};
+				}
+
+				const json = await response.json();
+				const result: ApiResponse<T> =
+					json && typeof json === "object" && "success" in json ? json : { success: true, data: json };
+
+				// Cache successful idempotent responses
+				if (result.success && shouldCache && effectiveTtl > 0) {
+					if (serverCache.size >= MAX_SERVER_CACHE) {
+						const oldest = serverCache.keys().next().value;
+						if (oldest) serverCache.delete(oldest);
+					}
+					serverCache.set(cacheKey, {
+						data: result,
+						expiresAt: Date.now() + effectiveTtl * 1000,
+					});
+				}
+
+				return result;
+			} catch (error: any) {
+				console.error(`[API Client POST Error] ${path}:`, error.message);
+				const offline = isOfflineError(error);
+				return {
+					success: false,
+					isOffline: offline,
+					error: offline
+						? "On-premise ERP bridge is unreachable or connection timed out after 6000ms."
+						: error.message || "Failed to communicate with Database API",
+				};
+			} finally {
+				inFlightRequests.delete(cacheKey);
+			}
+		})();
+
+		if (shouldCache) {
+			inFlightRequests.set(cacheKey, fetchPromise);
+		}
+		return await fetchPromise;
 	} catch (error: any) {
-		console.error(`[API Client POST Error] ${path}:`, error.message);
-		const offline = isOfflineError(error);
+		console.error(`[API Client POST Setup Error] ${path}:`, error.message);
 		return {
 			success: false,
-			isOffline: offline,
-			error: offline
-				? "On-premise ERP bridge is unreachable or connection timed out after 6000ms."
-				: error.message || "Failed to communicate with Database API",
+			error: error.message || "Failed to configure database query",
 		};
 	}
 }
+
 

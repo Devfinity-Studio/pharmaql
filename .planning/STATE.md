@@ -1,9 +1,9 @@
 # State
 
 **Current Milestone:** Milestone 1 - Production Hardening & Optimization
-**Active Phase:** Phase 40 (Data Loading Performance Optimization & Query Latency Reduction)
-**Current Stable Release:** `v1.4.0-devfinity-branding-and-favicons` (Vercel Deployment: `dpl_DCK5f1tCpixTeSgNYq6HHWjsTtYg`)
-**Status:** Current Stable Release verified in production. All 21 test suites (118 tests) passing. Both `pharmaql.devfinity.net` and `asmeepharma.com` live (HTTP 200). Ready to plan Phase 40.
+**Active Phase:** None (Phase 40 Complete)
+**Current Stable Release:** `v1.5.0-performance-optimization`
+**Status:** Phase 40 completed and verified. Multi-tier statement caching, in-flight request deduplication, HTTP payload compression, and React Query cache tuning fully implemented. 21 test suites (119 tests) passing, clean TypeScript typecheck, clean Next.js build. Merged to prod.
 
 ## Accumulated Context
 

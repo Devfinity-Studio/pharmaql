@@ -82,4 +82,46 @@ describe("api-client parameter injection & offline detection", () => {
 
 		global.fetch = originalFetch;
 	});
+
+	it("deduplicates simultaneous in-flight requests and serves cached data", async () => {
+		let fetchCallCount = 0;
+		const originalFetch = global.fetch;
+		global.fetch = vi.fn().mockImplementation(() => {
+			fetchCallCount++;
+			return new Promise((resolve) => {
+				setTimeout(() => {
+					resolve({
+						ok: true,
+						json: () => Promise.resolve({ success: true, data: [{ item: "Test Drug" }] }),
+					});
+				}, 10);
+			});
+		}) as any;
+
+		const { apiGet, invalidateApiClientCache } = await import("../api-client");
+		invalidateApiClientCache();
+
+		// Two concurrent requests for the exact same resource
+		const [res1, res2] = await Promise.all([
+			apiGet("/api/v1/catalog", { category: "Antibiotics" }),
+			apiGet("/api/v1/catalog", { category: "Antibiotics" }),
+		]);
+
+		expect(res1.success).toBe(true);
+		expect(res2.success).toBe(true);
+		// Fetch was invoked only once thanks to promise deduplication
+		expect(fetchCallCount).toBe(1);
+
+		// Subsequent request within TTL hits cache without fetching
+		const res3 = await apiGet("/api/v1/catalog", { category: "Antibiotics" });
+		expect(res3.success).toBe(true);
+		expect(fetchCallCount).toBe(1);
+
+		// With forceRefresh: true, fetch is invoked again
+		const res4 = await apiGet("/api/v1/catalog", { category: "Antibiotics" }, { forceRefresh: true });
+		expect(res4.success).toBe(true);
+		expect(fetchCallCount).toBe(2);
+
+		global.fetch = originalFetch;
+	});
 });
