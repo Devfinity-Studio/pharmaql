@@ -11,7 +11,9 @@ import {
 	generateSalesPdfReport,
 	generateStockAndSalesPdfReport,
 	generateStockPdfReport,
+	type PdfBranding,
 } from "@/lib/pdf";
+import { useTenant } from "@/lib/tenant-context";
 
 export function ReportDownloadButtons({
 	mrId,
@@ -20,6 +22,7 @@ export function ReportDownloadButtons({
 	mrId: string;
 	activeTab?: string;
 }) {
+	const tenant = useTenant();
 	const searchParams = useSearchParams();
 	const division = searchParams.get("division") || "All";
 	const tMinus1 = getDefaultTMinus1MonthRange();
@@ -112,6 +115,17 @@ export function ReportDownloadButtons({
 				else if (formattedToForFilename)
 					fromToSuffix = `_${formattedToForFilename}`;
 
+				const pdfBranding: PdfBranding = {
+					companyName: tenant.displayName,
+					address: tenant.address,
+					contactInfo: [
+						tenant.phone ? `Contact: ${tenant.phone}` : "",
+						(tenant.email || tenant.supportEmail) ? `Email: ${tenant.email || tenant.supportEmail}` : "",
+					].filter(Boolean).join("  |  "),
+					gstin: tenant.gstin,
+					logoUrl: tenant.logoUrl,
+				};
+
 				if (currentTab === "stock-and-sales") {
 					const mrName = data.length > 0 ? data[0]["MR Name"] : "Unknown";
 					const safeMrName = mrName.replace(/[^a-zA-Z0-9]/g, "_");
@@ -123,6 +137,7 @@ export function ReportDownloadButtons({
 						displayTo,
 						format === "print" ? "print" : "download",
 						serverDateStr,
+						pdfBranding,
 					);
 				} else if (currentTab === "stock") {
 					const mrName = data.length > 0 ? data[0]["MR Name"] : "Unknown";
@@ -135,6 +150,7 @@ export function ReportDownloadButtons({
 						displayTo,
 						format === "print" ? "print" : "download",
 						serverDateStr,
+						pdfBranding,
 					);
 				} else if (currentTab === "sales" || currentTab === "new-sales") {
 					const mrName = data.length > 0 ? data[0]["MR Name"] : "Unknown";
@@ -147,6 +163,7 @@ export function ReportDownloadButtons({
 						displayTo,
 						format === "print" ? "print" : "download",
 						serverDateStr,
+						pdfBranding,
 					);
 				} else if (currentTab === "party") {
 					const mrName = data.length > 0 ? data[0]["MR Name"] : "Unknown";
@@ -159,6 +176,7 @@ export function ReportDownloadButtons({
 						displayTo,
 						format === "print" ? "print" : "download",
 						serverDateStr,
+						pdfBranding,
 					);
 				} else if (currentTab === "products") {
 					const mrName = data.length > 0 ? data[0]["MR Name"] : "Unknown";
@@ -171,6 +189,7 @@ export function ReportDownloadButtons({
 						displayTo,
 						format === "print" ? "print" : "download",
 						serverDateStr,
+						pdfBranding,
 					);
 				} else {
 					// Free Scheme (default)
@@ -190,6 +209,7 @@ export function ReportDownloadButtons({
 						displayTo,
 						format === "print" ? "print" : "download",
 						serverDateStr,
+						pdfBranding,
 					);
 				}
 			} catch (e) {

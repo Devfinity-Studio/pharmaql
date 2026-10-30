@@ -1,6 +1,6 @@
 "use client";
 
-import React, { createContext, useContext, type ReactNode } from "react";
+import React, { createContext, useContext, useEffect, type ReactNode } from "react";
 
 export interface TenantContextValue {
 	id?: string;
@@ -63,6 +63,19 @@ export function TenantProvider({
 		...defaultTenantContext,
 		...(value || {}),
 	};
+
+	useEffect(() => {
+		if (typeof window !== "undefined") {
+			(window as any).__TENANT_BRANDING__ = {
+				companyName: mergedValue.displayName,
+				address: mergedValue.address,
+				phone: mergedValue.phone,
+				email: mergedValue.email || mergedValue.supportEmail,
+				gstin: mergedValue.gstin,
+				logoUrl: mergedValue.logoUrl,
+			};
+		}
+	}, [mergedValue]);
 
 	return (
 		<TenantContext.Provider value={mergedValue}>

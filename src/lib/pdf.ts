@@ -31,18 +31,34 @@ export async function yieldToMain(): Promise<void> {
 	return new Promise((resolve) => setTimeout(resolve, 0));
 }
 
-async function getLogoDataUrl(): Promise<string | null> {
+export async function getLogoDataUrl(customLogoUrl?: string): Promise<string | null> {
+	if (typeof window === "undefined") return null;
+	const targetUrl = customLogoUrl || "/logo.png";
+	if (targetUrl.startsWith("data:")) return targetUrl;
 	try {
-		const res = await fetch("/logo.png");
-		if (!res.ok) return null;
+		const res = await fetch(targetUrl);
+		if (!res.ok) {
+			if (customLogoUrl && customLogoUrl !== "/logo.png") {
+				const fallback = await fetch("/logo.png");
+				if (!fallback.ok) return null;
+				const blob = await fallback.blob();
+				return new Promise((resolve) => {
+					const reader = new FileReader();
+					reader.onloadend = () => resolve(reader.result as string);
+					reader.onerror = () => resolve(null);
+					reader.readAsDataURL(blob);
+				});
+			}
+			return null;
+		}
 		const blob = await res.blob();
-		return new Promise((resolve, reject) => {
+		return new Promise((resolve) => {
 			const reader = new FileReader();
 			reader.onloadend = () => resolve(reader.result as string);
-			reader.onerror = reject;
+			reader.onerror = () => resolve(null);
 			reader.readAsDataURL(blob);
 		});
-	} catch (e) {
+	} catch {
 		return null;
 	}
 }
@@ -131,6 +147,54 @@ function formatHeaderDate(d?: string): string {
 	return d;
 }
 
+export interface PdfBranding {
+	companyName?: string;
+	address?: string;
+	contactInfo?: string;
+	phone?: string;
+	email?: string;
+	gstin?: string;
+	logoUrl?: string;
+}
+
+export function getFinancialYear(dateStr?: string): string {
+	const d = dateStr ? new Date(dateStr) : new Date();
+	const year = isNaN(d.getFullYear()) ? new Date().getFullYear() : d.getFullYear();
+	const month = isNaN(d.getMonth()) ? new Date().getMonth() : d.getMonth();
+	// Indian Financial Year starts April 1 (month index 3)
+	const startYear = month >= 3 ? year : year - 1;
+	const endYear = (startYear + 1).toString().slice(-2);
+	return `${startYear}-${endYear}`;
+}
+
+export function resolveEffectiveBranding(branding?: PdfBranding): PdfBranding {
+	let effective = branding;
+	if (!effective && typeof window !== "undefined" && (window as any).__TENANT_BRANDING__) {
+		effective = (window as any).__TENANT_BRANDING__;
+	}
+
+	const companyName = (effective?.companyName || "ASMEE PHARMA").toUpperCase();
+	const address = effective?.address || "";
+	let contactInfo = effective?.contactInfo || "";
+
+	if (!contactInfo) {
+		const parts: string[] = [];
+		if (effective?.phone) parts.push(`Contact: ${effective.phone}`);
+		if (effective?.email) parts.push(`Email: ${effective.email}`);
+		contactInfo = parts.join("  |  ");
+	}
+
+	return {
+		companyName,
+		address,
+		contactInfo,
+		phone: effective?.phone,
+		email: effective?.email,
+		gstin: effective?.gstin,
+		logoUrl: effective?.logoUrl || "/logo.png",
+	};
+}
+
 function drawReportStationeryHeader(
 	doc: jsPDF,
 	logoDataUrl: string | null,
@@ -138,8 +202,9 @@ function drawReportStationeryHeader(
 	fromDate?: string,
 	toDate?: string,
 	summaryRight?: string,
-	branding?: { companyName?: string; address?: string; contactInfo?: string },
+	branding?: PdfBranding,
 ): number {
+	const resolved = resolveEffectiveBranding(branding);
 	let currentY = 12;
 
 	doc.setFontSize(14);
@@ -148,43 +213,42 @@ function drawReportStationeryHeader(
 
 	let textX = 14;
 	if (logoDataUrl) {
-		doc.addImage(logoDataUrl, "PNG", 14, currentY - 5, 24, 14);
-		textX = 40;
+		try {
+			doc.addImage(logoDataUrl, "PNG", 14, currentY - 5, 24, 14);
+			textX = 42;
+		} catch {
+			textX = 14;
+		}
 	}
 
-	const companyName = (branding?.companyName || "ASMEE PHARMA PRIVATE LIMITED").toUpperCase();
-	doc.text(companyName, textX, currentY);
+	doc.text(resolved.companyName || "COMPANY", textX, currentY);
 
 	currentY += 4.5;
 	doc.setFontSize(7.5);
 	doc.setFont("helvetica", "normal");
 	doc.setTextColor(75, 85, 99); // text-gray-600
 
-	if (branding?.address) {
-		const addressLines = doc.splitTextToSize(branding.address, 150);
+	if (resolved.address && resolved.address.trim()) {
+		const addressLines = doc.splitTextToSize(resolved.address.trim(), 150);
 		for (const line of addressLines) {
 			doc.text(line, textX, currentY);
 			currentY += 3.2;
 		}
-	} else {
-		doc.text(
-			"BASEMENT-GF, 11/2 ASHOK HOUSE, B/S SANSTHA VASAHAT GATE,",
-			textX,
-			currentY,
-		);
-		currentY += 3.2;
-		doc.text("PRATAP ROAD, RAOPURA, VADODARA - 390001, GUJARAT - 390024", textX, currentY);
+	}
+
+	if (resolved.contactInfo && resolved.contactInfo.trim()) {
+		doc.text(resolved.contactInfo.trim(), textX, currentY);
 		currentY += 3.2;
 	}
 
-	const contactInfo =
-		branding?.contactInfo ||
-		"Contact: 9409789800, 9409789700 Mobile: 9409789700 Email: asmeepharma2022@gmail.com";
-	doc.text(contactInfo, textX, currentY);
+	if (resolved.gstin && resolved.gstin.trim()) {
+		doc.text(`GSTIN: ${resolved.gstin.trim()}`, textX, currentY);
+		currentY += 3.2;
+	}
 
 	const rightMargin = doc.internal.pageSize.width - 14;
 
-	currentY += 5;
+	currentY += 2;
 	doc.setDrawColor(209, 213, 219); // border-gray-300
 	doc.setLineWidth(0.3);
 	doc.line(14, currentY, rightMargin, currentY);
@@ -193,7 +257,7 @@ function drawReportStationeryHeader(
 	doc.setFontSize(8);
 	doc.setFont("helvetica", "bold");
 	doc.setTextColor(17, 24, 39); // text-gray-900
-	doc.text("Year : 2026-27", 14, currentY);
+	doc.text(`Year : ${getFinancialYear(fromDate || toDate)}`, 14, currentY);
 
 	const fDisp = formatHeaderDate(fromDate);
 	const tDisp = formatHeaderDate(toDate);
@@ -241,8 +305,10 @@ export async function generateStockPdfReport(
 	toDate?: string,
 	action: "download" | "print" = "download",
 	serverTimeStr?: string,
+	branding?: PdfBranding,
 ) {
-	const logoDataUrl = await getLogoDataUrl();
+	const effectiveBranding = resolveEffectiveBranding(branding);
+	const logoDataUrl = await getLogoDataUrl(effectiveBranding.logoUrl);
 	const doc = new jsPDF("landscape");
 
 	const activeData = data.filter((row) => {
@@ -304,6 +370,7 @@ export async function generateStockPdfReport(
 		fromDate,
 		toDate,
 		summaryRight,
+		effectiveBranding,
 	);
 
 	const divisions = [
@@ -752,8 +819,10 @@ export async function generateFreeSchemePdfReport(
 	toDate?: string,
 	action: "download" | "print" = "download",
 	serverTimeStr?: string,
+	branding?: PdfBranding,
 ) {
-	const logoDataUrl = await getLogoDataUrl();
+	const effectiveBranding = resolveEffectiveBranding(branding);
+	const logoDataUrl = await getLogoDataUrl(effectiveBranding.logoUrl);
 	const doc = new jsPDF("landscape");
 
 	if (data.length === 0) {
@@ -775,6 +844,7 @@ export async function generateFreeSchemePdfReport(
 		fromDate,
 		toDate,
 		"Qty Claim: PTR × ClaimQty\nRate Claim: (NetRate - InvRate) × SaleQty",
+		effectiveBranding,
 	);
 
 	const manufacturers = [
@@ -1604,8 +1674,10 @@ export async function generatePartyWisePdfReport(
 	toDate?: string,
 	action: "download" | "print" = "download",
 	serverTimeStr?: string,
+	branding?: PdfBranding,
 ) {
-	const logoDataUrl = await getLogoDataUrl();
+	const effectiveBranding = resolveEffectiveBranding(branding);
+	const logoDataUrl = await getLogoDataUrl(effectiveBranding.logoUrl);
 	const doc = new jsPDF("landscape");
 
 	if (data.length === 0) {
@@ -1667,6 +1739,7 @@ export async function generatePartyWisePdfReport(
 		fromDate,
 		toDate,
 		`Total Parties: ${customerGroups.length}`,
+		effectiveBranding,
 	);
 
 	let grandQty = 0;
@@ -1939,8 +2012,10 @@ export async function generateProductPdfReport(
 	toDate?: string,
 	action: "download" | "print" = "download",
 	serverTimeStr?: string,
+	branding?: PdfBranding,
 ) {
-	const logoDataUrl = await getLogoDataUrl();
+	const effectiveBranding = resolveEffectiveBranding(branding);
+	const logoDataUrl = await getLogoDataUrl(effectiveBranding.logoUrl);
 	const doc = new jsPDF("landscape");
 
 	if (data.length === 0) {
@@ -2002,6 +2077,7 @@ export async function generateProductPdfReport(
 		fromDate,
 		toDate,
 		`Total Items: ${productGroups.length}`,
+		effectiveBranding,
 	);
 
 	let grandSalesQty = 0;
@@ -2254,8 +2330,10 @@ export async function generateGroupedPdfReport(
 	fromDate?: string,
 	toDate?: string,
 	serverTimeStr?: string,
+	branding?: PdfBranding,
 ) {
-	const logoDataUrl = await getLogoDataUrl();
+	const effectiveBranding = resolveEffectiveBranding(branding);
+	const logoDataUrl = await getLogoDataUrl(effectiveBranding.logoUrl);
 	const doc = new jsPDF("landscape");
 
 	if (data.length === 0) {
@@ -2277,6 +2355,7 @@ export async function generateGroupedPdfReport(
 		fromDate,
 		toDate,
 		`Total Records: ${data.length}`,
+		effectiveBranding,
 	);
 
 	const manufacturers = [
@@ -2542,6 +2621,7 @@ export async function generateSalesPdfReport(
 	toDate?: string,
 	action: "download" | "print" = "download",
 	serverTimeStr?: string,
+	branding?: PdfBranding,
 ) {
 	// Delegate directly to generatePartyWisePdfReport for identical crisp stationery layout
 	return generatePartyWisePdfReport(
@@ -2552,6 +2632,7 @@ export async function generateSalesPdfReport(
 		toDate,
 		action,
 		serverTimeStr,
+		branding,
 	);
 }
 
@@ -2565,6 +2646,7 @@ export async function generatePdfReport(
 	mrName?: string,
 	action: "download" | "print" = "download",
 	serverTimeStr?: string,
+	branding?: PdfBranding,
 ) {
 	const columns = [
 		{ header: "Party / Item", dataKey: "Customer" },
@@ -2583,6 +2665,7 @@ export async function generatePdfReport(
 		undefined,
 		undefined,
 		serverTimeStr,
+		branding,
 	);
 }
 
@@ -2597,8 +2680,10 @@ export async function generateStockAndSalesPdfReport(
 	toDate?: string,
 	action: "download" | "print" = "download",
 	serverTimeStr?: string,
+	branding?: PdfBranding,
 ) {
-	const logoDataUrl = await getLogoDataUrl();
+	const effectiveBranding = resolveEffectiveBranding(branding);
+	const logoDataUrl = await getLogoDataUrl(effectiveBranding.logoUrl);
 	const doc = new jsPDF("landscape");
 
 	const activeData = data.filter((row) => {
@@ -2641,6 +2726,7 @@ export async function generateStockAndSalesPdfReport(
 		fromDate,
 		toDate,
 		summaryRight,
+		effectiveBranding,
 	);
 
 	const divisions = [
