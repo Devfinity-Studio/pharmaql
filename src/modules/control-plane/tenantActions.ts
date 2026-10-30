@@ -1141,4 +1141,56 @@ export async function testTenantSmtpAction(
 	}
 }
 
+/**
+ * Server action to upload a tenant logo directly to Neon S3 cloud object storage.
+ */
+export async function uploadTenantLogoAction(
+	formData: FormData,
+): Promise<{ success: boolean; url?: string; key?: string; error?: string }> {
+	try {
+		const file = formData.get("file") as File | null;
+		const slug = (formData.get("slug") as string) || "tenant";
+
+		if (!file || !(file instanceof File)) {
+			return { success: false, error: "Please select an image file to upload." };
+		}
+
+		if (file.size > 5 * 1024 * 1024) {
+			return { success: false, error: "Image file size exceeds 5MB limit." };
+		}
+
+		const allowedTypes = [
+			"image/png",
+			"image/jpeg",
+			"image/jpg",
+			"image/svg+xml",
+			"image/webp",
+			"image/gif",
+		];
+		if (!allowedTypes.includes(file.type.toLowerCase())) {
+			return {
+				success: false,
+				error: "Invalid file type. Only PNG, JPG, SVG, WebP, and GIF images are allowed.",
+			};
+		}
+
+		const bytes = await file.arrayBuffer();
+		const buffer = Buffer.from(bytes);
+
+		const { uploadTenantLogoFile } = await import("@/lib/storage-service");
+		const result = await uploadTenantLogoFile({
+			slug,
+			fileName: file.name,
+			buffer,
+			contentType: file.type,
+		});
+
+		return result;
+	} catch (err: any) {
+		console.error("[TenantActions] uploadTenantLogoAction error:", err);
+		return { success: false, error: err.message || "Failed to upload logo." };
+	}
+}
+
+
 

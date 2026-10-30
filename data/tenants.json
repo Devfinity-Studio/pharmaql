@@ -35,7 +35,7 @@
     "is_active": true,
     "display_name": "Asmee Pharma",
     "short_name": null,
-    "logo_url": null,
+    "logo_url": "https://br-misty-paper-azxerit1.storage.c-3.ap-southeast-1.aws.neon.tech/pharmaql-tenant-logos/logos/asmee-logo.png",
     "primary_color": "#0B2545",
     "accent_color": "#134074",
     "address": null,
