@@ -150,7 +150,7 @@ Ask the client's domain administrator to add a DNS record at their domain regist
 - **Short Name**: `Asmee Pharma`
 - **Primary Color**: `#0B2545` (Header & sidebar accent).
 - **Accent Color**: `#134074` (Button hover & active indicators).
-- **Logo URL**: `/logo.png` (or link to uploaded high-res SVG/PNG).
+- **Logo URL**: `/devfinity.png` (or link to uploaded high-res SVG/PNG in S3).
 
 #### Section B: Client Details & Overdue Rules
 - **Registered Address**: `Plot No. 12, GIDC Industrial Estate, Ankleshwar, Gujarat - 393002`

@@ -18,9 +18,9 @@ const client = new S3Client({
 async function main() {
 	const bucket = "pharmaql-tenant-logos";
 	const key = "logos/asmee-logo.png";
-	const fileBuffer = fs.readFileSync(path.join(process.cwd(), "public", "logo.png"));
+	const fileBuffer = fs.readFileSync(path.join(process.cwd(), "public", "devfinity.png"));
 
-	console.log(`Uploading public/logo.png (${fileBuffer.length} bytes) to ${bucket}/${key}...`);
+	console.log(`Uploading public/devfinity.png (${fileBuffer.length} bytes) to ${bucket}/${key}...`);
 
 	const command = new PutObjectCommand({
 		Bucket: bucket,

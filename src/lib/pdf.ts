@@ -33,13 +33,13 @@ export async function yieldToMain(): Promise<void> {
 
 export async function getLogoDataUrl(customLogoUrl?: string): Promise<string | null> {
 	if (typeof window === "undefined") return null;
-	const targetUrl = customLogoUrl || "/logo.png";
+	const targetUrl = customLogoUrl || "/devfinity.png";
 	if (targetUrl.startsWith("data:")) return targetUrl;
 	try {
 		const res = await fetch(targetUrl);
 		if (!res.ok) {
-			if (customLogoUrl && customLogoUrl !== "/logo.png") {
-				const fallback = await fetch("/logo.png");
+			if (customLogoUrl && customLogoUrl !== "/devfinity.png") {
+				const fallback = await fetch("/devfinity.png");
 				if (!fallback.ok) return null;
 				const blob = await fallback.blob();
 				return new Promise((resolve) => {
@@ -191,7 +191,7 @@ export function resolveEffectiveBranding(branding?: PdfBranding): PdfBranding {
 		phone: effective?.phone,
 		email: effective?.email,
 		gstin: effective?.gstin,
-		logoUrl: effective?.logoUrl || "/logo.png",
+		logoUrl: effective?.logoUrl || "/devfinity.png",
 	};
 }
 

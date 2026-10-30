@@ -439,7 +439,7 @@ export function TenantModal({
 								</label>
 								<input
 									type="text"
-									placeholder="https://example.com/logo.png or /logo.png"
+									placeholder="https://example.com/logo.png or /devfinity.png"
 									value={logoUrl}
 									onChange={(e) => setLogoUrl(e.target.value)}
 									className="w-full px-3 py-2 bg-gray-950 border border-gray-800 rounded-xl text-sm focus:outline-none focus:border-blue-500 text-white placeholder-gray-500"

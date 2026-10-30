@@ -53,7 +53,7 @@ const config = {
 					},
 					{
 						key: "Content-Security-Policy",
-						value: "default-src 'self'; script-src 'self' 'unsafe-eval' 'unsafe-inline' https://va.vercel-scripts.com; style-src 'self' 'unsafe-inline'; img-src 'self' blob: data:; font-src 'self' data:; connect-src 'self' https://va.vercel-scripts.com https://vitals.vercel-insights.com http://127.0.0.1:* http://localhost:*; frame-ancestors 'none'; object-src 'none'; base-uri 'self'; form-action 'self';",
+						value: "default-src 'self'; script-src 'self' 'unsafe-eval' 'unsafe-inline' https://va.vercel-scripts.com; style-src 'self' 'unsafe-inline'; img-src 'self' blob: data: https:; font-src 'self' data:; connect-src 'self' https://va.vercel-scripts.com https://vitals.vercel-insights.com http://127.0.0.1:* http://localhost:*; frame-ancestors 'none'; object-src 'none'; base-uri 'self'; form-action 'self';",
 					},
 				],
 			},

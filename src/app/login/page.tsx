@@ -6,8 +6,9 @@ import { auth } from "@/server/auth";
 import { LoginForm } from "./login-form";
 
 export default async function LoginPage() {
+	const h = await headers();
 	const session = await auth.api.getSession({
-		headers: await headers(),
+		headers: h,
 	});
 
 	if (session) {
@@ -20,6 +21,9 @@ export default async function LoginPage() {
 		}
 	}
 
+	const tenantLogo = h.get("x-tenant-logo") || "/devfinity.png";
+	const tenantName = h.get("x-tenant-name") || "PharmaQL";
+
 	return (
 		<main className="relative flex min-h-screen flex-col justify-center overflow-x-hidden bg-[#F4F7F9] py-12 text-[#0B2545] sm:px-6 lg:px-8">
 			{/* Still/Fixed Minimalist Medical Grid Pattern Background */}
@@ -30,12 +34,13 @@ export default async function LoginPage() {
 				{/* Simple Text Branding */}
 				<div className="mb-4 flex justify-center">
 					<Image
-						alt="Asmee Pharma Logo"
-						className="object-contain"
+						alt={`${tenantName} Logo`}
+						className="object-contain max-h-16"
 						height={60}
 						priority
-						src="/logo.png"
+						src={tenantLogo}
 						width={200}
+						unoptimized
 					/>
 				</div>
 

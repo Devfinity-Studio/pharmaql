@@ -31,7 +31,7 @@ const defaultTenantContext: TenantContextValue = {
 	slug: "asmee",
 	displayName: "Asmee Pharma Pvt. Ltd.",
 	shortName: "Asmee Pharma",
-	logoUrl: "/logo.png",
+	logoUrl: "/devfinity.png",
 	primaryColor: "#0B2545",
 	accentColor: "#134074",
 	address: "Plot No. 12, GIDC Industrial Estate, Ankleshwar, Gujarat - 393002",

@@ -7,7 +7,6 @@ const PRECACHE_ASSETS = [
 	"/login",
 	"/dashboard",
 	"/devfinity.png",
-	"/logo.png",
 	"/favicons/android-chrome-192x192.png",
 	"/favicons/android-chrome-512x512.png",
 	"/favicons/apple-touch-icon.png",

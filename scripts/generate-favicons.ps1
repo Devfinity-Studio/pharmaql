@@ -1,6 +1,6 @@
 Add-Type -AssemblyName System.Drawing
 
-$logoPath = Resolve-Path "public/logo.png"
+$logoPath = Resolve-Path "public/devfinity.png"
 if (-not (Test-Path $logoPath)) {
     Write-Error "Logo file not found at $logoPath"
     exit 1
@@ -127,4 +127,4 @@ GenerateIcoFile "public/favicon.ico" $sourceImg
 GenerateIcoFile "src/app/favicon.ico" $sourceImg
 
 $sourceImg.Dispose()
-Write-Host "All favicons generated successfully from logo.png!"
+Write-Host "All favicons generated successfully from devfinity.png!"
