@@ -2,7 +2,8 @@
 
 **Current Milestone:** Milestone 1 - Production Hardening & Optimization
 **Active Phase:** None (Phase 38 Executed & Verified)
-**Status:** Phase 38 executed and verified. All 21 test suites (118 tests) passing. Next.js production build compiled cleanly. Ready for deployment review upon user command.
+**Current Stable Release:** `v1.2.0-stable-prod` (Vercel Deployment: `dpl_CpVjuXoyBsLMRsBetLtV1o1AXzAu`)
+**Status:** Current Stable Release verified in production. All 21 test suites (118 tests) passing. Both `pharmaql.devfinity.net` and `asmeepharma.com` live (HTTP 200).
 
 ## Accumulated Context
 
