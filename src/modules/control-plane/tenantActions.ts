@@ -232,6 +232,13 @@ export async function listTenantsAction(): Promise<{
 export async function saveTenantAction(
 	input: SaveTenantInput,
 ): Promise<{ success: boolean; id?: string; error?: string; vercelMessage?: string }> {
+	const cleanSlug = (input.slug || "").trim().toLowerCase().replace(/[^a-z0-9-]/g, "-");
+	const cleanDomain = input.custom_domain
+		?.trim()
+		.toLowerCase()
+		.replace(/^https?:\/\//i, "")
+		.replace(/\/+$/, "") || null;
+
 	try {
 		if (!input.slug || !input.slug.trim()) {
 			return { success: false, error: "Tenant slug is required." };
@@ -240,12 +247,6 @@ export async function saveTenantAction(
 			return { success: false, error: "Display name is required." };
 		}
 
-		const cleanSlug = input.slug.trim().toLowerCase().replace(/[^a-z0-9-]/g, "-");
-		const cleanDomain = input.custom_domain
-			?.trim()
-			.toLowerCase()
-			.replace(/^https?:\/\//i, "")
-			.replace(/\/+$/, "") || null;
 		const displayName = input.display_name.trim();
 		const shortName = input.short_name?.trim() || null;
 		const logoUrl = input.logo_url?.trim() || null;
@@ -332,6 +333,15 @@ export async function saveTenantAction(
 		await initControlPlaneRelationalSchema();
 
 		if (input.id) {
+			// Query existing slug & custom_domain before updating to ensure old hostnames are invalidated
+			let prevSlug: string | undefined;
+			let prevDomain: string | undefined;
+			try {
+				const prevRows = await sql`SELECT slug, custom_domain FROM tenants WHERE id = ${input.id} LIMIT 1;`;
+				prevSlug = prevRows[0]?.slug;
+				prevDomain = prevRows[0]?.custom_domain;
+			} catch {}
+
 			// Update existing tenant in Neon
 			if (apiKeyEncrypted && adminPasswordEncrypted) {
 				await sql`
@@ -455,40 +465,6 @@ export async function saveTenantAction(
 				`;
 			}
 
-			// Mirror to local store for offline and dev synchronization
-			try {
-				const existingLocal = await getLocalTenantById(input.id);
-				await saveLocalTenant({
-					id: input.id,
-					slug: cleanSlug,
-					custom_domain: cleanDomain,
-					is_active: isActive,
-					display_name: displayName,
-					short_name: shortName,
-					logo_url: logoUrl,
-					primary_color: primaryColor,
-					accent_color: accentColor,
-					address,
-					contact_phone: phone,
-					contact_email: email,
-					support_email: supportEmail,
-					user_email_domain: userEmailDomain,
-					gstin,
-					db_type: dbType,
-					db_connection_encrypted: null,
-					api_server_url: apiServerUrl,
-					api_server_key_encrypted: apiKeyEncrypted ?? existingLocal?.api_server_key_encrypted ?? null,
-					legacy_db_name: legacyDbName,
-					erp_software_type: erpSoftwareType,
-					comp_no: compNo,
-					loc_no: locNo,
-					overdue_direct_block_days: directBlockDays,
-					overdue_division_block_days: divisionBlockDays,
-					admin_email: adminEmail ?? existingLocal?.admin_email ?? null,
-					admin_password_encrypted: adminPasswordEncrypted ?? existingLocal?.admin_password_encrypted ?? null,
-				});
-			} catch {}
-
 			let vercelMessage: string | undefined;
 			if (cleanDomain) {
 				try {
@@ -499,7 +475,11 @@ export async function saveTenantAction(
 
 			invalidateTenantCache(cleanSlug);
 			if (cleanDomain) invalidateTenantCache(cleanDomain);
+			if (prevSlug && prevSlug !== cleanSlug) invalidateTenantCache(prevSlug);
+			if (prevDomain && prevDomain !== cleanDomain) invalidateTenantCache(prevDomain);
+			invalidateTenantCache();
 			safeRevalidatePath("/admin/tenants");
+			safeRevalidatePath("/admin/dashboard");
 			return { success: true, id: input.id, vercelMessage };
 		} else {
 			// Insert new tenant into Neon
@@ -563,41 +543,6 @@ export async function saveTenantAction(
 			const first = rows[0];
 			const newId = first?.id ? String(first.id) : undefined;
 
-			// Mirror to local store for offline and dev synchronization
-			if (newId) {
-				try {
-					await saveLocalTenant({
-						id: newId,
-						slug: cleanSlug,
-						custom_domain: cleanDomain,
-						is_active: isActive,
-						display_name: displayName,
-						short_name: shortName,
-						logo_url: logoUrl,
-						primary_color: primaryColor,
-						accent_color: accentColor,
-						address,
-						contact_phone: phone,
-						contact_email: email,
-						support_email: supportEmail,
-						user_email_domain: userEmailDomain,
-						gstin,
-						db_type: dbType,
-						db_connection_encrypted: null,
-						api_server_url: apiServerUrl,
-						api_server_key_encrypted: apiKeyEncrypted,
-						legacy_db_name: legacyDbName,
-						erp_software_type: erpSoftwareType,
-						comp_no: compNo,
-						loc_no: locNo,
-						overdue_direct_block_days: directBlockDays,
-						overdue_division_block_days: divisionBlockDays,
-						admin_email: adminEmail,
-						admin_password_encrypted: adminPasswordEncrypted,
-					});
-				} catch {}
-			}
-
 			let vercelMessage: string | undefined;
 			if (cleanDomain) {
 				try {
@@ -608,11 +553,25 @@ export async function saveTenantAction(
 
 			invalidateTenantCache(cleanSlug);
 			if (cleanDomain) invalidateTenantCache(cleanDomain);
+			invalidateTenantCache();
 			safeRevalidatePath("/admin/tenants");
+			safeRevalidatePath("/admin/dashboard");
 			return { success: true, id: newId, vercelMessage };
 		}
 	} catch (err: any) {
 		console.error("[TenantActions] saveTenantAction error:", err);
+		if (err.message?.includes("tenants_slug_key")) {
+			return {
+				success: false,
+				error: `A tenant with slug '${cleanSlug}' already exists. Please choose a different slug.`,
+			};
+		}
+		if (err.message?.includes("tenants_custom_domain_key")) {
+			return {
+				success: false,
+				error: `Custom domain '${cleanDomain}' is already registered to another tenant.`,
+			};
+		}
 		return { success: false, error: err.message };
 	}
 }
@@ -635,19 +594,28 @@ export async function toggleTenantStatusAction(
 				};
 			}
 			await toggleLocalTenantStatus(tenantId, isActive);
+			invalidateTenantCache();
 			safeRevalidatePath("/admin/tenants");
+			safeRevalidatePath("/admin/dashboard");
 			return { success: true };
 		}
 
 		await initControlPlaneRelationalSchema();
+		const rows = await sql`SELECT custom_domain, slug FROM tenants WHERE id = ${tenantId} LIMIT 1;`;
+		const domain = rows[0]?.custom_domain;
+		const slug = rows[0]?.slug;
+
 		await sql`
 			UPDATE tenants 
 			SET is_active = ${isActive}, updated_at = NOW() 
 			WHERE id = ${tenantId};
 		`;
 
+		if (slug) invalidateTenantCache(slug);
+		if (domain) invalidateTenantCache(domain);
 		invalidateTenantCache();
 		safeRevalidatePath("/admin/tenants");
+		safeRevalidatePath("/admin/dashboard");
 		return { success: true };
 	} catch (err: any) {
 		console.error("[TenantActions] toggleTenantStatusAction error:", err);
@@ -674,12 +642,14 @@ export async function deleteTenantAction(
 			await deleteLocalTenant(tenantId);
 			invalidateTenantCache();
 			safeRevalidatePath("/admin/tenants");
+			safeRevalidatePath("/admin/dashboard");
 			return { success: true };
 		}
 
 		await initControlPlaneRelationalSchema();
-		const rows = await sql`SELECT custom_domain FROM tenants WHERE id = ${tenantId} LIMIT 1;`;
+		const rows = await sql`SELECT custom_domain, slug FROM tenants WHERE id = ${tenantId} LIMIT 1;`;
 		const domainToDelete = rows[0]?.custom_domain;
+		const slugToDelete = rows[0]?.slug;
 
 		await sql`DELETE FROM tenants WHERE id = ${tenantId};`;
 
@@ -689,8 +659,11 @@ export async function deleteTenantAction(
 			} catch {}
 		}
 
+		if (slugToDelete) invalidateTenantCache(slugToDelete);
+		if (domainToDelete) invalidateTenantCache(domainToDelete);
 		invalidateTenantCache();
 		safeRevalidatePath("/admin/tenants");
+		safeRevalidatePath("/admin/dashboard");
 		return { success: true };
 	} catch (err: any) {
 		console.error("[TenantActions] deleteTenantAction error:", err);
