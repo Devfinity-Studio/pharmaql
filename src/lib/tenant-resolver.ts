@@ -165,17 +165,11 @@ export async function resolveTenantByHost(
 
 		let tenant: TenantRecord | null = rows.length > 0 ? (rows[0] as TenantRecord) : null;
 
-		// Secondary fallback to bundled static tenants if Neon didn't match
-		if (!tenant) {
-			tenant = findStaticTenant(targetSlug, host, strippedHost, rootDomain, firstSubdomain);
-		}
-
 		tenantMemoryCache.set(cacheKey, { tenant, cachedAt: now });
 		return { tenant, isDevPortal: isDev };
 	} catch (err: any) {
 		console.warn(`[TenantResolver] Resolution error for ${host}:`, err.message);
-		const fallback = findStaticTenant(targetSlug, host, strippedHost, rootDomain, firstSubdomain);
-		return { tenant: fallback, isDevPortal: isDev };
+		return { tenant: null, isDevPortal: isDev };
 	}
 }
 

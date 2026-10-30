@@ -96,6 +96,8 @@ export function TenantsControlCenter({
 				setTenants((prev) =>
 					prev.map((t) => (t.id === tenant.id ? { ...t, is_active: nextStatus } : t)),
 				);
+			} else {
+				alert(res.error || "Failed to update tenant status.");
 			}
 		} finally {
 			setTogglingId(null);
@@ -115,6 +117,8 @@ export function TenantsControlCenter({
 			const res = await deleteTenantAction(tenant.id);
 			if (res.success) {
 				setTenants((prev) => prev.filter((t) => t.id !== tenant.id));
+			} else {
+				alert(res.error || "Failed to delete tenant.");
 			}
 		} catch (err: any) {
 			alert(err.message || "Failed to delete tenant.");

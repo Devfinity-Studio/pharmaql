@@ -1,5 +1,4 @@
 import { neon } from "@neondatabase/serverless";
-import staticTenants from "../../data/tenants.json";
 
 export interface TenantRecord {
 	id: string;
@@ -184,72 +183,6 @@ export async function initControlPlaneRelationalSchema(): Promise<boolean> {
 				updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 			);
 		`;
-
-		// 6. Ensure baseline tenants exist from static configuration
-		if (Array.isArray(staticTenants) && staticTenants.length > 0) {
-			for (const t of staticTenants as any[]) {
-				await sql`
-					INSERT INTO tenants (
-						id,
-						slug,
-						custom_domain,
-						is_active,
-						display_name,
-						short_name,
-						primary_color,
-						accent_color,
-						address,
-						contact_phone,
-						contact_email,
-						support_email,
-						user_email_domain,
-						gstin,
-						db_type,
-						api_server_url,
-						api_server_key_encrypted,
-						legacy_db_name,
-						erp_software_type,
-						comp_no,
-						loc_no,
-						overdue_direct_block_days,
-						overdue_division_block_days,
-						admin_email,
-						admin_password_encrypted
-					) VALUES (
-						${t.id},
-						${t.slug},
-						${t.custom_domain || null},
-						${t.is_active ?? true},
-						${t.display_name},
-						${t.short_name || null},
-						${t.primary_color || "#0B2545"},
-						${t.accent_color || "#134074"},
-						${t.address || null},
-						${t.contact_phone || null},
-						${t.contact_email || null},
-						${t.support_email || null},
-						${t.user_email_domain || null},
-						${t.gstin || null},
-						${t.db_type || "api_server"},
-						${t.api_server_url || null},
-						${t.api_server_key_encrypted || null},
-						${t.legacy_db_name || "pdyasvmaster"},
-						${t.erp_software_type || "Technomax"},
-						${t.comp_no ?? 11},
-						${t.loc_no ?? 11},
-						${t.overdue_direct_block_days ?? 90},
-						${t.overdue_division_block_days ?? 95},
-						${t.admin_email || null},
-						${t.admin_password_encrypted || null}
-					)
-					ON CONFLICT (id) DO UPDATE SET
-						api_server_key_encrypted = COALESCE(EXCLUDED.api_server_key_encrypted, tenants.api_server_key_encrypted),
-						custom_domain = COALESCE(EXCLUDED.custom_domain, tenants.custom_domain),
-						admin_email = COALESCE(tenants.admin_email, EXCLUDED.admin_email),
-						admin_password_encrypted = COALESCE(tenants.admin_password_encrypted, EXCLUDED.admin_password_encrypted);
-				`;
-			}
-		}
 
 		schemaInitialized = true;
 		return true;

@@ -288,5 +288,91 @@ describe("tenantActions Server Actions", () => {
 			expect(res.success).toBe(true);
 			expect(res.id).toBe("tenant-existing-2");
 		});
+
+		it("does not mirror to local file store when saving tenant in Neon mode", async () => {
+			const mockSql: any = vi.fn().mockResolvedValue([{ id: "neon-new-1" }]);
+			vi.spyOn(controlPlaneDb, "getControlPlaneSql").mockReturnValue(mockSql);
+			vi.spyOn(controlPlaneDb, "initControlPlaneRelationalSchema").mockResolvedValue(true);
+			const localSaveSpy = vi.spyOn(localTenantsStore, "saveLocalTenant");
+
+			const res = await saveTenantAction({
+				slug: "neon-unique",
+				display_name: "Neon Unique Pharma",
+			});
+
+			expect(res.success).toBe(true);
+			expect(localSaveSpy).not.toHaveBeenCalled();
+		});
+
+		it("returns user-friendly error message on duplicate slug constraint violation", async () => {
+			const mockSql: any = vi.fn().mockRejectedValue(
+				new Error('duplicate key value violates unique constraint "tenants_slug_key"')
+			);
+			vi.spyOn(controlPlaneDb, "getControlPlaneSql").mockReturnValue(mockSql);
+			vi.spyOn(controlPlaneDb, "initControlPlaneRelationalSchema").mockResolvedValue(true);
+
+			const res = await saveTenantAction({
+				slug: "duplicate-slug",
+				display_name: "Duplicate Tenant",
+			});
+
+			expect(res.success).toBe(false);
+			expect(res.error).toBe(
+				"A tenant with slug 'duplicate-slug' already exists. Please choose a different slug."
+			);
+		});
+
+		it("returns user-friendly error message on duplicate custom domain constraint violation", async () => {
+			const mockSql: any = vi.fn().mockRejectedValue(
+				new Error('duplicate key value violates unique constraint "tenants_custom_domain_key"')
+			);
+			vi.spyOn(controlPlaneDb, "getControlPlaneSql").mockReturnValue(mockSql);
+			vi.spyOn(controlPlaneDb, "initControlPlaneRelationalSchema").mockResolvedValue(true);
+
+			const res = await saveTenantAction({
+				slug: "other-slug",
+				custom_domain: "portal.asmeepharma.com",
+				display_name: "Other Tenant",
+			});
+
+			expect(res.success).toBe(false);
+			expect(res.error).toBe(
+				"Custom domain 'portal.asmeepharma.com' is already registered to another tenant."
+			);
+		});
+
+		it("invalidates both slug and custom_domain caches when deleting a tenant in Neon", async () => {
+			const mockSql: any = vi.fn().mockImplementation((strings: TemplateStringsArray, ...values: any[]) => {
+				const query = strings.join("?");
+				if (query.includes("SELECT")) {
+					return Promise.resolve([{ slug: "delete-me", custom_domain: "portal.deleteme.com" }]);
+				}
+				return Promise.resolve([]);
+			});
+
+			vi.spyOn(controlPlaneDb, "getControlPlaneSql").mockReturnValue(mockSql);
+			vi.spyOn(controlPlaneDb, "initControlPlaneRelationalSchema").mockResolvedValue(true);
+
+			const res = await deleteTenantAction("tenant-to-delete");
+			expect(res.success).toBe(true);
+			expect(mockSql).toHaveBeenCalled();
+		});
+
+		it("invalidates both slug and custom_domain caches when toggling tenant status in Neon", async () => {
+			const mockSql: any = vi.fn().mockImplementation((strings: TemplateStringsArray, ...values: any[]) => {
+				const query = strings.join("?");
+				if (query.includes("SELECT")) {
+					return Promise.resolve([{ slug: "toggle-me", custom_domain: "portal.toggleme.com" }]);
+				}
+				return Promise.resolve([]);
+			});
+
+			vi.spyOn(controlPlaneDb, "getControlPlaneSql").mockReturnValue(mockSql);
+			vi.spyOn(controlPlaneDb, "initControlPlaneRelationalSchema").mockResolvedValue(true);
+
+			const res = await toggleTenantStatusAction("tenant-to-toggle", false);
+			expect(res.success).toBe(true);
+			expect(mockSql).toHaveBeenCalled();
+		});
 	});
 });
