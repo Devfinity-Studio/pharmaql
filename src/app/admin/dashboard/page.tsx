@@ -78,8 +78,34 @@ export default async function AdminDashboardPage() {
 	const totalItems = statsRes.data?.totalItems || 0;
 	const manufacturerStats = statsRes.data?.manufacturerStats || [];
 
+	const tenantId = reqHeaders.get("x-tenant-id");
+	let isSmtpConfigured = true;
+	if (tenantId) {
+		try {
+			const { getTenantMailer } = await import("@/lib/mailer");
+			const mailerInstance = await getTenantMailer(tenantId);
+			isSmtpConfigured = Boolean(mailerInstance);
+		} catch {
+			isSmtpConfigured = false;
+		}
+	}
+
 	return (
 		<div className="mt-4 space-y-8">
+			{!isSmtpConfigured && (
+				<div className="rounded-2xl border border-amber-300 bg-amber-50 p-5 text-amber-900 shadow-sm flex items-start gap-3.5">
+					<span className="text-2xl flex-shrink-0">⚠️</span>
+					<div className="flex-1">
+						<h3 className="font-bold text-sm text-amber-900">
+							Email Service Not Configured — Medical Representative OTP Logins Disabled
+						</h3>
+						<p className="text-xs mt-1 text-amber-800 leading-relaxed">
+							Your organization has not yet configured custom SMTP credentials. Medical Representatives cannot receive verification codes to log in until SMTP settings are configured.
+						</p>
+					</div>
+				</div>
+			)}
+
 			<div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
 				<div>
 					<h1 className="font-extrabold text-3xl text-gray-900">

@@ -28,6 +28,13 @@ export interface TenantRecord {
 	overdue_division_block_days?: number | null;
 	admin_email?: string | null;
 	admin_password_encrypted?: string | null;
+	smtp_host?: string | null;
+	smtp_port?: number | null;
+	smtp_secure?: boolean | null;
+	smtp_user?: string | null;
+	smtp_password_encrypted?: string | null;
+	smtp_from_name?: string | null;
+	smtp_from_email?: string | null;
 	created_at?: string;
 	updated_at?: string;
 }
@@ -118,6 +125,13 @@ export async function initControlPlaneRelationalSchema(): Promise<boolean> {
 				overdue_division_block_days INTEGER DEFAULT 95,
 				admin_email VARCHAR(128),
 				admin_password_encrypted TEXT,
+				smtp_host VARCHAR(128),
+				smtp_port INTEGER DEFAULT 465,
+				smtp_secure BOOLEAN DEFAULT true,
+				smtp_user VARCHAR(128),
+				smtp_password_encrypted TEXT,
+				smtp_from_name VARCHAR(128),
+				smtp_from_email VARCHAR(128),
 				created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
 				updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 			);
@@ -136,6 +150,13 @@ export async function initControlPlaneRelationalSchema(): Promise<boolean> {
 		await sql`ALTER TABLE tenants ADD COLUMN IF NOT EXISTS overdue_division_block_days INTEGER DEFAULT 95;`;
 		await sql`ALTER TABLE tenants ADD COLUMN IF NOT EXISTS admin_email VARCHAR(128);`;
 		await sql`ALTER TABLE tenants ADD COLUMN IF NOT EXISTS admin_password_encrypted TEXT;`;
+		await sql`ALTER TABLE tenants ADD COLUMN IF NOT EXISTS smtp_host VARCHAR(128);`;
+		await sql`ALTER TABLE tenants ADD COLUMN IF NOT EXISTS smtp_port INTEGER DEFAULT 465;`;
+		await sql`ALTER TABLE tenants ADD COLUMN IF NOT EXISTS smtp_secure BOOLEAN DEFAULT true;`;
+		await sql`ALTER TABLE tenants ADD COLUMN IF NOT EXISTS smtp_user VARCHAR(128);`;
+		await sql`ALTER TABLE tenants ADD COLUMN IF NOT EXISTS smtp_password_encrypted TEXT;`;
+		await sql`ALTER TABLE tenants ADD COLUMN IF NOT EXISTS smtp_from_name VARCHAR(128);`;
+		await sql`ALTER TABLE tenants ADD COLUMN IF NOT EXISTS smtp_from_email VARCHAR(128);`;
 
 		// 2. Tenant Notices
 		await sql`

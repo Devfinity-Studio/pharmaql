@@ -201,6 +201,34 @@ export async function requestMrOtp(emailOrPhone: string) {
 			canViewProductWise: perms.canViewProductWise,
 		};
 
+		const tenantId = reqHeaders.get("x-tenant-id") || undefined;
+		const isDevPortal = reqHeaders.get("x-is-dev-portal") === "true";
+
+		if (tenantId && !isDevPortal) {
+			const { getTenantMailer } = await import("@/lib/mailer");
+			const tenantMailer = await getTenantMailer(tenantId);
+			if (!tenantMailer) {
+				await recordAuditEvent({
+					event: "AUTH_LOGIN_FAILURE",
+					userId: mr.id,
+					userEmail: targetEmail,
+					ip: clientIp,
+					userAgent,
+					details: {
+						action: "requestMrOtp",
+						reason: "SMTP not configured for tenant",
+						tenantId,
+					},
+				});
+
+				return {
+					success: false,
+					error:
+						"Email service is not configured for this organization. Please contact your administrator.",
+				};
+			}
+		}
+
 		const otpKey = `otp:${targetEmail.toLowerCase()}`;
 		await kvStore.set<StoredOtpRecord>(
 			otpKey,
@@ -212,8 +240,8 @@ export async function requestMrOtp(emailOrPhone: string) {
 			600, // 10 minutes TTL
 		);
 
-		// Send email using Gmail SMTP
-		await sendOtpEmail(targetEmail, otp, mr.name);
+		// Send email using dedicated tenant SMTP (or platform fallback for dev portal)
+		await sendOtpEmail(targetEmail, otp, mr.name, isDevPortal ? undefined : tenantId);
 
 		// Record successful OTP dispatch
 		await recordAuditEvent({
