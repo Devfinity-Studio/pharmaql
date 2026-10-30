@@ -47,19 +47,21 @@ export async function buildStyledExcelBuffer(options: {
 
 	// 1. Company Letterhead
 	const companyRow = worksheet.getRow(rowIndex++);
-	companyRow.getCell(1).value = (options.metadata?.companyName || "ASMEE PHARMA PRIVATE LIMITED").toUpperCase();
+	companyRow.getCell(1).value = (options.metadata?.companyName || "ASMEE PHARMA").toUpperCase();
 	companyRow.getCell(1).font = { name: "Calibri", size: 14, bold: true, color: { argb: "0B2545" } };
 
-	const addressRow = worksheet.getRow(rowIndex++);
-	addressRow.getCell(1).value =
-		options.metadata?.address ||
-		"BASEMENT-GF, 11/2 ASHOK HOUSE, B/S SANSTHA VASAHAT GATE, PRATAP ROAD, RAOPURA, VADODARA - 390001";
-	addressRow.getCell(1).font = { name: "Calibri", size: 9, italic: true, color: { argb: "555555" } };
+	if (options.metadata?.address) {
+		const addressRow = worksheet.getRow(rowIndex++);
+		addressRow.getCell(1).value = options.metadata.address;
+		addressRow.getCell(1).font = { name: "Calibri", size: 9, italic: true, color: { argb: "555555" } };
+	}
 
-	const contactRow = worksheet.getRow(rowIndex++);
-	contactRow.getCell(1).value =
-		"Contact: 9409789800, 9409789700 | Email: asmeepharma2022@gmail.com";
-	contactRow.getCell(1).font = { name: "Calibri", size: 9, italic: true, color: { argb: "555555" } };
+	const contactInfo = options.metadata?.contactInfo;
+	if (contactInfo) {
+		const contactRow = worksheet.getRow(rowIndex++);
+		contactRow.getCell(1).value = contactInfo;
+		contactRow.getCell(1).font = { name: "Calibri", size: 9, italic: true, color: { argb: "555555" } };
+	}
 
 	rowIndex++; // blank separator
 

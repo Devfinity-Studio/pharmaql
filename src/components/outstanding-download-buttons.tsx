@@ -4,9 +4,11 @@ import { useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { getDefaultTMinus1MonthRange } from "@/lib/dateUtils";
-import { generateGroupedPdfReport } from "@/lib/pdf";
+import { generateGroupedPdfReport, type PdfBranding } from "@/lib/pdf";
+import { useTenant } from "@/lib/tenant-context";
 
 export function OutstandingDownloadButtons({ mrId }: { mrId: string }) {
+	const tenant = useTenant();
 	const searchParams = useSearchParams();
 	const division = searchParams.get("division") || "All";
 	const defaultFrom = searchParams.get("from") || "";
@@ -126,6 +128,17 @@ export function OutstandingDownloadButtons({ mrId }: { mrId: string }) {
 					},
 				];
 
+				const pdfBranding: PdfBranding = {
+					companyName: tenant.displayName,
+					address: tenant.address,
+					contactInfo: [
+						tenant.phone ? `Contact: ${tenant.phone}` : "",
+						(tenant.email || tenant.supportEmail) ? `Email: ${tenant.email || tenant.supportEmail}` : "",
+					].filter(Boolean).join("  |  "),
+					gstin: tenant.gstin,
+					logoUrl: tenant.logoUrl,
+				};
+
 				await generateGroupedPdfReport(
 					`Party Wise Outstanding Statement`,
 					`${safeMrName}_${safeDivision}_Outstanding_${dateRangeTag}.pdf`,
@@ -136,6 +149,7 @@ export function OutstandingDownloadButtons({ mrId }: { mrId: string }) {
 					from,
 					to,
 					serverDateStr,
+					pdfBranding,
 				);
 			} catch (e) {
 				console.error(e);

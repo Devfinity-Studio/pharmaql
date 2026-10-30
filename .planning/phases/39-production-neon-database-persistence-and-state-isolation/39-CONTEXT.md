@@ -45,3 +45,17 @@ Users reported that on production:
    - Verified that cookies are only used for user authentication sessions (`pharmaql_session`) and MR impersonation (`pharmaql_impersonate`). No tenant state is stored in cookies.
 4. **Cache Invalidation Guarantee**:
    - Every tenant mutation (`saveTenantAction`, `deleteTenantAction`, `toggleTenantStatusAction`) must invalidate the memory cache for both the tenant slug and custom domain, and trigger Next.js path revalidation for `/admin/tenants` and `/admin/dashboard`.
+
+## 5. Verified Working Production Release & Rollback Checkpoint
+
+- **Git Tag**: `v1.0.0-stable-prod` (Commit: `a882556`)
+- **GitHub Release**: [v1.0.0 Stable Production Milestone](https://github.com/Devfinity-Studio/pharmaql/releases/tag/v1.0.0-stable-prod)
+- **Vercel Production Deployment ID**: `dpl_71ni1GaQixuz9DjVoXCMBaLoT11v`
+- **Active Domains**:
+  - Admin Master: `https://pharmaql.devfinity.net`
+  - Client Tenant: `https://asmeepharma.com`
+  - Vercel Production: `https://pharmaql.vercel.app`
+- **Instant Rollback Command**:
+  ```bash
+  vercel rollback dpl_71ni1GaQixuz9DjVoXCMBaLoT11v --scope thespacestation
+  ```
