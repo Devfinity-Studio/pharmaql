@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import {
 	normalizeHost,
 	isDevPortalHost,
@@ -65,5 +65,54 @@ describe("tenant-resolver (Edge compatible)", () => {
 		expect(normalizeApiUrl("")).toBe("");
 		expect(normalizeApiUrl(null)).toBe("");
 		expect(normalizeApiUrl(undefined)).toBe("");
+	});
+
+	describe("when Cloud Database (Neon) is active", () => {
+		it("should resolve tenant directly from Neon and not use static fallback", async () => {
+			const mockTenantRecord = {
+				id: "neon-123",
+				slug: "neonpharma",
+				display_name: "Neon Pharma Ltd",
+				is_active: true,
+			};
+			const mockSql = vi.fn().mockResolvedValue([mockTenantRecord]);
+			// Dynamically mock getControlPlaneSql
+			const controlPlaneDb = await import("../control-plane-db");
+			vi.spyOn(controlPlaneDb, "getControlPlaneSql").mockReturnValue(mockSql as any);
+
+			invalidateTenantCache("neonpharma");
+			const result = await resolveTenantByHost("neonpharma.localhost:3000");
+
+			expect(result.tenant).not.toBeNull();
+			expect(result.tenant?.slug).toBe("neonpharma");
+			expect(result.tenant?.id).toBe("neon-123");
+			vi.restoreAllMocks();
+		});
+
+		it("should return null and NEVER fall back to static tenants when Neon returns empty rows (deleted tenant)", async () => {
+			// Even though "asmee" exists in data/tenants.json, if Neon says it's not there, it must stay deleted (null)!
+			const mockSql = vi.fn().mockResolvedValue([]);
+			const controlPlaneDb = await import("../control-plane-db");
+			vi.spyOn(controlPlaneDb, "getControlPlaneSql").mockReturnValue(mockSql as any);
+
+			invalidateTenantCache("asmee");
+			const result = await resolveTenantByHost("asmee.localhost:3000");
+
+			expect(result.tenant).toBeNull();
+			expect(result.isDevPortal).toBe(false);
+			vi.restoreAllMocks();
+		});
+
+		it("should return null when Neon query throws an error", async () => {
+			const mockSql = vi.fn().mockRejectedValue(new Error("Connection timeout"));
+			const controlPlaneDb = await import("../control-plane-db");
+			vi.spyOn(controlPlaneDb, "getControlPlaneSql").mockReturnValue(mockSql as any);
+
+			invalidateTenantCache("asmee");
+			const result = await resolveTenantByHost("asmee.localhost:3000");
+
+			expect(result.tenant).toBeNull();
+			vi.restoreAllMocks();
+		});
 	});
 });
