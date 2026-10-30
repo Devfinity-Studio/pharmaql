@@ -22,10 +22,14 @@ import {
 	Lock,
 	Server,
 	Activity,
+	Mail,
+	Send,
+	CheckCheck,
 } from "lucide-react";
 import {
 	saveTenantAction,
 	testApiServerConnectionAction,
+	testTenantSmtpAction,
 	type SaveTenantInput,
 	type ApiServerPingResult,
 } from "@/modules/control-plane/tenantActions";
@@ -76,6 +80,31 @@ export function TenantForm({ mode, initialTenant }: TenantFormProps) {
 	const [adminPassword, setAdminPassword] = useState(initialTenant?.admin_password || "");
 	const [showAdminPassword, setShowAdminPassword] = useState(false);
 	const [copiedPassword, setCopiedPassword] = useState(false);
+
+	// 5. Tenant Custom SMTP Configuration
+	const [smtpHost, setSmtpHost] = useState(initialTenant?.smtp_host || "");
+	const [smtpPort, setSmtpPort] = useState<number>(initialTenant?.smtp_port ?? 465);
+	const [smtpSecure, setSmtpSecure] = useState<boolean>(
+		initialTenant?.smtp_secure !== undefined && initialTenant?.smtp_secure !== null
+			? Boolean(initialTenant.smtp_secure)
+			: true,
+	);
+	const [smtpUser, setSmtpUser] = useState(initialTenant?.smtp_user || "");
+	const [smtpPassword, setSmtpPassword] = useState(initialTenant?.smtp_password || "");
+	const [showSmtpPassword, setShowSmtpPassword] = useState(false);
+	const [smtpFromName, setSmtpFromName] = useState(initialTenant?.smtp_from_name || "");
+	const [smtpFromEmail, setSmtpFromEmail] = useState(initialTenant?.smtp_from_email || "");
+	const [smtpPreset, setSmtpPreset] = useState<string>("custom");
+
+	// SMTP Diagnostics
+	const [isTestingSmtp, setIsTestingSmtp] = useState(false);
+	const [smtpTestResult, setSmtpTestResult] = useState<{
+		success: boolean;
+		latencyMs?: number;
+		error?: string;
+	} | null>(null);
+	const [testRecipientType, setTestRecipientType] = useState<"admin" | "custom">("admin");
+	const [customRecipientEmail, setCustomRecipientEmail] = useState("");
 
 	// Diagnostics & Submitting
 	const [isTestingApi, setIsTestingApi] = useState(false);
@@ -149,6 +178,67 @@ export function TenantForm({ mode, initialTenant }: TenantFormProps) {
 		}
 	};
 
+	const applySmtpPreset = (preset: string) => {
+		setSmtpPreset(preset);
+		if (preset === "zoho_in") {
+			setSmtpHost("smtp.zoho.in");
+			setSmtpPort(465);
+			setSmtpSecure(true);
+		} else if (preset === "zoho_com") {
+			setSmtpHost("smtp.zoho.com");
+			setSmtpPort(465);
+			setSmtpSecure(true);
+		} else if (preset === "gmail") {
+			setSmtpHost("smtp.gmail.com");
+			setSmtpPort(465);
+			setSmtpSecure(true);
+		} else if (preset === "office365") {
+			setSmtpHost("smtp.office365.com");
+			setSmtpPort(587);
+			setSmtpSecure(false);
+		}
+	};
+
+	const handleTestSmtp = async () => {
+		setIsTestingSmtp(true);
+		setSmtpTestResult(null);
+		try {
+			const recipient =
+				testRecipientType === "admin"
+					? adminEmail.trim() || smtpUser.trim()
+					: customRecipientEmail.trim();
+
+			if (!recipient) {
+				setSmtpTestResult({
+					success: false,
+					error: "Please enter a valid recipient email address.",
+				});
+				setIsTestingSmtp(false);
+				return;
+			}
+
+			const res = await testTenantSmtpAction({
+				tenantId: initialTenant?.id,
+				smtpHost: smtpHost.trim(),
+				smtpPort: Number(smtpPort) || 465,
+				smtpSecure,
+				smtpUser: smtpUser.trim(),
+				smtpPassword: smtpPassword.trim() || undefined,
+				smtpFromName: smtpFromName.trim() || displayName.trim(),
+				smtpFromEmail: smtpFromEmail.trim() || smtpUser.trim(),
+				recipientEmail: recipient,
+			});
+			setSmtpTestResult(res);
+		} catch (err: any) {
+			setSmtpTestResult({
+				success: false,
+				error: err.message || "Failed to test SMTP connection.",
+			});
+		} finally {
+			setIsTestingSmtp(false);
+		}
+	};
+
 	const handleSubmit = async (e: React.FormEvent) => {
 		e.preventDefault();
 		setFormError(null);
@@ -191,6 +281,13 @@ export function TenantForm({ mode, initialTenant }: TenantFormProps) {
 				overdue_division_block_days: Number(overdueDivisionBlockDays) || 95,
 				admin_email: adminEmail.trim() || null,
 				admin_password: adminPassword.trim() || null,
+				smtp_host: smtpHost.trim() || null,
+				smtp_port: Number(smtpPort) || 465,
+				smtp_secure: smtpSecure,
+				smtp_user: smtpUser.trim() || null,
+				smtp_password: smtpPassword.trim() || null,
+				smtp_from_name: smtpFromName.trim() || null,
+				smtp_from_email: smtpFromEmail.trim() || null,
 			};
 
 			const result = await saveTenantAction(input);
@@ -825,6 +922,269 @@ export function TenantForm({ mode, initialTenant }: TenantFormProps) {
 							administrators sign in on a client portal (e.g. <code>portal.asmeepharma.com</code>), the login
 							pipeline authenticates exclusively against this tenant's admin account.
 						</p>
+					</div>
+				</div>
+			</div>
+
+			{/* Section 5: Email & Notification Services (SMTP) */}
+			<div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-xl space-y-6">
+				<div className="flex items-center gap-3 border-b border-slate-800 pb-4">
+					<div className="p-2 rounded-lg bg-teal-500/10 text-teal-400">
+						<Mail className="w-5 h-5" />
+					</div>
+					<div>
+						<h2 className="text-lg font-bold text-white">5. Dedicated Email & Notification Services (SMTP)</h2>
+						<p className="text-xs text-slate-400">
+							Configure custom SMTP delivery for OTP codes, alerts, and transactional messages originating from this organization.
+						</p>
+					</div>
+				</div>
+
+				{/* 1-Click Provider Presets */}
+				<div className="p-4 rounded-xl bg-slate-950 border border-slate-800 space-y-3">
+					<div className="flex items-center justify-between">
+						<span className="text-xs font-semibold text-slate-300 flex items-center gap-1.5">
+							<Sparkles className="w-4 h-4 text-teal-400" /> 1-Click Provider Quick Presets
+						</span>
+						<span className="text-[11px] text-slate-500">Auto-configures host, port, and security layer</span>
+					</div>
+					<div className="grid grid-cols-2 sm:grid-cols-5 gap-2.5">
+						{[
+							{ id: "zoho_in", name: "Zoho Mail (India)", host: "smtp.zoho.in:465" },
+							{ id: "zoho_com", name: "Zoho Mail (Global)", host: "smtp.zoho.com:465" },
+							{ id: "gmail", name: "Google / Gmail", host: "smtp.gmail.com:465" },
+							{ id: "office365", name: "Microsoft 365", host: "smtp.office365.com:587" },
+							{ id: "custom", name: "Custom SMTP", host: "Manual Settings" },
+						].map((p) => (
+							<button
+								key={p.id}
+								type="button"
+								onClick={() => applySmtpPreset(p.id)}
+								className={`p-2.5 rounded-xl border text-left transition-all ${
+									smtpPreset === p.id
+										? "bg-teal-500/15 border-teal-500/50 text-teal-200"
+										: "bg-slate-900 border-slate-800 text-slate-400 hover:border-slate-700 hover:text-slate-300"
+								}`}
+							>
+								<p className="text-xs font-semibold truncate">{p.name}</p>
+								<p className="text-[10px] text-slate-500 font-mono truncate mt-0.5">{p.host}</p>
+							</button>
+						))}
+					</div>
+					{smtpPreset === "gmail" && (
+						<p className="text-[11px] text-amber-400/90 bg-amber-500/10 border border-amber-500/20 p-2.5 rounded-lg">
+							💡 <strong>Google Workspace / Gmail Tip:</strong> Generate an <em>App Password</em> in your Google Account security settings (2FA required) and paste it below. Never use your raw personal password.
+						</p>
+					)}
+				</div>
+
+				<div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+					<div>
+						<label className="block text-xs font-semibold text-slate-300 mb-1.5">
+							SMTP Host Server
+						</label>
+						<input
+							type="text"
+							placeholder="smtp.zoho.in"
+							value={smtpHost}
+							onChange={(e) => setSmtpHost(e.target.value)}
+							className="w-full px-3.5 py-2.5 bg-slate-950 border border-slate-700 rounded-xl text-white text-sm font-mono focus:border-teal-500 focus:outline-none"
+						/>
+					</div>
+
+					<div className="grid grid-cols-2 gap-4">
+						<div>
+							<label className="block text-xs font-semibold text-slate-300 mb-1.5">
+								Port
+							</label>
+							<input
+								type="number"
+								placeholder="465"
+								value={smtpPort}
+								onChange={(e) => setSmtpPort(Number(e.target.value) || 465)}
+								className="w-full px-3.5 py-2.5 bg-slate-950 border border-slate-700 rounded-xl text-white text-sm font-mono focus:border-teal-500 focus:outline-none"
+							/>
+						</div>
+						<div>
+							<label className="block text-xs font-semibold text-slate-300 mb-1.5">
+								Security Protocol
+							</label>
+							<button
+								type="button"
+								onClick={() => setSmtpSecure(!smtpSecure)}
+								className={`w-full py-2.5 px-3 rounded-xl border text-xs font-semibold transition-all flex items-center justify-center gap-1.5 ${
+									smtpSecure
+										? "bg-emerald-500/10 border-emerald-500/30 text-emerald-400"
+										: "bg-sky-500/10 border-sky-500/30 text-sky-400"
+								}`}
+							>
+								<Lock className="w-3.5 h-3.5" />
+								{smtpSecure ? "SSL / TLS (Secure)" : "STARTTLS (TLS)"}
+							</button>
+						</div>
+					</div>
+
+					<div>
+						<label className="block text-xs font-semibold text-slate-300 mb-1.5">
+							SMTP Username / Sender Address
+						</label>
+						<input
+							type="email"
+							placeholder="notifications@asmeepharma.com"
+							value={smtpUser}
+							onChange={(e) => setSmtpUser(e.target.value)}
+							className="w-full px-3.5 py-2.5 bg-slate-950 border border-slate-700 rounded-xl text-white text-sm focus:border-teal-500 focus:outline-none"
+						/>
+						<p className="text-[11px] text-slate-500 mt-1">
+							The authenticated account used to connect and send messages.
+						</p>
+					</div>
+
+					<div>
+						<div className="flex items-center justify-between mb-1.5">
+							<label className="text-xs font-semibold text-slate-300">
+								SMTP Password / App Key
+							</label>
+						</div>
+						<div className="relative">
+							<input
+								type={showSmtpPassword ? "text" : "password"}
+								placeholder={
+									initialTenant?.has_smtp_password && !smtpPassword
+										? "•••••••••••••••• (Encrypted in Cloud DB)"
+										: "Enter SMTP App Password"
+								}
+								value={smtpPassword}
+								onChange={(e) => setSmtpPassword(e.target.value)}
+								className="w-full px-3.5 py-2.5 pr-10 bg-slate-950 border border-slate-700 rounded-xl text-white text-sm font-mono focus:border-teal-500 focus:outline-none"
+							/>
+							<button
+								type="button"
+								onClick={() => setShowSmtpPassword(!showSmtpPassword)}
+								className="absolute right-3 top-2.5 text-slate-400 hover:text-slate-200"
+							>
+								{showSmtpPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+							</button>
+						</div>
+						<p className="text-[11px] text-slate-500 mt-1">
+							Encrypted with AES-256-GCM. Never transmitted to client browsers.
+						</p>
+					</div>
+
+					<div>
+						<label className="block text-xs font-semibold text-slate-300 mb-1.5">
+							Custom "From" Display Name (Optional)
+						</label>
+						<input
+							type="text"
+							placeholder={displayName || "Asmee Pharma Verification"}
+							value={smtpFromName}
+							onChange={(e) => setSmtpFromName(e.target.value)}
+							className="w-full px-3.5 py-2.5 bg-slate-950 border border-slate-700 rounded-xl text-white text-sm focus:border-teal-500 focus:outline-none"
+						/>
+					</div>
+
+					<div>
+						<label className="block text-xs font-semibold text-slate-300 mb-1.5">
+							Custom "From" Sender Email (Optional)
+						</label>
+						<input
+							type="email"
+							placeholder={smtpUser || "no-reply@asmeepharma.com"}
+							value={smtpFromEmail}
+							onChange={(e) => setSmtpFromEmail(e.target.value)}
+							className="w-full px-3.5 py-2.5 bg-slate-950 border border-slate-700 rounded-xl text-white text-sm focus:border-teal-500 focus:outline-none"
+						/>
+					</div>
+
+					{/* Live Test Diagnostics Panel */}
+					<div className="md:col-span-2 p-5 rounded-xl bg-slate-950 border border-slate-800 space-y-4">
+						<div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+							<div className="flex items-center gap-2">
+								<Send className="w-4 h-4 text-teal-400" />
+								<h3 className="text-sm font-bold text-white">Live SMTP Handshake & Delivery Test</h3>
+							</div>
+
+							<button
+								type="button"
+								disabled={isTestingSmtp || !smtpHost || !smtpUser}
+								onClick={handleTestSmtp}
+								className="px-4 py-2 rounded-xl bg-teal-500/10 hover:bg-teal-500/20 text-teal-300 border border-teal-500/30 text-xs font-semibold transition-all flex items-center gap-2 self-start sm:self-auto disabled:opacity-40"
+							>
+								{isTestingSmtp ? (
+									<>
+										<RefreshCw className="w-3.5 h-3.5 animate-spin" />
+										Testing Handshake...
+									</>
+								) : (
+									<>
+										<CheckCheck className="w-3.5 h-3.5" />
+										Send Test Verification Email
+									</>
+								)}
+							</button>
+						</div>
+
+						<div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-1">
+							<div className="flex items-center gap-4">
+								<label className="flex items-center gap-2 text-xs text-slate-300 cursor-pointer">
+									<input
+										type="radio"
+										name="testRecipient"
+										checked={testRecipientType === "admin"}
+										onChange={() => setTestRecipientType("admin")}
+										className="accent-teal-500"
+									/>
+									Send to Admin ({adminEmail || smtpUser || "Not set"})
+								</label>
+								<label className="flex items-center gap-2 text-xs text-slate-300 cursor-pointer">
+									<input
+										type="radio"
+										name="testRecipient"
+										checked={testRecipientType === "custom"}
+										onChange={() => setTestRecipientType("custom")}
+										className="accent-teal-500"
+									/>
+									Custom Recipient
+								</label>
+							</div>
+
+							{testRecipientType === "custom" && (
+								<input
+									type="email"
+									placeholder="Enter your personal email for test delivery"
+									value={customRecipientEmail}
+									onChange={(e) => setCustomRecipientEmail(e.target.value)}
+									className="px-3 py-1.5 bg-slate-900 border border-slate-700 rounded-lg text-white text-xs focus:border-teal-500 focus:outline-none"
+								/>
+							)}
+						</div>
+
+						{smtpTestResult && (
+							<div
+								className={`p-3.5 rounded-xl border text-xs flex items-start gap-2.5 transition-all ${
+									smtpTestResult.success
+										? "bg-emerald-500/10 border-emerald-500/30 text-emerald-300"
+										: "bg-rose-500/10 border-rose-500/30 text-rose-300"
+								}`}
+							>
+								{smtpTestResult.success ? (
+									<CheckCircle2 className="w-4 h-4 text-emerald-400 flex-shrink-0 mt-0.5" />
+								) : (
+									<AlertCircle className="w-4 h-4 text-rose-400 flex-shrink-0 mt-0.5" />
+								)}
+								<div>
+									<p className="font-semibold">
+										{smtpTestResult.success
+											? `SMTP Handshake & Test Dispatch Succeeded (${smtpTestResult.latencyMs}ms)`
+											: "SMTP Handshake Verification Failed"}
+									</p>
+									{smtpTestResult.error && (
+										<p className="text-[11px] mt-0.5 text-rose-200/90">{smtpTestResult.error}</p>
+									)}
+								</div>
+							</div>
+						)}
 					</div>
 				</div>
 			</div>

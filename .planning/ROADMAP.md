@@ -313,13 +313,13 @@
 - [x] **Environment Cleanup & Architecture Alignment**: Cleaned [`.env`](file:///e:/work/pharmaql/.env), [`src/env.js`](file:///e:/work/pharmaql/src/env.js), and [`.env.example`](file:///e:/work/pharmaql/.env.example) to remove obsolete single-tenant variables and clearly document required platform variables and optional offline fallback credentials.
 - [x] **Verification & Validation**: All 17 Vitest suites passed (95/95 tests), TypeScript typecheck passed with zero errors (`tsc --noEmit`), and Next.js production build (`next build`) compiled cleanly. Results documented in [`37-UAT.md`](file:///e:/work/pharmaql/.planning/phases/37-centralized-dev-dashboard-and-multi-tenant-isolation/37-UAT.md).
 
-## Phase 38: Multi-Tenant Custom SMTP & Isolated Email Dispatch
+## Phase 38: Multi-Tenant Custom SMTP & Isolated Email Dispatch [COMPLETED]
 
-- [ ] **Relational Database Schema & Credential Encryption**: Add SMTP configuration columns (`smtp_host`, `smtp_port`, `smtp_user`, `smtp_password_encrypted`, `smtp_from_name`, `smtp_from_email`) to Neon Postgres `tenants` table and local fallback store with AES-256-GCM encryption.
-- [ ] **Dynamic Tenant Mailer Pool (`src/lib/mailer.ts`)**: Implement `getTenantMailer(tenantId)` resolving custom SMTP transporters per tenant with connection pooling, and graceful fallback to platform mailer with dynamic brand display name and reply-to.
-- [ ] **Dynamic White-Labeled Email Templates**: Refactor `sendOtpEmail` and system notifications to dynamically render the active tenant's logo, primary brand color, organization legal name, and custom support contact links instead of hardcoded branding.
-- [ ] **Tenant Form SMTP Configuration & Test Diagnostics**: Add an "Email Services (SMTP)" section to [`src/components/tenant-form.tsx`](file:///e:/work/pharmaql/src/components/tenant-form.tsx) with presets (Zoho, Gmail, Outlook, Custom), encrypted credential inputs, and a live "Send Test Verification Email" diagnostic action.
-- [ ] **Verification & Validation**: Run complete Vitest suite, TypeScript validation (`tsc --noEmit`), and Next.js production build (`next build`).
+- [x] **Relational Database Schema & Credential Encryption**: Add SMTP configuration columns (`smtp_host`, `smtp_port`, `smtp_secure`, `smtp_user`, `smtp_password_encrypted`, `smtp_from_name`, `smtp_from_email`) to Neon Postgres `tenants` table and local fallback store with AES-256-GCM encryption.
+- [x] **Dynamic Tenant Mailer Pool (`src/lib/mailer.ts`)**: Implement `getTenantMailer(tenantId)` resolving custom SMTP transporters per tenant with connection pooling, and graceful fallback to platform mailer with dynamic brand display name and reply-to.
+- [x] **Dynamic White-Labeled Email Templates**: Refactor `sendOtpEmail` and system notifications to dynamically render the active tenant's logo, primary brand color, organization legal name, and custom support contact links instead of hardcoded branding.
+- [x] **Tenant Form SMTP Configuration & Test Diagnostics**: Add an "Email Services (SMTP)" section to [`src/components/tenant-form.tsx`](file:///e:/work/pharmaql/src/components/tenant-form.tsx) with presets (Zoho, Gmail, Outlook, Custom), encrypted credential inputs, and a live "Send Test Verification Email" diagnostic action.
+- [x] **Verification & Validation**: Run complete Vitest suite (21 test files, 118 unit tests passing), TypeScript validation (`tsc --noEmit`), and Next.js production build (`next build`).
 
 ## Phase 39: Production Neon Database Persistence & Dynamic Multi-Tenant State Isolation [COMPLETED]
 

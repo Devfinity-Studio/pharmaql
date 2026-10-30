@@ -41,6 +41,13 @@ const DEFAULT_ASMEE_TENANT: TenantRecord = {
 	overdue_division_block_days: 95,
 	admin_email: "asmeepharma2022@gmail.com",
 	admin_password_encrypted: null,
+	smtp_host: null,
+	smtp_port: 465,
+	smtp_secure: true,
+	smtp_user: null,
+	smtp_password_encrypted: null,
+	smtp_from_name: null,
+	smtp_from_email: null,
 	created_at: new Date("2026-01-01T00:00:00.000Z").toISOString(),
 	updated_at: new Date("2026-01-01T00:00:00.000Z").toISOString(),
 };

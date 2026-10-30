@@ -61,6 +61,13 @@ export interface TenantListItem {
 	has_api_key: boolean;
 	admin_email?: string | null;
 	has_admin_password?: boolean;
+	smtp_host?: string | null;
+	smtp_port?: number | null;
+	smtp_secure?: boolean | null;
+	smtp_user?: string | null;
+	has_smtp_password?: boolean;
+	smtp_from_name?: string | null;
+	smtp_from_email?: string | null;
 	created_at?: string;
 	updated_at?: string;
 }
@@ -91,6 +98,13 @@ export interface SaveTenantInput {
 	overdue_division_block_days?: number | null;
 	admin_email?: string | null;
 	admin_password?: string | null; // Raw plaintext to be encrypted
+	smtp_host?: string | null;
+	smtp_port?: number | null;
+	smtp_secure?: boolean | null;
+	smtp_user?: string | null;
+	smtp_password?: string | null; // Raw plaintext to be encrypted
+	smtp_from_name?: string | null;
+	smtp_from_email?: string | null;
 }
 
 export interface ApiServerPingResult {
@@ -145,6 +159,13 @@ export async function listTenantsAction(): Promise<{
 				has_api_key: Boolean(r.api_server_key_encrypted),
 				admin_email: r.admin_email,
 				has_admin_password: Boolean(r.admin_password_encrypted),
+				smtp_host: r.smtp_host || null,
+				smtp_port: r.smtp_port ?? 465,
+				smtp_secure: r.smtp_secure ?? true,
+				smtp_user: r.smtp_user || null,
+				has_smtp_password: Boolean(r.smtp_password_encrypted),
+				smtp_from_name: r.smtp_from_name || null,
+				smtp_from_email: r.smtp_from_email || null,
 				created_at: r.created_at,
 				updated_at: r.updated_at,
 			}));
@@ -180,6 +201,13 @@ export async function listTenantsAction(): Promise<{
 				admin_email,
 				(admin_password_encrypted IS NOT NULL AND admin_password_encrypted != '') AS has_admin_password,
 				(api_server_key_encrypted IS NOT NULL AND api_server_key_encrypted != '') AS has_api_key,
+				smtp_host,
+				smtp_port,
+				smtp_secure,
+				smtp_user,
+				(smtp_password_encrypted IS NOT NULL AND smtp_password_encrypted != '') AS has_smtp_password,
+				smtp_from_name,
+				smtp_from_email,
 				created_at,
 				updated_at
 			FROM tenants
@@ -213,6 +241,13 @@ export async function listTenantsAction(): Promise<{
 			has_api_key: Boolean(r.has_api_key),
 			admin_email: r.admin_email ? String(r.admin_email) : null,
 			has_admin_password: Boolean(r.has_admin_password),
+			smtp_host: r.smtp_host ? String(r.smtp_host) : null,
+			smtp_port: r.smtp_port ? Number(r.smtp_port) : 465,
+			smtp_secure: r.smtp_secure !== null && r.smtp_secure !== undefined ? Boolean(r.smtp_secure) : true,
+			smtp_user: r.smtp_user ? String(r.smtp_user) : null,
+			has_smtp_password: Boolean(r.has_smtp_password),
+			smtp_from_name: r.smtp_from_name ? String(r.smtp_from_name) : null,
+			smtp_from_email: r.smtp_from_email ? String(r.smtp_from_email) : null,
 			created_at: r.created_at ? new Date(r.created_at).toISOString() : undefined,
 			updated_at: r.updated_at ? new Date(r.updated_at).toISOString() : undefined,
 		}));
@@ -277,6 +312,16 @@ export async function saveTenantAction(
 			? encryptSecret(input.admin_password.trim())
 			: null;
 
+		const smtpHost = input.smtp_host?.trim() || null;
+		const smtpPort = input.smtp_port !== undefined && input.smtp_port !== null ? Number(input.smtp_port) : 465;
+		const smtpSecure = input.smtp_secure ?? true;
+		const smtpUser = input.smtp_user?.trim() || null;
+		const smtpFromName = input.smtp_from_name?.trim() || null;
+		const smtpFromEmail = input.smtp_from_email?.trim() || null;
+		const smtpPasswordEncrypted = input.smtp_password?.trim()
+			? encryptSecret(input.smtp_password.trim())
+			: null;
+
 		const sql = getControlPlaneSql();
 
 		if (!sql) {
@@ -321,6 +366,13 @@ export async function saveTenantAction(
 				overdue_division_block_days: divisionBlockDays,
 				admin_email: adminEmail ?? existingLocal?.admin_email ?? null,
 				admin_password_encrypted: adminPasswordEncrypted ?? existingLocal?.admin_password_encrypted ?? null,
+				smtp_host: smtpHost,
+				smtp_port: smtpPort,
+				smtp_secure: smtpSecure,
+				smtp_user: smtpUser,
+				smtp_password_encrypted: smtpPasswordEncrypted ?? existingLocal?.smtp_password_encrypted ?? null,
+				smtp_from_name: smtpFromName,
+				smtp_from_email: smtpFromEmail,
 			};
 
 			const saved = await saveLocalTenant(record);
@@ -343,127 +395,43 @@ export async function saveTenantAction(
 			} catch {}
 
 			// Update existing tenant in Neon
-			if (apiKeyEncrypted && adminPasswordEncrypted) {
-				await sql`
-					UPDATE tenants SET
-						slug = ${cleanSlug},
-						custom_domain = ${cleanDomain},
-						is_active = ${isActive},
-						display_name = ${displayName},
-						short_name = ${shortName},
-						logo_url = ${logoUrl},
-						primary_color = ${primaryColor},
-						accent_color = ${accentColor},
-						address = ${address},
-						contact_phone = ${phone},
-						contact_email = ${email},
-						support_email = ${supportEmail},
-						user_email_domain = ${userEmailDomain},
-						gstin = ${gstin},
-						db_type = ${dbType},
-						api_server_url = ${apiServerUrl},
-						api_server_key_encrypted = ${apiKeyEncrypted},
-						legacy_db_name = ${legacyDbName},
-						erp_software_type = ${erpSoftwareType},
-						comp_no = ${compNo},
-						loc_no = ${locNo},
-						overdue_direct_block_days = ${directBlockDays},
-						overdue_division_block_days = ${divisionBlockDays},
-						admin_email = ${adminEmail},
-						admin_password_encrypted = ${adminPasswordEncrypted},
-						updated_at = NOW()
-					WHERE id = ${input.id};
-				`;
-			} else if (apiKeyEncrypted) {
-				await sql`
-					UPDATE tenants SET
-						slug = ${cleanSlug},
-						custom_domain = ${cleanDomain},
-						is_active = ${isActive},
-						display_name = ${displayName},
-						short_name = ${shortName},
-						logo_url = ${logoUrl},
-						primary_color = ${primaryColor},
-						accent_color = ${accentColor},
-						address = ${address},
-						contact_phone = ${phone},
-						contact_email = ${email},
-						support_email = ${supportEmail},
-						user_email_domain = ${userEmailDomain},
-						gstin = ${gstin},
-						db_type = ${dbType},
-						api_server_url = ${apiServerUrl},
-						api_server_key_encrypted = ${apiKeyEncrypted},
-						legacy_db_name = ${legacyDbName},
-						erp_software_type = ${erpSoftwareType},
-						comp_no = ${compNo},
-						loc_no = ${locNo},
-						overdue_direct_block_days = ${directBlockDays},
-						overdue_division_block_days = ${divisionBlockDays},
-						admin_email = ${adminEmail},
-						updated_at = NOW()
-					WHERE id = ${input.id};
-				`;
-			} else if (adminPasswordEncrypted) {
-				await sql`
-					UPDATE tenants SET
-						slug = ${cleanSlug},
-						custom_domain = ${cleanDomain},
-						is_active = ${isActive},
-						display_name = ${displayName},
-						short_name = ${shortName},
-						logo_url = ${logoUrl},
-						primary_color = ${primaryColor},
-						accent_color = ${accentColor},
-						address = ${address},
-						contact_phone = ${phone},
-						contact_email = ${email},
-						support_email = ${supportEmail},
-						user_email_domain = ${userEmailDomain},
-						gstin = ${gstin},
-						db_type = ${dbType},
-						api_server_url = ${apiServerUrl},
-						legacy_db_name = ${legacyDbName},
-						erp_software_type = ${erpSoftwareType},
-						comp_no = ${compNo},
-						loc_no = ${locNo},
-						overdue_direct_block_days = ${directBlockDays},
-						overdue_division_block_days = ${divisionBlockDays},
-						admin_email = ${adminEmail},
-						admin_password_encrypted = ${adminPasswordEncrypted},
-						updated_at = NOW()
-					WHERE id = ${input.id};
-				`;
-			} else {
-				await sql`
-					UPDATE tenants SET
-						slug = ${cleanSlug},
-						custom_domain = ${cleanDomain},
-						is_active = ${isActive},
-						display_name = ${displayName},
-						short_name = ${shortName},
-						logo_url = ${logoUrl},
-						primary_color = ${primaryColor},
-						accent_color = ${accentColor},
-						address = ${address},
-						contact_phone = ${phone},
-						contact_email = ${email},
-						support_email = ${supportEmail},
-						user_email_domain = ${userEmailDomain},
-						gstin = ${gstin},
-						db_type = ${dbType},
-						api_server_url = ${apiServerUrl},
-						legacy_db_name = ${legacyDbName},
-						erp_software_type = ${erpSoftwareType},
-						comp_no = ${compNo},
-						loc_no = ${locNo},
-						overdue_direct_block_days = ${directBlockDays},
-						overdue_division_block_days = ${divisionBlockDays},
-						admin_email = ${adminEmail},
-						updated_at = NOW()
-					WHERE id = ${input.id};
-				`;
-			}
+			await sql`
+				UPDATE tenants SET
+					slug = ${cleanSlug},
+					custom_domain = ${cleanDomain},
+					is_active = ${isActive},
+					display_name = ${displayName},
+					short_name = ${shortName},
+					logo_url = ${logoUrl},
+					primary_color = ${primaryColor},
+					accent_color = ${accentColor},
+					address = ${address},
+					contact_phone = ${phone},
+					contact_email = ${email},
+					support_email = ${supportEmail},
+					user_email_domain = ${userEmailDomain},
+					gstin = ${gstin},
+					db_type = ${dbType},
+					api_server_url = ${apiServerUrl},
+					api_server_key_encrypted = COALESCE(${apiKeyEncrypted}, api_server_key_encrypted),
+					legacy_db_name = ${legacyDbName},
+					erp_software_type = ${erpSoftwareType},
+					comp_no = ${compNo},
+					loc_no = ${locNo},
+					overdue_direct_block_days = ${directBlockDays},
+					overdue_division_block_days = ${divisionBlockDays},
+					admin_email = ${adminEmail},
+					admin_password_encrypted = COALESCE(${adminPasswordEncrypted}, admin_password_encrypted),
+					smtp_host = ${smtpHost},
+					smtp_port = ${smtpPort},
+					smtp_secure = ${smtpSecure},
+					smtp_user = ${smtpUser},
+					smtp_password_encrypted = COALESCE(${smtpPasswordEncrypted}, smtp_password_encrypted),
+					smtp_from_name = ${smtpFromName},
+					smtp_from_email = ${smtpFromEmail},
+					updated_at = NOW()
+				WHERE id = ${input.id};
+			`;
 
 			let vercelMessage: string | undefined;
 			if (cleanDomain) {
@@ -509,7 +477,14 @@ export async function saveTenantAction(
 					overdue_direct_block_days,
 					overdue_division_block_days,
 					admin_email,
-					admin_password_encrypted
+					admin_password_encrypted,
+					smtp_host,
+					smtp_port,
+					smtp_secure,
+					smtp_user,
+					smtp_password_encrypted,
+					smtp_from_name,
+					smtp_from_email
 				) VALUES (
 					${cleanSlug},
 					${cleanDomain},
@@ -535,13 +510,19 @@ export async function saveTenantAction(
 					${directBlockDays},
 					${divisionBlockDays},
 					${adminEmail},
-					${adminPasswordEncrypted}
-				)
-				RETURNING id;
+					${adminPasswordEncrypted},
+					${smtpHost},
+					${smtpPort},
+					${smtpSecure},
+					${smtpUser},
+					${smtpPasswordEncrypted},
+					${smtpFromName},
+					${smtpFromEmail}
+				) RETURNING id;
 			`;
 
-			const first = rows[0];
-			const newId = first?.id ? String(first.id) : undefined;
+			const firstRow = rows[0];
+			const newId = firstRow?.id ? String(firstRow.id) : undefined;
 
 			let vercelMessage: string | undefined;
 			if (cleanDomain) {
@@ -999,6 +980,13 @@ export async function getTenantAction(
 			} catch {}
 		}
 
+		let decryptedSmtpPassword = "";
+		if (raw.smtp_password_encrypted) {
+			try {
+				decryptedSmtpPassword = decryptSecret(raw.smtp_password_encrypted);
+			} catch {}
+		}
+
 		const tenant = {
 			id: String(raw.id),
 			slug: String(raw.slug),
@@ -1028,6 +1016,14 @@ export async function getTenantAction(
 			admin_email: raw.admin_email ? String(raw.admin_email) : null,
 			admin_password: decryptedAdminPassword,
 			has_admin_password: Boolean(raw.admin_password_encrypted),
+			smtp_host: raw.smtp_host ? String(raw.smtp_host) : null,
+			smtp_port: raw.smtp_port ? Number(raw.smtp_port) : 465,
+			smtp_secure: raw.smtp_secure !== null && raw.smtp_secure !== undefined ? Boolean(raw.smtp_secure) : true,
+			smtp_user: raw.smtp_user ? String(raw.smtp_user) : null,
+			smtp_password: decryptedSmtpPassword,
+			has_smtp_password: Boolean(raw.smtp_password_encrypted),
+			smtp_from_name: raw.smtp_from_name ? String(raw.smtp_from_name) : null,
+			smtp_from_email: raw.smtp_from_email ? String(raw.smtp_from_email) : null,
 			created_at: raw.created_at ? new Date(raw.created_at).toISOString() : undefined,
 			updated_at: raw.updated_at ? new Date(raw.updated_at).toISOString() : undefined,
 		};
@@ -1036,6 +1032,112 @@ export async function getTenantAction(
 	} catch (err: any) {
 		console.error("[TenantActions] getTenantAction error:", err);
 		return { success: false, error: err.message };
+	}
+}
+
+export interface TestTenantSmtpInput {
+	tenantId?: string;
+	smtpHost: string;
+	smtpPort: number;
+	smtpSecure: boolean;
+	smtpUser: string;
+	smtpPassword?: string;
+	smtpFromName?: string;
+	smtpFromEmail?: string;
+	recipientEmail: string;
+}
+
+/**
+ * Live test verification diagnostic for tenant SMTP settings.
+ * Performs SMTP handshake and optionally delivers a verification email.
+ */
+export async function testTenantSmtpAction(
+	input: TestTenantSmtpInput,
+): Promise<{ success: boolean; latencyMs?: number; error?: string }> {
+	try {
+		const host = input.smtpHost?.trim();
+		const port = Number(input.smtpPort) || 465;
+		const secure = Boolean(input.smtpSecure);
+		const user = input.smtpUser?.trim();
+		let password = input.smtpPassword?.trim();
+
+		if (!host || !user) {
+			return { success: false, error: "SMTP Host and User/Email are required." };
+		}
+
+		if (!password && input.tenantId) {
+			const sql = getControlPlaneSql();
+			if (!sql) {
+				const local = await getLocalTenantById(input.tenantId);
+				if (local?.smtp_password_encrypted) {
+					password = decryptSecret(local.smtp_password_encrypted);
+				}
+			} else {
+				await initControlPlaneRelationalSchema();
+				const rows = await sql`
+					SELECT smtp_password_encrypted FROM tenants WHERE id::text = ${input.tenantId} LIMIT 1;
+				`;
+				if (rows[0]?.smtp_password_encrypted) {
+					password = decryptSecret(rows[0].smtp_password_encrypted);
+				}
+			}
+		}
+
+		if (!password) {
+			return { success: false, error: "SMTP Password is required for connection testing." };
+		}
+
+		if (!input.recipientEmail?.trim()) {
+			return { success: false, error: "Recipient email is required for test email dispatch." };
+		}
+
+		const nodemailer = await import("nodemailer");
+		const transporter = nodemailer.createTransport({
+			host,
+			port,
+			secure,
+			auth: {
+				user,
+				pass: password,
+			},
+			connectionTimeout: 10000,
+			greetingTimeout: 10000,
+			socketTimeout: 15000,
+		});
+
+		const start = Date.now();
+		await transporter.verify();
+
+		const fromName = input.smtpFromName?.trim() || "PharmaQL Test Mailer";
+		const fromEmail = input.smtpFromEmail?.trim() || user;
+
+		await transporter.sendMail({
+			from: `"${fromName}" <${fromEmail}>`,
+			to: input.recipientEmail.trim(),
+			subject: `PharmaQL SMTP Verification - ${new Date().toLocaleTimeString()}`,
+			html: `
+				<div style="font-family: Arial, sans-serif; max-width: 500px; margin: 0 auto; padding: 24px; border: 1px solid #e2e8f0; border-radius: 12px; background-color: #ffffff;">
+					<h2 style="color: #0f766e; margin-top: 0;">✓ SMTP Verification Succeeded</h2>
+					<p style="color: #334155; font-size: 14px; line-height: 1.5;">This confirms that your organization's custom SMTP configuration is working cleanly on PharmaQL.</p>
+					<div style="background-color: #f8fafc; padding: 12px 16px; border-radius: 8px; font-size: 13px; color: #475569; margin: 16px 0;">
+						<p style="margin: 4px 0;"><strong>Host:</strong> ${host}:${port}</p>
+						<p style="margin: 4px 0;"><strong>User:</strong> ${user}</p>
+						<p style="margin: 4px 0;"><strong>Security:</strong> ${secure ? "SSL/TLS (Port 465)" : "STARTTLS (Port 587)"}</p>
+						<p style="margin: 4px 0;"><strong>Timestamp:</strong> ${new Date().toISOString()}</p>
+					</div>
+					<p style="color: #94a3b8; font-size: 11px; margin-bottom: 0;">PharmaQL Multi-Tenant Notification Service</p>
+				</div>
+			`,
+		});
+
+		const latencyMs = Date.now() - start;
+		return { success: true, latencyMs };
+	} catch (err: any) {
+		console.error("[TenantActions] testTenantSmtpAction error:", err);
+		return {
+			success: false,
+			error: err.message || "Failed to establish SMTP handshake or deliver test message.",
+		};
 	}
 }
 
