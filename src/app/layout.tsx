@@ -19,34 +19,47 @@ export const viewport: Viewport = {
 	viewportFit: "cover",
 };
 
-export const metadata: Metadata = {
-	title: "PharmaQL | Modern Medicine Portal",
-	description:
-		"The Modern Medicine Portal empowering medical representatives and distributors with real-time insights, effortless ordering and intelligent inventory tracking.",
-	authors: [{ name: "Devfinity" }],
-	icons: {
-		icon: [
-			{ url: "/favicons/favicon.ico" },
-			{ url: "/favicons/favicon-16x16.png", sizes: "16x16", type: "image/png" },
-			{ url: "/favicons/favicon-32x32.png", sizes: "32x32", type: "image/png" },
-			{ url: "/favicons/android-chrome-192x192.png", sizes: "192x192", type: "image/png" },
-			{ url: "/favicons/android-chrome-512x512.png", sizes: "512x512", type: "image/png" },
-		],
-		apple: [
-			{
-				url: "/favicons/apple-touch-icon.png",
-				sizes: "180x180",
-				type: "image/png",
-			},
-		],
-	},
-	appleWebApp: {
-		capable: true,
-		statusBarStyle: "default",
-		title: "PharmaQL",
-	},
-	manifest: "/manifest.webmanifest",
-};
+export async function generateMetadata(): Promise<Metadata> {
+	const h = await headers();
+	const isDev = h.get("x-is-dev-portal") === "true";
+	const tenantLogo = h.get("x-tenant-logo") || "/devfinity.png";
+	const tenantName = h.get("x-tenant-name") || (isDev ? "Devfinity Control Center" : "PharmaQL");
+
+	return {
+		title: isDev ? "Devfinity | PharmaQL Control Center" : `${tenantName} | PharmaQL`,
+		description:
+			"The Modern Medicine Portal empowering medical representatives and distributors with real-time insights, effortless ordering and intelligent inventory tracking.",
+		authors: [{ name: "Devfinity" }],
+		icons: {
+			icon: [
+				{ url: tenantLogo },
+				{ url: "/favicons/favicon-32x32.png", sizes: "32x32", type: "image/png" },
+				{ url: "/favicons/favicon-16x16.png", sizes: "16x16", type: "image/png" },
+				{ url: "/favicons/android-chrome-192x192.png", sizes: "192x192", type: "image/png" },
+				{ url: "/favicons/android-chrome-512x512.png", sizes: "512x512", type: "image/png" },
+			],
+			apple: [
+				{
+					url: tenantLogo,
+				},
+				{
+					url: "/favicons/apple-touch-icon.png",
+					sizes: "180x180",
+					type: "image/png",
+				},
+			],
+			shortcut: [
+				{ url: tenantLogo },
+			],
+		},
+		appleWebApp: {
+			capable: true,
+			statusBarStyle: "default",
+			title: tenantName,
+		},
+		manifest: "/manifest.webmanifest",
+	};
+}
 
 const geist = Geist({
 	subsets: ["latin"],
@@ -63,7 +76,7 @@ export default async function RootLayout({
 		slug: h.get("x-tenant-slug") || (isDev ? "devfinity" : "asmee"),
 		displayName: h.get("x-tenant-name") || (isDev ? "Devfinity Pvt. Ltd." : "Asmee Pharma Pvt. Ltd."),
 		shortName: h.get("x-tenant-short-name") || (isDev ? "Devfinity" : "Asmee Pharma"),
-		logoUrl: h.get("x-tenant-logo") || "/logo.png",
+		logoUrl: h.get("x-tenant-logo") || "/devfinity.png",
 		primaryColor: h.get("x-tenant-primary-color") || (isDev ? "#0071BC" : "#0B2545"),
 		accentColor: h.get("x-tenant-accent-color") || (isDev ? "#38BDF8" : "#134074"),
 		address: h.get("x-tenant-address") || (isDev ? "Devfinity Cloud Platform" : "Plot No. 12, GIDC Industrial Estate, Ankleshwar, Gujarat - 393002"),
@@ -82,11 +95,15 @@ export default async function RootLayout({
 		isDevPortal: isDev,
 	};
 
+	const effectiveFavicon = tenantValue.logoUrl || "/devfinity.png";
+
 	return (
 		<html className={cn(geist.variable, "font-sans", inter.variable)} lang="en">
 			<head>
 				<title>{tenantValue.isDevPortal ? "Devfinity | PharmaQL Control Center" : `${tenantValue.displayName} | PharmaQL`}</title>
-				<link rel="icon" href={tenantValue.logoUrl || "/favicons/favicon.ico"} />
+				<link rel="icon" href={effectiveFavicon} />
+				<link rel="shortcut icon" href={effectiveFavicon} />
+				<link rel="apple-touch-icon" href={effectiveFavicon} />
 			</head>
 			<body>
 				<TenantProvider value={tenantValue}>

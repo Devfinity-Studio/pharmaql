@@ -7,7 +7,7 @@ import { auth } from "@/server/auth";
 export default async function Header() {
 	const h = await headers();
 	const shortName = h.get("x-tenant-short-name") || "Asmee Pharma";
-	const logoUrl = h.get("x-tenant-logo") || "/logo.png";
+	const logoUrl = h.get("x-tenant-logo") || "/devfinity.png";
 
 	const session = await auth.api.getSession({ headers: h });
 	const isAdminOrDev =
@@ -25,6 +25,7 @@ export default async function Header() {
 						priority
 						src={logoUrl}
 						width={140}
+						unoptimized
 					/>
 					<div className="flex flex-col">
 						<span className="font-extrabold text-slate-900 text-lg tracking-wider leading-tight uppercase">

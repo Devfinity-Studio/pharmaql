@@ -33,8 +33,9 @@ export function ReportStationeryHeader({
 							className="object-contain pt-0.5"
 							height={45}
 							priority
-							src={tenant.logoUrl || "/logo.png"}
+							src={tenant.logoUrl || "/devfinity.png"}
 							width={140}
+							unoptimized
 						/>
 					</div>
 					<div>
