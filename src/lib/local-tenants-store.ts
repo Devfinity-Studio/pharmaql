@@ -20,7 +20,7 @@ const DEFAULT_ASMEE_TENANT: TenantRecord = {
 	is_active: true,
 	display_name: "Asmee Pharma Pvt. Ltd.",
 	short_name: "Asmee",
-	logo_url: "/logo.png",
+	logo_url: "https://br-misty-paper-azxerit1.storage.c-3.ap-southeast-1.aws.neon.tech/pharmaql-tenant-logos/logos/asmee-logo.png",
 	primary_color: "#0B2545",
 	accent_color: "#134074",
 	address: "Plot No. 12, GIDC Industrial Estate, Ankleshwar, Gujarat - 393002",
