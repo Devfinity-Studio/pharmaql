@@ -31,6 +31,7 @@ export async function OverdueReportView({
 		party?: string;
 		q?: string;
 		debug?: string;
+		mr?: string;
 	};
 }) {
 	// 1. Fetch MR Info & Tenant Limits
@@ -92,34 +93,22 @@ export async function OverdueReportView({
 					? mrInfo.companyCode
 					: company);
 
-	// The stored procedure rptMRwisePeriodicalOutstanding creates temporary table tmpMR (MRId INT)
-	// and strictly accepts exactly 1 MR ID matching the company whose report is being generated.
-	const matchingAssignment =
-		selectedAssignments.find((a) => {
-			if (!compCodeToQuery) return true;
-			const codeUpper = compCodeToQuery.trim().toUpperCase();
-			return (
-				(a.companyCode && a.companyCode.trim().toUpperCase() === codeUpper) ||
-				(a.company && a.company.trim().toUpperCase() === codeUpper) ||
-				(a.manufacturer && a.manufacturer.trim().toUpperCase() === codeUpper) ||
-				(a.division && a.division.trim().toUpperCase() === codeUpper)
-			);
-		}) ||
-		selectedAssignments[0] ||
-		assigned[0];
-
-	const targetMrId = matchingAssignment?.id
-		? String(matchingAssignment.id).replace(/[()]/g, "").trim()
-		: mrId;
+	// In Technomax ERP, the Overdue Report (rptMRwisePeriodicalOutstanding) is a company-wide report
+	// bifurcated MR-wise. By default, p_MRId is '' (empty string) so all MRs for the company are returned.
+	// If a specific MR filter is requested via searchParams, that specific single MR ID is used.
+	const targetMrId = searchParams?.mr
+		? String(searchParams.mr).replace(/[()]/g, "").trim()
+		: "";
 
 	const toDateStr = searchParams?.to || new Date().toISOString().slice(0, 10);
+	const fromDateStr = searchParams?.from || toDateStr;
 
 	// 2. Call stored procedure `rptMRwisePeriodicalOutstanding`
 	const procResult = await getMRwisePeriodicalOutstanding({
 		mrId: targetMrId,
-		fromDate: searchParams?.from,
+		fromDate: fromDateStr,
 		toDate: toDateStr,
-		recDate: toDateStr,
+		recDate: "2026-04-01",
 		compCode: compCodeToQuery,
 		locNo: mrInfo.locNo,
 	});
