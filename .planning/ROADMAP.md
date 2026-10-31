@@ -197,6 +197,7 @@
 - [x] **Admin Broadcast & Notice Push Dispatch**: Automatically push notifications to field MRs whenever Admins publish new circulars or critical company notices.
 - [x] **In-App Notification Bell & Preference Center**: Add interactive notification bell in MR and Admin top bars showing unread alerts, timestamps, and toggle controls.
 - [x] **Developer Diagnostics & Verification Suite**: Add test push dispatcher in Developer Control Center (`/admin/dev`) and automated verification suite testing subscription lifecycle and payload formatting.
+
 ## Phase 26: Developer Debug Suite & Email Credentials Integration [COMPLETED]
 
 - [x] **Dedicated Developer Debug Tab & Toolset**: Create a prominent Debug Console within `/admin/dev` featuring one-click testing and diagnostic triggers.
@@ -338,10 +339,6 @@
 - [x] **API Server Connection Pool & Stored Procedure Execution Tuning**: Enhanced `api-server` with memory-capped caching (`getOrSetCache`) on all stored procedure endpoints, supported `x-bypass-cache: true`, and added `/api/cache/stats` and `/api/cache/flush` routes.
 - [x] **Verification & Validation**: All 21 Vitest test suites passed (119/119 tests), zero TypeScript compilation errors (`tsc --noEmit`), and Next.js production build (`next build`) compiled cleanly. Documented in `40-UAT.md`.
 
-
-
-
-
 ## Phase 41: Tenant Logo S3 Storage Mapping & Dynamic Favicon Branding
 
 - [ ] **S3 Object Storage Integration & Bucket Client**: Connect AWS SDK S3 client (`@aws-sdk/client-s3`) to Neon S3-compatible storage using `AWS_ENDPOINT_URL_S3`, `AWS_ACCESS_KEY_ID`, and `AWS_SECRET_ACCESS_KEY` from `.env`.
@@ -358,3 +355,15 @@
 - [x] **Dynamic Tenant Overdue Thresholds**: Updated `src/lib/overdueUtils.ts` and `src/server/actions/overdueEngine.ts` to dynamically resolve `overdue_direct_block_days` (default 90) and `overdue_division_block_days` (default 95) per tenant instead of hardcoded limits.
 - [x] **Standardized Excel & PDF Statement Exports**: Aligned `src/app/api/reports/download-outstanding/route.ts` with the ERP structure and dynamically rendered tenant logo, address, phone, email, and GSTIN.
 - [x] **Verification & Three-Stage Promotion**: 119 unit tests passing, zero TypeScript errors, successful Next.js production build, Vercel preview verified on `prod`, and merged to `deploymment`.
+
+## Phase 43: Client API Server Auto-Update and Zero-Knowledge Config Protection
+
+**Goal:** Secure the on-premise Express API server on client machines so that database credentials, environment configurations, and intellectual property cannot be inspected or tampered with by client server administrators, while providing an autonomous over-the-air (OTA) auto-updater to silently distribute, verify, and apply binary updates.
+**Depends on:** Phase 42
+**Status:** Ready to Plan
+
+- [ ] **Zero-Knowledge Encrypted Configuration Vault**: Eliminate plaintext `.env` on client servers. Implement encrypted runtime configuration (remote authenticated handshake with PharmaQL Control Plane or AES-256 / Windows DPAPI encrypted `config.vault`) with memory-only hydration so database passwords and API keys are never exposed in plaintext.
+- [ ] **Autonomous OTA Binary Auto-Updater**: Build a robust background updater agent for the standalone Windows x64 executable. Periodically check for new releases from the central control plane, download verified binary payloads, and validate SHA-256 checksums and digital signatures before execution.
+- [ ] **Atomic Service Swap & Safe Rollback Pipeline**: Orchestrate graceful NSSM Windows service shutdown, database pool drainage, atomic replacement of `api-server.exe`, and immediate post-boot health verification with automatic rollback to previous verified executable if the new binary fails to start.
+- [ ] **Control Plane Release Distribution Hub & Telemetry**: Provide a Developer Control Center panel to publish new API releases, monitor active client API versions, inspect heartbeat status, and remotely trigger updates.
+- [ ] **Verification & Validation**: Comprehensive unit and integration tests covering signature validation, config encryption/decryption, update handshake, and mock binary swap/rollback under simulated failures.

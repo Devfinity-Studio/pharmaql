@@ -33,3 +33,4 @@
 - Phase 40 added: Data Loading Performance Optimization & Query Latency Reduction
 - Phase 41 added: Tenant Logo S3 Storage Mapping & Dynamic Favicon Branding
 - Phase 42 added: Overdue Report Fix [COMPLETED]
+- Phase 43 added: Client API Server Auto-Update and Zero-Knowledge Config Protection
