@@ -105,34 +105,20 @@ export async function GET(request: Request) {
 					? mrInfo.companyCode
 					: division);
 
-	const matchingAssignment =
-		selectedAssignments.find((a) => {
-			if (!compCodeToQuery) return true;
-			const codeUpper = compCodeToQuery.trim().toUpperCase();
-			return (
-				(a.companyCode && a.companyCode.trim().toUpperCase() === codeUpper) ||
-				(a.company && a.company.trim().toUpperCase() === codeUpper) ||
-				(a.manufacturer && a.manufacturer.trim().toUpperCase() === codeUpper) ||
-				(a.division && a.division.trim().toUpperCase() === codeUpper)
-			);
-		}) ||
-		selectedAssignments[0] ||
-		assigned[0];
-
-	const targetMrId = matchingAssignment?.id
-		? String(matchingAssignment.id).replace(/[()]/g, "").trim()
-		: mrId;
+	// In Technomax ERP, the Overdue statement (rptMRwisePeriodicalOutstanding) is a company-wide report
+	// bifurcated MR-wise. By default, p_MRId is '' (empty string) so all MRs for the company are returned.
+	const targetMrId = searchParams.get("mr") || searchParams.get("singleMr") || "";
 
 	const defaultT1 = getDefaultTMinus1MonthRange();
-	const defaultFrom = from || defaultT1.from;
 	const defaultTo = to || defaultT1.to;
+	const defaultFrom = from || defaultTo;
 
 	const procResult = await getMRwisePeriodicalOutstanding({
 		mrId: targetMrId,
 		compCode: compCodeToQuery,
 		fromDate: defaultFrom,
 		toDate: defaultTo,
-		recDate: defaultTo,
+		recDate: "2026-04-01",
 		locNo: mrInfo.locNo || "11",
 	});
 
