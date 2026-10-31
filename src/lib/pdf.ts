@@ -2400,10 +2400,11 @@ export async function generateGroupedPdfReport(
 		let mfgAmount = 0;
 		let mfgQty = 0;
 
-		// Company Header Row Banner
+		const isOutstanding = title.toLowerCase().includes("outstanding") || title.toLowerCase().includes("overdue");
+		// Company / MR Header Row Banner
 		tableBody.push([
 			{
-				content: `Company:${compName} - ${divName}`,
+				content: isOutstanding ? `MR : ${mfg.toUpperCase()}` : `Company:${compName} - ${divName}`,
 				colSpan: columns.length,
 				styles: {
 					fillColor: [238, 246, 252],
@@ -2466,7 +2467,7 @@ export async function generateGroupedPdfReport(
 			columns.forEach((col, i) => {
 				if (i === 0) {
 					subtotalRow.push({
-						content: `Total for ${mfg.toUpperCase()} :`,
+						content: isOutstanding ? `Outstanding of ${mfg.toUpperCase()} :` : `Total for ${mfg.toUpperCase()} :`,
 						styles: {
 							fontStyle: "bold",
 							fillColor: [249, 250, 251],

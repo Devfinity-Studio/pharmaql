@@ -3,12 +3,20 @@
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
 
-export function DateRangePicker() {
+export interface DateRangePickerProps {
+	singleDateMode?: boolean;
+	singleDateLabel?: string;
+}
+
+export function DateRangePicker({
+	singleDateMode = false,
+	singleDateLabel = "AsOn Date",
+}: DateRangePickerProps = {}) {
 	const router = useRouter();
 	const searchParams = useSearchParams();
 
 	const currentFrom = searchParams.get("from") || "";
-	const currentTo = searchParams.get("to") || "";
+	const currentTo = searchParams.get("asOn") || searchParams.get("to") || "";
 
 	const [from, setFrom] = useState(currentFrom);
 	const [to, setTo] = useState(currentTo);
@@ -23,11 +31,23 @@ export function DateRangePicker() {
 		const newTo = customTo !== undefined ? customTo : to;
 
 		const params = new URLSearchParams(searchParams.toString());
-		if (newFrom) params.set("from", newFrom);
-		else params.delete("from");
+		if (singleDateMode) {
+			params.delete("from");
+			if (newTo) {
+				params.set("to", newTo);
+				params.set("asOn", newTo);
+			} else {
+				params.delete("to");
+				params.delete("asOn");
+			}
+		} else {
+			if (newFrom) params.set("from", newFrom);
+			else params.delete("from");
 
-		if (newTo) params.set("to", newTo);
-		else params.delete("to");
+			if (newTo) params.set("to", newTo);
+			else params.delete("to");
+			params.delete("asOn");
+		}
 
 		router.push(`?${params.toString()}`);
 	};
@@ -38,20 +58,26 @@ export function DateRangePicker() {
 		const params = new URLSearchParams(searchParams.toString());
 		params.delete("from");
 		params.delete("to");
+		params.delete("asOn");
 		router.push(`?${params.toString()}`);
 	};
 
 	const applyPreset = (
-		presetType: "fy" | "this-month" | "last-month" | "90-days",
+		presetType: "fy" | "this-month" | "last-month" | "90-days" | "today",
 	) => {
 		const today = new Date();
 		const todayStr = today.toISOString().split("T")[0] ?? "";
+
+		if (singleDateMode) {
+			setTo(todayStr);
+			applyFilter(undefined, todayStr);
+			return;
+		}
 
 		let presetFrom = "";
 		let presetTo = todayStr;
 
 		if (presetType === "fy") {
-			// Financial Year 2026-27 (or 2026-04-01 to 2027-03-31)
 			presetFrom = "2026-04-01";
 			presetTo = "2026-09-30";
 		} else if (presetType === "this-month") {
@@ -79,6 +105,49 @@ export function DateRangePicker() {
 		setTo(presetTo);
 		applyFilter(presetFrom, presetTo);
 	};
+
+	if (singleDateMode) {
+		return (
+			<div className="flex flex-col gap-2 rounded-2xl border border-gray-200 bg-white p-3.5 shadow-sm ring-1 ring-black/5">
+				<div className="flex flex-wrap items-end gap-3">
+					<div>
+						<label className="mb-1 block font-bold text-gray-700 text-xs uppercase tracking-wider">
+							{singleDateLabel}
+						</label>
+						<input
+							className="block w-full rounded-xl border border-gray-200 bg-gray-50 p-2 font-medium text-gray-900 text-sm outline-none focus:border-blue-500 focus:ring-blue-500"
+							onChange={(e) => setTo(e.target.value)}
+							type="date"
+							value={to}
+						/>
+					</div>
+					<button
+						className="h-[38px] rounded-xl bg-blue-600 px-5 py-2 font-bold text-sm text-white shadow-sm transition hover:bg-blue-700"
+						onClick={() => applyFilter()}
+						type="button"
+					>
+						Apply
+					</button>
+					<button
+						className="h-[38px] rounded-xl bg-gray-100 px-3 py-2 font-semibold text-gray-700 text-xs shadow-sm transition hover:bg-gray-200"
+						onClick={() => applyPreset("today")}
+						type="button"
+					>
+						Today
+					</button>
+					{(currentFrom || currentTo) && (
+						<button
+							className="h-[38px] rounded-xl bg-gray-100 px-4 py-2 font-bold text-gray-700 text-sm shadow-sm transition hover:bg-gray-200"
+							onClick={clearFilter}
+							type="button"
+						>
+							Clear
+						</button>
+					)}
+				</div>
+			</div>
+		);
+	}
 
 	return (
 		<div className="flex flex-col gap-2.5 rounded-2xl border border-gray-200 bg-white p-3.5 shadow-sm ring-1 ring-black/5">
@@ -148,6 +217,7 @@ export function DateRangePicker() {
 				<button
 					className="h-[38px] rounded-xl bg-blue-600 px-5 py-2 font-bold text-sm text-white shadow-sm transition hover:bg-blue-700"
 					onClick={() => applyFilter()}
+					type="button"
 				>
 					Apply
 				</button>
@@ -155,6 +225,7 @@ export function DateRangePicker() {
 					<button
 						className="h-[38px] rounded-xl bg-gray-100 px-4 py-2 font-bold text-gray-700 text-sm shadow-sm transition hover:bg-gray-200"
 						onClick={clearFilter}
+						type="button"
 					>
 						Clear
 					</button>
