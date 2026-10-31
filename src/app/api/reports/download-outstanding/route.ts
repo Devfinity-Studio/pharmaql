@@ -113,7 +113,7 @@ export async function GET(request: Request) {
 	const defaultTo = asOn;
 	const defaultFrom = asOn;
 
-	const procResult = await getMRwisePeriodicalOutstanding({
+	let procResult = await getMRwisePeriodicalOutstanding({
 		mrId: targetMrId,
 		compCode: compCodeToQuery,
 		fromDate: defaultFrom,
@@ -121,6 +121,22 @@ export async function GET(request: Request) {
 		recDate: "2026-04-01",
 		locNo: mrInfo.locNo || "11",
 	});
+
+	// Backward compatibility fallback for older API server binaries
+	if (
+		!procResult.success &&
+		targetMrId === "" &&
+		(procResult.error?.includes("mrId is required") || procResult.error?.includes("Validation Error"))
+	) {
+		procResult = await getMRwisePeriodicalOutstanding({
+			mrId: mrId,
+			compCode: compCodeToQuery,
+			fromDate: defaultFrom,
+			toDate: defaultTo,
+			recDate: "2026-04-01",
+			locNo: mrInfo.locNo || "11",
+		});
+	}
 
 	if (!procResult.success || !procResult.data) {
 		return new NextResponse(
