@@ -37,7 +37,57 @@ if (fs.existsSync(srcNssm)) {
   console.log("  ✓ Copied 64-bit nssm.exe to release/bin/nssm.exe");
 }
 
-// 5. Scan and copy any native C++ (.node) bindings if present in dependencies
+// 5. Generate install.bat and uninstall.bat helper scripts
+const installBat = `@echo off
+setlocal
+cd /d "%~dp0"
+title PharmaQL API Server - Windows Service Setup
+
+echo ========================================================
+echo  PharmaQL API Server - Windows Service Installation
+echo ========================================================
+echo.
+
+net session >nul 2>&1
+if %errorlevel% neq 0 (
+    echo [PharmaQL Installer] Requesting Administrator privileges...
+    powershell -NoProfile -Command "Start-Process cmd.exe -ArgumentList '/k \"\"%~dpnx0\"\"' -Verb RunAs"
+    exit /b
+)
+
+echo [PharmaQL Installer] Running elevated service setup...
+"%~dp0api-server.exe" --install --source-dir "%~dp0"
+echo.
+pause
+`;
+
+const uninstallBat = `@echo off
+setlocal
+cd /d "%~dp0"
+title PharmaQL API Server - Service Uninstaller
+
+echo ========================================================
+echo  PharmaQL API Server - Windows Service Uninstaller
+echo ========================================================
+echo.
+
+net session >nul 2>&1
+if %errorlevel% neq 0 (
+    echo [PharmaQL Installer] Requesting Administrator privileges...
+    powershell -NoProfile -Command "Start-Process cmd.exe -ArgumentList '/k \"\"%~dpnx0\"\"' -Verb RunAs"
+    exit /b
+)
+
+"%~dp0api-server.exe" --uninstall
+echo.
+pause
+`;
+
+fs.writeFileSync(path.join(releaseDir, "install.bat"), installBat, "utf8");
+fs.writeFileSync(path.join(releaseDir, "uninstall.bat"), uninstallBat, "utf8");
+console.log("  ✓ Generated install.bat and uninstall.bat runners");
+
+// 6. Scan and copy any native C++ (.node) bindings if present in dependencies
 function findNativeBindings(dir, fileList = []) {
   if (!fs.existsSync(dir)) return fileList;
   const entries = fs.readdirSync(dir, { withFileTypes: true });
@@ -66,7 +116,7 @@ if (nativeFiles.length > 0) {
   console.log("  ✓ No external native C++ .node bindings required (100% pure JS runtime).");
 }
 
-// 6. Verify release binary if already generated
+// 7. Verify release binary if already generated
 const exePath = path.join(releaseDir, "api-server.exe");
 if (fs.existsSync(exePath)) {
   const stats = fs.statSync(exePath);

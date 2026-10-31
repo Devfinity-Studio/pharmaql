@@ -34,7 +34,7 @@ const DEFAULT_RELEASES: ApiServerRelease[] = [
 		id: "release-v1.2.0",
 		version: "1.2.0",
 		platform: "win-x64",
-		sha256: "b337af060a15d3a27394f48e80328e8b7f2e9a4ccd701693f18fb3bebfdf6e2c",
+		sha256: "f77ed2c445095d183d696fb07c457354d210f4fc75118c62995e64322419a0e6",
 		downloadUrl: "/api/releases/download?version=1.2.0",
 		mandatory: false,
 		releaseNotes: "PharmaQL On-Premise API Engine v1.2.0: Self-installing Windows Service (pharmaql-api) with embedded NSSM, automatic Program Files setup, and machine-bound zero-knowledge encrypted vault.",
