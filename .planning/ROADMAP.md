@@ -350,6 +350,11 @@
 - [ ] **Dynamic Multi-Tenant Favicon & Logo Pipeline**: Ensure root layout (`src/app/layout.tsx`), header (`src/components/Header.tsx`), stationery reports, and login screens dynamically serve the tenant's uploaded S3 logo and dynamic favicon, falling back to `devfinity.png` if none is uploaded.
 - [ ] **Verification & Validation**: Verify logo upload against the S3 bucket, test custom tenant domains vs developer portal branding, run test suites (`pnpm test`), and compile production build (`next build`).
 
-- [ ] **Phase 42: Overdue Report Fix**
-  - Audit and fix issues with the Overdue (Purchase Days & Outstanding) Report in `/api/reports/mr-overdue` and `src/components/overdue-report-view.tsx`.
-  - Ensure correct stored procedure parameter passing, accurate balance computation (`Amount - AdjAmt`), party/division filtering, and report downloads.
+## Phase 42: Overdue Report Fix [COMPLETED]
+
+- [x] **Stored Procedure Parameter Alignment**: Updated `reportsRouter.post("/mr-overdue")` parameter 4 (`p_Recdate`) to pass `odbcRecDate` instead of hardcoded `2026-04-01`, ensuring all payment adjustments up to the cutoff date are recognized.
+- [x] **Technomax ERP Layout & Visual Hierarchy**: Transformed `src/components/overdue-report-view.tsx` to match the exact ERP printout hierarchy: `MR Name` -> `City/Area: <City> - <Area>` -> `Party: <CustCode> - <Customer>, <Address1>`. Rendered all 10 ERP statement columns with party subtotals, MR subtotals, and grand total.
+- [x] **Signed Due Days & ERP Blocking Display**: Preserved raw signed integer `Due Days` (negative for overdue days, positive for days until due). Mapped live party blocking status badges (`BLOCKED` / `BLACKLISTED`).
+- [x] **Dynamic Tenant Overdue Thresholds**: Updated `src/lib/overdueUtils.ts` and `src/server/actions/overdueEngine.ts` to dynamically resolve `overdue_direct_block_days` (default 90) and `overdue_division_block_days` (default 95) per tenant instead of hardcoded limits.
+- [x] **Standardized Excel & PDF Statement Exports**: Aligned `src/app/api/reports/download-outstanding/route.ts` with the ERP structure and dynamically rendered tenant logo, address, phone, email, and GSTIN.
+- [x] **Verification & Three-Stage Promotion**: 119 unit tests passing, zero TypeScript errors, successful Next.js production build, Vercel preview verified on `prod`, and merged to `deploymment`.
