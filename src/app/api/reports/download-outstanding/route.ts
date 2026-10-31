@@ -118,6 +118,7 @@ export async function GET(request: Request) {
 		compCode: compCodeToQuery,
 		fromDate: defaultFrom,
 		toDate: defaultTo,
+		recDate: defaultTo,
 		locNo: mrInfo.locNo || "11",
 	});
 
@@ -161,21 +162,35 @@ export async function GET(request: Request) {
 			const billDateStr = row.DocDate
 				? new Date(row.DocDate).toLocaleDateString("en-GB")
 				: "N/A";
+			const dueDateStr = row.DueDate ? String(row.DueDate).split("T")[0] : billDateStr;
+			const recDateStr = row.RecDate
+				? new Date(row.RecDate).toLocaleDateString("en-GB")
+				: "";
+			const rawDueDays = Number(row.OverDays || 0);
+
 			return {
-				"MR Name": mrName,
+				"MR Name": row.MRName || mrName,
+				"Doc Type": row.DocType || "SALE",
+				"City": row.City || "Unknown",
+				"Area": row.Area || "General",
+				"Customer Code": row.CustCode || "",
 				"Customer / Party": row.Customer || "Unknown",
 				"Doctor / Party": row.Customer || "Unknown",
-				City: row.City || "Unknown",
+				"Address": row.Address1 || "",
 				"Bill No": row.DocNo || "N/A",
 				"Invoice No": row.DocNo || "N/A",
 				"Bill Date": billDateStr,
 				"Invoice Date": billDateStr,
-				"Bill Amount": originalAmt,
-				"Adjusted Amount": adjAmt,
+				"Due Date": dueDateStr,
+				"Due Days": rawDueDays,
+				"Invoice Amount": originalAmt,
+				"Received Amount": adjAmt,
+				"Received Date": recDateStr,
+				"Pending Amount": balanceAmt,
 				"Balance Amount": balanceAmt,
 				"Amount Due": balanceAmt,
-				"Purchase Days": Number(row.OverDays || 0),
-				"Overdue Days": Number(row.OverDays || 0),
+				"Purchase Days": rawDueDays,
+				"Overdue Days": rawDueDays,
 				Division: row.Division || division,
 				"Company Code": row.CompCode || compCodeToQuery,
 				Company: row.CompCode || compCodeToQuery || row.Division || division,
@@ -183,7 +198,7 @@ export async function GET(request: Request) {
 				"Generated At": timestampStr,
 			};
 		})
-		.filter((r) => r["Balance Amount"] > 0);
+		.filter((r) => r["Pending Amount"] > 0);
 
 	// Sort by Purchase Days descending
 	reportData.sort((a, b) => b["Purchase Days"] - a["Purchase Days"]);
@@ -198,20 +213,24 @@ export async function GET(request: Request) {
 	let totalBalanceAmt = 0;
 
 	const tabularData = reportData.map((r) => {
-		totalOriginalAmt += r["Bill Amount"];
-		totalAdjAmt += r["Adjusted Amount"];
-		totalBalanceAmt += r["Balance Amount"];
+		totalOriginalAmt += r["Invoice Amount"];
+		totalAdjAmt += r["Received Amount"];
+		totalBalanceAmt += r["Pending Amount"];
 
 		return {
-			"Customer / Party": r["Customer / Party"],
+			"MR Name": r["MR Name"],
 			City: r.City,
-			"Bill No": r["Bill No"],
-			"Bill Date": r["Bill Date"],
-			"Bill Amount": Number(r["Bill Amount"].toFixed(2)),
-			"Adjusted Amount": Number(r["Adjusted Amount"].toFixed(2)),
-			"Balance Amount": Number(r["Balance Amount"].toFixed(2)),
-			"Overdue Days": r["Purchase Days"],
-			Division: r.Division,
+			Area: r.Area,
+			"Customer / Party": r["Customer / Party"],
+			"Doc Type": r["Doc Type"],
+			"Invoice No": r["Invoice No"],
+			"Invoice Date": r["Invoice Date"],
+			"Due Date": r["Due Date"],
+			"Due Days": r["Due Days"],
+			"Invoice Amount": Number(r["Invoice Amount"].toFixed(2)),
+			"Received Amount": Number(r["Received Amount"].toFixed(2)),
+			"Received Date": r["Received Date"],
+			"Pending Amount": Number(r["Pending Amount"].toFixed(2)),
 		};
 	});
 
@@ -280,15 +299,19 @@ export async function GET(request: Request) {
 	// Append grand total row for CSV
 	if (tabularData.length > 0) {
 		tabularData.push({
-			"Customer / Party": "TOTAL :",
+			"MR Name": "Grand Total",
 			City: "",
-			"Bill No": "",
-			"Bill Date": "",
-			"Bill Amount": Number(totalOriginalAmt.toFixed(2)),
-			"Adjusted Amount": Number(totalAdjAmt.toFixed(2)),
-			"Balance Amount": Number(totalBalanceAmt.toFixed(2)),
-			"Overdue Days": "" as any,
-			Division: "",
+			Area: "",
+			"Customer / Party": "",
+			"Doc Type": "",
+			"Invoice No": "",
+			"Invoice Date": "",
+			"Due Date": "",
+			"Due Days": "" as any,
+			"Invoice Amount": Number(totalOriginalAmt.toFixed(2)),
+			"Received Amount": Number(totalAdjAmt.toFixed(2)),
+			"Received Date": "",
+			"Pending Amount": Number(totalBalanceAmt.toFixed(2)),
 		});
 	}
 

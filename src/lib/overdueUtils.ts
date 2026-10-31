@@ -7,24 +7,26 @@ export interface ImpendingBlockInvoice {
 	dueDate?: string;
 	amount: number;
 	overDays: number;
-	autoBlockDate: string; // Date string when overDays reaches 91
+	autoBlockDate: string; // Date string when overDays reaches the blocking limit
 }
 
 /**
- * Calculates date string when invoice overdue reaches 91 days.
+ * Calculates date string when invoice overdue reaches the specified block limit.
  */
 export function calculateBlockDate(
 	docDateStr: string | Date,
 	currentOverDays: number,
+	blockLimit = 90,
 ): string {
 	const base = new Date(docDateStr);
+	const targetLimit = blockLimit + 1;
 	if (isNaN(base.getTime())) {
 		const target = new Date();
-		target.setDate(target.getDate() + Math.max(0, 91 - currentOverDays));
+		target.setDate(target.getDate() + Math.max(0, targetLimit - currentOverDays));
 		return target.toISOString().split("T")[0]!;
 	}
 	const blockDate = new Date();
-	const daysRemaining = Math.max(0, 91 - currentOverDays);
+	const daysRemaining = Math.max(0, targetLimit - currentOverDays);
 	blockDate.setDate(blockDate.getDate() + daysRemaining);
 	return blockDate.toISOString().split("T")[0]!;
 }
@@ -32,15 +34,26 @@ export function calculateBlockDate(
 /**
  * Pure evaluation helper for invoice overdue calculations:
  * - Aggregates net pending amounts
- * - Finds warning invoices (80-90 days)
- * - Finds blocking invoices (>90 days)
+ * - Normalizes overdue days (supporting both negative ERP DueDays and positive past-due inputs)
+ * - Finds warning invoices (within warning window, e.g. 80-90 days or directBlockLimit - 10)
+ * - Finds blocking invoices (> directBlockLimit)
  */
-export function evaluateOverdueInvoices(rows: OverduePeriodicalOutstandingRow[]): {
+export function evaluateOverdueInvoices(
+	rows: OverduePeriodicalOutstandingRow[],
+	options?: {
+		directBlockDays?: number;
+		warningWindowDays?: number;
+	},
+): {
 	totalPendingAmt: number;
 	oldestDays: number;
 	warningInvoices: ImpendingBlockInvoice[];
 	blockingInvoices: ImpendingBlockInvoice[];
 } {
+	const directBlockLimit = options?.directBlockDays ?? 90;
+	const warningWindow = options?.warningWindowDays ?? 10;
+	const warningStartLimit = Math.max(1, directBlockLimit - warningWindow);
+
 	let totalPendingAmt = 0;
 	let oldestDays = 0;
 	const warningInvoices: ImpendingBlockInvoice[] = [];
@@ -53,8 +66,16 @@ export function evaluateOverdueInvoices(rows: OverduePeriodicalOutstandingRow[])
 
 		if (net > 0) {
 			totalPendingAmt += net;
-			const days = Number(r.OverDays || 0);
-			if (days > oldestDays) oldestDays = days;
+			// In Technomax ERP rptMRwisePeriodicalOutstanding:
+			// DueDays = DATEDIFF(M.DueDate, NOW())
+			// Negative (-49) means 49 days past due date (overdue).
+			// If already passed as positive overdue days (e.g. from existing test fixtures or reports), use directly.
+			const rawOverDays = Number(r.OverDays || 0);
+			const overduePastDueDays = rawOverDays < 0 ? Math.abs(rawOverDays) : rawOverDays;
+
+			if (overduePastDueDays > oldestDays) {
+				oldestDays = overduePastDueDays;
+			}
 
 			const docDateStr = r.DocDate
 				? new Date(r.DocDate).toISOString().split("T")[0]!
@@ -65,13 +86,16 @@ export function evaluateOverdueInvoices(rows: OverduePeriodicalOutstandingRow[])
 				docDate: docDateStr,
 				dueDate: r.DueDate ? String(r.DueDate).split("T")[0] : undefined,
 				amount: net,
-				overDays: days,
-				autoBlockDate: calculateBlockDate(r.DocDate, days),
+				overDays: overduePastDueDays,
+				autoBlockDate: calculateBlockDate(r.DocDate, overduePastDueDays, directBlockLimit),
 			};
 
-			if (days > 90) {
+			if (overduePastDueDays > directBlockLimit) {
 				blockingInvoices.push(invItem);
-			} else if (days >= 80 && days <= 90) {
+			} else if (
+				overduePastDueDays >= warningStartLimit &&
+				overduePastDueDays <= directBlockLimit
+			) {
 				warningInvoices.push(invItem);
 			}
 		}

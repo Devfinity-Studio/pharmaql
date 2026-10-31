@@ -55,6 +55,7 @@ export type OverduePeriodicalOutstandingResult =
 export async function getMRwisePeriodicalOutstanding(params: {
 	fromDate?: string;
 	toDate?: string;
+	recDate?: string;
 	compCode?: string | string[];
 	mrId?: string | number;
 	compNo?: number;

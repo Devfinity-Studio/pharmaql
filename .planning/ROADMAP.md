@@ -349,3 +349,7 @@
 - [ ] **Default Brand Alignment (`devfinity.png`) & Favicon Refresh**: Set `devfinity.png` as the canonical default platform logo. Update `/public/favicons/` and static branding assets to match Devfinity identity.
 - [ ] **Dynamic Multi-Tenant Favicon & Logo Pipeline**: Ensure root layout (`src/app/layout.tsx`), header (`src/components/Header.tsx`), stationery reports, and login screens dynamically serve the tenant's uploaded S3 logo and dynamic favicon, falling back to `devfinity.png` if none is uploaded.
 - [ ] **Verification & Validation**: Verify logo upload against the S3 bucket, test custom tenant domains vs developer portal branding, run test suites (`pnpm test`), and compile production build (`next build`).
+
+- [ ] **Phase 42: Overdue Report Fix**
+  - Audit and fix issues with the Overdue (Purchase Days & Outstanding) Report in `/api/reports/mr-overdue` and `src/components/overdue-report-view.tsx`.
+  - Ensure correct stored procedure parameter passing, accurate balance computation (`Amount - AdjAmt`), party/division filtering, and report downloads.
