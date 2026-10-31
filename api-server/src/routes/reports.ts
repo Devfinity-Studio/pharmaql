@@ -361,7 +361,7 @@ reportsRouter.post("/mr-overdue", async (req: Request, res: Response) => {
 
     const finYearStart = "2026-04-01";
     const toDateStr = params.toDate || new Date().toISOString().slice(0, 10);
-    const fromDateStr = params.fromDate || toDateStr;
+    const fromDateStr = params.fromDate || finYearStart;
     const recDateStr = params.recDate || finYearStart;
     const odbcRecDate = formatDateToOdbc(recDateStr);
     const odbcFromDate = formatDateToOdbc(fromDateStr);

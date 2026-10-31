@@ -43,7 +43,7 @@ export function OutstandingDownloadButtons({ mrId }: { mrId: string }) {
 		if (asOnDate) {
 			params.set("asOn", asOnDate);
 			params.set("to", asOnDate);
-			params.set("from", asOnDate);
+			params.set("from", "2026-04-01");
 		}
 		if (party) params.set("party", party);
 
