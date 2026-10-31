@@ -6,7 +6,7 @@ import https from "https";
 import http from "http";
 import { APP_ROOT, isPackaged } from "./config";
 
-export const API_SERVER_VERSION = process.env.API_SERVER_VERSION || "1.1.0";
+export const API_SERVER_VERSION = process.env.API_SERVER_VERSION || "1.2.0";
 
 interface ReleaseInfo {
   hasUpdate: boolean;
@@ -141,7 +141,7 @@ export async function downloadAndVerifyPayload(
  * Executes atomic swap of the binary and restarts the Windows service with automatic rollback.
  */
 export function executeAtomicServiceSwap(newBinaryPath: string): void {
-  const serviceName = process.env.NSSM_SERVICE_NAME || "PharmaQL-API";
+  const serviceName = process.env.NSSM_SERVICE_NAME || "pharmaql-api";
   const port = process.env.PORT || "9443";
   const batchScriptPath = path.join(APP_ROOT, "apply-update.bat");
 
@@ -163,16 +163,16 @@ rem 3. Move new executable into place
 move /y "${newBinaryPath}" "${path.join(APP_ROOT, "api-server.exe")}" >nul
 
 rem 4. Restart NSSM service
-nssm start "${serviceName}" >nul 2>&1
+"%NSSM_EXE%" start "${serviceName}" >nul 2>&1
 timeout /t 3 /nobreak >nul
 
 rem 5. Health Check probe
 curl -s -f http://127.0.0.1:${port}/api/health >nul 2>&1
 if %errorlevel% neq 0 (
     echo [PharmaQL Updater] Boot health check failed! Triggering automatic rollback...
-    nssm stop "${serviceName}" >nul 2>&1
+    "%NSSM_EXE%" stop "${serviceName}" >nul 2>&1
     move /y "${path.join(APP_ROOT, "api-server.bak")}" "${path.join(APP_ROOT, "api-server.exe")}" >nul
-    nssm start "${serviceName}" >nul 2>&1
+    "%NSSM_EXE%" start "${serviceName}" >nul 2>&1
     echo [PharmaQL Updater] Rolled back to previous stable binary.
 ) else (
     echo [PharmaQL Updater] Update successfully verified and running.

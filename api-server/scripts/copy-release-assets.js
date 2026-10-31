@@ -29,14 +29,21 @@ if (fs.existsSync(srcEnvExample)) {
   console.warn("  ! Warning: .env.example not found in", rootDir);
 }
 
-// 4. Scan and copy any native C++ (.node) bindings if present in dependencies
+// 4. Copy NSSM binary to release/bin/nssm.exe
+const srcNssm = path.join(rootDir, "bin", "nssm.exe");
+const destNssm = path.join(binDir, "nssm.exe");
+if (fs.existsSync(srcNssm)) {
+  fs.copyFileSync(srcNssm, destNssm);
+  console.log("  ✓ Copied 64-bit nssm.exe to release/bin/nssm.exe");
+}
+
+// 5. Scan and copy any native C++ (.node) bindings if present in dependencies
 function findNativeBindings(dir, fileList = []) {
   if (!fs.existsSync(dir)) return fileList;
   const entries = fs.readdirSync(dir, { withFileTypes: true });
   for (const entry of entries) {
     const fullPath = path.join(dir, entry.name);
     if (entry.isDirectory()) {
-      // Skip deep nested dev tooling
       if (!["typescript", "tsup", "esbuild", "@yao-pkg", "rollup", "@rollup"].includes(entry.name)) {
         findNativeBindings(fullPath, fileList);
       }
@@ -59,7 +66,7 @@ if (nativeFiles.length > 0) {
   console.log("  ✓ No external native C++ .node bindings required (100% pure JS runtime).");
 }
 
-// 5. Verify release binary if already generated
+// 6. Verify release binary if already generated
 const exePath = path.join(releaseDir, "api-server.exe");
 if (fs.existsSync(exePath)) {
   const stats = fs.statSync(exePath);

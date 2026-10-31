@@ -4,3 +4,4 @@ dist
 release/*.exe
 release/.env
 release/logs/*.log
+release/bin/
