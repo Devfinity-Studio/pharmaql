@@ -95,6 +95,7 @@ export interface ApiRequestOptions {
 	ttlSeconds?: number;
 	forceRefresh?: boolean;
 	bypassCache?: boolean;
+	timeoutMs?: number;
 }
 
 interface CacheItem<T> {
@@ -176,13 +177,16 @@ export async function apiGet<T>(
 			return await inFlightRequests.get(cacheKey)!;
 		}
 
+		const isReportEndpoint = cleanPath.startsWith("/api/reports") || cleanPath.startsWith("/api/master");
+		const requestTimeoutMs = options?.timeoutMs ?? (isReportEndpoint ? 45000 : 15000);
+
 		const fetchPromise = (async (): Promise<ApiResponse<T>> => {
 			try {
 				const response = await fetch(fullUrl, {
 					method: "GET",
 					headers: getHeaders(secretKey, options?.forceRefresh),
 					cache: "no-store",
-					signal: AbortSignal.timeout(6000),
+					signal: AbortSignal.timeout(requestTimeoutMs),
 				});
 
 				if (!response.ok) {
@@ -272,6 +276,7 @@ export async function apiPost<T>(
 		const shouldCache =
 			!options?.bypassCache && (options?.ttlSeconds !== undefined ? options.ttlSeconds > 0 : isReportEndpoint);
 		const effectiveTtl = options?.ttlSeconds ?? (isReportEndpoint ? 60 : 0);
+		const requestTimeoutMs = options?.timeoutMs ?? (isReportEndpoint ? 45000 : 15000);
 
 		// 1. Check in-memory cache
 		if (shouldCache && !options?.forceRefresh) {
@@ -293,7 +298,7 @@ export async function apiPost<T>(
 					headers: getHeaders(secretKey, options?.forceRefresh),
 					body: bodyString,
 					cache: "no-store",
-					signal: AbortSignal.timeout(6000),
+					signal: AbortSignal.timeout(requestTimeoutMs),
 				});
 
 				if (!response.ok) {

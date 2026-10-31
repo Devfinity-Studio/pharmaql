@@ -94,11 +94,19 @@ export async function OverdueReportView({
 					: company);
 
 	// In Technomax ERP, the Overdue Report (rptMRwisePeriodicalOutstanding) is a company-wide report
-	// bifurcated MR-wise. By default, p_MRId is '' (empty string) so all MRs for the company are returned.
-	// If a specific MR filter is requested via searchParams, that specific single MR ID is used.
-	const targetMrId = searchParams?.mr
-		? String(searchParams.mr).replace(/[()]/g, "").trim()
-		: "";
+	// bifurcated MR-wise. If a specific MR filter is requested via searchParams, that specific single MR ID is used.
+	// When viewing an individual MR user (mrInfo.role === "MR"), default to that MR's ID.
+	// For company-wide or admin views without a specific MR, p_MRId is '' (empty string) so all MRs are returned.
+	const targetMrId = (() => {
+		if (searchParams?.mr) {
+			const clean = String(searchParams.mr).replace(/[()]/g, "").trim();
+			return clean.toLowerCase() === "all" ? "" : clean;
+		}
+		if (mrId && !isNaN(Number(mrId))) {
+			return String(mrId);
+		}
+		return "";
+	})();
 
 	const toDateStr = searchParams?.to || new Date().toISOString().slice(0, 10);
 	const fromDateStr = searchParams?.from || toDateStr;
@@ -115,6 +123,10 @@ export async function OverdueReportView({
 
 	// Fetch live customer blocking map from ERP
 	const customerBlockingMap = await getCustomerBlockingMap();
+
+	if (!procResult.success) {
+		console.error("[OverdueReportView] Failed to fetch outstanding report:", procResult.error);
+	}
 
 	let rowsToProcess =
 		procResult.success && procResult.data ? procResult.data : [];

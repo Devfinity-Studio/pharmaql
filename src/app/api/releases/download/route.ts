@@ -12,6 +12,7 @@ export async function GET(req: NextRequest) {
 
 		// Locate the compiled binary on disk if available
 		const binaryLocations = [
+			path.join(process.cwd(), "api-server", "release", "api-server.exe"),
 			path.join(process.cwd(), "api-server", "dist", "api-server.exe"),
 			path.join(process.cwd(), "dist", "api-server.exe"),
 			path.join(process.cwd(), "public", "downloads", "api-server.exe"),
