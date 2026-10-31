@@ -110,8 +110,9 @@ export async function GET(request: Request) {
 	const targetMrId = searchParams.get("mr") || searchParams.get("singleMr") || "";
 
 	const asOn = searchParams.get("asOn") || searchParams.get("to") || to || new Date().toISOString().split("T")[0];
+	const finYearStart = "2026-04-01";
+	const defaultFrom = searchParams.get("from") || from || finYearStart;
 	const defaultTo = asOn;
-	const defaultFrom = asOn;
 
 	let procResult = await getMRwisePeriodicalOutstanding({
 		mrId: targetMrId,
