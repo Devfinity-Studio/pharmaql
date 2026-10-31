@@ -19,8 +19,8 @@ export function OutstandingDownloadButtons({ mrId }: { mrId: string }) {
 	const [format, setFormat] = useState<"csv" | "excel" | "pdf" | "print">(
 		"csv",
 	);
-	const [from, setFrom] = useState(defaultFrom);
-	const [to, setTo] = useState(defaultTo);
+	const currentUrlAsOn = searchParams.get("asOn") || searchParams.get("to") || "";
+	const [asOnDate, setAsOnDate] = useState(currentUrlAsOn || new Date().toISOString().split("T")[0]);
 	const [isDownloading, setIsDownloading] = useState(false);
 	const [mounted, setMounted] = useState(false);
 
@@ -30,16 +30,8 @@ export function OutstandingDownloadButtons({ mrId }: { mrId: string }) {
 
 	const openModal = (fmt: "csv" | "excel" | "pdf" | "print") => {
 		setFormat(fmt);
-		const currentUrlFrom = searchParams.get("from");
-		const currentUrlTo = searchParams.get("to");
-		if (fmt === "pdf" || fmt === "print") {
-			const t1 = getDefaultTMinus1MonthRange();
-			setFrom(currentUrlFrom || t1.from);
-			setTo(currentUrlTo || t1.to);
-		} else {
-			setFrom(currentUrlFrom || defaultFrom);
-			setTo(currentUrlTo || defaultTo);
-		}
+		const activeAsOn = searchParams.get("asOn") || searchParams.get("to") || new Date().toISOString().split("T")[0];
+		setAsOnDate(activeAsOn);
 		setIsOpen(true);
 	};
 
@@ -48,8 +40,11 @@ export function OutstandingDownloadButtons({ mrId }: { mrId: string }) {
 		const params = new URLSearchParams();
 		params.set("mrId", mrId);
 		params.set("division", division);
-		if (from) params.set("from", from);
-		if (to) params.set("to", to);
+		if (asOnDate) {
+			params.set("asOn", asOnDate);
+			params.set("to", asOnDate);
+			params.set("from", asOnDate);
+		}
 		if (party) params.set("party", party);
 
 		if (format === "pdf" || format === "print") {
@@ -70,13 +65,8 @@ export function OutstandingDownloadButtons({ mrId }: { mrId: string }) {
 						)
 					: data;
 
-				const mrName = data.length > 0 ? data[0]["MR Name"] : "Unknown";
-				const safeMrName = mrName.replace(/[^a-zA-Z0-9]/g, "_");
 				const safeDivision = division.replace(/[^a-zA-Z0-9]/g, "_");
-				const dateRangeTag =
-					from && to
-						? `${from}_to_${to}`
-						: new Date().toISOString().split("T")[0];
+				const dateRangeTag = asOnDate || new Date().toISOString().split("T")[0];
 
 				// Format data for the PDF matching Technomax ERP structure
 				const cleanDataForPdf = filteredData.map((row: any) => {
@@ -91,7 +81,7 @@ export function OutstandingDownloadButtons({ mrId }: { mrId: string }) {
 							division ||
 							"General",
 						Manufacturer:
-							row["MR Name"] || mrName || "Unknown",
+							row["MR Name"] || "Unknown MR",
 						"Doc Type": row["Doc Type"] || "SALE",
 						"Inv. Date": row["Invoice Date"] || row["Bill Date"] || "N/A",
 						"Invoice No.": row["Invoice No"] || row["Bill No"] || "N/A",
@@ -158,14 +148,14 @@ export function OutstandingDownloadButtons({ mrId }: { mrId: string }) {
 				};
 
 				await generateGroupedPdfReport(
-					`Party Wise Outstanding Statement`,
-					`${safeMrName}_${safeDivision}_Outstanding_${dateRangeTag}.pdf`,
+					`MRwise Periodical Outstanding Statement`,
+					`${safeDivision}_MRwise_Overdue_AsOn_${dateRangeTag}.pdf`,
 					cleanDataForPdf,
 					columns as any,
 					format === "print" ? "print" : "download",
-					mrName,
-					from,
-					to,
+					division === "All" ? "All MRs" : `${division} Division (All MRs)`,
+					undefined,
+					asOnDate,
 					serverDateStr,
 					pdfBranding,
 				);
@@ -289,31 +279,19 @@ export function OutstandingDownloadButtons({ mrId }: { mrId: string }) {
 								Download Outstanding {format.toUpperCase()}
 							</h3>
 							<p className="mb-6 font-medium text-gray-500 text-sm">
-								Select the date range for your report. Leave blank to download all
-								available invoices.
+								Select the AsOn cutoff date for your MR-wise periodical outstanding statement.
 							</p>
 
 							<div className="space-y-4">
 								<div>
 									<label className="mb-2 block font-bold text-[#0B2545] text-sm">
-										From Invoice Date
+										AsOn Date
 									</label>
 									<input
 										className="w-full rounded-xl border-2 border-gray-300 bg-white px-4 py-2.5 font-medium text-[#0B2545] text-base outline-none transition-colors focus:border-[#0071BC]"
-										onChange={(e) => setFrom(e.target.value)}
+										onChange={(e) => setAsOnDate(e.target.value)}
 										type="date"
-										value={from}
-									/>
-								</div>
-								<div>
-									<label className="mb-2 block font-bold text-[#0B2545] text-sm">
-										To Invoice Date
-									</label>
-									<input
-										className="w-full rounded-xl border-2 border-gray-300 bg-white px-4 py-2.5 font-medium text-[#0B2545] text-base outline-none transition-colors focus:border-[#0071BC]"
-										onChange={(e) => setTo(e.target.value)}
-										type="date"
-										value={to}
+										value={asOnDate}
 									/>
 								</div>
 							</div>

@@ -8,6 +8,7 @@ export interface ReportStationeryHeaderProps {
 	title: string;
 	fromDisplay?: string;
 	toDisplay?: string;
+	asOnDate?: string;
 	year?: string;
 	summaryRight?: React.ReactNode;
 	className?: string;
@@ -17,6 +18,7 @@ export function ReportStationeryHeader({
 	title,
 	fromDisplay,
 	toDisplay,
+	asOnDate,
 	year = "2026-27",
 	summaryRight,
 	className = "",
@@ -61,11 +63,13 @@ export function ReportStationeryHeader({
 				<div>Year : {year}</div>
 				<div className="text-center font-extrabold text-[#0B2545] text-xs">
 					{title}
-					{fromDisplay && toDisplay
-						? ` for Period of ${fromDisplay} to ${toDisplay}`
-						: fromDisplay
-							? ` as of ${fromDisplay}`
-							: ""}
+					{asOnDate
+						? ` as on ${asOnDate}`
+						: fromDisplay && toDisplay
+							? ` for Period of ${fromDisplay} to ${toDisplay}`
+							: fromDisplay
+								? ` as of ${fromDisplay}`
+								: ""}
 				</div>
 				<div className="text-right font-medium text-[11px] text-gray-600">
 					{summaryRight || null}

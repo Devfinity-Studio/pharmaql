@@ -50,7 +50,7 @@ export function handleVaultCliCommands(): boolean {
   // Command: --version / -v
   if (args.includes("--version") || args.includes("-v")) {
     const version = process.env.API_SERVER_VERSION || "1.2.0";
-    console.log(`PharmaQL API Server v${version}`);
+    console.log(`PharmaQL API Server v${version} (Last Updated: 2026-11-01T01:35:00.000Z)`);
     process.exit(0);
   }
 
