@@ -19,6 +19,7 @@ import {
 	Clock,
 } from "lucide-react";
 import { type TenantListItem } from "@/modules/control-plane/tenantActions";
+import { OverdueBlockingSwitch } from "@/components/overdue-blocking-switch";
 
 interface DevPlatformDashboardProps {
 	tenants: TenantListItem[];
@@ -29,6 +30,7 @@ interface DevPlatformDashboardProps {
 	};
 	totalNotices: number;
 	clientOrigin: string;
+	initialOverdueDisabled?: boolean;
 }
 
 export function DevPlatformDashboard({
@@ -36,6 +38,7 @@ export function DevPlatformDashboard({
 	neonStatus,
 	totalNotices,
 	clientOrigin,
+	initialOverdueDisabled = false,
 }: DevPlatformDashboardProps) {
 	const totalTenants = tenants.length;
 	const activeTenants = tenants.filter((t) => t.is_active).length;
@@ -80,6 +83,9 @@ export function DevPlatformDashboard({
 					</Link>
 				</div>
 			</div>
+
+			{/* Master MR Overdue Suspension Policy Switch */}
+			<OverdueBlockingSwitch initialDisabled={initialOverdueDisabled} />
 
 			{/* Metric Cards Grid */}
 			<div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">

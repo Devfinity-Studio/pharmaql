@@ -157,7 +157,7 @@ export async function readServerJson<T>(
 				}
 
 				// 5. Relational Mapping for Runtime Config
-				if (filename === "runtime-config.json") {
+				if (filename === "runtime-config.json" || filename === "overdue_policy.json") {
 					const rows = await sql`
 						SELECT settings
 						FROM tenant_runtime_config
@@ -165,6 +165,9 @@ export async function readServerJson<T>(
 					`;
 					const first = rows[0];
 					if (first?.settings) {
+						if (filename === "overdue_policy.json") {
+							return (first.settings.overduePolicy || first.settings) as unknown as T;
+						}
 						return first.settings as unknown as T;
 					}
 				}
@@ -293,14 +296,24 @@ export async function writeServerJson<T>(
 				}
 
 				// 5. Relational Runtime Config Sync
-				if (filename === "runtime-config.json") {
-					await sql`
-						INSERT INTO tenant_runtime_config (tenant_id, settings, updated_at)
-						VALUES (${tenantId}, ${JSON.stringify(data)}, NOW())
-						ON CONFLICT (tenant_id) DO UPDATE SET
-							settings = EXCLUDED.settings,
-							updated_at = NOW();
-					`;
+				if (filename === "runtime-config.json" || filename === "overdue_policy.json") {
+					if (filename === "overdue_policy.json") {
+						await sql`
+							INSERT INTO tenant_runtime_config (tenant_id, settings, updated_at)
+							VALUES (${tenantId}, ${JSON.stringify({ overduePolicy: data })}, NOW())
+							ON CONFLICT (tenant_id) DO UPDATE SET
+								settings = jsonb_set(COALESCE(tenant_runtime_config.settings, '{}'::jsonb), '{overduePolicy}', ${JSON.stringify(data)}::jsonb),
+								updated_at = NOW();
+						`;
+					} else {
+						await sql`
+							INSERT INTO tenant_runtime_config (tenant_id, settings, updated_at)
+							VALUES (${tenantId}, ${JSON.stringify(data)}, NOW())
+							ON CONFLICT (tenant_id) DO UPDATE SET
+								settings = EXCLUDED.settings,
+								updated_at = NOW();
+						`;
+					}
 					return;
 				}
 			}

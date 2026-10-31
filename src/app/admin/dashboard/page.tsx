@@ -7,6 +7,8 @@ import { DevPlatformDashboard } from "@/components/dev-platform-dashboard";
 import { listTenantsAction } from "@/modules/control-plane/tenantActions";
 import { getControlPlaneSql } from "@/lib/control-plane-db";
 import { getNotices } from "@/server/actions/notices";
+import { OverdueBlockingSwitch } from "@/components/overdue-blocking-switch";
+import { getOverdueBlockingStatus } from "@/server/actions/overduePolicy";
 
 export default async function AdminDashboardPage() {
 	const reqHeaders = await headers();
@@ -22,6 +24,7 @@ export default async function AdminDashboardPage() {
 	}
 
 	const isDevPortal = reqHeaders.get("x-is-dev-portal") === "true";
+	const overduePolicy = await getOverdueBlockingStatus();
 
 	if (isDevPortal) {
 		const tenantsRes = await listTenantsAction();
@@ -56,6 +59,7 @@ export default async function AdminDashboardPage() {
 					}}
 					totalNotices={notices.length}
 					clientOrigin={clientOrigin}
+					initialOverdueDisabled={overduePolicy.disabled}
 				/>
 			</div>
 		);
@@ -141,6 +145,9 @@ export default async function AdminDashboardPage() {
 					)}
 				</div>
 			</div>
+
+			{/* MR Overdue Account Blocking Control */}
+			<OverdueBlockingSwitch initialDisabled={overduePolicy.disabled} />
 
 			<div className="grid grid-cols-1 gap-6 sm:grid-cols-3">
 				<div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">

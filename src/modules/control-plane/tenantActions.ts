@@ -58,6 +58,7 @@ export interface TenantListItem {
 	loc_no?: number | null;
 	overdue_direct_block_days?: number | null;
 	overdue_division_block_days?: number | null;
+	overdue_blocking_disabled?: boolean | null;
 	has_api_key: boolean;
 	admin_email?: string | null;
 	has_admin_password?: boolean;
@@ -96,6 +97,7 @@ export interface SaveTenantInput {
 	loc_no?: number | null;
 	overdue_direct_block_days?: number | null;
 	overdue_division_block_days?: number | null;
+	overdue_blocking_disabled?: boolean | null;
 	admin_email?: string | null;
 	admin_password?: string | null; // Raw plaintext to be encrypted
 	smtp_host?: string | null;
@@ -156,6 +158,7 @@ export async function listTenantsAction(): Promise<{
 				loc_no: r.loc_no ?? 11,
 				overdue_direct_block_days: r.overdue_direct_block_days ?? 90,
 				overdue_division_block_days: r.overdue_division_block_days ?? 95,
+				overdue_blocking_disabled: Boolean(r.overdue_blocking_disabled),
 				has_api_key: Boolean(r.api_server_key_encrypted),
 				admin_email: r.admin_email,
 				has_admin_password: Boolean(r.admin_password_encrypted),
@@ -198,6 +201,7 @@ export async function listTenantsAction(): Promise<{
 				loc_no,
 				overdue_direct_block_days,
 				overdue_division_block_days,
+				overdue_blocking_disabled,
 				admin_email,
 				(admin_password_encrypted IS NOT NULL AND admin_password_encrypted != '') AS has_admin_password,
 				(api_server_key_encrypted IS NOT NULL AND api_server_key_encrypted != '') AS has_api_key,
@@ -238,6 +242,7 @@ export async function listTenantsAction(): Promise<{
 			loc_no: r.loc_no !== null && r.loc_no !== undefined ? Number(r.loc_no) : 11,
 			overdue_direct_block_days: Number(r.overdue_direct_block_days) || 90,
 			overdue_division_block_days: Number(r.overdue_division_block_days) || 95,
+			overdue_blocking_disabled: Boolean(r.overdue_blocking_disabled),
 			has_api_key: Boolean(r.has_api_key),
 			admin_email: r.admin_email ? String(r.admin_email) : null,
 			has_admin_password: Boolean(r.has_admin_password),
@@ -364,6 +369,7 @@ export async function saveTenantAction(
 				loc_no: locNo,
 				overdue_direct_block_days: directBlockDays,
 				overdue_division_block_days: divisionBlockDays,
+				overdue_blocking_disabled: Boolean(input.overdue_blocking_disabled),
 				admin_email: adminEmail ?? existingLocal?.admin_email ?? null,
 				admin_password_encrypted: adminPasswordEncrypted ?? existingLocal?.admin_password_encrypted ?? null,
 				smtp_host: smtpHost,
@@ -420,6 +426,7 @@ export async function saveTenantAction(
 					loc_no = ${locNo},
 					overdue_direct_block_days = ${directBlockDays},
 					overdue_division_block_days = ${divisionBlockDays},
+					overdue_blocking_disabled = ${Boolean(input.overdue_blocking_disabled)},
 					admin_email = ${adminEmail},
 					admin_password_encrypted = COALESCE(${adminPasswordEncrypted}, admin_password_encrypted),
 					smtp_host = ${smtpHost},
@@ -476,6 +483,7 @@ export async function saveTenantAction(
 					loc_no,
 					overdue_direct_block_days,
 					overdue_division_block_days,
+					overdue_blocking_disabled,
 					admin_email,
 					admin_password_encrypted,
 					smtp_host,
@@ -509,6 +517,7 @@ export async function saveTenantAction(
 					${locNo},
 					${directBlockDays},
 					${divisionBlockDays},
+					${Boolean(input.overdue_blocking_disabled)},
 					${adminEmail},
 					${adminPasswordEncrypted},
 					${smtpHost},
@@ -1013,6 +1022,7 @@ export async function getTenantAction(
 			loc_no: raw.loc_no !== null && raw.loc_no !== undefined ? Number(raw.loc_no) : 11,
 			overdue_direct_block_days: Number(raw.overdue_direct_block_days) || 90,
 			overdue_division_block_days: Number(raw.overdue_division_block_days) || 95,
+			overdue_blocking_disabled: Boolean(raw.overdue_blocking_disabled),
 			admin_email: raw.admin_email ? String(raw.admin_email) : null,
 			admin_password: decryptedAdminPassword,
 			has_admin_password: Boolean(raw.admin_password_encrypted),

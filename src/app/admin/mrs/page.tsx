@@ -8,6 +8,8 @@ import { auth } from "@/server/auth";
 import { MRListInfiniteScroll } from "./MRListInfiniteScroll";
 import { MRSearchForm } from "./MRSearchForm";
 import { OverdueMRsSection } from "./overdue-mrs-section";
+import { OverdueBlockingSwitch } from "@/components/overdue-blocking-switch";
+import { getOverdueBlockingStatus } from "@/server/actions/overduePolicy";
 
 export default async function AdminMRsPage({
 	searchParams,
@@ -24,6 +26,8 @@ export default async function AdminMRsPage({
 	) {
 		redirect("/login");
 	}
+
+	const overduePolicy = await getOverdueBlockingStatus();
 
 	const awaitedParams = await searchParams;
 	const searchQuery = (awaitedParams.search || "").trim();
@@ -61,6 +65,9 @@ export default async function AdminMRsPage({
 					View Medical Representatives, manage block status, verify ERP division assignments, and check ranking-based report access.
 				</p>
 			</div>
+
+			{/* MR Overdue Account Blocking Policy Switch */}
+			<OverdueBlockingSwitch initialDisabled={overduePolicy.disabled} />
 
 			{/* Live Overdue & Cascading Blocking Control Center (scanned on demand) */}
 			<OverdueMRsSection />

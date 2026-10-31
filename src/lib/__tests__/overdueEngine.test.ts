@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import {
 	calculateBlockDate,
 	evaluateOverdueInvoices,
@@ -93,6 +93,30 @@ describe("overdueEngine", () => {
 			expect(result.blockingInvoices[0]?.amount).toBe(13000);
 			expect(result.warningInvoices).toHaveLength(1);
 			expect(result.warningInvoices[0]?.invoiceNo).toBe("INV-1004");
+		});
+
+		it("respects dynamic tenant directBlockDays limit", () => {
+			const rows: any[] = [
+				{
+					ID: 5,
+					DocNo: "INV-1005",
+					Customer: "Apex Clinic",
+					DocDate: "2026-08-01",
+					Amount: 6000,
+					AdjAmt: 0,
+					OverDays: 65,
+				},
+			];
+
+			// With custom 60-day limit, 65 days is blocking
+			const customResult = evaluateOverdueInvoices(rows, { directBlockDays: 60 });
+			expect(customResult.blockingInvoices).toHaveLength(1);
+			expect(customResult.blockingInvoices[0]?.invoiceNo).toBe("INV-1005");
+
+			// With default 90-day limit, 65 days is neither warning nor blocking
+			const defaultResult = evaluateOverdueInvoices(rows, { directBlockDays: 90 });
+			expect(defaultResult.blockingInvoices).toHaveLength(0);
+			expect(defaultResult.warningInvoices).toHaveLength(0);
 		});
 	});
 });
