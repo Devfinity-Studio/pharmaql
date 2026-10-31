@@ -208,6 +208,37 @@ export async function initControlPlaneRelationalSchema(): Promise<boolean> {
 			);
 		`;
 
+		// 6. On-Premise API Releases Catalog
+		await sql`
+			CREATE TABLE IF NOT EXISTS api_server_releases (
+				id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+				version VARCHAR(32) UNIQUE NOT NULL,
+				platform VARCHAR(32) NOT NULL DEFAULT 'win-x64',
+				sha256 VARCHAR(64) NOT NULL,
+				download_url TEXT NOT NULL,
+				mandatory BOOLEAN NOT NULL DEFAULT false,
+				release_notes TEXT,
+				is_active BOOLEAN NOT NULL DEFAULT true,
+				created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+			);
+		`;
+
+		// 7. On-Premise API Fleet Instances Telemetry
+		await sql`
+			CREATE TABLE IF NOT EXISTS api_server_instances (
+				id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+				instance_id VARCHAR(128) UNIQUE NOT NULL,
+				version VARCHAR(32) NOT NULL,
+				platform VARCHAR(32) DEFAULT 'win-x64',
+				machine_fingerprint VARCHAR(128),
+				is_vault_protected BOOLEAN DEFAULT false,
+				status VARCHAR(32) DEFAULT 'ONLINE',
+				last_heartbeat TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+				metadata JSONB DEFAULT '{}'::jsonb,
+				created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+			);
+		`;
+
 		schemaInitialized = true;
 		return true;
 	} catch (err: any) {
