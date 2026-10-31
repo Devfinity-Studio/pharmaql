@@ -166,7 +166,7 @@ export function MRListInfiniteScroll({
 
 					return (
 						<div
-							className={`relative flex h-full flex-col justify-between rounded-2xl border border-gray-100 bg-white p-6 shadow-sm transition-all hover:shadow-md ${
+							className={`relative flex h-full flex-col justify-between rounded-2xl border border-gray-200 bg-white p-6 shadow-sm ring-1 ring-black/5 transition-all hover:shadow-md ${
 								isBusy ? "opacity-75" : ""
 							}`}
 							key={mr.id}
@@ -210,7 +210,7 @@ export function MRListInfiniteScroll({
 								</div>
 
 								{/* Info Box: Last Login, Division & Manufacturer */}
-								<div className="space-y-2 rounded-xl border border-gray-100 bg-gray-50/80 p-3.5 text-xs">
+								<div className="space-y-2 rounded-xl border border-gray-200 bg-gray-50/90 p-3.5 text-xs">
 									<div className="flex items-center justify-between">
 										<span className="font-semibold text-gray-500 uppercase tracking-wider text-[11px]">
 											Last Login
@@ -220,7 +220,7 @@ export function MRListInfiniteScroll({
 											className={
 												mr.lastLogin
 													? "inline-flex items-center gap-1.5 font-semibold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200/60"
-													: "font-medium text-gray-400"
+													: "font-medium text-gray-500"
 											}
 										>
 											{mr.lastLogin && (
@@ -238,7 +238,7 @@ export function MRListInfiniteScroll({
 												{mr.company || "Not assigned"}
 											</span>
 										</div>
-										<div className="flex flex-col gap-1.5 pt-1 border-t border-gray-100">
+										<div className="flex flex-col gap-1.5 pt-1 border-t border-gray-200">
 											<div className="flex items-center justify-between">
 												<span className="font-semibold text-gray-500 uppercase tracking-wider text-[11px]">
 													Assigned Divisions ({mr.assignments && mr.assignments.length > 0 ? mr.assignments.length : 1})
@@ -290,7 +290,7 @@ export function MRListInfiniteScroll({
 							</div>
 
 							{/* Current Permissions Section (Read-only badges) */}
-							<div className="mt-4 border-gray-100 border-t pt-3">
+							<div className="mt-4 border-gray-200 border-t pt-3">
 								<span className="font-bold uppercase tracking-wider text-gray-500 text-[11px]">
 									Active Report Permissions
 								</span>
@@ -299,7 +299,7 @@ export function MRListInfiniteScroll({
 										className={`inline-flex items-center rounded-md px-2 py-0.5 font-semibold text-[11px] ${
 											mr.canViewStock
 												? "border border-emerald-200 bg-emerald-50 text-emerald-700"
-												: "border border-gray-100 bg-gray-50 text-gray-400 line-through"
+												: "border border-gray-200 bg-gray-100 text-gray-500 line-through"
 										}`}
 									>
 										{mr.canViewStock ? "✓" : "✕"} Stock
@@ -308,7 +308,7 @@ export function MRListInfiniteScroll({
 										className={`inline-flex items-center rounded-md px-2 py-0.5 font-semibold text-[11px] ${
 											mr.canViewFreeScheme
 												? "border border-emerald-200 bg-emerald-50 text-emerald-700"
-												: "border border-gray-100 bg-gray-50 text-gray-400 line-through"
+												: "border border-gray-200 bg-gray-100 text-gray-500 line-through"
 										}`}
 									>
 										{mr.canViewFreeScheme ? "✓" : "✕"} Claim Qty
@@ -317,7 +317,7 @@ export function MRListInfiniteScroll({
 										className={`inline-flex items-center rounded-md px-2 py-0.5 font-semibold text-[11px] ${
 											mr.canViewSales
 												? "border border-emerald-200 bg-emerald-50 text-emerald-700"
-												: "border border-gray-100 bg-gray-50 text-gray-400 line-through"
+												: "border border-gray-200 bg-gray-100 text-gray-500 line-through"
 										}`}
 									>
 										{mr.canViewSales ? "✓" : "✕"} Sales Overview
@@ -326,7 +326,7 @@ export function MRListInfiniteScroll({
 										className={`inline-flex items-center rounded-md px-2 py-0.5 font-semibold text-[11px] ${
 											mr.canViewProductWise
 												? "border border-emerald-200 bg-emerald-50 text-emerald-700"
-												: "border border-gray-100 bg-gray-50 text-gray-400 line-through"
+												: "border border-gray-200 bg-gray-100 text-gray-500 line-through"
 										}`}
 									>
 										{mr.canViewProductWise ? "✓" : "✕"} Product Wise
@@ -335,7 +335,7 @@ export function MRListInfiniteScroll({
 										className={`inline-flex items-center rounded-md px-2 py-0.5 font-semibold text-[11px] ${
 											mr.canViewPartyWise
 												? "border border-emerald-200 bg-emerald-50 text-emerald-700"
-												: "border border-gray-100 bg-gray-50 text-gray-400 line-through"
+												: "border border-gray-200 bg-gray-100 text-gray-500 line-through"
 										}`}
 									>
 										{mr.canViewPartyWise ? "✓" : "✕"} Party Wise
@@ -349,13 +349,13 @@ export function MRListInfiniteScroll({
 				{/* Loading skeleton placeholder cards */}
 				{isLoading && (
 					<>
-						<div className="h-64 animate-pulse rounded-2xl border border-gray-100 bg-gray-100/60 p-6" />
-						<div className="h-64 animate-pulse rounded-2xl border border-gray-100 bg-gray-100/60 p-6" />
+						<div className="h-64 animate-pulse rounded-2xl border border-gray-200 bg-gray-100/60 p-6" />
+						<div className="h-64 animate-pulse rounded-2xl border border-gray-200 bg-gray-100/60 p-6" />
 					</>
 				)}
 
 				{items.length === 0 && !isLoading && (
-					<div className="col-span-full rounded-2xl border border-gray-100 border-dashed bg-white py-12 text-center text-gray-500">
+					<div className="col-span-full rounded-2xl border border-gray-300 border-dashed bg-white py-12 text-center text-gray-500">
 						{searchQuery
 							? "No MRs found matching your search."
 							: "No Medical Representatives found."}

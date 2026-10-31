@@ -340,3 +340,12 @@
 
 
 
+
+
+## Phase 41: Tenant Logo S3 Storage Mapping & Dynamic Favicon Branding
+
+- [ ] **S3 Object Storage Integration & Bucket Client**: Connect AWS SDK S3 client (`@aws-sdk/client-s3`) to Neon S3-compatible storage using `AWS_ENDPOINT_URL_S3`, `AWS_ACCESS_KEY_ID`, and `AWS_SECRET_ACCESS_KEY` from `.env`.
+- [ ] **Tenant Logo Upload Action & Bucket Mapping**: Implement server actions in `src/modules/control-plane/tenantActions.ts` and `src/components/tenant-form.tsx` to upload, replace, and delete tenant logos directly to/from the S3 bucket and persist the resulting object URL in Neon PostgreSQL `tenants.logo_url`.
+- [ ] **Default Brand Alignment (`devfinity.png`) & Favicon Refresh**: Set `devfinity.png` as the canonical default platform logo. Update `/public/favicons/` and static branding assets to match Devfinity identity.
+- [ ] **Dynamic Multi-Tenant Favicon & Logo Pipeline**: Ensure root layout (`src/app/layout.tsx`), header (`src/components/Header.tsx`), stationery reports, and login screens dynamically serve the tenant's uploaded S3 logo and dynamic favicon, falling back to `devfinity.png` if none is uploaded.
+- [ ] **Verification & Validation**: Verify logo upload against the S3 bucket, test custom tenant domains vs developer portal branding, run test suites (`pnpm test`), and compile production build (`next build`).

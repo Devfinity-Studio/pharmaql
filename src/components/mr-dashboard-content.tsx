@@ -733,7 +733,7 @@ export async function MrDashboardContent({
 								/>
 								{/* Refined Metric Cards Family */}
 								<div className="grid grid-cols-1 gap-6 md:grid-cols-3">
-									<div className="rounded-xl bg-[#0071BC] p-6 text-white shadow-sm">
+									<div className="rounded-xl bg-[#0071BC] p-6 text-white shadow-sm ring-1 ring-black/10">
 										<div>
 											<div className="mb-1 font-bold text-blue-100 text-xs uppercase tracking-wider">
 												Total Sales Volume
@@ -743,7 +743,7 @@ export async function MrDashboardContent({
 											</div>
 										</div>
 									</div>
-									<div className="rounded-xl bg-[#1E40AF] p-6 text-white shadow-sm">
+									<div className="rounded-xl bg-[#1E40AF] p-6 text-white shadow-sm ring-1 ring-black/10">
 										<div>
 											<div className="mb-1 font-bold text-indigo-100 text-xs uppercase tracking-wider">
 												Total Invoices
@@ -758,7 +758,7 @@ export async function MrDashboardContent({
 										</div>
 									</div>
 									{/* Accessible Red Warning Frame Variant */}
-									<div className="rounded-xl bg-red-600 p-6 text-white shadow-sm">
+									<div className="rounded-xl bg-red-600 p-6 text-white shadow-sm ring-1 ring-black/10">
 										<div>
 											<div className="mb-1 font-bold text-white text-xs uppercase tracking-wider">
 												Outstanding Balance

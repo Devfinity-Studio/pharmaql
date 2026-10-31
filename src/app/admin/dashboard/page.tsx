@@ -144,7 +144,7 @@ export default async function AdminDashboardPage() {
 
 			<div className="grid grid-cols-1 gap-6 sm:grid-cols-3">
 				<div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
-					<div className="font-bold text-gray-400 text-xs uppercase tracking-wider">
+					<div className="font-bold text-gray-600 text-xs uppercase tracking-wider">
 						Active Medical Representatives
 					</div>
 					<div className="mt-2 font-extrabold text-4xl text-[#0B2545]">
@@ -153,7 +153,7 @@ export default async function AdminDashboardPage() {
 				</div>
 
 				<div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
-					<div className="font-bold text-gray-400 text-xs uppercase tracking-wider">
+					<div className="font-bold text-gray-600 text-xs uppercase tracking-wider">
 						Active Companies / Divisions
 					</div>
 					<div className="mt-2 font-extrabold text-4xl text-[#0071BC]">
@@ -162,7 +162,7 @@ export default async function AdminDashboardPage() {
 				</div>
 
 				<div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
-					<div className="font-bold text-gray-400 text-xs uppercase tracking-wider">
+					<div className="font-bold text-gray-600 text-xs uppercase tracking-wider">
 						Live Catalog Products
 					</div>
 					<div className="mt-2 font-extrabold text-4xl text-emerald-600">

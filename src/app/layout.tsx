@@ -98,14 +98,14 @@ export default async function RootLayout({
 	const effectiveFavicon = tenantValue.logoUrl || "/devfinity.png";
 
 	return (
-		<html className={cn(geist.variable, "font-sans", inter.variable)} lang="en">
+		<html className={cn(geist.variable, "font-sans", inter.variable, "bg-white text-slate-900 antialiased")} lang="en">
 			<head>
 				<title>{tenantValue.isDevPortal ? "Devfinity | PharmaQL Control Center" : `${tenantValue.displayName} | PharmaQL`}</title>
 				<link rel="icon" href={effectiveFavicon} />
 				<link rel="shortcut icon" href={effectiveFavicon} />
 				<link rel="apple-touch-icon" href={effectiveFavicon} />
 			</head>
-			<body>
+			<body className="min-h-screen bg-slate-50 text-slate-900 antialiased selection:bg-[#0071BC] selection:text-white">
 				<TenantProvider value={tenantValue}>
 					<PwaRegister />
 					<Analytics />

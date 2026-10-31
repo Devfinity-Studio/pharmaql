@@ -192,7 +192,7 @@ export async function PartyReportView({
 		}
 
 		return (
-			<div className="mt-4 space-y-4 rounded-xl border border-gray-300 bg-white p-6 font-sans text-gray-900 shadow-sm print:m-0 print:border-none print:p-0 print:shadow-none">
+			<div className="mt-4 space-y-4 rounded-xl border border-gray-300 bg-white p-6 font-sans text-gray-900 shadow-sm ring-1 ring-black/5 print:m-0 print:border-none print:p-0 print:shadow-none">
 				<OfflineReportSync
 					data={customerGroups}
 					mrId={mrId}
@@ -247,7 +247,7 @@ export async function PartyReportView({
 									{/* Item Rows for this Party */}
 									{group.rows.map((row, rIdx) => (
 										<tr
-											className="border-gray-100 border-b text-[11px] text-gray-800 hover:bg-gray-50/80"
+											className="border-gray-200 border-b text-[11px] text-gray-800 hover:bg-gray-50/80"
 											key={`party-row-${rIdx}-${row.InvNo}`}
 										>
 											<td className="px-1 py-0.5 text-center text-gray-600">

@@ -69,7 +69,7 @@ export function MROverdueWarningModal({
 				</div>
 
 				{/* Invoice Breakdown */}
-				<div className="mt-4 max-h-48 divide-y divide-gray-100 overflow-y-auto rounded-xl border border-gray-200 text-xs">
+				<div className="mt-4 max-h-48 divide-y divide-gray-200 overflow-y-auto rounded-xl border border-gray-200 text-xs">
 					{invoices.map((inv, idx) => (
 						<div
 							className="flex items-center justify-between p-3 hover:bg-gray-50"
