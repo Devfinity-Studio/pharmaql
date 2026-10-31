@@ -31,13 +31,13 @@ export interface ApiServerInstance {
 
 const DEFAULT_RELEASES: ApiServerRelease[] = [
 	{
-		id: "release-v1.1.0",
-		version: "1.1.0",
+		id: "release-v1.2.0",
+		version: "1.2.0",
 		platform: "win-x64",
-		sha256: "ea3b2f56891234abcd567890ef0123456789abcdef0123456789abcdef012345",
-		downloadUrl: "/api/releases/download?version=1.1.0",
+		sha256: "bfae4e466a2f627173a2fd54c30e5fc2f98e085f6a86d3bfddcc9f98b6d6fe48",
+		downloadUrl: "/api/releases/download?version=1.2.0",
 		mandatory: false,
-		releaseNotes: "PharmaQL On-Premise API Engine v1.1.0: Machine-bound zero-knowledge encrypted vault & automated background OTA updates.",
+		releaseNotes: "PharmaQL On-Premise API Engine v1.2.0: Self-installing Windows Service (pharmaql-api) with embedded NSSM, automatic Program Files setup, and machine-bound zero-knowledge encrypted vault.",
 		isActive: true,
 		createdAt: new Date().toISOString(),
 	},
