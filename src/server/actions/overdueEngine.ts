@@ -127,8 +127,28 @@ export async function evaluateMROverdueStatus(
 	const { totalPendingAmt, oldestDays, warningInvoices, blockingInvoices } =
 		evaluateOverdueInvoices(rows, { directBlockDays: directBlockLimit });
 
+	// Check if overdue blocking is disabled by Admin switch
+	const { isOverdueBlockingDisabled } = await import("./overduePolicy");
+	const isBlockingDisabled = await isOverdueBlockingDisabled();
+
 	// If direct block applies (>90 days)
 	if (blockingInvoices.length > 0) {
+		if (isBlockingDisabled) {
+			const worst = blockingInvoices.sort((a, b) => b.overDays - a.overDays)[0]!;
+			return {
+				mrId,
+				mrName: mrInfo.name,
+				status: "WARNING",
+				isBlocked: false,
+				totalPendingAmt,
+				oldestDays,
+				warningInvoices: warningInvoices.length > 0 ? warningInvoices : blockingInvoices,
+				blockingInvoices,
+				divisionName: mrInfo.division || mrInfo.company,
+				message: `Overdue blocking is disabled by administrator. MR has ${blockingInvoices.length} invoice(s) exceeding ${directBlockLimit} days, but account remains active.`,
+				hasAdminExemption: true,
+			};
+		}
 		if (!hasAdminExemption) {
 			const worst = blockingInvoices.sort(
 				(a, b) => b.overDays - a.overDays,
@@ -226,6 +246,20 @@ export async function evaluateMROverdueStatus(
 	);
 
 	if (divisionNames.length > 0) {
+		if (isBlockingDisabled) {
+			return {
+				mrId,
+				mrName: mrInfo.name,
+				status: "CLEAN",
+				isBlocked: false,
+				totalPendingAmt,
+				oldestDays,
+				warningInvoices: [],
+				blockingInvoices: [],
+				divisionName: mrInfo.division || mrInfo.company,
+				hasAdminExemption: false,
+			};
+		}
 		try {
 			// Find all MRs in the same division(s) via API server
 			const allMrs = await getAllMRUsers();

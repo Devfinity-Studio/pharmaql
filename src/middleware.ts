@@ -50,6 +50,11 @@ export async function middleware(request: NextRequest) {
 		if (tenant.loc_no !== undefined && tenant.loc_no !== null) requestHeaders.set("x-tenant-loc-no", String(tenant.loc_no));
 		if (tenant.overdue_direct_block_days) requestHeaders.set("x-tenant-overdue-direct", String(tenant.overdue_direct_block_days));
 		if (tenant.overdue_division_block_days) requestHeaders.set("x-tenant-overdue-division", String(tenant.overdue_division_block_days));
+		if (tenant.overdue_blocking_disabled) {
+			requestHeaders.set("x-tenant-overdue-blocking", "disabled");
+		} else {
+			requestHeaders.set("x-tenant-overdue-blocking", "enabled");
+		}
 	} else if (!isDevPortal && !pathname.startsWith("/tenant-not-found") && !pathname.startsWith("/api/health")) {
 		// Domain is unmapped / unknown and not dev portal: rewrite to 404 tenant not found
 		const url = request.nextUrl.clone();

@@ -39,6 +39,7 @@ const DEFAULT_ASMEE_TENANT: TenantRecord = {
 	loc_no: 11,
 	overdue_direct_block_days: 90,
 	overdue_division_block_days: 95,
+	overdue_blocking_disabled: false,
 	admin_email: "asmeepharma2022@gmail.com",
 	admin_password_encrypted: null,
 	smtp_host: null,
