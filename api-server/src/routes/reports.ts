@@ -377,8 +377,13 @@ reportsRouter.post("/mr-overdue", async (req: Request, res: Response) => {
 
     let mrIdParam = "";
     if (params.mrId !== undefined && params.mrId !== null && String(params.mrId).trim()) {
-      const rawMr = String(params.mrId).trim();
-      mrIdParam = rawMr.startsWith("(") && rawMr.endsWith(")") ? rawMr : `(${rawMr})`;
+      const cleanMr = String(params.mrId).replace(/[()]/g, "").trim();
+      // rptMRwisePeriodicalOutstanding creates temporary table tmpMR (MRId INT)
+      // and strictly expects exactly 1 MR ID. Strip any comma-separated values.
+      const singleMr = cleanMr.split(",")[0]?.trim();
+      if (singleMr) {
+        mrIdParam = `(${singleMr})`;
+      }
     }
 
     const formattedParams = [

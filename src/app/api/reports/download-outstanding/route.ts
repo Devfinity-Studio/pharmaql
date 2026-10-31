@@ -80,38 +80,52 @@ export async function GET(request: Request) {
 		return new NextResponse("Forbidden - View disabled", { status: 403 });
 	}
 
-	// Query live stored procedure rptMRwisePeriodicalOutstanding
-	const compCodeToQuery = (() => {
-		if (division === "All") {
-			const allCodes = Array.from(
-				new Set(
-					(mrInfo.assignments || []).map((a) => a.companyCode).filter(Boolean),
-				),
+	// The stored procedure rptMRwisePeriodicalOutstanding creates temporary table tmpMR (MRId INT)
+	// and strictly accepts exactly 1 MR ID matching the company whose report is being generated.
+	const assigned = mrInfo.assignments && mrInfo.assignments.length > 0
+		? mrInfo.assignments
+		: [];
+
+	const selectedAssignments =
+		division === "All"
+			? assigned
+			: assigned.filter(
+					(a) =>
+						(a.division && a.division.toLowerCase() === division.toLowerCase()) ||
+						(a.manufacturer && a.manufacturer.toLowerCase() === division.toLowerCase()) ||
+						(a.company && a.company.toLowerCase() === division.toLowerCase()) ||
+						(a.companyCode && a.companyCode.toLowerCase() === division.toLowerCase()),
+				);
+
+	const compCodeToQuery =
+		division === "All"
+			? mrInfo.companyCode || selectedAssignments[0]?.companyCode || mrInfo.company || ""
+			: selectedAssignments[0]?.companyCode ||
+				(mrInfo.companyCode && (mrInfo.company === division || mrInfo.division === division)
+					? mrInfo.companyCode
+					: division);
+
+	const matchingAssignment =
+		selectedAssignments.find((a) => {
+			if (!compCodeToQuery) return true;
+			const codeUpper = compCodeToQuery.trim().toUpperCase();
+			return (
+				(a.companyCode && a.companyCode.trim().toUpperCase() === codeUpper) ||
+				(a.company && a.company.trim().toUpperCase() === codeUpper) ||
+				(a.manufacturer && a.manufacturer.trim().toUpperCase() === codeUpper) ||
+				(a.division && a.division.trim().toUpperCase() === codeUpper)
 			);
-			return allCodes.length > 0
-				? allCodes.join(",")
-				: mrInfo.companyCode || mrInfo.company || "";
-		}
-		const matchingAssignment = (mrInfo.assignments || []).find(
-			(a) =>
-				a.division === division ||
-				a.manufacturer === division ||
-				a.company === division,
-		);
-		if (matchingAssignment?.companyCode) return matchingAssignment.companyCode;
-		return mrInfo.companyCode || division;
-	})();
+		}) ||
+		selectedAssignments[0] ||
+		assigned[0];
+
+	const targetMrId = matchingAssignment?.id
+		? String(matchingAssignment.id).replace(/[()]/g, "").trim()
+		: mrId;
 
 	const defaultT1 = getDefaultTMinus1MonthRange();
 	const defaultFrom = from || defaultT1.from;
 	const defaultTo = to || defaultT1.to;
-
-	const targetMrId =
-		division === "All" && mrInfo.allIds && mrInfo.allIds.length > 0
-			? mrInfo.allIds.join(", ")
-			: mrInfo.assignments?.find(
-					(a) => a.division === division || a.manufacturer === division,
-				)?.id || mrId;
 
 	const procResult = await getMRwisePeriodicalOutstanding({
 		mrId: targetMrId,

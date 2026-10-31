@@ -3,7 +3,7 @@ import { headers } from "next/headers";
 import { OfflineReportSync } from "@/components/offline-report-sync";
 import { ReportStationeryHeader } from "@/components/report-stationery-header";
 import { getCustomerBlockingMap } from "@/server/actions/customerBlocking";
-import { getMRInfo } from "@/server/actions/mrInfo";
+import { getMRInfo, type MRAssignment } from "@/server/actions/mrInfo";
 import {
 	getMRwisePeriodicalOutstanding,
 	type OverduePeriodicalOutstandingRow,
@@ -54,19 +54,17 @@ export async function OverdueReportView({
 	} catch {}
 
 	const company = searchParams?.division || "All";
-	const assigned =
+	const assigned: MRAssignment[] =
 		mrInfo.assignments && mrInfo.assignments.length > 0
 			? mrInfo.assignments
 			: mrInfo.company
 				? [
 						{
-							id: `legacy-${mrId}`,
-							mrId,
+							id: mrId,
 							manufacturer: mrInfo.company,
-							firmNo: null,
 							division: mrInfo.division || null,
 							company: mrInfo.company,
-							createdAt: new Date(),
+							companyCode: mrInfo.companyCode || undefined,
 						},
 					]
 				: [];
@@ -74,25 +72,45 @@ export async function OverdueReportView({
 	const selectedAssignments =
 		company === "All"
 			? assigned
-			: assigned.filter((a) => (a.division || a.manufacturer) === company);
+			: assigned.filter(
+					(a) =>
+						(a.division && a.division.toLowerCase() === company.toLowerCase()) ||
+						(a.manufacturer && a.manufacturer.toLowerCase() === company.toLowerCase()) ||
+						(a.company && a.company.toLowerCase() === company.toLowerCase()) ||
+						(a.companyCode && a.companyCode.toLowerCase() === company.toLowerCase()),
+				);
 
 	const targetCompanies = Array.from(
-		new Set(selectedAssignments.map((a) => a.manufacturer).filter(Boolean)),
+		new Set(selectedAssignments.map((a) => a.companyCode || a.manufacturer || a.company).filter(Boolean)),
 	) as string[];
 
 	const compCodeToQuery =
 		company === "All"
-			? mrInfo.companyCode ||
-				(targetCompanies.length > 0 ? targetCompanies : "")
-			: mrInfo.companyCode &&
-					(mrInfo.company === company || mrInfo.division === company)
-				? mrInfo.companyCode
-				: company;
+			? mrInfo.companyCode || (targetCompanies.length > 0 ? targetCompanies[0] : "")
+			: selectedAssignments[0]?.companyCode ||
+				(mrInfo.companyCode && (mrInfo.company === company || mrInfo.division === company)
+					? mrInfo.companyCode
+					: company);
 
-	const targetMrId =
-		company === "All" && mrInfo.allIds && mrInfo.allIds.length > 0
-			? mrInfo.allIds.join(", ")
-			: selectedAssignments[0]?.id || mrId;
+	// The stored procedure rptMRwisePeriodicalOutstanding creates temporary table tmpMR (MRId INT)
+	// and strictly accepts exactly 1 MR ID matching the company whose report is being generated.
+	const matchingAssignment =
+		selectedAssignments.find((a) => {
+			if (!compCodeToQuery) return true;
+			const codeUpper = compCodeToQuery.trim().toUpperCase();
+			return (
+				(a.companyCode && a.companyCode.trim().toUpperCase() === codeUpper) ||
+				(a.company && a.company.trim().toUpperCase() === codeUpper) ||
+				(a.manufacturer && a.manufacturer.trim().toUpperCase() === codeUpper) ||
+				(a.division && a.division.trim().toUpperCase() === codeUpper)
+			);
+		}) ||
+		selectedAssignments[0] ||
+		assigned[0];
+
+	const targetMrId = matchingAssignment?.id
+		? String(matchingAssignment.id).replace(/[()]/g, "").trim()
+		: mrId;
 
 	const toDateStr = searchParams?.to || new Date().toISOString().slice(0, 10);
 
