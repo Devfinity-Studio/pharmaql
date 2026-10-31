@@ -345,6 +345,7 @@ reportsRouter.post("/party-item-sale", async (req: Request, res: Response) => {
 reportsRouter.post("/mr-overdue", async (req: Request, res: Response) => {
   const val = validateOutstandingParams(req.body);
   if (!val.isValid) {
+    console.warn("[Reports API] Overdue Report Validation Error:", val.errors, req.body);
     return res.status(400).json({ success: false, error: "Validation Error", details: val.errors });
   }
 
@@ -381,7 +382,7 @@ reportsRouter.post("/mr-overdue", async (req: Request, res: Response) => {
       // rptMRwisePeriodicalOutstanding creates temporary table tmpMR (MRId INT)
       // and strictly expects exactly 1 MR ID. Strip any comma-separated values.
       const singleMr = cleanMr.split(",")[0]?.trim();
-      if (singleMr) {
+      if (singleMr && !isNaN(Number(singleMr))) {
         mrIdParam = `(${singleMr})`;
       }
     }
@@ -404,7 +405,8 @@ reportsRouter.post("/mr-overdue", async (req: Request, res: Response) => {
       `'${mrIdParam.replace(/'/g, "''")}'`,
     ].join(", ");
 
-    const sql = `CALL \`rptMRwisePeriodicalOutstanding\`(${formattedParams})`;
+    const sql = `CALL \`pdyasvtrans\`.\`rptMRwisePeriodicalOutstanding\`(${formattedParams})`;
+    console.log("[Reports API] Executing Overdue Report SQL:", sql);
     const cacheKey = `report:mr-overdue:${compNo}:${locNo}:${finYear}:${compCodeParam}:${divIdsParam}:${mrIdParam}:${custIdsParam}:${cityParam}:${areaParam}:${custTypeParam}:${odbcRecDate}:${odbcFromDate}:${odbcToDate}`;
     const bypassCache = req.headers["x-bypass-cache"] === "true" || req.body?.forceRefresh === true;
 
@@ -671,7 +673,7 @@ reportsRouter.post("/dev-procedure-sandbox", async (req: Request, res: Response)
         "''",
         "''",
       ].join(", ");
-      sql = `CALL \`rptMRwisePeriodicalOutstanding\`(${formattedParams})`;
+      sql = `CALL \`pdyasvtrans\`.\`rptMRwisePeriodicalOutstanding\`(${formattedParams})`;
     } else if (procedureName === "rptCompanyCustomerItemwiseSales") {
       const formattedParams = [
         params.compNo ?? 11,
