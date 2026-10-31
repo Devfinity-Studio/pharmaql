@@ -1,9 +1,9 @@
 # State
 
 **Current Milestone:** Milestone 1 - Production Hardening & Optimization
-**Active Phase:** Phase 42 (Overdue Report Fix) - Complete & Shipped
-**Current Stable Release:** `v1.5.0-overdue-technomax-alignment`
-**Status:** Phase 42 complete and verified across dev, prod preview, and production deploymment. Overdue report layout, receipt calculations, and dynamic tenant blocking thresholds aligned with Technomax ERP.
+**Active Phase:** Phase 43 (Client API Server Auto-Update and Zero-Knowledge Config Protection) - Complete & Shipped
+**Current Stable Release:** `v1.6.0-zero-knowledge-vault-ota-updater`
+**Status:** Phase 43 complete and verified across dev, prod preview, and production deploymment. AES-256-GCM hardware-bound config vault, background OTA updater daemon with SHA-256 validation, atomic NSSM service swap & auto-rollback, Control Plane release routes, and Dev Control Center Fleet Monitor.
 
 ## Accumulated Context
 
@@ -33,3 +33,4 @@
 - Phase 40 added: Data Loading Performance Optimization & Query Latency Reduction
 - Phase 41 added: Tenant Logo S3 Storage Mapping & Dynamic Favicon Branding
 - Phase 42 added: Overdue Report Fix [COMPLETED]
+- Phase 43 added: Client API Server Auto-Update and Zero-Knowledge Config Protection [COMPLETED]

@@ -42,6 +42,7 @@ import {
 	XCircle,
 } from "lucide-react";
 import { DevFeedbackPanel } from "./dev-feedback-panel";
+import { DevFleetPanel } from "./dev-fleet-panel";
 import { DevLivePresence } from "./dev-live-presence";
 import type { LicenseStatusResult } from "@/lib/license";
 import type { FeatureKey, FeatureScope, MaintenanceConfig } from "@/lib/maintenance";
@@ -123,7 +124,7 @@ export function DevControlCenter({
 	const searchParams = useSearchParams();
 	const initialTabFromUrl = searchParams.get("tab");
 	const [activeTab, setActiveTab] = useState<
-		"status" | "presence" | "debug" | "feedback" | "license" | "push" | "toggles" | "impersonate" | "logs" | "query" | "runtime" | "notices"
+		"status" | "presence" | "debug" | "feedback" | "license" | "push" | "toggles" | "impersonate" | "logs" | "query" | "runtime" | "notices" | "fleet"
 	>((initialTabFromUrl as any) || "status");
 
 	// Multi-Tenant Scoping Context State
@@ -889,6 +890,7 @@ export function DevControlCenter({
 					{ id: "query", label: "Procedure Sandbox", icon: Play },
 					{ id: "runtime", label: "Runtime Config", icon: Server },
 					{ id: "notices", label: "Notice Board", icon: Megaphone },
+					{ id: "fleet", label: "API Fleet & OTA Releases", icon: Cpu },
 				].map((tab) => {
 					const Icon = tab.icon;
 					const isActive = activeTab === tab.id;
@@ -1768,6 +1770,11 @@ export function DevControlCenter({
 			{/* TAB: FEEDBACK & BUG REPORTS */}
 			{activeTab === "feedback" && (
 				<DevFeedbackPanel />
+			)}
+
+			{/* TAB: API FLEET & OTA RELEASES */}
+			{activeTab === "fleet" && (
+				<DevFleetPanel />
 			)}
 
 			{/* TAB 2: SUBSCRIPTION & LICENSE */}

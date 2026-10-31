@@ -11,6 +11,7 @@ import { dbPool, closeDatabasePool } from "./db";
 
 import compression from "compression";
 import { getCacheStats, invalidateCache } from "./cache";
+import { startAutoUpdaterDaemon } from "./updater";
 
 const app = express();
 const port = parseInt(process.env.PORT || "9443", 10);
@@ -114,6 +115,9 @@ const server = app.listen(port, () => {
       isPackaged ? "standalone-executable" : "development"
     }, root: ${APP_ROOT})`
   );
+
+  // Autonomous OTA auto-updater & telemetry daemon
+  startAutoUpdaterDaemon();
 });
 
 // Process Lifecycle & Safe Pool Drainage (NSSM Windows Service integration)
