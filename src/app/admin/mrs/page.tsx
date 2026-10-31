@@ -66,7 +66,7 @@ export default async function AdminMRsPage({
 			<OverdueMRsSection />
 
 			{/* Search Bar */}
-			<div className="flex flex-col gap-4 rounded-2xl border border-gray-100 bg-white p-4 shadow-sm xl:flex-row xl:items-center">
+			<div className="flex flex-col gap-4 rounded-2xl border border-gray-200 bg-white p-4 shadow-sm ring-1 ring-black/5 xl:flex-row xl:items-center">
 				<div className="flex flex-grow items-center">
 					<MRSearchForm />
 				</div>

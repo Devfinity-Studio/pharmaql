@@ -266,7 +266,7 @@ export async function FreeSchemeReportView({
 	const currentYear = new Date().getFullYear();
 
 	return (
-		<div className="mt-4 rounded-xl border border-gray-300 bg-white p-6 shadow-sm print:m-0 print:border-none print:p-0 print:shadow-none">
+		<div className="mt-4 rounded-xl border border-gray-300 bg-white p-6 shadow-sm ring-1 ring-black/5 print:m-0 print:border-none print:p-0 print:shadow-none">
 			<OfflineReportSync
 				data={reportData}
 				mrId={mrId}

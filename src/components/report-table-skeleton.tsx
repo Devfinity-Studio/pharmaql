@@ -2,7 +2,7 @@ import React from "react";
 
 export function ReportTableSkeleton() {
 	return (
-		<div className="mt-4 animate-pulse space-y-4 rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
+		<div className="mt-4 animate-pulse space-y-4 rounded-xl border border-gray-200 bg-white p-6 shadow-sm ring-1 ring-black/5">
 			{/* Header silhouette */}
 			<div className="flex flex-col gap-3 border-gray-200 border-b pb-4 sm:flex-row sm:items-center sm:justify-between">
 				<div className="flex items-center gap-3">
@@ -27,12 +27,12 @@ export function ReportTableSkeleton() {
 			{/* Table rows silhouette */}
 			<div className="space-y-2 pt-2">
 				<div className="h-9 w-full rounded bg-gray-100" />
-				<div className="h-7 w-full rounded bg-gray-50" />
-				<div className="h-7 w-full rounded bg-gray-50" />
-				<div className="h-7 w-full rounded bg-gray-50" />
-				<div className="h-7 w-full rounded bg-gray-50" />
-				<div className="h-7 w-full rounded bg-gray-50" />
-				<div className="h-7 w-full rounded bg-gray-50" />
+				<div className="h-7 w-full rounded bg-gray-100/70" />
+				<div className="h-7 w-full rounded bg-gray-100/70" />
+				<div className="h-7 w-full rounded bg-gray-100/70" />
+				<div className="h-7 w-full rounded bg-gray-100/70" />
+				<div className="h-7 w-full rounded bg-gray-100/70" />
+				<div className="h-7 w-full rounded bg-gray-100/70" />
 				<div className="h-8 w-full rounded bg-blue-50/60" />
 			</div>
 		</div>

@@ -242,10 +242,10 @@ export function AdminAuditTable({
 								<th className="px-4 py-3.5">Details</th>
 							</tr>
 						</thead>
-						<tbody className="divide-y divide-gray-100">
+						<tbody className="divide-y divide-gray-200">
 							{filteredLogs.length === 0 ? (
 								<tr>
-									<td className="px-6 py-12 text-center text-gray-400" colSpan={5}>
+									<td className="px-6 py-12 text-center text-gray-600" colSpan={5}>
 										No audit log events found matching your filter criteria.
 									</td>
 								</tr>

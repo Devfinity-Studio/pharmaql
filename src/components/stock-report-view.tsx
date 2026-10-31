@@ -211,7 +211,7 @@ export async function StockReportView({
 	let grandTotalStockValue = 0;
 
 	return (
-		<div className="mt-4 space-y-8 overflow-hidden rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
+		<div className="mt-4 space-y-8 overflow-hidden rounded-xl border border-gray-200 bg-white p-6 shadow-sm ring-1 ring-black/5">
 			<OfflineReportSync
 				data={reportData}
 				mrId={mrId}
@@ -336,7 +336,7 @@ export async function StockReportView({
 
 										return (
 											<tr
-												className={`border-gray-100 border-b ${
+												className={`border-gray-200 border-b ${
 													row["Is Dead Stock"]
 														? "bg-red-50 font-bold text-red-900 hover:bg-red-100"
 														: "text-[#0B2545] hover:bg-gray-50"

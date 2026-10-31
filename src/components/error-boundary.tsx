@@ -158,11 +158,11 @@ export class ErrorBoundary extends Component<
 						</div>
 
 						{/* Collapsible Stack Inspector */}
-						<div className="mt-6 border-t border-slate-100 pt-4 text-center">
+						<div className="mt-6 border-t border-slate-200 pt-4 text-center">
 							<button
 								type="button"
 								onClick={() => this.setState({ showStack: !this.state.showStack })}
-								className="text-xs text-slate-400 hover:text-slate-600 underline"
+								className="text-xs text-slate-500 hover:text-slate-700 font-medium underline"
 							>
 								{this.state.showStack ? "Hide Stack Details ▲" : "View Technical Crash Stack ▼"}
 							</button>

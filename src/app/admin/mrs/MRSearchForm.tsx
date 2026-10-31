@@ -104,7 +104,7 @@ export function MRSearchForm() {
 					<ArrowUpDown className="h-5 w-5" />
 				</button>
 				{isSortOpen && (
-					<div className="absolute top-full right-0 z-10 mt-2 w-48 overflow-hidden rounded-xl border border-gray-100 bg-white shadow-lg">
+					<div className="absolute top-full right-0 z-10 mt-2 w-48 overflow-hidden rounded-xl border border-gray-200 bg-white shadow-lg ring-1 ring-black/5">
 						{sortOptions.map((opt) => (
 							<button
 								className={`block w-full px-4 py-3 text-left text-sm transition hover:bg-blue-50 ${

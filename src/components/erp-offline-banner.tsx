@@ -50,7 +50,7 @@ export function ErpOfflineBanner({ isOffline = false, onRetry }: ErpOfflineBanne
 					<button
 						onClick={() => setDismissed(true)}
 						className="rounded p-1 text-amber-400 hover:bg-amber-500/20 transition"
-						title="Dismiss banner"
+						title="Dismiss notification"
 					>
 						<X className="h-3.5 w-3.5" />
 					</button>

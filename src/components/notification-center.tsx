@@ -438,7 +438,7 @@ export function NotificationCenter({
 					{/* Popover Header */}
 					<div
 						className={`flex items-center justify-between border-b px-4 py-3.5 ${
-							isDark ? "border-gray-800 bg-gray-950/60" : "border-gray-100 bg-gray-50/70"
+							isDark ? "border-gray-800 bg-gray-950/60" : "border-gray-200 bg-gray-50/90"
 						}`}
 					>
 						<div className="flex items-center gap-2">
@@ -509,7 +509,7 @@ export function NotificationCenter({
 					{/* Push Notification Permission Card */}
 					<div
 						className={`border-b p-3.5 ${
-							isDark ? "border-gray-800 bg-gray-950/40" : "border-gray-100 bg-gray-50/50"
+							isDark ? "border-gray-800 bg-gray-950/40" : "border-gray-200 bg-gray-50/80"
 						}`}
 					>
 						{pushPermission === "granted" && isSubscribed ? (
@@ -581,7 +581,7 @@ export function NotificationCenter({
 					{/* Notification Scrollable List */}
 					<div
 						className={`max-h-80 overflow-y-auto divide-y ${
-							isDark ? "divide-gray-800/80" : "divide-gray-100"
+							isDark ? "divide-gray-800/80" : "divide-gray-200"
 						}`}
 					>
 						{notifications.length === 0 ? (
@@ -692,7 +692,7 @@ export function NotificationCenter({
 						className={`flex items-center justify-between border-t px-4 py-3 text-[11px] ${
 							isDark
 								? "border-gray-800 bg-gray-950/80 text-gray-400"
-								: "border-gray-100 bg-gray-50/70 text-gray-600"
+								: "border-gray-200 bg-gray-50/90 text-gray-700"
 						}`}
 					>
 						<span className="font-medium">PharmaQL Field Telemetry</span>
@@ -789,11 +789,11 @@ export function NotificationCenter({
 						</DialogTitle>
 					</DialogHeader>
 
-					<div className="my-4 max-h-[300px] overflow-y-auto whitespace-pre-wrap rounded-xl border border-gray-100 bg-gray-50 p-4 text-sm text-gray-800 leading-relaxed font-sans">
+					<div className="my-4 max-h-[300px] overflow-y-auto whitespace-pre-wrap rounded-xl border border-gray-200 bg-gray-50 p-4 text-sm text-gray-800 leading-relaxed font-sans">
 						{selectedNotification?.body}
 					</div>
 
-					<div className="flex items-center justify-end gap-2.5 pt-2 border-t border-gray-100">
+					<div className="flex items-center justify-end gap-2.5 pt-2 border-t border-gray-200">
 						{selectedNotification?.url && (
 							<button
 								type="button"

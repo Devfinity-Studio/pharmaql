@@ -1326,7 +1326,7 @@ export function DevControlCenter({
 					<div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
 						{/* 1. Test Notification Dispatcher */}
 						<div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-xs">
-							<div className="flex items-center justify-between border-b border-gray-100 pb-4">
+							<div className="flex items-center justify-between border-b border-gray-200 pb-4">
 								<div className="flex items-center gap-2.5">
 									<div className="flex h-9 w-9 items-center justify-center rounded-xl bg-purple-600/10 text-purple-600">
 										<Bell className="h-5 w-5" />
@@ -1452,7 +1452,7 @@ export function DevControlCenter({
 
 						{/* 2. Test Email Dispatcher */}
 						<div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-xs">
-							<div className="flex items-center justify-between border-b border-gray-100 pb-4">
+							<div className="flex items-center justify-between border-b border-gray-200 pb-4">
 								<div className="flex items-center gap-2.5">
 									<div className="flex h-9 w-9 items-center justify-center rounded-xl bg-blue-600/10 text-blue-600">
 										<Mail className="h-5 w-5" />
@@ -1598,7 +1598,7 @@ export function DevControlCenter({
 						{/* Active Storage Benchmark */}
 						<div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-xs flex flex-col justify-between">
 							<div>
-								<div className="flex items-center justify-between border-b border-gray-100 pb-3">
+								<div className="flex items-center justify-between border-b border-gray-200 pb-3">
 									<div className="flex items-center gap-2">
 										<HardDrive className="h-4 w-4 text-amber-600" />
 										<h4 className="font-bold text-xs uppercase tracking-wider text-gray-800">
@@ -1655,7 +1655,7 @@ export function DevControlCenter({
 						{/* Client IP & Rate Limiter Inspection */}
 						<div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-xs flex flex-col justify-between">
 							<div>
-								<div className="flex items-center justify-between border-b border-gray-100 pb-3">
+								<div className="flex items-center justify-between border-b border-gray-200 pb-3">
 									<div className="flex items-center gap-2">
 										<Shield className="h-4 w-4 text-emerald-600" />
 										<h4 className="font-bold text-xs uppercase tracking-wider text-gray-800">
@@ -1713,7 +1713,7 @@ export function DevControlCenter({
 						{/* Express API & Database Benchmark */}
 						<div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-xs flex flex-col justify-between">
 							<div>
-								<div className="flex items-center justify-between border-b border-gray-100 pb-3">
+								<div className="flex items-center justify-between border-b border-gray-200 pb-3">
 									<div className="flex items-center gap-2">
 										<Database className="h-4 w-4 text-purple-600" />
 										<h4 className="font-bold text-xs uppercase tracking-wider text-gray-800">
@@ -1859,7 +1859,7 @@ export function DevControlCenter({
 						</div>
 
 						{/* Quick Extend Buttons */}
-						<div className="mt-6 border-t border-gray-100 pt-5">
+						<div className="mt-6 border-t border-gray-200 pt-5">
 							<div className="font-bold text-xs uppercase tracking-wider text-gray-500">Quick Subscription Extension</div>
 							<div className="mt-3 flex flex-wrap gap-2">
 								<button
@@ -2094,7 +2094,7 @@ export function DevControlCenter({
 
 					{/* Push Notification Dispatch Bench */}
 					<div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-xs space-y-5">
-						<div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between border-b border-gray-100 pb-4">
+						<div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between border-b border-gray-200 pb-4">
 							<div className="flex items-center gap-2">
 								<div className="flex h-9 w-9 items-center justify-center rounded-xl bg-purple-50 text-purple-600">
 									<Bell className="h-5 w-5" />
@@ -2345,7 +2345,7 @@ export function DevControlCenter({
 							Selectively disable specific report tabs and tools for MRs, for Admins, or take them down completely.
 						</p>
 
-						<div className="mt-5 divide-y divide-gray-100">
+						<div className="mt-5 divide-y divide-gray-200">
 							{[
 								{ key: "stock" as FeatureKey, label: "Stock Movement Statement" },
 								{ key: "sales" as FeatureKey, label: "Sales & Invoicing Details" },
@@ -2437,7 +2437,7 @@ export function DevControlCenter({
 											<th className="px-4 py-3 text-right">Action</th>
 										</tr>
 									</thead>
-									<tbody className="divide-y divide-gray-100">
+									<tbody className="divide-y divide-gray-200">
 										{filteredMRs.length === 0 ? (
 											<tr>
 												<td colSpan={6} className="px-4 py-8 text-center text-gray-500">
@@ -2547,7 +2547,7 @@ export function DevControlCenter({
 											<th className="px-4 py-3">Details</th>
 										</tr>
 									</thead>
-									<tbody className="divide-y divide-gray-100">
+									<tbody className="divide-y divide-gray-200">
 										{filteredLogs.map((log) => (
 											<tr className="hover:bg-gray-50" key={log.id}>
 												<td className="whitespace-nowrap px-4 py-2.5 text-gray-500" suppressHydrationWarning>
@@ -2708,7 +2708,7 @@ export function DevControlCenter({
 
 								{/* Dropdown search popover */}
 								{isCompanyDropdownOpen && (
-									<div className="absolute left-0 right-0 z-30 mt-1 max-h-56 overflow-y-auto rounded-xl border border-gray-200 bg-white shadow-xl divide-y divide-gray-100">
+									<div className="absolute left-0 right-0 z-30 mt-1 max-h-56 overflow-y-auto rounded-xl border border-gray-200 bg-white shadow-xl divide-y divide-gray-200">
 										<div
 											className="flex items-center justify-between p-2.5 text-xs hover:bg-gray-50 cursor-pointer font-bold text-gray-700 bg-gray-50/50"
 											onClick={() => {
@@ -2829,7 +2829,7 @@ export function DevControlCenter({
 
 						{/* Results & Verification View */}
 						{sandboxResult && (
-							<div className="mt-5 border-t border-gray-100 pt-5 space-y-4 font-mono">
+							<div className="mt-5 border-t border-gray-200 pt-5 space-y-4 font-mono">
 								{/* Summary Status Badges */}
 								<div className="flex flex-wrap gap-3 text-xs">
 									<span
@@ -3016,7 +3016,7 @@ export function DevControlCenter({
 						<div className="font-black text-lg text-gray-900">Environment Verification (Masked)</div>
 						<p className="text-xs text-gray-500">Inspect server environment variables safely.</p>
 
-						<div className="mt-4 divide-y divide-gray-100 font-mono text-xs">
+						<div className="mt-4 divide-y divide-gray-200 font-mono text-xs">
 							{Object.entries(maskedEnv).map(([k, v]) => (
 								<div className="flex justify-between py-2" key={k}>
 									<span className="text-gray-500">{k}:</span>

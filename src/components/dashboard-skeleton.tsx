@@ -34,8 +34,8 @@ export function DashboardSkeleton() {
 			<div className="mt-8 grid grid-cols-1 gap-8 xl:grid-cols-2">
 				<div className="space-y-4">
 					<div className="h-6 w-1/3 rounded bg-gray-200"></div>
-					<div className="h-64 overflow-hidden rounded-2xl border border-gray-100 bg-white">
-						<div className="h-12 w-full border-gray-100 border-b bg-gray-50"></div>
+					<div className="h-64 overflow-hidden rounded-2xl border border-gray-200 bg-white ring-1 ring-black/5">
+						<div className="h-12 w-full border-gray-200 border-b bg-gray-50"></div>
 						<div className="space-y-4 p-4">
 							{[1, 2, 3, 4].map((i) => (
 								<div className="flex justify-between" key={i}>
@@ -49,8 +49,8 @@ export function DashboardSkeleton() {
 				</div>
 				<div className="space-y-4">
 					<div className="h-6 w-1/3 rounded bg-gray-200"></div>
-					<div className="h-64 overflow-hidden rounded-2xl border border-gray-100 bg-white">
-						<div className="h-12 w-full border-gray-100 border-b bg-gray-50"></div>
+					<div className="h-64 overflow-hidden rounded-2xl border border-gray-200 bg-white ring-1 ring-black/5">
+						<div className="h-12 w-full border-gray-200 border-b bg-gray-50"></div>
 						<div className="space-y-4 p-4">
 							{[1, 2, 3, 4].map((i) => (
 								<div className="flex justify-between" key={i}>

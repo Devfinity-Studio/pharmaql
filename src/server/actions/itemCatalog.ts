@@ -86,13 +86,17 @@ export async function getItemCatalog(options?: {
 	offset?: number;
 	search?: string;
 }): Promise<ItemCatalogRow[]> {
-	const res = await apiGet<ItemCatalogRow[]>("/api/master/catalog", {
-		division: options?.division,
-		company: options?.company,
-		search: options?.search,
-		limit: options?.limit,
-		offset: options?.offset,
-	});
+	const res = await apiGet<ItemCatalogRow[]>(
+		"/api/master/catalog",
+		{
+			division: options?.division,
+			company: options?.company,
+			search: options?.search,
+			limit: options?.limit,
+			offset: options?.offset,
+		},
+		{ ttlSeconds: 600 },
+	);
 
 	if (!res.success || !res.data) {
 		return [];

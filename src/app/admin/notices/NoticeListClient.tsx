@@ -253,7 +253,7 @@ export default function NoticeListClient({
 								{notice.content}
 							</div>
 
-							<div className="mt-6 flex items-center justify-end gap-3 border-gray-100 border-t pt-4">
+							<div className="mt-6 flex items-center justify-end gap-3 border-gray-200 border-t pt-4">
 								<button
 									className="font-medium text-blue-600 text-sm hover:text-blue-800"
 									onClick={() => openEditModal(notice)}

@@ -177,7 +177,7 @@ export async function OverdueReportView({
 	const toDisplay = formatDisplayDate(searchParams?.to) || "30/09/2026";
 
 	return (
-		<div className="mt-4 space-y-8 overflow-hidden rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
+		<div className="mt-4 space-y-8 overflow-hidden rounded-xl border border-gray-200 bg-white p-6 shadow-sm ring-1 ring-black/5">
 			<OfflineReportSync
 				data={reportData}
 				mrId={mrId}
@@ -271,7 +271,7 @@ export async function OverdueReportView({
 														const isOlderThan90 = row["Purchase Days"] > 90;
 														return (
 															<tr
-																className={`border-gray-100 border-b transition-colors ${
+																className={`border-gray-200 border-b transition-colors ${
 																	isOlderThan90
 																		? "bg-red-50/70 text-red-950 hover:bg-red-100/60"
 																		: "text-[#0B2545] hover:bg-gray-50"

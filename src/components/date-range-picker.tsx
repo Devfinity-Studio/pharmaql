@@ -81,10 +81,10 @@ export function DateRangePicker() {
 	};
 
 	return (
-		<div className="flex flex-col gap-2.5 rounded-2xl border border-gray-100 bg-white p-3.5 shadow-sm">
+		<div className="flex flex-col gap-2.5 rounded-2xl border border-gray-200 bg-white p-3.5 shadow-sm ring-1 ring-black/5">
 			{/* Preset Shortcut Buttons */}
-			<div className="flex flex-wrap items-center gap-1.5 border-gray-100 border-b pb-2.5">
-				<span className="font-bold text-[11px] text-gray-400 uppercase tracking-wider">
+			<div className="flex flex-wrap items-center gap-1.5 border-gray-200 border-b pb-2.5">
+				<span className="font-bold text-[11px] text-gray-600 uppercase tracking-wider">
 					Presets:
 				</span>
 				<button

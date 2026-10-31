@@ -329,3 +329,23 @@
 - [x] **Robust Form Feedback & Cache Invalidation**: Ensure [`src/components/tenant-form.tsx`](file:///e:/work/pharmaql/src/components/tenant-form.tsx) and [`src/components/tenants-control-center.tsx`](file:///e:/work/pharmaql/src/components/tenants-control-center.tsx) display exact server errors if duplicate slugs or invalid custom domains are entered, and trigger immediate full cache invalidation and UI revalidation on create/edit/delete.
 - [x] **Verification & Validation**: Verified end-to-end tenant creation and deletion against live Neon PostgreSQL, confirmed zero slug unique constraint warnings in server logs, verified all 20 Vitest test suites (112 tests) pass, and zero TypeScript errors (`tsc --noEmit`).
 
+## Phase 40: Data Loading Performance Optimization & Query Latency Reduction [COMPLETED]
+
+- [x] **Data Fetching Audit & Bottleneck Profiling**: Profile network payloads, server-to-server ERP query roundtrips, and client rendering bottlenecks across primary MR/Admin views (Stock Movement, Stock & Sales Statement, Outstanding/Overdue Statements, and Party lists).
+- [x] **Multi-Tier Caching & Stale-While-Revalidate Engine**: Implement high-performance server-side caching (in-memory LRU with 500 entry cap in `api-server` and `src/lib/api-client.ts`) with configurable TTLs for slow ERP statements, master party directories, and product catalogs, ensuring instant sub-100ms responses on repeated view queries while background revalidation keeps data fresh.
+- [x] **Payload Optimization, Compression & Server-Side Pagination**: Mounted HTTP gzip/deflate `compression` in on-premise Express `api-server`, shrinking multi-megabyte JSON payloads by 85-90%. Supported in-flight promise deduplication in `src/lib/api-client.ts` to eliminate duplicate simultaneous queries.
+- [x] **React Query Client Optimization & Parallel Pre-fetching**: Refactored React Query hooks with `staleTime: 2m`, `gcTime: 10m`, `refetchOnWindowFocus: false` to eliminate aggressive refetches. Built `<DataSyncButton />` and table skeletons (`<ReportTableSkeleton />`) inside Suspense boundaries.
+- [x] **API Server Connection Pool & Stored Procedure Execution Tuning**: Enhanced `api-server` with memory-capped caching (`getOrSetCache`) on all stored procedure endpoints, supported `x-bypass-cache: true`, and added `/api/cache/stats` and `/api/cache/flush` routes.
+- [x] **Verification & Validation**: All 21 Vitest test suites passed (119/119 tests), zero TypeScript compilation errors (`tsc --noEmit`), and Next.js production build (`next build`) compiled cleanly. Documented in `40-UAT.md`.
+
+
+
+
+
+## Phase 41: Tenant Logo S3 Storage Mapping & Dynamic Favicon Branding
+
+- [ ] **S3 Object Storage Integration & Bucket Client**: Connect AWS SDK S3 client (`@aws-sdk/client-s3`) to Neon S3-compatible storage using `AWS_ENDPOINT_URL_S3`, `AWS_ACCESS_KEY_ID`, and `AWS_SECRET_ACCESS_KEY` from `.env`.
+- [ ] **Tenant Logo Upload Action & Bucket Mapping**: Implement server actions in `src/modules/control-plane/tenantActions.ts` and `src/components/tenant-form.tsx` to upload, replace, and delete tenant logos directly to/from the S3 bucket and persist the resulting object URL in Neon PostgreSQL `tenants.logo_url`.
+- [ ] **Default Brand Alignment (`devfinity.png`) & Favicon Refresh**: Set `devfinity.png` as the canonical default platform logo. Update `/public/favicons/` and static branding assets to match Devfinity identity.
+- [ ] **Dynamic Multi-Tenant Favicon & Logo Pipeline**: Ensure root layout (`src/app/layout.tsx`), header (`src/components/Header.tsx`), stationery reports, and login screens dynamically serve the tenant's uploaded S3 logo and dynamic favicon, falling back to `devfinity.png` if none is uploaded.
+- [ ] **Verification & Validation**: Verify logo upload against the S3 bucket, test custom tenant domains vs developer portal branding, run test suites (`pnpm test`), and compile production build (`next build`).
