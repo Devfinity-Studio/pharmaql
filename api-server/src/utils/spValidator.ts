@@ -59,18 +59,20 @@ export function validateStockAndSalesParams(body: any): ValidationResult {
 
 /**
  * Validates MR-wise Periodical Outstanding parameters (expected 15 parameters)
+ * Note: mrId is completely optional in rptMRwisePeriodicalOutstanding.
+ * When omitted or empty, the procedure queries across all MRs for the company.
  */
 export function validateOutstandingParams(body: any): ValidationResult {
   const errors: string[] = [];
 
-  if (!body?.mrId && body?.mrId !== 0) {
-    errors.push("mrId is required for periodical outstanding evaluation");
-  }
   if (body?.fromDate && !DATE_REGEX.test(String(body.fromDate).slice(0, 10))) {
     errors.push("fromDate must be a valid date formatted as YYYY-MM-DD");
   }
   if (body?.toDate && !DATE_REGEX.test(String(body.toDate).slice(0, 10))) {
     errors.push("toDate must be a valid date formatted as YYYY-MM-DD");
+  }
+  if (body?.recDate && !DATE_REGEX.test(String(body.recDate).slice(0, 10))) {
+    errors.push("recDate must be a valid date formatted as YYYY-MM-DD");
   }
 
   return {

@@ -60,3 +60,5 @@ api-server/.env
 /data/active_sessions.json
 api-server/package-lock.json
 /scratch/
+/data/instances.json
+/data/releases.json
