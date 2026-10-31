@@ -102,8 +102,9 @@ export async function OverdueReportView({
 		: "";
 
 	const asOnDateStr = searchParams?.asOn || searchParams?.to || new Date().toISOString().slice(0, 10);
+	const finYearStart = "2026-04-01";
+	const fromDateStr = searchParams?.from || finYearStart;
 	const toDateStr = asOnDateStr;
-	const fromDateStr = asOnDateStr;
 
 	// 2. Call stored procedure `rptMRwisePeriodicalOutstanding`
 	let procResult = await getMRwisePeriodicalOutstanding({
