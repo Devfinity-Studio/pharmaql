@@ -109,9 +109,9 @@ export async function GET(request: Request) {
 	// bifurcated MR-wise. By default, p_MRId is '' (empty string) so all MRs for the company are returned.
 	const targetMrId = searchParams.get("mr") || searchParams.get("singleMr") || "";
 
-	const defaultT1 = getDefaultTMinus1MonthRange();
-	const defaultTo = to || defaultT1.to;
-	const defaultFrom = from || defaultTo;
+	const asOn = searchParams.get("asOn") || searchParams.get("to") || to || new Date().toISOString().split("T")[0];
+	const defaultTo = asOn;
+	const defaultFrom = asOn;
 
 	const procResult = await getMRwisePeriodicalOutstanding({
 		mrId: targetMrId,
@@ -134,11 +134,9 @@ export async function GET(request: Request) {
 		timeStyle: "short",
 	});
 	const mrName = mrInfo.name || "Unknown MR";
-	const safeMrName = mrName.replace(/[^a-zA-Z0-9]/g, "_");
 	const safeDivision = division.replace(/[^a-zA-Z0-9]/g, "_");
-	const dateRangeTag =
-		from && to ? `${from}_to_${to}` : new Date().toISOString().split("T")[0];
-	const filename = `${safeMrName}_${safeDivision}_Outstanding_${dateRangeTag}`;
+	const dateRangeTag = asOn;
+	const filename = `${safeDivision}_MRwise_Overdue_AsOn_${dateRangeTag}`;
 
 	let rawOutRows = procResult.data || [];
 	if (division !== "All") {
@@ -200,8 +198,14 @@ export async function GET(request: Request) {
 		})
 		.filter((r) => r["Pending Amount"] > 0);
 
-	// Sort by Purchase Days descending
-	reportData.sort((a, b) => b["Purchase Days"] - a["Purchase Days"]);
+	// Sort MR-wise, then Customer / Party, then Invoice Date
+	reportData.sort((a, b) => {
+		const mrDiff = (a["MR Name"] || "").localeCompare(b["MR Name"] || "");
+		if (mrDiff !== 0) return mrDiff;
+		const custDiff = (a["Customer / Party"] || "").localeCompare(b["Customer / Party"] || "");
+		if (custDiff !== 0) return custDiff;
+		return (a["Invoice Date"] || "").localeCompare(b["Invoice Date"] || "");
+	});
 
 	if (format === "json") {
 		return NextResponse.json(reportData);
@@ -219,9 +223,9 @@ export async function GET(request: Request) {
 
 		return {
 			"MR Name": r["MR Name"],
+			"Customer / Party": r["Customer / Party"],
 			City: r.City,
 			Area: r.Area,
-			"Customer / Party": r["Customer / Party"],
 			"Doc Type": r["Doc Type"],
 			"Invoice No": r["Invoice No"],
 			"Invoice Date": r["Invoice Date"],
@@ -236,54 +240,56 @@ export async function GET(request: Request) {
 
 	if (format === "excel") {
 		const columns = [
-			{ header: "Customer / Party", key: "Customer / Party", width: 32 },
+			{ header: "MR Name", key: "MR Name", width: 22 },
+			{ header: "Customer / Party", key: "Customer / Party", width: 34 },
 			{ header: "City", key: "City", width: 18 },
-			{ header: "Bill No", key: "Bill No", width: 14 },
-			{ header: "Bill Date", key: "Bill Date", width: 14 },
+			{ header: "Doc Type", key: "Doc Type", width: 12 },
+			{ header: "Invoice No", key: "Invoice No", width: 14 },
+			{ header: "Invoice Date", key: "Invoice Date", width: 14 },
+			{ header: "Due Date", key: "Due Date", width: 14 },
 			{
-				header: "Bill Amount",
-				key: "Bill Amount",
-				width: 16,
-				numFmt: "#,##0.00",
-			},
-			{
-				header: "Adjusted Amount",
-				key: "Adjusted Amount",
-				width: 16,
-				numFmt: "#,##0.00",
-			},
-			{
-				header: "Balance Amount",
-				key: "Balance Amount",
-				width: 16,
-				numFmt: "#,##0.00",
-			},
-			{
-				header: "Overdue Days",
-				key: "Overdue Days",
-				width: 14,
+				header: "Due Days",
+				key: "Due Days",
+				width: 12,
 				numFmt: "#,##0",
 			},
-			{ header: "Division", key: "Division", width: 18 },
+			{
+				header: "Invoice Amount",
+				key: "Invoice Amount",
+				width: 16,
+				numFmt: "#,##0.00",
+			},
+			{
+				header: "Received Amount",
+				key: "Received Amount",
+				width: 16,
+				numFmt: "#,##0.00",
+			},
+			{
+				header: "Pending Amount",
+				key: "Pending Amount",
+				width: 16,
+				numFmt: "#,##0.00",
+			},
 		];
 
 		const excelBuf = await buildStyledExcelBuffer({
 			sheetName: "Outstanding",
-			title: "Overdue & Periodical Outstanding Statement",
+			title: "MRwise Periodical Outstanding Statement",
 			metadata: {
-				mrName,
+				mrName: division === "All" ? "All MRs" : `${division} Division (All MRs)`,
 				company: mrInfo.company || division,
 				division: mrInfo.division || division,
-				period: from && to ? `${from} to ${to}` : "Current",
+				period: `As on ${new Date(asOn || Date.now()).toLocaleDateString("en-GB")}`,
 				year: "2026-27",
 			},
 			columns,
 			data: tabularData,
 			totals: {
-				"Customer / Party": "GRAND TOTAL",
-				"Bill Amount": Number(totalOriginalAmt.toFixed(2)),
-				"Adjusted Amount": Number(totalAdjAmt.toFixed(2)),
-				"Balance Amount": Number(totalBalanceAmt.toFixed(2)),
+				"MR Name": "GRAND TOTAL",
+				"Invoice Amount": Number(totalOriginalAmt.toFixed(2)),
+				"Received Amount": Number(totalAdjAmt.toFixed(2)),
+				"Pending Amount": Number(totalBalanceAmt.toFixed(2)),
 			},
 		});
 

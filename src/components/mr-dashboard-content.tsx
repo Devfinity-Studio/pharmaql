@@ -572,7 +572,11 @@ export async function MrDashboardContent({
 						</div>
 						<div className="flex items-center gap-2">
 							<DataSyncButton />
-							<DateRangePicker />
+							{activeTab === "overdue" ? (
+								<DateRangePicker singleDateLabel="AsOn Date" singleDateMode={true} />
+							) : (
+								<DateRangePicker />
+							)}
 						</div>
 					</div>
 					{/* RENDER THE CORRECT DOWNLOAD BUTTON CONDITIONALLY AT THE TOP FILTER BAR */}

@@ -7,6 +7,7 @@ import http from "http";
 import { APP_ROOT, isPackaged } from "./config";
 
 export const API_SERVER_VERSION = process.env.API_SERVER_VERSION || "1.2.0";
+export const API_SERVER_LAST_UPDATED = process.env.API_SERVER_LAST_UPDATED || "2026-11-01T01:35:00.000Z";
 
 interface ReleaseInfo {
   hasUpdate: boolean;

@@ -28,6 +28,7 @@ export async function OverdueReportView({
 		division?: string;
 		from?: string;
 		to?: string;
+		asOn?: string;
 		party?: string;
 		q?: string;
 		debug?: string;
@@ -93,23 +94,16 @@ export async function OverdueReportView({
 					? mrInfo.companyCode
 					: company);
 
-	// In Technomax ERP, the Overdue Report (rptMRwisePeriodicalOutstanding) is a company-wide report
-	// bifurcated MR-wise. If a specific MR filter is requested via searchParams, that specific single MR ID is used.
-	// When viewing an individual MR user (mrInfo.role === "MR"), default to that MR's ID.
-	// For company-wide or admin views without a specific MR, p_MRId is '' (empty string) so all MRs are returned.
-	const targetMrId = (() => {
-		if (searchParams?.mr) {
-			const clean = String(searchParams.mr).replace(/[()]/g, "").trim();
-			return clean.toLowerCase() === "all" ? "" : clean;
-		}
-		if (mrId && !isNaN(Number(mrId))) {
-			return String(mrId);
-		}
-		return "";
-	})();
+	// In Technomax ERP, the Overdue Report (rptMRwisePeriodicalOutstanding) is an MR-wise listing of ALL MRs
+	// of that company-division. By default, p_MRId is '' (empty string) so all MRs are returned and grouped MR-wise.
+	// If a specific MR filter is explicitly requested via searchParams.mr, that specific single MR ID is used.
+	const targetMrId = searchParams?.mr && searchParams.mr.toLowerCase() !== "all"
+		? String(searchParams.mr).replace(/[()]/g, "").trim()
+		: "";
 
-	const toDateStr = searchParams?.to || new Date().toISOString().slice(0, 10);
-	const fromDateStr = searchParams?.from || toDateStr;
+	const asOnDateStr = searchParams?.asOn || searchParams?.to || new Date().toISOString().slice(0, 10);
+	const toDateStr = asOnDateStr;
+	const fromDateStr = asOnDateStr;
 
 	// 2. Call stored procedure `rptMRwisePeriodicalOutstanding`
 	const procResult = await getMRwisePeriodicalOutstanding({
@@ -244,8 +238,7 @@ export async function OverdueReportView({
 	let grandTotalReceivedAmt = 0;
 	let grandTotalPendingAmt = 0;
 
-	const fromDisplay = formatDisplayDate(searchParams?.from) || "01/04/2026";
-	const toDisplay = formatDisplayDate(toDateStr) || formatDisplayDate(new Date());
+	const asOnDisplay = formatDisplayDate(asOnDateStr) || formatDisplayDate(new Date());
 
 	return (
 		<div className="mt-4 space-y-8 overflow-hidden rounded-xl border border-gray-200 bg-white p-6 shadow-sm ring-1 ring-black/5">
@@ -257,15 +250,14 @@ export async function OverdueReportView({
 			/>
 			{/* Official Stationery Header */}
 			<ReportStationeryHeader
-				fromDisplay={fromDisplay}
+				asOnDate={asOnDisplay}
 				summaryRight={`Total Records: ${normalizedRows.length}`}
 				title="MRwise Periodical Outstanding"
-				toDisplay={toDisplay}
 			/>
 
 			<div className="flex flex-wrap items-center justify-between border-b border-gray-200 pb-3 text-xs text-gray-500">
 				<div>
-					<span className="font-semibold text-gray-700">Received as on:</span> {toDisplay}
+					<span className="font-semibold text-gray-700">AsOn Date:</span> {asOnDisplay}
 				</div>
 				<div>
 					<span className="font-semibold text-gray-700">Year:</span> 2026-27

@@ -11,7 +11,7 @@ import { dbPool, closeDatabasePool } from "./db";
 
 import compression from "compression";
 import { getCacheStats, invalidateCache } from "./cache";
-import { startAutoUpdaterDaemon, API_SERVER_VERSION } from "./updater";
+import { startAutoUpdaterDaemon, API_SERVER_VERSION, API_SERVER_LAST_UPDATED } from "./updater";
 
 const app = express();
 const port = parseInt(process.env.PORT || "9443", 10);
@@ -77,9 +77,23 @@ app.use((req, res, next) => {
 app.get("/health", async (_req, res) => {
   try {
     const [rows] = await dbPool.query("SELECT 1 as alive");
-    res.json({ status: "healthy", version: API_SERVER_VERSION, db: "connected", port });
+    res.json({
+      status: "healthy",
+      version: API_SERVER_VERSION,
+      lastUpdated: API_SERVER_LAST_UPDATED,
+      uptimeSeconds: Math.floor(process.uptime()),
+      db: "connected",
+      port,
+    });
   } catch (err: any) {
-    res.status(500).json({ status: "unhealthy", version: API_SERVER_VERSION, dbError: err.message, port });
+    res.status(500).json({
+      status: "unhealthy",
+      version: API_SERVER_VERSION,
+      lastUpdated: API_SERVER_LAST_UPDATED,
+      uptimeSeconds: Math.floor(process.uptime()),
+      dbError: err.message,
+      port,
+    });
   }
 });
 
