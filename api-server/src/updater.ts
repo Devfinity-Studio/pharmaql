@@ -24,7 +24,7 @@ export async function queryLatestRelease(): Promise<ReleaseInfo | null> {
   const controlPlaneUrl = (
     process.env.CONTROL_PLANE_URL || "https://pharmaql.devfinity.net"
   ).replace(/\/$/, "");
-  const apiKey = process.env.API_SERVER_KEY || "";
+  const apiKey = process.env.API_SERVER_KEY || process.env.API_SECRET_KEY || "";
   const queryUrl = `${controlPlaneUrl}/api/releases/latest?current_version=${API_SERVER_VERSION}&platform=win-x64`;
 
   return new Promise((resolve) => {
@@ -207,7 +207,7 @@ export async function sendHeartbeat(): Promise<void> {
   const controlPlaneUrl = (
     process.env.CONTROL_PLANE_URL || "https://pharmaql.devfinity.net"
   ).replace(/\/$/, "");
-  const apiKey = process.env.API_SERVER_KEY || "";
+  const apiKey = process.env.API_SERVER_KEY || process.env.API_SECRET_KEY || "";
   const telemetryUrl = `${controlPlaneUrl}/api/releases/telemetry`;
 
   const payload = JSON.stringify({
