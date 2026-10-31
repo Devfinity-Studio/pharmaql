@@ -40,6 +40,28 @@ export const APP_ROOT = getAppRootDir();
  */
 export function handleVaultCliCommands(): boolean {
   const args = process.argv.slice(2);
+  // Command: --install (Explicit Windows Service installation)
+  if (args.includes("--install")) {
+    installPharmaQlService();
+    process.exit(0);
+  }
+
+  // Command: --uninstall (Explicit Windows Service removal)
+  if (args.includes("--uninstall")) {
+    uninstallPharmaQlService();
+    process.exit(0);
+  }
+
+  // Self-installer: Running outside Program Files triggers automatic Windows Service setup
+  if (isPackaged && !isRunningFromInstalledLocation() && !args.includes("--run-direct")) {
+    console.log("[PharmaQL API Server] Initial launch detected outside installation directory.");
+    console.log(`  Current location: ${process.execPath}`);
+    console.log(`  Target location:  ${TARGET_EXE_PATH}`);
+    console.log("\nInitializing automatic installation into Program Files & Windows Service setup...");
+    installPharmaQlService();
+    process.exit(0);
+  }
+
 
   // Command: --seal
   if (args.includes("--seal")) {
