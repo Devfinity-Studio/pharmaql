@@ -138,7 +138,7 @@ export function OfflineReportViewer({
 				</div>
 
 				{/* Snapshot Status Bar */}
-				<div className="flex flex-wrap items-center justify-between gap-3 border-b border-gray-100 bg-gray-50/50 px-6 py-2.5 text-xs">
+				<div className="flex flex-wrap items-center justify-between gap-3 border-b border-gray-200 bg-gray-50/80 px-6 py-2.5 text-xs">
 					<div className="flex items-center gap-2">
 						<HardDrive className="h-4 w-4 text-gray-500" />
 						{snapshot ? (
@@ -196,7 +196,7 @@ export function OfflineReportViewer({
 												))}
 										</tr>
 									</thead>
-									<tbody className="divide-y divide-gray-100">
+									<tbody className="divide-y divide-gray-200">
 										{filteredRows.slice(0, 100).map((row, idx) => (
 											<tr className="hover:bg-blue-50/40 transition" key={idx}>
 												{Object.keys(filteredRows[0] || {})

@@ -438,7 +438,7 @@ export function DevLivePresence({ mrList = [] }: DevLivePresenceProps) {
 				</div>
 
 				{/* Filters Bar */}
-				<div className="flex flex-col gap-3 border-b border-gray-100 bg-gray-50/50 p-4 md:flex-row md:items-center">
+				<div className="flex flex-col gap-3 border-b border-gray-200 bg-gray-50/80 p-4 md:flex-row md:items-center">
 					{/* Search Bar */}
 					<div className="relative flex-1">
 						<Search className="absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-gray-400" />
@@ -519,10 +519,10 @@ export function DevLivePresence({ mrList = [] }: DevLivePresenceProps) {
 								<th className="px-4 py-3 text-right">Actions</th>
 							</tr>
 						</thead>
-						<tbody className="divide-y divide-gray-100">
+						<tbody className="divide-y divide-gray-200">
 							{filteredSessions.length === 0 ? (
 								<tr>
-									<td className="px-4 py-12 text-center text-gray-400" colSpan={6}>
+									<td className="px-4 py-12 text-center text-gray-600" colSpan={6}>
 										<Users className="mx-auto mb-2 h-8 w-8 text-gray-300" />
 										<p className="font-semibold text-sm text-gray-600">No active sessions match your filters</p>
 										<p className="mt-1 text-xs text-gray-400">
@@ -724,7 +724,7 @@ export function DevLivePresence({ mrList = [] }: DevLivePresenceProps) {
 				</div>
 
 				{/* Table Footer */}
-				<div className="flex flex-col gap-2 border-t border-gray-100 p-4 text-xs text-gray-500 sm:flex-row sm:items-center sm:justify-between">
+				<div className="flex flex-col gap-2 border-t border-gray-200 p-4 text-xs text-gray-500 sm:flex-row sm:items-center sm:justify-between">
 					<div>
 						Showing <span className="font-bold text-gray-800">{filteredSessions.length}</span> of{" "}
 						<span className="font-bold text-gray-800">{sessions.length}</span> total sessions
@@ -740,7 +740,7 @@ export function DevLivePresence({ mrList = [] }: DevLivePresenceProps) {
 				<div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-xs">
 					<div className="relative w-full max-w-2xl rounded-2xl border border-gray-200 bg-white p-6 shadow-2xl">
 						{/* Modal Header */}
-						<div className="flex items-start justify-between border-b border-gray-100 pb-4">
+						<div className="flex items-start justify-between border-b border-gray-200 pb-4">
 							<div className="flex items-center gap-3">
 								<div className="flex h-10 w-10 items-center justify-center rounded-xl bg-purple-100 text-purple-700">
 									<Activity className="h-5 w-5" />
@@ -762,7 +762,7 @@ export function DevLivePresence({ mrList = [] }: DevLivePresenceProps) {
 						{/* Modal Content */}
 						<div className="mt-5 space-y-4 text-xs">
 							{/* User Identity Section */}
-							<div className="rounded-xl border border-gray-100 bg-gray-50/70 p-4">
+							<div className="rounded-xl border border-gray-200 bg-gray-50/90 p-4">
 								<div className="font-bold uppercase tracking-wider text-[10px] text-gray-400 mb-2">
 									User Identity & Access
 								</div>
@@ -800,7 +800,7 @@ export function DevLivePresence({ mrList = [] }: DevLivePresenceProps) {
 							</div>
 
 							{/* Client Environment Section */}
-							<div className="rounded-xl border border-gray-100 bg-gray-50/70 p-4">
+							<div className="rounded-xl border border-gray-200 bg-gray-50/90 p-4">
 								<div className="font-bold uppercase tracking-wider text-[10px] text-gray-400 mb-2">
 									Client Device & Network
 								</div>
@@ -843,7 +843,7 @@ export function DevLivePresence({ mrList = [] }: DevLivePresenceProps) {
 							</div>
 
 							{/* Navigation & Presence Section */}
-							<div className="rounded-xl border border-gray-100 bg-gray-50/70 p-4">
+							<div className="rounded-xl border border-gray-200 bg-gray-50/90 p-4">
 								<div className="font-bold uppercase tracking-wider text-[10px] text-gray-400 mb-2">
 									Active Navigation & Timestamps
 								</div>
@@ -890,7 +890,7 @@ export function DevLivePresence({ mrList = [] }: DevLivePresenceProps) {
 						</div>
 
 						{/* Modal Footer Actions */}
-						<div className="mt-6 flex items-center justify-between border-t border-gray-100 pt-4">
+						<div className="mt-6 flex items-center justify-between border-t border-gray-200 pt-4">
 							<button
 								className="rounded-xl border border-gray-200 bg-white px-4 py-2 font-bold text-xs text-gray-600 hover:bg-gray-50"
 								onClick={() => setInspectingSession(null)}

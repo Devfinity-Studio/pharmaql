@@ -278,7 +278,7 @@ export function CollapsibleSidebar({
 				className={`${
 					isMobileOpen ? "flex" : "hidden"
 				} md:flex flex-col flex-1 min-h-0 mt-4 md:mt-0 pt-3 md:pt-0 border-t md:border-t-0 ${
-					isDark ? "border-gray-800" : "border-gray-100"
+					isDark ? "border-gray-800" : "border-gray-200"
 				}`}
 			>
 				{/* Navigation Links */}

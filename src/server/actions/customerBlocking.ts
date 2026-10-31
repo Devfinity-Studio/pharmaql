@@ -26,7 +26,11 @@ export async function getCustomerBlockingMap(): Promise<
 	const map = new Map<string, CustomerBlockingInfo>();
 
 	try {
-		const res = await apiGet<any[]>("/api/master/customer-blocking");
+		const res = await apiGet<any[]>(
+			"/api/master/customer-blocking",
+			undefined,
+			{ ttlSeconds: 600 },
+		);
 		const items = res.data || [];
 
 		items.forEach((r) => {

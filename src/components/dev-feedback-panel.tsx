@@ -335,7 +335,7 @@ export function DevFeedbackPanel() {
 								</div>
 
 								{/* Submitter & Timestamp */}
-								<div className="sm:text-right text-xs text-slate-500 shrink-0 space-y-1 border-t sm:border-t-0 pt-2 sm:pt-0 border-slate-100">
+								<div className="sm:text-right text-xs text-slate-500 shrink-0 space-y-1 border-t sm:border-t-0 pt-2 sm:pt-0 border-slate-200">
 									<div className="font-bold text-slate-800">
 										{report.submittedBy.userRole === "MR" ? (
 											<span className="inline-flex items-center gap-1">

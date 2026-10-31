@@ -54,7 +54,7 @@ export default async function LoginPage() {
 
 			{/* Interactive Form Component Layer */}
 			<div className="relative z-10 mt-8 sm:mx-auto sm:w-full sm:max-w-md">
-				<Suspense fallback={<div className="h-64 rounded-2xl bg-white shadow-sm border border-gray-100 animate-pulse" />}>
+				<Suspense fallback={<div className="h-64 rounded-2xl bg-white shadow-sm border border-gray-200 ring-1 ring-black/5 animate-pulse" />}>
 					<LoginForm />
 				</Suspense>
 			</div>

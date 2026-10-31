@@ -68,11 +68,16 @@ export async function getStockAndSales(params: {
 	itemCategory?: string;
 	includeBr?: string;
 	showFree?: string;
+	forceRefresh?: boolean;
 }): Promise<StockAndSalesResult> {
-	const res = await apiPost<StockAndSalesRow[]>("/api/reports/stock-and-sales", {
-		...params,
-		companyCode: params.compCode,
-	});
+	const res = await apiPost<StockAndSalesRow[]>(
+		"/api/reports/stock-and-sales",
+		{
+			...params,
+			companyCode: params.compCode,
+		},
+		{ forceRefresh: params.forceRefresh, ttlSeconds: 180 },
+	);
 
 	if (!res.success || !res.data) {
 		return {

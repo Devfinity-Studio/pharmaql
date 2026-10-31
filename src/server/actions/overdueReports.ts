@@ -67,10 +67,12 @@ export async function getMRwisePeriodicalOutstanding(params: {
 	seriesIds?: string;
 	custGrp?: string;
 	divIds?: string;
+	forceRefresh?: boolean;
 }): Promise<OverduePeriodicalOutstandingResult> {
 	const res = await apiPost<OverduePeriodicalOutstandingRow[]>(
 		"/api/reports/mr-overdue",
 		params,
+		{ forceRefresh: params.forceRefresh, ttlSeconds: 180 },
 	);
 
 	if (!res.success || !res.data) {

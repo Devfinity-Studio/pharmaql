@@ -224,7 +224,7 @@ export async function ProductReportView({
 		});
 
 		return (
-			<div className="mt-4 space-y-4 rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
+			<div className="mt-4 space-y-4 rounded-xl border border-gray-200 bg-white p-6 shadow-sm ring-1 ring-black/5">
 				<OfflineReportSync
 					data={productGroups}
 					mrId={mrId}
@@ -376,7 +376,7 @@ export async function ProductReportView({
 						) : (
 							catalogItems.map((item, idx: number) => (
 								<tr
-									className="border-gray-100 border-b hover:bg-gray-50"
+									className="border-gray-200 border-b hover:bg-gray-50"
 									key={idx}
 								>
 									<td className="py-1.5 pl-2 font-mono text-gray-600">

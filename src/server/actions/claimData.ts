@@ -48,8 +48,13 @@ export async function getClaimData(params: {
 	rate?: string;
 	isChallan?: string;
 	includeSRet?: string;
+	forceRefresh?: boolean;
 }): Promise<ClaimDataResult> {
-	const res = await apiPost<ClaimDataRow[]>("/api/reports/claim-data", params);
+	const res = await apiPost<ClaimDataRow[]>(
+		"/api/reports/claim-data",
+		params,
+		{ forceRefresh: params.forceRefresh, ttlSeconds: 180 },
+	);
 	let rows: ClaimDataRow[] = res.success && res.data ? [...res.data] : [];
 
 	// Resilient fallback: If /claim-data is blocked or empty, query ERP sales entries

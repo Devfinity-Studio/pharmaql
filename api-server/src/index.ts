@@ -9,11 +9,21 @@ import { authRouter } from "./routes/auth";
 import { kpiRouter } from "./routes/kpi";
 import { dbPool, closeDatabasePool } from "./db";
 
+import compression from "compression";
+import { getCacheStats, invalidateCache } from "./cache";
+
 const app = express();
 const port = parseInt(process.env.PORT || "9443", 10);
 
 // Strict CORS Ingress Middleware (blocks non-whitelisted origins, terminates OPTIONS preflights early)
 app.use(corsMiddleware);
+
+// Automatic gzip/deflate response compression for all responses > 1KB
+app.use(
+  compression({
+    threshold: 1024,
+  })
+);
 
 app.use(express.json({ limit: "10mb" }));
 
@@ -80,6 +90,17 @@ app.use("/api/reports", reportsRouter);
 app.use("/api/master", masterRouter);
 app.use("/api/auth", authRouter);
 app.use("/api/kpi", kpiRouter);
+
+// Cache diagnostics and manual invalidation
+app.get("/api/cache/stats", (_req, res) => {
+  res.json({ success: true, stats: getCacheStats() });
+});
+
+app.post("/api/cache/flush", (req, res) => {
+  const prefix = req.body?.prefix;
+  const cleared = invalidateCache(prefix);
+  res.json({ success: true, message: "Cache flushed", clearedEntries: cleared });
+});
 
 // Global Error Handler
 app.use((err: any, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
