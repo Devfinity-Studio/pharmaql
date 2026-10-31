@@ -46,6 +46,14 @@ export const APP_ROOT = getAppRootDir();
  */
 export function handleVaultCliCommands(): boolean {
   const args = process.argv.slice(2);
+
+  // Command: --version / -v
+  if (args.includes("--version") || args.includes("-v")) {
+    const version = process.env.API_SERVER_VERSION || "1.2.0";
+    console.log(`PharmaQL API Server v${version}`);
+    process.exit(0);
+  }
+
   // Command: --install (Explicit Windows Service installation)
   if (args.includes("--install")) {
     installPharmaQlService();
