@@ -6,8 +6,8 @@ import https from "https";
 import http from "http";
 import { APP_ROOT, isPackaged } from "./config";
 
-export const API_SERVER_VERSION = process.env.API_SERVER_VERSION || "1.2.1";
-export const API_SERVER_LAST_UPDATED = process.env.API_SERVER_LAST_UPDATED || "2026-11-01T02:00:00.000Z";
+export const API_SERVER_VERSION = process.env.API_SERVER_VERSION || "1.2.2";
+export const API_SERVER_LAST_UPDATED = process.env.API_SERVER_LAST_UPDATED || "2026-11-01T02:30:00.000Z";
 
 interface ReleaseInfo {
   hasUpdate: boolean;
@@ -147,43 +147,116 @@ export function executeAtomicServiceSwap(newBinaryPath: string): void {
   const batchScriptPath = path.join(APP_ROOT, "apply-update.bat");
 
   const batchContent = `@echo off
-rem =========================================================
-rem PharmaQL Atomic Service Updater & Rollback Watchdog
-rem =========================================================
-timeout /t 2 /nobreak >nul
+setlocal EnableDelayedExpansion
+title PharmaQL Service Updater
 
-set "NSSM_EXE=${path.join(APP_ROOT, "bin", "nssm.exe")}"
-if not exist "%NSSM_EXE%" set "NSSM_EXE=nssm"
-
-rem 1. Stop NSSM service
-"%NSSM_EXE%" stop "${serviceName}" >nul 2>&1
-timeout /t 1 /nobreak >nul
-
-rem 2. Backup current running executable
-if exist "${path.join(APP_ROOT, "api-server.bak")}" del /f /q "${path.join(APP_ROOT, "api-server.bak")}"
-move /y "${path.join(APP_ROOT, "api-server.exe")}" "${path.join(APP_ROOT, "api-server.bak")}" >nul
-
-rem 3. Move new executable into place
-move /y "${newBinaryPath}" "${path.join(APP_ROOT, "api-server.exe")}" >nul
-
-rem 4. Restart NSSM service
-"%NSSM_EXE%" start "${serviceName}" >nul 2>&1
-timeout /t 3 /nobreak >nul
-
-rem 5. Health Check probe
-curl -s -f http://127.0.0.1:${port}/health >nul 2>&1
+rem 0. Request elevation if running manually without admin rights
+net session >nul 2>&1
 if %errorlevel% neq 0 (
-    echo [PharmaQL Updater] Boot health check failed! Triggering automatic rollback...
-    "%NSSM_EXE%" stop "${serviceName}" >nul 2>&1
-    move /y "${path.join(APP_ROOT, "api-server.bak")}" "${path.join(APP_ROOT, "api-server.exe")}" >nul
-    "%NSSM_EXE%" start "${serviceName}" >nul 2>&1
-    echo [PharmaQL Updater] Rolled back to previous stable binary.
-) else (
-    echo [PharmaQL Updater] Update successfully verified and running.
+    echo [PharmaQL Updater] Requesting Administrator privileges...
+    powershell -NoProfile -Command "Start-Process cmd.exe -ArgumentList '/k \"\"%~dpnx0\"\"' -Verb RunAs"
+    exit /b
 )
 
-rem 6. Cleanup updater script
-del /f /q "%~f0"
+set "APP_DIR=%~dp0"
+set "SERVICE_NAME=${serviceName}"
+set "PORT=${port}"
+set "NSSM_EXE=%APP_DIR%bin\nssm.exe"
+if not exist "!NSSM_EXE!" set "NSSM_EXE=nssm"
+
+echo ========================================================
+echo  PharmaQL Safe Atomic Updater
+echo ========================================================
+echo Target Directory: %APP_DIR%
+echo Service: %SERVICE_NAME% (Port: %PORT%)
+echo.
+
+rem 1. Grace period: wait 3 seconds using ping (works in all non-interactive / service sessions)
+ping 127.0.0.1 -n 4 >nul
+
+rem 2. Stop NSSM service and terminate any remaining api-server process
+echo [1/4] Stopping service '%SERVICE_NAME%'...
+"!NSSM_EXE!" stop "%SERVICE_NAME%" >nul 2>&1
+ping 127.0.0.1 -n 3 >nul
+
+rem Force kill any stubborn running process holding file locks
+taskkill /f /im api-server.exe >nul 2>&1
+ping 127.0.0.1 -n 2 >nul
+
+rem 3. Verify api-server.new exists
+if not exist "%APP_DIR%api-server.new" (
+    echo [ERROR] %APP_DIR%api-server.new not found. Update cannot proceed.
+    goto :restart_service
+)
+
+rem 4. Backup current running executable
+echo [2/4] Backing up current executable to api-server.bak...
+if exist "%APP_DIR%api-server.bak" del /f /q "%APP_DIR%api-server.bak" >nul 2>&1
+if exist "%APP_DIR%api-server.exe" (
+    move /y "%APP_DIR%api-server.exe" "%APP_DIR%api-server.bak" >nul 2>&1
+    if errorlevel 1 (
+        echo [ERROR] Failed to move api-server.exe to api-server.bak (file may still be locked).
+        goto :restart_service
+    )
+)
+
+rem 5. Move new executable into place
+echo [3/4] Swapping api-server.new into place...
+move /y "%APP_DIR%api-server.new" "%APP_DIR%api-server.exe" >nul 2>&1
+if errorlevel 1 (
+    echo [ERROR] Failed to move api-server.new to api-server.exe! Rolling back...
+    if exist "%APP_DIR%api-server.bak" move /y "%APP_DIR%api-server.bak" "%APP_DIR%api-server.exe" >nul 2>&1
+    goto :restart_service
+)
+
+rem 6. Start NSSM service with the new binary
+echo [4/4] Starting service '%SERVICE_NAME%' with new binary...
+"!NSSM_EXE!" start "%SERVICE_NAME%" >nul 2>&1
+
+rem 7. Health Check Probe Loop (up to 20 seconds, checking every 2 seconds)
+echo Verifying health on http://127.0.0.1:%PORT%/health...
+set "BOOT_OK=0"
+for /l %%A in (1,1,10) do (
+    ping 127.0.0.1 -n 3 >nul
+    curl -s -f http://127.0.0.1:%PORT%/health >nul 2>&1
+    if not errorlevel 1 (
+        set "BOOT_OK=1"
+        goto :boot_success
+    )
+    powershell -NoProfile -Command "try { $r = Invoke-WebRequest -Uri 'http://127.0.0.1:%PORT%/health' -TimeoutSec 2 -UseBasicParsing; if ($r.StatusCode -eq 200) { exit 0 } else { exit 1 } } catch { exit 1 }" >nul 2>&1
+    if not errorlevel 1 (
+        set "BOOT_OK=1"
+        goto :boot_success
+    )
+    echo   ... waiting for service to initialize (attempt %%A/10)...
+)
+
+echo [WARNING] Health check probe timed out after 20 seconds.
+echo Checking if api-server.exe is running...
+sc.exe query "%SERVICE_NAME%" | findstr /i "RUNNING" >nul 2>&1
+if not errorlevel 1 (
+    echo [INFO] Service is marked RUNNING in Windows Service Manager. Preserving update.
+    goto :boot_success
+)
+
+echo [ERROR] Service failed to boot! Triggering automatic rollback...
+"!NSSM_EXE!" stop "%SERVICE_NAME%" >nul 2>&1
+ping 127.0.0.1 -n 2 >nul
+taskkill /f /im api-server.exe >nul 2>&1
+if exist "%APP_DIR%api-server.bak" move /y "%APP_DIR%api-server.bak" "%APP_DIR%api-server.exe" >nul 2>&1
+"!NSSM_EXE!" start "%SERVICE_NAME%" >nul 2>&1
+echo [PharmaQL Updater] Rolled back to previous stable binary.
+exit /b 1
+
+:boot_success
+echo [PharmaQL Updater] Update successfully verified and running!
+if exist "%APP_DIR%api-server.bak" del /f /q "%APP_DIR%api-server.bak" >nul 2>&1
+exit /b 0
+
+:restart_service
+echo Restarting service '%SERVICE_NAME%'...
+"!NSSM_EXE!" start "%SERVICE_NAME%" >nul 2>&1
+exit /b 1
 `;
 
   fs.writeFileSync(batchScriptPath, batchContent, "utf8");
