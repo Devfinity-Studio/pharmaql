@@ -3,5 +3,6 @@ dist
 .env
 release/*.exe
 release/.env
+release/*.bat
 release/logs/*.log
 release/bin/

@@ -6,6 +6,12 @@ import {
   loadVaultIntoEnvironment,
   decryptConfigData,
 } from "./vault";
+import {
+  installPharmaQlService,
+  uninstallPharmaQlService,
+  isRunningFromInstalledLocation,
+  TARGET_EXE_PATH,
+} from "./installer";
 
 /**
  * Robust Runtime Environment & Path Resolver for Standalone Executable & NSSM Services

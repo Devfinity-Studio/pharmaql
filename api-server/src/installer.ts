@@ -31,7 +31,6 @@ export function isRunningFromInstalledLocation(): boolean {
  */
 export function isUserAdmin(): boolean {
   try {
-    // Attempting to query an administrative command
     execSync("net session", { stdio: "ignore" });
     return true;
   } catch {
@@ -40,24 +39,45 @@ export function isUserAdmin(): boolean {
 }
 
 /**
- * Elevates the current executable via Windows UAC.
+ * Resolves the source directory where the user launched the executable from.
+ */
+export function resolveSourceDir(): string {
+  const args = process.argv.slice(2);
+  const idx = args.indexOf("--source-dir");
+  if (idx !== -1 && args[idx + 1]) {
+    return path.resolve(args[idx + 1]);
+  }
+  return path.dirname(path.resolve(process.execPath));
+}
+
+/**
+ * Elevates the current executable via Windows UAC with the source directory preserved.
  */
 export function requestElevation(args: string[] = ["--install"]): void {
-  console.log("\n========================================================");
-  console.log(" [PharmaQL Installer] Requesting Administrator Privileges");
-  console.log("========================================================\n");
-  console.log("Please accept the Windows UAC elevation prompt to continue...\n");
+  const currentExe = path.resolve(process.execPath);
+  const sourceDir = resolveSourceDir();
 
-  const currentExe = process.execPath;
-  const escapedArgs = args.map((a) => `\`"${a}\`"`).join(" ");
-  const psCommand = `Start-Process -FilePath "${currentExe}" -ArgumentList "${escapedArgs}" -Verb RunAs`;
+  const fullArgs = [...args];
+  if (!fullArgs.includes("--source-dir")) {
+    fullArgs.push("--source-dir", sourceDir);
+  }
+
+  console.log("\n========================================================");
+  console.log(" [PharmaQL Installer] Administrator Privileges Required");
+  console.log("========================================================\n");
+  console.log("Installing into C:\\Program Files and registering a Windows Service");
+  console.log("requires elevated Administrator permissions.\n");
+  console.log("👉 Please accept the Windows UAC prompt (or right-click and select 'Run as administrator').\n");
+
+  const argString = fullArgs.map((a) => `\"${a}\"`).join(" ");
+  const psCommand = `Start-Process cmd.exe -ArgumentList '/k \"\"${currentExe}\"\" ${argString}' -Verb RunAs`;
 
   try {
     spawnSync("powershell.exe", ["-NoProfile", "-Command", psCommand], {
-      stdio: "inherit",
+      stdio: "ignore",
     });
   } catch (err: any) {
-    console.error("Failed to trigger UAC elevation:", err.message);
+    console.error("Automatic elevation failed:", err.message);
   }
 }
 
@@ -65,12 +85,12 @@ export function requestElevation(args: string[] = ["--install"]): void {
  * Performs self-installation:
  * 1. Copies executable to %ProgramFiles%\PharmaQL-API\api-server.exe
  * 2. Unpacks embedded 64-bit nssm.exe to %ProgramFiles%\PharmaQL-API\bin\nssm.exe
- * 3. Migrates .env / config.vault and seals it
+ * 3. Migrates .env / config.vault and seals it into machine-bound vault
  * 4. Configures and starts the Windows Service via NSSM
  */
 export function installPharmaQlService(): boolean {
   if (!isUserAdmin()) {
-    console.log("[PharmaQL Installer] Administrator rights required. Elevating...");
+    console.log("[PharmaQL Installer] Administrator rights required. Requesting elevation...");
     requestElevation(["--install"]);
     return true;
   }
@@ -82,7 +102,10 @@ export function installPharmaQlService(): boolean {
 
   try {
     const currentExe = path.resolve(process.execPath);
-    const sourceDir = path.dirname(currentExe);
+    const sourceDir = resolveSourceDir();
+
+    console.log(`[1/5] Source Directory: ${sourceDir}`);
+    console.log(`[1/5] Target Directory: ${TARGET_INSTALL_DIR}`);
 
     // 1. Create target folder structure
     const binDir = path.join(TARGET_INSTALL_DIR, "bin");
@@ -93,16 +116,15 @@ export function installPharmaQlService(): boolean {
 
     // 2. Unpack embedded nssm.exe
     const nssmPath = path.join(binDir, "nssm.exe");
-    console.log(`[1/5] Extracting embedded 64-bit NSSM manager to: ${nssmPath}`);
+    console.log(`[2/5] Extracting embedded 64-bit NSSM manager to: ${nssmPath}`);
     const nssmBuffer = getEmbeddedNssmBuffer();
     fs.writeFileSync(nssmPath, nssmBuffer);
 
     // 3. Stop existing service if running before overwriting
     try {
-      console.log(`[2/5] Stopping any running '${SERVICE_NAME}' service...`);
       execSync(`"${nssmPath}" stop "${SERVICE_NAME}"`, { stdio: "ignore" });
     } catch {
-      // Not running or not installed yet
+      // Service not running or not installed
     }
 
     // Small delay to ensure file locks are released
@@ -112,29 +134,55 @@ export function installPharmaQlService(): boolean {
     console.log(`[3/5] Installing api-server.exe into: ${TARGET_EXE_PATH}`);
     if (currentExe.toLowerCase() !== TARGET_EXE_PATH.toLowerCase()) {
       fs.copyFileSync(currentExe, TARGET_EXE_PATH);
+      console.log("  ✓ Executable copied to Program Files.");
     }
 
-    // 5. Migrate config (.env or config.vault)
-    console.log("[4/5] Migrating security configurations...");
-    const srcVault = path.join(sourceDir, "config.vault");
+    // 5. Migrate & Seal config (.env or config.vault)
+    console.log("[4/5] Migrating and sealing configuration...");
     const destVault = path.join(TARGET_INSTALL_DIR, "config.vault");
-    const srcEnv = path.join(sourceDir, ".env");
     const destEnv = path.join(TARGET_INSTALL_DIR, ".env");
 
-    if (fs.existsSync(srcVault)) {
-      fs.copyFileSync(srcVault, destVault);
-      console.log("  ✓ Hardware-bound config.vault migrated successfully.");
-    } else if (fs.existsSync(srcEnv)) {
-      fs.copyFileSync(srcEnv, destEnv);
-      console.log("  ✓ Found source .env file. Encrypting into zero-knowledge vault...");
-      try {
-        sealEnvironmentFile(destEnv, destVault);
-        console.log("  🔒 Plaintext .env sealed into config.vault.");
-      } catch (sealErr: any) {
-        console.warn("  ! Note: Vault sealing warning:", sealErr.message);
+    // Candidates for source .env
+    const candidateEnvs = [
+      path.join(sourceDir, ".env"),
+      path.join(process.cwd(), ".env"),
+      path.join(TARGET_INSTALL_DIR, ".env"),
+    ].filter((p) => fs.existsSync(p));
+
+    // Candidates for existing source config.vault
+    const candidateVaults = [
+      path.join(sourceDir, "config.vault"),
+      path.join(process.cwd(), "config.vault"),
+    ].filter((p) => fs.existsSync(p) && p.toLowerCase() !== destVault.toLowerCase());
+
+    if (candidateEnvs.length > 0) {
+      const srcEnv = candidateEnvs[0];
+      console.log(`  🔒 Found plaintext .env at: ${srcEnv}`);
+      console.log(`  🔒 Encrypting into machine-bound vault: ${destVault}...`);
+
+      const sealResult = sealEnvironmentFile(srcEnv, destVault, true);
+      if (sealResult.success) {
+        console.log(`  ✅ Successfully sealed ${sealResult.keysCount} keys into machine-bound config.vault.`);
+        console.log(`  🗑️ Plaintext ${srcEnv} has been securely shredded and deleted.`);
+      } else {
+        console.warn(`  ⚠️ Vault sealing warning: ${sealResult.error}`);
       }
+
+      // Also clean up any other stray .env files found in candidates
+      for (const remainingEnv of candidateEnvs) {
+        if (fs.existsSync(remainingEnv)) {
+          try {
+            fs.unlinkSync(remainingEnv);
+            console.log(`  🗑️ Removed stray plaintext: ${remainingEnv}`);
+          } catch {}
+        }
+      }
+    } else if (candidateVaults.length > 0) {
+      const srcVault = candidateVaults[0];
+      fs.copyFileSync(srcVault, destVault);
+      console.log(`  ✓ Hardware-bound config.vault copied from: ${srcVault}`);
     } else if (!fs.existsSync(destVault)) {
-      // Write sample .env if neither exists
+      // Write sample starter .env if neither exists
       fs.writeFileSync(
         destEnv,
         "# PharmaQL Configuration\nPORT=9443\nCONTROL_PLANE_URL=https://pharmaql.devfinity.net\n",
@@ -275,4 +323,3 @@ export function uninstallPharmaQlService(): boolean {
     return false;
   }
 }
-
