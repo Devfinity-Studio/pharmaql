@@ -6,8 +6,8 @@ import https from "https";
 import http from "http";
 import { APP_ROOT, isPackaged } from "./config";
 
-export const API_SERVER_VERSION = process.env.API_SERVER_VERSION || "1.2.0";
-export const API_SERVER_LAST_UPDATED = process.env.API_SERVER_LAST_UPDATED || "2026-11-01T01:35:00.000Z";
+export const API_SERVER_VERSION = process.env.API_SERVER_VERSION || "1.2.1";
+export const API_SERVER_LAST_UPDATED = process.env.API_SERVER_LAST_UPDATED || "2026-11-01T02:00:00.000Z";
 
 interface ReleaseInfo {
   hasUpdate: boolean;
@@ -152,8 +152,11 @@ rem PharmaQL Atomic Service Updater & Rollback Watchdog
 rem =========================================================
 timeout /t 2 /nobreak >nul
 
+set "NSSM_EXE=${path.join(APP_ROOT, "bin", "nssm.exe")}"
+if not exist "%NSSM_EXE%" set "NSSM_EXE=nssm"
+
 rem 1. Stop NSSM service
-nssm stop "${serviceName}" >nul 2>&1
+"%NSSM_EXE%" stop "${serviceName}" >nul 2>&1
 timeout /t 1 /nobreak >nul
 
 rem 2. Backup current running executable
@@ -168,7 +171,7 @@ rem 4. Restart NSSM service
 timeout /t 3 /nobreak >nul
 
 rem 5. Health Check probe
-curl -s -f http://127.0.0.1:${port}/api/health >nul 2>&1
+curl -s -f http://127.0.0.1:${port}/health >nul 2>&1
 if %errorlevel% neq 0 (
     echo [PharmaQL Updater] Boot health check failed! Triggering automatic rollback...
     "%NSSM_EXE%" stop "${serviceName}" >nul 2>&1

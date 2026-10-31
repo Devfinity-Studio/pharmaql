@@ -3,7 +3,7 @@ import crypto from "crypto";
 
 export function authMiddleware(req: Request, res: Response, next: NextFunction): void {
   // Allow health check without auth if needed for monitoring
-  if (req.path === "/health") {
+  if (req.path === "/health" || req.path === "/api/health") {
     next();
     return;
   }

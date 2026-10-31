@@ -74,7 +74,7 @@ app.use((req, res, next) => {
 });
 
 // Public health check endpoint
-app.get("/health", async (_req, res) => {
+app.get(["/health", "/api/health"], async (_req, res) => {
   try {
     const [rows] = await dbPool.query("SELECT 1 as alive");
     res.json({

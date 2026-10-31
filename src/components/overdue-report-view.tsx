@@ -106,7 +106,7 @@ export async function OverdueReportView({
 	const fromDateStr = asOnDateStr;
 
 	// 2. Call stored procedure `rptMRwisePeriodicalOutstanding`
-	const procResult = await getMRwisePeriodicalOutstanding({
+	let procResult = await getMRwisePeriodicalOutstanding({
 		mrId: targetMrId,
 		fromDate: fromDateStr,
 		toDate: toDateStr,
@@ -114,6 +114,28 @@ export async function OverdueReportView({
 		compCode: compCodeToQuery,
 		locNo: mrInfo.locNo,
 	});
+
+	// Backward compatibility fallback: If remote API server is on an older version
+	// that strictly required mrId, retry with mrInfo.id so the report is not blank
+	let isLegacyMrFallback = false;
+	if (
+		!procResult.success &&
+		targetMrId === "" &&
+		(procResult.error?.includes("mrId is required") || procResult.error?.includes("Validation Error"))
+	) {
+		console.warn("[OverdueReportView] Remote API server requires mrId. Retrying with MR fallback:", mrInfo.id);
+		procResult = await getMRwisePeriodicalOutstanding({
+			mrId: mrInfo.id,
+			fromDate: fromDateStr,
+			toDate: toDateStr,
+			recDate: "2026-04-01",
+			compCode: compCodeToQuery,
+			locNo: mrInfo.locNo,
+		});
+		if (procResult.success) {
+			isLegacyMrFallback = true;
+		}
+	}
 
 	// Fetch live customer blocking map from ERP
 	const customerBlockingMap = await getCustomerBlockingMap();
@@ -254,6 +276,11 @@ export async function OverdueReportView({
 				summaryRight={`Total Records: ${normalizedRows.length}`}
 				title="MRwise Periodical Outstanding"
 			/>
+			{isLegacyMrFallback && (
+				<div className="rounded border border-amber-300 bg-amber-50 p-2 text-xs text-amber-800">
+					<strong>Notice:</strong> Showing overdue records for this MR only. Update your on-premise API server to v1.2.1 to enable company-division wide multi-MR listing.
+				</div>
+			)}
 
 			<div className="flex flex-wrap items-center justify-between border-b border-gray-200 pb-3 text-xs text-gray-500">
 				<div>
