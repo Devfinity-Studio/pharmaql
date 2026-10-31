@@ -54,3 +54,4 @@ Align the Overdue (MRwise Periodical Outstanding) report display, data calculati
 - [ ] Vitest unit tests execution (`pnpm test`).
 - [ ] Next.js production build (`pnpm run build`).
 - [ ] Preview smoke test on Vercel (`prod` branch).
+

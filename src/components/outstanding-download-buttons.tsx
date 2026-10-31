@@ -78,52 +78,70 @@ export function OutstandingDownloadButtons({ mrId }: { mrId: string }) {
 						? `${from}_to_${to}`
 						: new Date().toISOString().split("T")[0];
 
-				// Format data for the PDF
+				// Format data for the PDF matching Technomax ERP structure
 				const cleanDataForPdf = filteredData.map((row: any) => {
 					return {
 						Company:
 							row["Company"] ||
-							row["Company Code"] ||
 							row["Division"] ||
 							division ||
 							"Unknown",
 						Division:
 							row["Division"] ||
-							row["Company Code"] ||
 							division ||
 							"General",
 						Manufacturer:
-							row["Company Code"] || row["Division"] || division || "Unknown",
-						"Doctor / Party":
-							row["Customer / Party"] || row["Doctor / Party"] || "Unknown",
+							row["MR Name"] || mrName || "Unknown",
+						"Doc Type": row["Doc Type"] || "SALE",
+						"Inv. Date": row["Invoice Date"] || row["Bill Date"] || "N/A",
+						"Invoice No.": row["Invoice No"] || row["Bill No"] || "N/A",
+						"Due Date": row["Due Date"] || "N/A",
+						"Due Days": row["Due Days"] !== undefined ? row["Due Days"] : (row["Overdue Days"] ?? 0),
+						"Doctor / Party": row["Customer / Party"] || row["Doctor / Party"] || "Unknown",
 						City: row["City"] || "Unknown",
-						"Invoice No": row["Bill No"] || row["Invoice No"] || "N/A",
-						"Invoice Date": row["Bill Date"] || row["Invoice Date"] || "N/A",
-						"Amount Due": Number(
-							row["Balance Amount"] ??
+						"Invoice Amount": Number(row["Invoice Amount"] ?? row["Bill Amount"] ?? 0),
+						"Received Amount": Number(row["Received Amount"] ?? row["Adjusted Amount"] ?? 0),
+						"Received Date": row["Received Date"] || "",
+						"Pending Amount": Number(
+							row["Pending Amount"] ??
+								row["Balance Amount"] ??
 								row["Amount Due"] ??
-								row["Bill Amount"] ??
 								0,
 						),
-						"Overdue Days": Number(
-							row["Purchase Days"] ?? row["Overdue Days"] ?? 0,
+						"Amount Due": Number(
+							row["Pending Amount"] ??
+								row["Balance Amount"] ??
+								row["Amount Due"] ??
+								0,
 						),
 					};
 				});
 
 				const columns = [
+					{ header: "Doc Type", dataKey: "Doc Type" },
+					{ header: "Inv. Date", dataKey: "Inv. Date" },
+					{ header: "Invoice No.", dataKey: "Invoice No." },
+					{ header: "Due Date", dataKey: "Due Date" },
+					{
+						header: "Due Days",
+						dataKey: "Due Days",
+						halign: "right" as const,
+					},
 					{ header: "Doctor / Party", dataKey: "Doctor / Party" },
 					{ header: "City", dataKey: "City" },
-					{ header: "Invoice No", dataKey: "Invoice No" },
-					{ header: "Invoice Date", dataKey: "Invoice Date" },
 					{
-						header: "Amount Due",
-						dataKey: "Amount Due",
+						header: "Invoice Amount",
+						dataKey: "Invoice Amount",
 						halign: "right" as const,
 					},
 					{
-						header: "Overdue Days",
-						dataKey: "Overdue Days",
+						header: "Received Amount",
+						dataKey: "Received Amount",
+						halign: "right" as const,
+					},
+					{
+						header: "Pending Amount",
+						dataKey: "Pending Amount",
 						halign: "right" as const,
 					},
 				];

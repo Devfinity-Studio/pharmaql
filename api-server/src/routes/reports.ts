@@ -361,7 +361,8 @@ reportsRouter.post("/mr-overdue", async (req: Request, res: Response) => {
     const finYearStart = "2026-04-01";
     const fromDateStr = params.fromDate || finYearStart;
     const toDateStr = params.toDate || new Date().toISOString().slice(0, 10);
-    const odbcFinYearStart = formatDateToOdbc(finYearStart);
+    const recDateStr = params.recDate || toDateStr;
+    const odbcRecDate = formatDateToOdbc(recDateStr);
     const odbcFromDate = formatDateToOdbc(fromDateStr);
     const odbcToDate = formatDateToOdbc(toDateStr);
 
@@ -384,7 +385,7 @@ reportsRouter.post("/mr-overdue", async (req: Request, res: Response) => {
       compNo,
       locNo,
       finYear,
-      odbcFinYearStart,
+      odbcRecDate,
       odbcFromDate,
       odbcToDate,
       `'${cityParam.replace(/'/g, "''")}'`,
@@ -399,7 +400,7 @@ reportsRouter.post("/mr-overdue", async (req: Request, res: Response) => {
     ].join(", ");
 
     const sql = `CALL \`rptMRwisePeriodicalOutstanding\`(${formattedParams})`;
-    const cacheKey = `report:mr-overdue:${compNo}:${locNo}:${finYear}:${compCodeParam}:${divIdsParam}:${mrIdParam}:${custIdsParam}:${cityParam}:${areaParam}:${custTypeParam}:${odbcFromDate}:${odbcToDate}`;
+    const cacheKey = `report:mr-overdue:${compNo}:${locNo}:${finYear}:${compCodeParam}:${divIdsParam}:${mrIdParam}:${custIdsParam}:${cityParam}:${areaParam}:${custTypeParam}:${odbcRecDate}:${odbcFromDate}:${odbcToDate}`;
     const bypassCache = req.headers["x-bypass-cache"] === "true" || req.body?.forceRefresh === true;
 
     const rows = await getOrSetCache(

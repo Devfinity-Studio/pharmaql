@@ -1,5 +1,7 @@
 "use server";
 
+import { headers } from "next/headers";
+
 import { getAllMRUsers, getMRInfo } from "./mrInfo";
 import { getMROverrides } from "./mrs";
 import {
@@ -112,8 +114,18 @@ export async function evaluateMROverdueStatus(
 		outRes.success && outRes.data ? outRes.data : []
 	) as OverduePeriodicalOutstandingRow[];
 
+	let directBlockLimit = 90;
+	let divisionBlockLimit = 95;
+	try {
+		const h = await headers();
+		const directH = Number(h.get("x-tenant-overdue-direct"));
+		const divH = Number(h.get("x-tenant-overdue-division"));
+		if (!isNaN(directH) && directH > 0) directBlockLimit = directH;
+		if (!isNaN(divH) && divH > 0) divisionBlockLimit = divH;
+	} catch {}
+
 	const { totalPendingAmt, oldestDays, warningInvoices, blockingInvoices } =
-		evaluateOverdueInvoices(rows);
+		evaluateOverdueInvoices(rows, { directBlockDays: directBlockLimit });
 
 	// If direct block applies (>90 days)
 	if (blockingInvoices.length > 0) {
@@ -154,7 +166,7 @@ export async function evaluateMROverdueStatus(
 				warningInvoices,
 				blockingInvoices,
 				divisionName: mrInfo.division || mrInfo.company,
-				message: `Account is automatically blocked due to pending payment exceeding 90 days on invoice ${worst.invoiceNo} (₹${worst.amount.toFixed(2)}, ${worst.overDays} days overdue).`,
+				message: `Account is automatically blocked due to pending payment exceeding ${directBlockLimit} days on invoice ${worst.invoiceNo} (₹${worst.amount.toFixed(2)}, ${worst.overDays} days overdue).`,
 				hasAdminExemption: false,
 			};
 		}
@@ -251,7 +263,7 @@ export async function evaluateMROverdueStatus(
 					// Division cascading block only triggers when peer payment exceeds 95 days
 					const peerBlocking = peerItems.filter((p) => {
 						const net = Number(p.Amount || 0) - Number(p.AdjAmt || 0);
-						return net > 0 && Number(p.OverDays || 0) > 95;
+						return net > 0 && Math.abs(Number(p.OverDays || 0)) > divisionBlockLimit && Number(p.OverDays || 0) < 0;
 					});
 
 					if (peerBlocking.length > 0) {
@@ -278,7 +290,7 @@ export async function evaluateMROverdueStatus(
 									worst.DocNo || worst.AgainstNo || `INV-${worst.ID}`,
 								responsibleAmount: netAmt,
 								responsibleOverDays: overDays,
-								message: `Division access for '${divisionName}' is temporarily suspended because MR ${peer.MRName || peerId} has overdue payments exceeding 95 days on invoice ${worst.DocNo || worst.AgainstNo} (₹${netAmt.toFixed(2)}, ${overDays} days overdue).`,
+								message: `Division access for '${divisionName}' is temporarily suspended because MR ${peer.MRName || peerId} has overdue payments exceeding ${divisionBlockLimit} days on invoice ${worst.DocNo || worst.AgainstNo} (₹${netAmt.toFixed(2)}, ${overDays} days overdue).`,
 								hasAdminExemption: false,
 							};
 						}
