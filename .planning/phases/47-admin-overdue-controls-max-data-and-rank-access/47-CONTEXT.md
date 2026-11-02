@@ -10,3 +10,4 @@
    - Admins remain unrestricted.
 3. **Admin Full Visibility Across All MRs Regardless of Rank**:
    - Ensure that even if an MR has a lower rank (Rank 1, 2) that restricts them from viewing specific reports, Admins can view all reports for all MRs without restriction.
+
