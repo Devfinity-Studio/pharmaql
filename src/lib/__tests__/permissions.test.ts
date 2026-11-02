@@ -11,6 +11,7 @@ describe("permissions", () => {
 			expect(perms.canViewSales).toBe(false);
 			expect(perms.canViewPartyWise).toBe(false);
 			expect(perms.canViewProductWise).toBe(false);
+			expect(perms.canViewExpiry).toBe(false);
 		});
 
 		it("grants Stock, Stock & Sales, and Free Scheme (Claim) for Rank 2", () => {
@@ -21,6 +22,7 @@ describe("permissions", () => {
 			expect(perms.canViewSales).toBe(false);
 			expect(perms.canViewPartyWise).toBe(false);
 			expect(perms.canViewProductWise).toBe(false);
+			expect(perms.canViewExpiry).toBe(false);
 		});
 
 		it("grants all report permissions for Rank 3", () => {
@@ -31,6 +33,7 @@ describe("permissions", () => {
 			expect(perms.canViewSales).toBe(true);
 			expect(perms.canViewPartyWise).toBe(true);
 			expect(perms.canViewProductWise).toBe(true);
+			expect(perms.canViewExpiry).toBe(true);
 		});
 
 		it("correctly resolves ranks across multi-division rows without null profile escalation", () => {

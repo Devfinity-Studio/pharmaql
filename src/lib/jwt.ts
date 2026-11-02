@@ -32,6 +32,7 @@ export interface SessionUser {
 	canViewFreeScheme?: boolean;
 	canViewPartyWise?: boolean;
 	canViewProductWise?: boolean;
+	canViewExpiry?: boolean;
 }
 
 export async function signSessionToken(
