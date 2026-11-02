@@ -1,7 +1,7 @@
 # State
 
 **Current Milestone:** Milestone 1 - Production Hardening & Optimization
-**Active Phase:** Phase 43 (Client API Server Auto-Update and Zero-Knowledge Config Protection) - Complete & Shipped
+**Active Phase:** Phase 44 (Overdue Report Multi-MR Listing and Export Formatting) - Planned
 **Current Stable Release:** `v1.6.0-zero-knowledge-vault-ota-updater`
 **Status:** Phase 43 complete and verified across dev, prod preview, and production deploymment. AES-256-GCM hardware-bound config vault, background OTA updater daemon with SHA-256 validation, atomic NSSM service swap & auto-rollback, Control Plane release routes, and Dev Control Center Fleet Monitor.
 
@@ -34,3 +34,4 @@
 - Phase 41 added: Tenant Logo S3 Storage Mapping & Dynamic Favicon Branding
 - Phase 42 added: Overdue Report Fix [COMPLETED]
 - Phase 43 added: Client API Server Auto-Update and Zero-Knowledge Config Protection [COMPLETED]
+- Phase 44 added: Overdue Report Multi-MR Listing and Export Formatting [PLANNED]

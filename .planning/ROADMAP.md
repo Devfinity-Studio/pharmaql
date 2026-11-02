@@ -367,3 +367,16 @@
 - [x] **Atomic Service Swap & Safe Rollback Pipeline**: Detached batch orchestrator stopping NSSM Windows service, backing up `api-server.exe` -> `api-server.bak`, atomically replacing `api-server.exe`, restarting service, probing `/health`, and auto-rolling back if probe fails.
 - [x] **Control Plane Release Distribution Hub & Telemetry**: Multi-tenant Control Plane API routes (`/api/releases/latest`, `/api/releases/telemetry`, `/api/releases/download`) and Dev Control Center UI tab ("API Fleet & OTA Releases") with live server heartbeat streaming and release publisher.
 - [x] **Verification & Validation**: 130 unit tests passing, zero TypeScript errors, standalone Windows executable bundled and verified, Next.js production build passing, and 3-stage promotion workflow.
+
+## Phase 44: Overdue Report Multi-MR Listing and Export Formatting
+
+**Goal:** Transform the Overdue / Outstanding report from a single-MR query to a company-division wide Multi-MR hierarchical listing, simplify the header to a single AsOn Date filter, and standardize all export formats (PDF, Excel, CSV, and Print) with complete party, area, and MR totals.
+**Depends on:** Phase 42, Phase 43
+**Status:** Not planned yet
+
+- [ ] **Single 'AsOn Date' Filter & Parameter Alignment**: Replace the date range selector with a single AsOn Date picker across the Overdue Report filter bar. Configure `p_FromDt` and `p_RecDt` to base financial year start (`YYYY-04-01`) and `p_ToDt` to the selected AsOn Date.
+- [ ] **Multi-MR Company-Division Query Execution**: Pass empty string `p_MRId = ''` to stored procedure `rptMRwisePeriodicalOutstanding` when running company-division overdue report, retrieving all MRs across the company-division.
+- [ ] **Hierarchical Multi-MR UI View**: Update `src/components/overdue-report-view.tsx` to group records by MR -> City/Area -> Party, displaying MR header badges, subtotals per MR, and grand totals for the company-division.
+- [ ] **Multi-MR Export Support (PDF, Excel, CSV & Print)**: Update export generation in `src/app/api/reports/download-outstanding/route.ts` and client print handlers to format hierarchical Multi-MR statements with tenant letterhead, AsOn Date header, and structured tables.
+- [ ] **Verification & Validation**: Verify live query execution with AsOn date, test PDF/Excel/CSV exports across multiple MRs, run test suites (`pnpm test`), verify TypeScript build (`tsc --noEmit`), and execute 3-stage deployment workflow.
+
