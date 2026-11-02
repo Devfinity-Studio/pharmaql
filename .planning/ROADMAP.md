@@ -367,3 +367,16 @@
 - [x] **Atomic Service Swap & Safe Rollback Pipeline**: Detached batch orchestrator stopping NSSM Windows service, backing up `api-server.exe` -> `api-server.bak`, atomically replacing `api-server.exe`, restarting service, probing `/health`, and auto-rolling back if probe fails.
 - [x] **Control Plane Release Distribution Hub & Telemetry**: Multi-tenant Control Plane API routes (`/api/releases/latest`, `/api/releases/telemetry`, `/api/releases/download`) and Dev Control Center UI tab ("API Fleet & OTA Releases") with live server heartbeat streaming and release publisher.
 - [x] **Verification & Validation**: 130 unit tests passing, zero TypeScript errors, standalone Windows executable bundled and verified, Next.js production build passing, and 3-stage promotion workflow.
+
+## Phase 44: Overdue Report Multi-MR Listing and Export Formatting [COMPLETED]
+
+**Goal:** Transform the Overdue / Outstanding report from a single-MR query to a company-division wide Multi-MR hierarchical listing, simplify the header to a single AsOn Date filter, and standardize all export formats (PDF, Excel, CSV, and Print) with complete party, area, and MR totals.
+**Depends on:** Phase 42, Phase 43
+**Status:** Completed
+
+- [x] **Single 'AsOn Date' Filter & Parameter Alignment**: Hardened `p_FromDt` and `p_RecDt` to base financial year start (`2026-04-01`) and mapped `p_ToDt` to the selected AsOn Date across `src/components/overdue-report-view.tsx` and `src/app/api/reports/download-outstanding/route.ts`. Added "Today" and "Prev Month End" shortcut presets to `src/components/date-range-picker.tsx`.
+- [x] **Multi-MR Company-Division Query Execution**: Pass empty string `p_MRId = ''` to stored procedure `rptMRwisePeriodicalOutstanding` when running company-division overdue report, retrieving all MR records across the company-division.
+- [x] **Hierarchical Multi-MR UI View**: Grouped records by MR -> City/Area -> Party in `src/components/overdue-report-view.tsx`, displaying party subtotals, MR subtotals, running cumulative balance, and company-division Grand Total with live ERP blocking status badges.
+- [x] **Multi-MR Export Support (PDF, Excel, CSV & Print)**: Enhanced `generateGroupedPdfReport` in `src/lib/pdf.ts` to calculate and render subtotals and grand totals across all 3 monetary columns (`Invoice Amount`, `Received Amount`, `Pending Amount`). Formatted Multi-MR Excel and CSV exports with party records, MR subtotals, and Grand Total.
+- [x] **Verification & Validation**: All 25 Vitest test suites passed (138/138 tests), TypeScript passed cleanly (`tsc --noEmit`), and Next.js production build (`next build`) compiled successfully. Documented in `44-UAT.md`.
+
