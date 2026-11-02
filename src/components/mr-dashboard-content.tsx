@@ -8,6 +8,8 @@ import { MROverdueWarningModal } from "@/components/mr-overdue-warning-modal";
 import { OfflineReportSync } from "@/components/offline-report-sync";
 import { OutstandingDownloadButtons } from "@/components/outstanding-download-buttons";
 import { OverdueReportView } from "@/components/overdue-report-view";
+import { ExpiryReportView } from "@/components/expiry-report-view";
+import { ExpiryDownloadButtons } from "@/components/expiry-download-buttons";
 import { PartyReportView } from "@/components/party-report-view";
 import { ProductReportView } from "@/components/product-report-view";
 import { ReportDownloadButtons } from "@/components/report-download-buttons";
@@ -572,7 +574,7 @@ export async function MrDashboardContent({
 						</div>
 						<div className="flex items-center gap-2">
 							<DataSyncButton />
-							{activeTab === "overdue" ? (
+							{activeTab === "overdue" || activeTab === "expiry" ? (
 								<DateRangePicker singleDateLabel="AsOn Date" singleDateMode={true} />
 							) : (
 								<DateRangePicker />
@@ -591,6 +593,9 @@ export async function MrDashboardContent({
 							)}
 							{activeTab === "overdue" && (
 								<OutstandingDownloadButtons mrId={mrId} />
+							)}
+							{activeTab === "expiry" && (
+								<ExpiryDownloadButtons mrId={mrId} />
 							)}
 						</>
 					) : (
@@ -704,6 +709,19 @@ export async function MrDashboardContent({
 						}).toString()}`}
 					>
 						Overdue
+					</Link>
+					<Link
+						className={`border-b-4 px-5 py-3 font-bold text-sm transition-colors ${
+							activeTab === "expiry"
+								? "border-[#0071BC] text-[#0071BC]"
+								: "border-transparent text-gray-500 hover:text-[#0B2545]"
+						}`}
+						href={`${baseUrl}?${new URLSearchParams({
+							...searchParams,
+							tab: "expiry",
+						}).toString()}`}
+					>
+						Expiry
 					</Link>
 				</div>
 			</div>
@@ -969,6 +987,11 @@ export async function MrDashboardContent({
 						) : (
 							<OverdueReportView mrId={mrId} searchParams={searchParams} />
 						))}
+
+					{/* EXPIRY REPORT TAB */}
+					{activeTab === "expiry" && (
+						<ExpiryReportView mrId={mrId} searchParams={searchParams} />
+					)}
 
 					{/* STOCK REPORTS TAB (Stock MVT) */}
 					{activeTab === "stock" &&

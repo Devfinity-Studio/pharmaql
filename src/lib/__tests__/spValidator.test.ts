@@ -4,6 +4,7 @@ import {
 	validateStockMovementParams,
 	validateStockAndSalesParams,
 	validatePartyItemSaleParams,
+	validateExpiryStockParams,
 } from "../../../api-server/src/utils/spValidator";
 
 describe("spValidator - Stored Procedure Parameter Schema Guards", () => {
@@ -100,6 +101,25 @@ describe("spValidator - Stored Procedure Parameter Schema Guards", () => {
 				toDate: "2026-10-31",
 			});
 			expect(res.isValid).toBe(true);
+		});
+	});
+
+	describe("validateExpiryStockParams (rptExpiryStockStatement)", () => {
+		it("accepts empty params (defaults to today on server)", () => {
+			const res = validateExpiryStockParams({});
+			expect(res.isValid).toBe(true);
+			expect(res.errors).toHaveLength(0);
+		});
+
+		it("accepts valid asOnDate format YYYY-MM-DD", () => {
+			const res = validateExpiryStockParams({ asOnDate: "2026-10-31" });
+			expect(res.isValid).toBe(true);
+		});
+
+		it("rejects malformed asOnDate", () => {
+			const res = validateExpiryStockParams({ asOnDate: "31-10-2026" });
+			expect(res.isValid).toBe(false);
+			expect(res.errors[0]).toContain("asOnDate must be a valid date formatted as YYYY-MM-DD");
 		});
 	});
 });

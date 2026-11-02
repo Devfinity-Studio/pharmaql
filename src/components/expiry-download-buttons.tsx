@@ -1,0 +1,279 @@
+"use client";
+
+import { useSearchParams } from "next/navigation";
+import { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
+import { generateGroupedPdfReport, type PdfBranding } from "@/lib/pdf";
+import { useTenant } from "@/lib/tenant-context";
+
+export function ExpiryDownloadButtons({ mrId }: { mrId: string }) {
+	const tenant = useTenant();
+	const searchParams = useSearchParams();
+	const division = searchParams.get("division") || searchParams.get("company") || "All";
+	const currentUrlAsOn = searchParams.get("asOn") || searchParams.get("to") || "";
+	const [asOnDate, setAsOnDate] = useState(
+		currentUrlAsOn || new Date().toISOString().split("T")[0],
+	);
+
+	const [isOpen, setIsOpen] = useState(false);
+	const [format, setFormat] = useState<"csv" | "excel" | "pdf" | "print">("csv");
+	const [rateType, setRateType] = useState<"PRate" | "PTR" | "MRP">("PRate");
+	const [isDownloading, setIsDownloading] = useState(false);
+	const [mounted, setMounted] = useState(false);
+
+	useEffect(() => {
+		setMounted(true);
+	}, []);
+
+	const openModal = (fmt: "csv" | "excel" | "pdf" | "print") => {
+		setFormat(fmt);
+		const activeAsOn =
+			searchParams.get("asOn") ||
+			searchParams.get("to") ||
+			new Date().toISOString().split("T")[0];
+		setAsOnDate(activeAsOn);
+		setIsOpen(true);
+	};
+
+	const handleDownload = async () => {
+		setIsDownloading(true);
+		const params = new URLSearchParams();
+		params.set("mrId", mrId);
+		params.set("division", division);
+		if (asOnDate) {
+			params.set("asOn", asOnDate);
+			params.set("to", asOnDate);
+		}
+		params.set("rateType", rateType);
+		const q = searchParams.get("q");
+		if (q) params.set("q", q);
+
+		if (format === "pdf" || format === "print") {
+			params.set("format", "json");
+			try {
+				const res = await fetch(`/api/reports/download-expiry?${params.toString()}`);
+				if (!res.ok) throw new Error("Failed to fetch data");
+				const serverDateStr = res.headers.get("date") || undefined;
+				const data = await res.json();
+
+				const safeDivision = division.replace(/[^a-zA-Z0-9]/g, "_");
+				const dateTag = asOnDate || new Date().toISOString().split("T")[0];
+
+				const columns = [
+					{ header: "Item Code", dataKey: "Item Code" },
+					{ header: "Item Name", dataKey: "Item Name" },
+					{ header: "Packing", dataKey: "Packing" },
+					{ header: "Batch No", dataKey: "Batch No" },
+					{ header: "Exp. Date", dataKey: "Exp. Date" },
+					{ header: "Godown", dataKey: "Godown" },
+					{ header: "Stock Qty", dataKey: "Stock Qty", halign: "right" as const },
+					{ header: "PRate", dataKey: "PRate", halign: "right" as const },
+					{ header: "PTR", dataKey: "PTR", halign: "right" as const },
+					{ header: "Stock Value", dataKey: "Stock Value", halign: "right" as const },
+				];
+
+				const pdfBranding: PdfBranding = {
+					companyName: tenant.displayName,
+					address: tenant.address,
+					contactInfo: [
+						tenant.phone ? `Contact: ${tenant.phone}` : "",
+						tenant.email || tenant.supportEmail
+							? `Email: ${tenant.email || tenant.supportEmail}`
+							: "",
+					]
+						.filter(Boolean)
+						.join("  |  "),
+					gstin: tenant.gstin,
+					logoUrl: tenant.logoUrl,
+				};
+
+				await generateGroupedPdfReport(
+					`Expiry Stock Statement`,
+					`${safeDivision}_Expiry_Stock_AsOn_${dateTag}.pdf`,
+					data,
+					columns as any,
+					format === "print" ? "print" : "download",
+					division === "All" ? "All Companies" : division,
+					undefined,
+					asOnDate,
+					serverDateStr,
+					pdfBranding,
+				);
+			} catch (e) {
+				console.error(e);
+				alert("Failed to generate PDF");
+			}
+		} else {
+			params.set("format", format);
+			window.location.href = `/api/reports/download-expiry?${params.toString()}`;
+		}
+
+		setIsDownloading(false);
+		setIsOpen(false);
+	};
+
+	return (
+		<>
+			<div className="flex flex-wrap gap-2">
+				<button
+					className="flex h-[36px] items-center justify-center gap-1.5 rounded-xl border border-[#BAE6FD] bg-[#E0F2FE] px-3 py-2 font-bold text-[#0071BC] text-xs transition hover:bg-[#BAE6FD]"
+					onClick={() => openModal("csv")}
+					title="Download Expiry Statement (CSV)"
+					type="button"
+				>
+					<svg
+						className="h-3.5 w-3.5"
+						fill="none"
+						stroke="currentColor"
+						viewBox="0 0 24 24"
+						xmlns="http://www.w3.org/2000/svg"
+					>
+						<path
+							d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+							strokeLinecap="round"
+							strokeLinejoin="round"
+							strokeWidth="2"
+						/>
+					</svg>
+					CSV
+				</button>
+				<button
+					className="flex h-[36px] items-center justify-center gap-1.5 rounded-xl bg-[#0071BC] px-3 py-2 font-bold text-white text-xs shadow-sm transition hover:bg-[#134074]"
+					onClick={() => openModal("excel")}
+					title="Download Expiry Statement (Excel)"
+					type="button"
+				>
+					<svg
+						className="h-3.5 w-3.5"
+						fill="none"
+						stroke="currentColor"
+						viewBox="0 0 24 24"
+						xmlns="http://www.w3.org/2000/svg"
+					>
+						<path
+							d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+							strokeLinecap="round"
+							strokeLinejoin="round"
+							strokeWidth="2"
+						/>
+					</svg>
+					Excel
+				</button>
+				<button
+					className="flex h-[36px] items-center justify-center gap-1.5 rounded-xl bg-[#0B2545] px-3 py-2 font-bold text-white text-xs shadow-sm transition hover:bg-[#1E293B]"
+					onClick={() => openModal("pdf")}
+					title="Download Expiry Statement (PDF)"
+					type="button"
+				>
+					<svg
+						className="h-3.5 w-3.5"
+						fill="none"
+						stroke="currentColor"
+						viewBox="0 0 24 24"
+						xmlns="http://www.w3.org/2000/svg"
+					>
+						<path
+							d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+							strokeLinecap="round"
+							strokeLinejoin="round"
+							strokeWidth="2"
+						/>
+					</svg>
+					PDF
+				</button>
+				<button
+					className="flex h-[36px] items-center justify-center gap-1.5 rounded-xl border border-gray-300 bg-white px-3 py-2 font-bold text-gray-700 text-xs transition hover:bg-gray-50"
+					onClick={() => openModal("print")}
+					title="Print Expiry Statement"
+					type="button"
+				>
+					<svg
+						className="h-3.5 w-3.5"
+						fill="none"
+						stroke="currentColor"
+						viewBox="0 0 24 24"
+						xmlns="http://www.w3.org/2000/svg"
+					>
+						<path
+							d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"
+							strokeLinecap="round"
+							strokeLinejoin="round"
+							strokeWidth="2"
+						/>
+					</svg>
+					Print
+				</button>
+			</div>
+
+			{/* Prompt Dialog Window via Portal */}
+			{isOpen &&
+				mounted &&
+				createPortal(
+					<div className="fixed inset-0 z-[9999] flex items-center justify-center p-4">
+						<div
+							className="fixed inset-0 bg-black/60 backdrop-blur-md transition-opacity duration-200"
+							onClick={() => setIsOpen(false)}
+						/>
+
+						<div className="fade-in zoom-in-95 relative z-10 w-full max-w-sm animate-in rounded-2xl border border-gray-200/80 bg-white p-6 shadow-2xl duration-200">
+							<h3 className="mb-2 font-extrabold text-[#0B2545] text-xl">
+								Download Expiry Stock {format.toUpperCase()}
+							</h3>
+							<p className="mb-6 font-medium text-gray-500 text-sm">
+								Select the AsOn cutoff date to include batches expiring on or before that date.
+							</p>
+
+							<div className="space-y-4">
+								<div>
+									<label className="mb-2 block font-bold text-[#0B2545] text-sm">
+										AsOn Date (Cutoff)
+									</label>
+									<input
+										className="w-full rounded-xl border-2 border-gray-300 bg-white px-4 py-2.5 font-medium text-[#0B2545] text-base outline-none transition-colors focus:border-[#0071BC]"
+										onChange={(e) => setAsOnDate(e.target.value)}
+										type="date"
+										value={asOnDate}
+									/>
+								</div>
+
+								<div>
+									<label className="mb-2 block font-bold text-[#0B2545] text-sm">
+										Valuation Rate Basis
+									</label>
+									<select
+										className="w-full rounded-xl border-2 border-gray-300 bg-white px-4 py-2.5 font-medium text-[#0B2545] text-sm outline-none transition-colors focus:border-[#0071BC]"
+										onChange={(e) => setRateType(e.target.value as any)}
+										value={rateType}
+									>
+										<option value="PRate">Purchase Rate (PRate)</option>
+										<option value="PTR">Price To Retailer (PTR)</option>
+										<option value="MRP">Maximum Retail Price (MRP)</option>
+									</select>
+								</div>
+							</div>
+
+							<div className="mt-8 flex gap-3">
+								<button
+									className="flex-1 rounded-xl border-2 border-gray-300 bg-white px-4 py-2.5 font-bold text-gray-700 transition-colors hover:bg-gray-50 disabled:opacity-50"
+									disabled={isDownloading}
+									onClick={() => setIsOpen(false)}
+									type="button"
+								>
+									Cancel
+								</button>
+								<button
+									className="flex flex-1 items-center justify-center rounded-xl bg-[#0071BC] px-4 py-2.5 font-bold text-white shadow-sm transition-colors hover:bg-[#134074] disabled:opacity-50"
+									disabled={isDownloading}
+									onClick={handleDownload}
+									type="button"
+								>
+									{isDownloading ? "..." : "Confirm"}
+								</button>
+							</div>
+						</div>
+					</div>,
+					document.body,
+				)}
+		</>
+	);
+}
