@@ -109,7 +109,8 @@ export async function GET(request: Request) {
 	// bifurcated MR-wise. By default, p_MRId is '' (empty string) so all MRs for the company are returned.
 	const targetMrId = searchParams.get("mr") || searchParams.get("singleMr") || "";
 
-	const asOn = searchParams.get("asOn") || searchParams.get("to") || to || new Date().toISOString().split("T")[0];
+	const asOn = searchParams.get("asOn") || searchParams.get("to") || to || new Date().toISOString().slice(0, 10);
+	const recDate = searchParams.get("recDate") || searchParams.get("receivedDate") || asOn;
 	const finYearStart = "2026-04-01";
 	const defaultTo = asOn;
 
@@ -118,7 +119,7 @@ export async function GET(request: Request) {
 		compCode: compCodeToQuery,
 		fromDate: finYearStart,
 		toDate: defaultTo,
-		recDate: finYearStart,
+		recDate: recDate,
 		locNo: mrInfo.locNo || "11",
 	});
 
@@ -133,7 +134,7 @@ export async function GET(request: Request) {
 			compCode: compCodeToQuery,
 			fromDate: finYearStart,
 			toDate: defaultTo,
-			recDate: finYearStart,
+			recDate: recDate,
 			locNo: mrInfo.locNo || "11",
 		});
 	}

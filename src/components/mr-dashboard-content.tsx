@@ -584,7 +584,9 @@ export async function MrDashboardContent({
 						</div>
 						<div className="flex items-center gap-2">
 							<DataSyncButton />
-							{activeTab === "overdue" || activeTab === "expiry" ? (
+							{activeTab === "overdue" ? (
+								<DateRangePicker showReceivedDate={true} />
+							) : activeTab === "expiry" ? (
 								<DateRangePicker singleDateLabel="AsOn Date" singleDateMode={true} />
 							) : (
 								<DateRangePicker />

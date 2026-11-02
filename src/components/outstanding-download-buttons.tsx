@@ -20,7 +20,9 @@ export function OutstandingDownloadButtons({ mrId }: { mrId: string }) {
 		"csv",
 	);
 	const currentUrlAsOn = searchParams.get("asOn") || searchParams.get("to") || "";
-	const [asOnDate, setAsOnDate] = useState(currentUrlAsOn || new Date().toISOString().split("T")[0]);
+	const currentUrlRec = searchParams.get("recDate") || searchParams.get("receivedDate") || currentUrlAsOn;
+	const [asOnDate, setAsOnDate] = useState(currentUrlAsOn || new Date().toISOString().slice(0, 10));
+	const [recDate, setRecDate] = useState(currentUrlRec || currentUrlAsOn || new Date().toISOString().slice(0, 10));
 	const [isDownloading, setIsDownloading] = useState(false);
 	const [mounted, setMounted] = useState(false);
 
@@ -30,8 +32,10 @@ export function OutstandingDownloadButtons({ mrId }: { mrId: string }) {
 
 	const openModal = (fmt: "csv" | "excel" | "pdf" | "print") => {
 		setFormat(fmt);
-		const activeAsOn = searchParams.get("asOn") || searchParams.get("to") || new Date().toISOString().split("T")[0];
+		const activeAsOn = searchParams.get("asOn") || searchParams.get("to") || new Date().toISOString().slice(0, 10);
+		const activeRec = searchParams.get("recDate") || searchParams.get("receivedDate") || activeAsOn;
 		setAsOnDate(activeAsOn);
+		setRecDate(activeRec);
 		setIsOpen(true);
 	};
 
@@ -44,6 +48,9 @@ export function OutstandingDownloadButtons({ mrId }: { mrId: string }) {
 			params.set("asOn", asOnDate);
 			params.set("to", asOnDate);
 			params.set("from", "2026-04-01");
+		}
+		if (recDate) {
+			params.set("recDate", recDate);
 		}
 		if (party) params.set("party", party);
 
@@ -289,9 +296,24 @@ export function OutstandingDownloadButtons({ mrId }: { mrId: string }) {
 									</label>
 									<input
 										className="w-full rounded-xl border-2 border-gray-300 bg-white px-4 py-2.5 font-medium text-[#0B2545] text-base outline-none transition-colors focus:border-[#0071BC]"
-										onChange={(e) => setAsOnDate(e.target.value)}
+										onChange={(e) => {
+											const val = e.target.value;
+											setAsOnDate(val);
+											if (!recDate || recDate === asOnDate) setRecDate(val);
+										}}
 										type="date"
 										value={asOnDate}
+									/>
+								</div>
+								<div>
+									<label className="mb-2 block font-bold text-[#0B2545] text-sm">
+										Received Date
+									</label>
+									<input
+										className="w-full rounded-xl border-2 border-gray-300 bg-white px-4 py-2.5 font-medium text-[#0B2545] text-base outline-none transition-colors focus:border-[#0071BC]"
+										onChange={(e) => setRecDate(e.target.value)}
+										type="date"
+										value={recDate}
 									/>
 								</div>
 							</div>
