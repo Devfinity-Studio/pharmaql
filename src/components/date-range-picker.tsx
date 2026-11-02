@@ -6,32 +6,43 @@ import { useEffect, useState } from "react";
 export interface DateRangePickerProps {
 	singleDateMode?: boolean;
 	singleDateLabel?: string;
+	showReceivedDate?: boolean;
 }
 
 export function DateRangePicker({
 	singleDateMode = false,
 	singleDateLabel = "AsOn Date",
+	showReceivedDate = false,
 }: DateRangePickerProps = {}) {
 	const router = useRouter();
 	const searchParams = useSearchParams();
 
 	const currentFrom = searchParams.get("from") || "";
 	const currentTo = searchParams.get("asOn") || searchParams.get("to") || "";
+	const currentRec =
+		searchParams.get("recDate") || searchParams.get("receivedDate") || currentTo;
 
 	const [from, setFrom] = useState(currentFrom);
 	const [to, setTo] = useState(currentTo);
+	const [recDate, setRecDate] = useState(currentRec);
 
 	useEffect(() => {
 		setFrom(currentFrom);
 		setTo(currentTo);
-	}, [currentFrom, currentTo]);
+		setRecDate(currentRec);
+	}, [currentFrom, currentTo, currentRec]);
 
-	const applyFilter = (customFrom?: string, customTo?: string) => {
+	const applyFilter = (
+		customFrom?: string,
+		customTo?: string,
+		customRec?: string,
+	) => {
 		const newFrom = customFrom !== undefined ? customFrom : from;
 		const newTo = customTo !== undefined ? customTo : to;
+		const newRec = customRec !== undefined ? customRec : recDate;
 
 		const params = new URLSearchParams(searchParams.toString());
-		if (singleDateMode) {
+		if (showReceivedDate) {
 			params.delete("from");
 			if (newTo) {
 				params.set("to", newTo);
@@ -40,13 +51,29 @@ export function DateRangePicker({
 				params.delete("to");
 				params.delete("asOn");
 			}
+			if (newRec) {
+				params.set("recDate", newRec);
+			} else {
+				params.delete("recDate");
+			}
+		} else if (singleDateMode) {
+			params.delete("from");
+			params.delete("recDate");
+			if (newTo) {
+				params.set("to", newTo);
+				params.set("asOn", newTo);
+			} else {
+				params.delete("to");
+				params.delete("asOn");
+			}
 		} else {
+			params.delete("asOn");
+			params.delete("recDate");
 			if (newFrom) params.set("from", newFrom);
 			else params.delete("from");
 
 			if (newTo) params.set("to", newTo);
 			else params.delete("to");
-			params.delete("asOn");
 		}
 
 		router.push(`?${params.toString()}`);
@@ -55,10 +82,13 @@ export function DateRangePicker({
 	const clearFilter = () => {
 		setFrom("");
 		setTo("");
+		setRecDate("");
 		const params = new URLSearchParams(searchParams.toString());
 		params.delete("from");
 		params.delete("to");
 		params.delete("asOn");
+		params.delete("recDate");
+		params.delete("receivedDate");
 		router.push(`?${params.toString()}`);
 	};
 
@@ -68,6 +98,26 @@ export function DateRangePicker({
 		const today = new Date();
 		const todayStr = today.toISOString().split("T")[0] ?? "";
 
+		if (showReceivedDate) {
+			if (presetType === "last-month") {
+				const lastDayLastMonth = new Date(
+					today.getFullYear(),
+					today.getMonth(),
+					0,
+				);
+				const lastMonthEndStr =
+					lastDayLastMonth.toISOString().split("T")[0] ?? "";
+				setTo(lastMonthEndStr);
+				setRecDate(lastMonthEndStr);
+				applyFilter(undefined, lastMonthEndStr, lastMonthEndStr);
+				return;
+			}
+			setTo(todayStr);
+			setRecDate(todayStr);
+			applyFilter(undefined, todayStr, todayStr);
+			return;
+		}
+
 		if (singleDateMode) {
 			if (presetType === "last-month") {
 				const lastDayLastMonth = new Date(
@@ -75,7 +125,8 @@ export function DateRangePicker({
 					today.getMonth(),
 					0,
 				);
-				const lastMonthEndStr = lastDayLastMonth.toISOString().split("T")[0] ?? "";
+				const lastMonthEndStr =
+					lastDayLastMonth.toISOString().split("T")[0] ?? "";
 				setTo(lastMonthEndStr);
 				applyFilter(undefined, lastMonthEndStr);
 				return;
@@ -116,6 +167,71 @@ export function DateRangePicker({
 		setTo(presetTo);
 		applyFilter(presetFrom, presetTo);
 	};
+
+	if (showReceivedDate) {
+		return (
+			<div className="flex flex-col gap-2 rounded-2xl border border-gray-200 bg-white p-3.5 shadow-sm ring-1 ring-black/5">
+				<div className="flex flex-wrap items-end gap-3">
+					<div>
+						<label className="mb-1 block font-bold text-gray-700 text-xs uppercase tracking-wider">
+							AsOn Date
+						</label>
+						<input
+							className="block w-full rounded-xl border border-gray-200 bg-gray-50 p-2 font-medium text-gray-900 text-sm outline-none focus:border-blue-500 focus:ring-blue-500"
+							onChange={(e) => {
+								const val = e.target.value;
+								setTo(val);
+								if (!recDate || recDate === to) setRecDate(val);
+							}}
+							type="date"
+							value={to}
+						/>
+					</div>
+					<div>
+						<label className="mb-1 block font-bold text-gray-700 text-xs uppercase tracking-wider">
+							Received Date
+						</label>
+						<input
+							className="block w-full rounded-xl border border-gray-200 bg-gray-50 p-2 font-medium text-gray-900 text-sm outline-none focus:border-blue-500 focus:ring-blue-500"
+							onChange={(e) => setRecDate(e.target.value)}
+							type="date"
+							value={recDate || to}
+						/>
+					</div>
+					<button
+						className="h-[38px] rounded-xl bg-blue-600 px-5 py-2 font-bold text-sm text-white shadow-sm transition hover:bg-blue-700"
+						onClick={() => applyFilter()}
+						type="button"
+					>
+						Apply
+					</button>
+					<button
+						className="h-[38px] rounded-xl bg-gray-100 px-3 py-2 font-semibold text-gray-700 text-xs shadow-sm transition hover:bg-gray-200"
+						onClick={() => applyPreset("today")}
+						type="button"
+					>
+						Today
+					</button>
+					<button
+						className="h-[38px] rounded-xl bg-gray-100 px-3 py-2 font-semibold text-gray-700 text-xs shadow-sm transition hover:bg-gray-200"
+						onClick={() => applyPreset("last-month")}
+						type="button"
+					>
+						Prev Month End
+					</button>
+					{(currentTo || currentRec) && (
+						<button
+							className="h-[38px] rounded-xl bg-gray-100 px-4 py-2 font-bold text-gray-700 text-sm shadow-sm transition hover:bg-gray-200"
+							onClick={clearFilter}
+							type="button"
+						>
+							Clear
+						</button>
+					)}
+				</div>
+			</div>
+		);
+	}
 
 	if (singleDateMode) {
 		return (

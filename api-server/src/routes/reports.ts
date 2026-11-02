@@ -361,12 +361,12 @@ reportsRouter.post("/mr-overdue", async (req: Request, res: Response) => {
     const finYear = params.finYear || 202627;
 
     const finYearStart = "2026-04-01";
-    const toDateStr = params.toDate || new Date().toISOString().slice(0, 10);
+    const toDateStr = params.toDate || params.asOn || params.asOnDate || new Date().toISOString().slice(0, 10);
     const fromDateStr = params.fromDate || finYearStart;
-    const recDateStr = params.recDate || finYearStart;
-    const odbcRecDate = formatDateToOdbc(recDateStr);
+    const recDateStr = params.recDate || params.receivedDate || toDateStr;
     const odbcFromDate = formatDateToOdbc(fromDateStr);
-    const odbcToDate = formatDateToOdbc(toDateStr);
+    const odbcAsOnDate = formatDateToOdbc(toDateStr);
+    const odbcRecDate = formatDateToOdbc(recDateStr);
 
     const cityParam = params.city || "";
     const areaParam = params.area || "";
@@ -392,9 +392,9 @@ reportsRouter.post("/mr-overdue", async (req: Request, res: Response) => {
       compNo,
       locNo,
       finYear,
-      odbcRecDate,
       odbcFromDate,
-      odbcToDate,
+      odbcAsOnDate,
+      odbcRecDate,
       `'${cityParam.replace(/'/g, "''")}'`,
       `'${areaParam.replace(/'/g, "''")}'`,
       `'${custTypeParam.replace(/'/g, "''")}'`,
@@ -408,7 +408,7 @@ reportsRouter.post("/mr-overdue", async (req: Request, res: Response) => {
 
     const sql = `CALL \`pdyasvtrans\`.\`rptMRwisePeriodicalOutstanding\`(${formattedParams})`;
     console.log("[Reports API] Executing Overdue Report SQL:", sql);
-    const cacheKey = `report:mr-overdue:${compNo}:${locNo}:${finYear}:${compCodeParam}:${divIdsParam}:${mrIdParam}:${custIdsParam}:${cityParam}:${areaParam}:${custTypeParam}:${odbcRecDate}:${odbcFromDate}:${odbcToDate}`;
+    const cacheKey = `report:mr-overdue:${compNo}:${locNo}:${finYear}:${compCodeParam}:${divIdsParam}:${mrIdParam}:${custIdsParam}:${cityParam}:${areaParam}:${custTypeParam}:${odbcFromDate}:${odbcAsOnDate}:${odbcRecDate}`;
     const bypassCache = req.headers["x-bypass-cache"] === "true" || req.body?.forceRefresh === true;
 
     const rows = await getOrSetCache(
@@ -736,13 +736,14 @@ reportsRouter.post("/dev-procedure-sandbox", async (req: Request, res: Response)
       ].join(", ");
       sql = `CALL \`pdyasvtrans\`.\`rptItemCustomerSale\`(${formattedParams})`;
     } else if (procedureName === "rptMRwisePeriodicalOutstanding") {
+      const odbcRec = params.recDate ? formatDateToOdbc(params.recDate) : odbcTo;
       const formattedParams = [
         params.compNo ?? 11,
         Number(params.locNo) || 11,
         202627,
         formatDateToOdbc("2026-04-01"),
-        odbcFrom,
         odbcTo,
+        odbcRec,
         "''",
         "''",
         "'All'",

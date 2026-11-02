@@ -304,6 +304,7 @@ function buildFallbackProcedureSql(procedureName: string, params: Record<string,
 	const toDate = params.toDate || new Date().toISOString().slice(0, 10);
 	const odbcFrom = `{d '${fromDate}'}`;
 	const odbcTo = `{d '${toDate}'}`;
+	const odbcRec = params.recDate ? `{d '${params.recDate}'}` : odbcTo;
 	const compParam = compCodeParam ? `'${compCodeParam.replace(/'/g, "''")}'` : "''";
 	const locParam = params.locNo ? `('${params.locNo}')` : "('11')";
 	const escapedLoc = `'${locParam.replace(/'/g, "''")}'`;
