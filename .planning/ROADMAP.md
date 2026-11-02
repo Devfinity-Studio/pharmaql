@@ -403,3 +403,15 @@
 - [x] **Web View & Export Synchronization**: Updated src/components/overdue-report-view.tsx and src/app/api/reports/download-outstanding/route.ts to use identical invoice aggregation logic. Unblocked company-wide Multi-MR download without requiring individual mrId.
 - [x] **MR Auto-Blocking Protection**: Hardened src/lib/overdueUtils.ts so settled multi-voucher invoices are not counted toward overdue thresholds.
 - [x] **Verification & Validation**: All 25 Vitest suites passed (142 tests), zero TypeScript errors (tsc --noEmit), Next.js production build (next build) succeeded, documented in 46-UAT.md.
+
+
+## Phase 47: Admin Overdue Blocking Days, Max Data Limit & Unrestricted Admin MR Access
+
+**Goal:** Provide full administrative control over overdue blocking parameters and historical data visibility for MRs, while ensuring Admins retain unrestricted access to all reports for all MRs regardless of MR rank or permissions.
+**Depends on:** Phase 46
+**Status:** Not planned yet
+
+- [ ] **Admin Overdue Blocking Configuration**: Add controls in the Admin / Developer settings UI allowing Admins to set `overdue_direct_block_days` and `overdue_division_block_days`, persisting to tenant state and dynamically consumed by `evaluateOverdueInvoices`.
+- [ ] **Max Historical Data Window for MRs**: Implement configurable `max_data_days` (e.g. 60 days). When configured, restrict MR date pickers, queries, and reports from requesting data older than `today - max_data_days`, while keeping Admins unrestricted.
+- [ ] **Unrestricted Admin MR Report Access**: Audit and enforce that Admins can view all reports (Stock, Sales, Overdue, Expiry, Party-wise, Product-wise) for all MRs regardless of an individual MR's rank (Rank 1, 2, 3) or individual permission toggles.
+- [ ] **Verification & Validation**: End-to-end testing of Admin overrides, MR date clamping, overdue block threshold updates, unit tests, and production build verification.

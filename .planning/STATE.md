@@ -37,3 +37,4 @@
 - Phase 44 added: Overdue Report Multi-MR Listing and Export Formatting [COMPLETED]
 - Phase 45 added: Expiry Reporting for Company Items [COMPLETED]
 - Phase 46 added: Fix Overdue Reports [COMPLETED]
+- Phase 47 added: Admin Overdue Blocking Days, Max Data Limit & Unrestricted Admin MR Access
