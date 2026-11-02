@@ -118,5 +118,40 @@ describe("overdueEngine", () => {
 			expect(defaultResult.blockingInvoices).toHaveLength(0);
 			expect(defaultResult.warningInvoices).toHaveLength(0);
 		});
+		it("aggregates multiple payment receipt vouchers for a single invoice correctly", () => {
+			const rows: any[] = [
+				{
+					ID: 6,
+					DocNo: "INV-1006",
+					Customer: "Zara Pharmacy",
+					DocDate: "2026-08-01",
+					Amount: 2596,
+					AdjAmt: 1,
+					OverDays: 100,
+				},
+				{
+					ID: 6,
+					DocNo: "INV-1006",
+					Customer: "Zara Pharmacy",
+					DocDate: "2026-08-01",
+					Amount: 2596,
+					AdjAmt: 2595,
+					OverDays: 100,
+				},
+				{
+					ID: 7,
+					DocNo: "INV-1007",
+					Customer: "Sameep Pharmacy",
+					DocDate: "2026-08-12",
+					Amount: 6775,
+					AdjAmt: 6195,
+					OverDays: 49,
+				},
+			];
+
+			const result = evaluateOverdueInvoices(rows);
+			expect(result.totalPendingAmt).toBe(580);
+			expect(result.blockingInvoices).toHaveLength(0);
+		});
 	});
 });

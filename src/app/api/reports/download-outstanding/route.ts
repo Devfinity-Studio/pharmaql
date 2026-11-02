@@ -53,36 +53,33 @@ export async function GET(request: Request) {
 	const to = searchParams.get("to");
 	const format = searchParams.get("format") || "csv"; // csv or excel
 
-	if (!mrId) {
-		return new NextResponse("Missing mrId", { status: 400 });
-	}
-
-	// Authorize: Admin or the MR themselves
 	const requestingUserId = session.user.id;
-	const isSelf = String(requestingUserId) === String(mrId);
 	const isAdmin =
 		(session.user as any).role === "ADMIN" ||
 		(session.user as any).role === "DEVELOPER";
 
-	if (!isSelf && !isAdmin) {
+	// For Company-Wide Overdue export, mrId can be empty or "all"
+	const effectiveMrId = mrId && mrId.toLowerCase() !== "all" ? mrId : "";
+	const isSelf = effectiveMrId && String(requestingUserId) === String(effectiveMrId);
+
+	if (!isAdmin && !isSelf && effectiveMrId) {
 		return new NextResponse("Forbidden", { status: 403 });
 	}
 
-	// Get MR Info to check permissions
-	const mrInfo = await getMRInfo(mrId);
-	if (!mrInfo) {
+	// Get MR Info if a specific MR is requested
+	const mrInfo = effectiveMrId ? await getMRInfo(effectiveMrId) : null;
+	if (effectiveMrId && !mrInfo) {
 		return new NextResponse("MR not found", { status: 404 });
 	}
 
-	const canViewOverdue = isSelf || isAdmin || mrInfo.canViewSales;
-
-	if (!canViewOverdue) {
+	const canViewOverdue = isAdmin || isSelf || (mrInfo && mrInfo.canViewSales);
+	if (!canViewOverdue && !isAdmin) {
 		return new NextResponse("Forbidden - View disabled", { status: 403 });
 	}
 
 	// The stored procedure rptMRwisePeriodicalOutstanding creates temporary table tmpMR (MRId INT)
 	// and strictly accepts exactly 1 MR ID matching the company whose report is being generated.
-	const assigned = mrInfo.assignments && mrInfo.assignments.length > 0
+	const assigned = mrInfo?.assignments && mrInfo.assignments.length > 0
 		? mrInfo.assignments
 		: [];
 
@@ -97,13 +94,15 @@ export async function GET(request: Request) {
 						(a.companyCode && a.companyCode.toLowerCase() === division.toLowerCase()),
 				);
 
+	const companyParam = searchParams.get("company") || searchParams.get("compCode") || "";
 	const compCodeToQuery =
-		division === "All"
-			? mrInfo.companyCode || selectedAssignments[0]?.companyCode || mrInfo.company || ""
+		companyParam ||
+		(division === "All"
+			? mrInfo?.companyCode || selectedAssignments[0]?.companyCode || mrInfo?.company || ""
 			: selectedAssignments[0]?.companyCode ||
-				(mrInfo.companyCode && (mrInfo.company === division || mrInfo.division === division)
+				(mrInfo?.companyCode && (mrInfo.company === division || mrInfo.division === division)
 					? mrInfo.companyCode
-					: division);
+					: division));
 
 	// In Technomax ERP, the Overdue statement (rptMRwisePeriodicalOutstanding) is a company-wide report
 	// bifurcated MR-wise. By default, p_MRId is '' (empty string) so all MRs for the company are returned.
@@ -120,7 +119,7 @@ export async function GET(request: Request) {
 		fromDate: finYearStart,
 		toDate: defaultTo,
 		recDate: recDate,
-		locNo: mrInfo.locNo || "11",
+		locNo: mrInfo?.locNo || "11",
 	});
 
 	// Backward compatibility fallback for older API server binaries
@@ -130,12 +129,12 @@ export async function GET(request: Request) {
 		(procResult.error?.includes("mrId is required") || procResult.error?.includes("Validation Error"))
 	) {
 		procResult = await getMRwisePeriodicalOutstanding({
-			mrId: mrId,
+			mrId: mrId || "",
 			compCode: compCodeToQuery,
 			fromDate: finYearStart,
 			toDate: defaultTo,
 			recDate: recDate,
-			locNo: mrInfo.locNo || "11",
+			locNo: mrInfo?.locNo || "11",
 		});
 	}
 
@@ -150,7 +149,7 @@ export async function GET(request: Request) {
 		dateStyle: "medium",
 		timeStyle: "short",
 	});
-	const mrName = mrInfo.name || "Unknown MR";
+	const mrName = mrInfo?.name || "All MRs";
 	const safeDivision = division.replace(/[^a-zA-Z0-9]/g, "_");
 	const dateRangeTag = asOn;
 	const filename = `${safeDivision}_MRwise_Overdue_AsOn_${dateRangeTag}`;
@@ -168,18 +167,49 @@ export async function GET(request: Request) {
 		});
 	}
 
-	// Filter strictly for Amount - AdjAmt > 0 (pending balance)
-	const reportData = rawOutRows
-		.map((row) => {
+	// Group raw procedure rows by unique invoice (ID or DocNo) to aggregate multiple receipt adjustments
+	const invoiceMap = new Map<string, {
+		baseRow: typeof rawOutRows[0];
+		totalAdj: number;
+		lastRecDate: string;
+	}>();
+
+	for (const row of rawOutRows) {
+		const invKey = String(row.ID || row.DocNo || "").trim();
+		if (!invKey) continue;
+		const adj = Number(row.AdjAmt || 0);
+
+		if (!invoiceMap.has(invKey)) {
+			invoiceMap.set(invKey, {
+				baseRow: row,
+				totalAdj: adj,
+				lastRecDate: row.RecDate ? String(row.RecDate) : "",
+			});
+		} else {
+			const entry = invoiceMap.get(invKey)!;
+			entry.totalAdj += adj;
+			if (row.RecDate) {
+				entry.lastRecDate = String(row.RecDate);
+			}
+		}
+	}
+
+	// Filter strictly for entries where original Amount - totalAdj > 0 (pending balance)
+	const reportData = Array.from(invoiceMap.values())
+		.filter(({ baseRow, totalAdj }) => {
+			const originalAmt = Number(baseRow.Amount || 0);
+			return originalAmt - totalAdj > 0.001;
+		})
+		.map(({ baseRow: row, totalAdj, lastRecDate }) => {
 			const originalAmt = Number(row.Amount || 0);
-			const adjAmt = Number(row.AdjAmt || 0);
-			const balanceAmt = originalAmt - adjAmt;
+			const receivedAmt = totalAdj;
+			const balanceAmt = originalAmt - receivedAmt;
 			const billDateStr = row.DocDate
 				? new Date(row.DocDate).toLocaleDateString("en-GB")
 				: "N/A";
 			const dueDateStr = row.DueDate ? String(row.DueDate).split("T")[0] : billDateStr;
-			const recDateStr = row.RecDate
-				? new Date(row.RecDate).toLocaleDateString("en-GB")
+			const recDateStr = lastRecDate
+				? new Date(lastRecDate).toLocaleDateString("en-GB")
 				: "";
 			const rawDueDays = Number(row.OverDays || 0);
 
@@ -199,7 +229,7 @@ export async function GET(request: Request) {
 				"Due Date": dueDateStr,
 				"Due Days": rawDueDays,
 				"Invoice Amount": originalAmt,
-				"Received Amount": adjAmt,
+				"Received Amount": receivedAmt,
 				"Received Date": recDateStr,
 				"Pending Amount": balanceAmt,
 				"Balance Amount": balanceAmt,
@@ -212,8 +242,7 @@ export async function GET(request: Request) {
 				Manufacturer: row.CompCode || row.Division || division,
 				"Generated At": timestampStr,
 			};
-		})
-		.filter((r) => r["Pending Amount"] > 0);
+		});
 
 	// Sort MR-wise, then Customer / Party, then Invoice Date
 	reportData.sort((a, b) => {
@@ -326,8 +355,8 @@ export async function GET(request: Request) {
 			title: "MRwise Periodical Outstanding Statement",
 			metadata: {
 				mrName: division === "All" ? "All MRs" : `${division} Division (All MRs)`,
-				company: mrInfo.company || division,
-				division: mrInfo.division || division,
+				company: mrInfo?.company || division,
+				division: mrInfo?.division || division,
 				period: `As on ${new Date(asOn || Date.now()).toLocaleDateString("en-GB")}`,
 				year: "2026-27",
 			},
