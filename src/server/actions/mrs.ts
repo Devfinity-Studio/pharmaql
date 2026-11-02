@@ -123,6 +123,7 @@ export async function updateMRPermissions(
 		canViewSales: boolean;
 		canViewPartyWise: boolean;
 		canViewProductWise: boolean;
+		canViewExpiry?: boolean;
 	},
 ) {
 	const session = await auth.api.getSession({

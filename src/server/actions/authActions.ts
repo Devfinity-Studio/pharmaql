@@ -199,6 +199,7 @@ export async function requestMrOtp(emailOrPhone: string) {
 			canViewFreeScheme: perms.canViewFreeScheme,
 			canViewPartyWise: perms.canViewPartyWise,
 			canViewProductWise: perms.canViewProductWise,
+			canViewExpiry: perms.canViewExpiry,
 		};
 
 		const tenantId = reqHeaders.get("x-tenant-id") || undefined;
@@ -552,6 +553,7 @@ export async function loginAdminOrDev(email: string, pass: string) {
 						canViewFreeScheme: true,
 						canViewPartyWise: true,
 						canViewProductWise: true,
+						canViewExpiry: true,
 					};
 				}
 			}
@@ -578,6 +580,7 @@ export async function loginAdminOrDev(email: string, pass: string) {
 				canViewFreeScheme: true,
 				canViewPartyWise: true,
 				canViewProductWise: true,
+				canViewExpiry: true,
 			};
 		} else if (
 			devEmail &&
@@ -596,6 +599,7 @@ export async function loginAdminOrDev(email: string, pass: string) {
 				canViewFreeScheme: true,
 				canViewPartyWise: true,
 				canViewProductWise: true,
+				canViewExpiry: true,
 			};
 		}
 

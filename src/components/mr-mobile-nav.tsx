@@ -1,6 +1,7 @@
 "use client";
 
 import {
+	CalendarClock,
 	BarChart3,
 	Boxes,
 	Clock,
@@ -21,6 +22,7 @@ interface MrMobileNavProps {
 	canViewProductWise?: boolean;
 	canViewFreeScheme?: boolean;
 	canViewStockAndSales?: boolean;
+	canViewExpiry?: boolean;
 }
 
 export function MrMobileNav({
@@ -31,6 +33,7 @@ export function MrMobileNav({
 	canViewProductWise = true,
 	canViewFreeScheme = true,
 	canViewStockAndSales = true,
+	canViewExpiry = true,
 }: MrMobileNavProps) {
 	const searchParams = useSearchParams();
 	const activeTab = searchParams.get("tab") || "stock";
@@ -73,6 +76,15 @@ export function MrMobileNav({
 			label: "Products",
 			icon: FileText,
 			href: "/dashboard?tab=products",
+		});
+	}
+
+	if (canViewExpiry && rank === 3) {
+		navItems.push({
+			id: "expiry",
+			label: "Expiry",
+			icon: CalendarClock,
+			href: "/dashboard?tab=expiry",
 		});
 	}
 

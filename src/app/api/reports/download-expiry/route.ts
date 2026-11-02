@@ -71,6 +71,11 @@ export async function GET(request: Request) {
 		return new NextResponse("MR not found", { status: 404 });
 	}
 
+	const canViewExpiry = isAdmin || mrInfo.canViewExpiry || mrInfo.rank === 3;
+	if (!canViewExpiry) {
+		return new NextResponse("Forbidden: Expiry reports require Rank 3", { status: 403 });
+	}
+
 	// Resolve company code and division
 	const assigned = mrInfo.assignments && mrInfo.assignments.length > 0 ? mrInfo.assignments : [];
 	const selectedAssignments =

@@ -145,6 +145,7 @@ export async function MrDashboardContent({
 	const canViewFreeScheme = isAdminView || mrInfo.canViewFreeScheme;
 	const canViewPartyWise = isAdminView || mrInfo.canViewPartyWise;
 	const canViewProductWise = isAdminView || mrInfo.canViewProductWise;
+	const canViewExpiry = isAdminView || mrInfo.canViewExpiry || mrInfo.rank === 3;
 
 	let totalSales = 0;
 	let totalInvoicesAmt = 0;
@@ -235,6 +236,7 @@ export async function MrDashboardContent({
 	if (canViewProductWise) allowedTabs.push("products");
 	if (canViewFreeScheme) allowedTabs.push("free-schemes");
 	allowedTabs.push("overdue");
+	if (canViewExpiry) allowedTabs.push("expiry");
 
 	// Evaluate feature switchboard toggles for current viewer role
 	const viewerRole = isAdminView ? "ADMIN" : "MR";
@@ -514,6 +516,14 @@ export async function MrDashboardContent({
 										</span>
 									</>
 								)}
+								{(mrInfo.canViewExpiry || mrInfo.rank === 3) && (
+									<>
+										<span className="text-gray-300">&bull;</span>
+										<span className="font-semibold text-emerald-600">
+											Expiry Stock
+										</span>
+									</>
+								)}
 							</div>
 						)}
 					</div>
@@ -710,6 +720,7 @@ export async function MrDashboardContent({
 					>
 						Overdue
 					</Link>
+					{canViewExpiry && (
 					<Link
 						className={`border-b-4 px-5 py-3 font-bold text-sm transition-colors ${
 							activeTab === "expiry"
@@ -723,6 +734,7 @@ export async function MrDashboardContent({
 					>
 						Expiry
 					</Link>
+					)}
 				</div>
 			</div>
 
@@ -989,7 +1001,7 @@ export async function MrDashboardContent({
 						))}
 
 					{/* EXPIRY REPORT TAB */}
-					{activeTab === "expiry" && (
+					{activeTab === "expiry" && canViewExpiry && (
 						<ExpiryReportView mrId={mrId} searchParams={searchParams} />
 					)}
 
