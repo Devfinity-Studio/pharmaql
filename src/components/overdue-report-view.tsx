@@ -29,6 +29,8 @@ export async function OverdueReportView({
 		from?: string;
 		to?: string;
 		asOn?: string;
+		recDate?: string;
+		receivedDate?: string;
 		party?: string;
 		q?: string;
 		debug?: string;
@@ -102,16 +104,17 @@ export async function OverdueReportView({
 		: "";
 
 	const asOnDateStr = searchParams?.asOn || searchParams?.to || new Date().toISOString().slice(0, 10);
+	const recDateStr = searchParams?.recDate || searchParams?.receivedDate || asOnDateStr;
 	const finYearStart = "2026-04-01";
 	const toDateStr = asOnDateStr;
 
 	// 2. Call stored procedure `rptMRwisePeriodicalOutstanding`
-	// In Technomax ERP, AsOn query sets fromDate = finYearStart, recDate = finYearStart, toDate = asOnDate
+	// Date Param 1 (p_FromDt) = finYearStart, Date Param 2 (p_AsOnDt) = toDateStr, Date Param 3 (p_RecDt) = recDateStr
 	let procResult = await getMRwisePeriodicalOutstanding({
 		mrId: targetMrId,
 		fromDate: finYearStart,
 		toDate: toDateStr,
-		recDate: finYearStart,
+		recDate: recDateStr,
 		compCode: compCodeToQuery,
 		locNo: mrInfo.locNo,
 	});
@@ -129,7 +132,7 @@ export async function OverdueReportView({
 			mrId: mrInfo.id,
 			fromDate: finYearStart,
 			toDate: toDateStr,
-			recDate: finYearStart,
+			recDate: recDateStr,
 			compCode: compCodeToQuery,
 			locNo: mrInfo.locNo,
 		});
@@ -284,8 +287,13 @@ export async function OverdueReportView({
 			)}
 
 			<div className="flex flex-wrap items-center justify-between border-b border-gray-200 pb-3 text-xs text-gray-500">
-				<div>
-					<span className="font-semibold text-gray-700">AsOn Date:</span> {asOnDisplay}
+				<div className="flex items-center gap-4">
+					<div>
+						<span className="font-semibold text-gray-700">AsOn Date:</span> {asOnDisplay}
+					</div>
+					<div>
+						<span className="font-semibold text-gray-700">Received Date:</span> {formatDisplayDate(recDateStr)}
+					</div>
 				</div>
 				<div>
 					<span className="font-semibold text-gray-700">Year:</span> 2026-27
