@@ -8,6 +8,7 @@ import {
   validateStockAndSalesParams,
   validateOutstandingParams,
   validatePartyItemSaleParams,
+  validateExpiryStockParams,
   SP_TIMEOUT_MS,
 } from "../utils/spValidator";
 
@@ -590,6 +591,84 @@ reportsRouter.post("/claim-data", async (req: Request, res: Response) => {
 /**
  * 5. Developer Read-Only Procedure Sandbox & Benchmark
  */
+/**
+ * 6. Expiry Stock Statement
+ * Procedure: rptExpiryStockStatement
+ * Expected arguments: 7
+ * 1: p_AsonDt (DATE) e.g. {d '2026-10-31'}
+ * 2: p_CmpNo (INT) e.g. 11
+ * 3: p_LocNo (INT) e.g. 11
+ * 4: p_YearNo (INT) e.g. 202627
+ * 5: p_CompCode (LONGTEXT) e.g. "('AAGAM')"
+ * 6: p_Div (LONGTEXT) e.g. '' or '(12)'
+ * 7: p_Rate (VARCHAR) e.g. 'PRate' | 'PTR' | 'MRP'
+ */
+reportsRouter.post("/expiry-stock", async (req: Request, res: Response) => {
+  const val = validateExpiryStockParams(req.body);
+  if (!val.isValid) {
+    return res.status(400).json({ success: false, error: "Validation Error", details: val.errors });
+  }
+
+  let conn: any;
+  try {
+    const params = req.body || {};
+    conn = await dbPool.getConnection();
+    await conn.query("SET sql_mode = ''");
+
+    const asOnDateStr = params.asOnDate || params.toDate || params.asOn || new Date().toISOString().slice(0, 10);
+    const odbcAsOnDate = formatDateToOdbc(asOnDateStr);
+
+    const compNo = params.compNo ?? 11;
+    const locNo = Number(params.locNo) || 11;
+    const finYear = params.finYear || 202627;
+
+    const compCodeParam = await resolveCompanyCodeParam(conn, params.compCode);
+    const divParam = params.div || params.divId || "";
+    const rateTypeParam = params.rateType || params.rate || "PRate";
+
+    const formattedParams = [
+      odbcAsOnDate,
+      compNo,
+      locNo,
+      finYear,
+      `'${compCodeParam.replace(/'/g, "''")}'`,
+      `'${String(divParam).replace(/'/g, "''")}'`,
+      `'${String(rateTypeParam).replace(/'/g, "''")}'`,
+    ].join(", ");
+
+    const sql = `CALL \`pdyasvtrans\`.\`rptExpiryStockStatement\`(${formattedParams})`;
+    console.log("[Reports API] Executing Expiry Stock SQL:", sql);
+
+    const cacheKey = `report:expiry-stock:${compNo}:${locNo}:${finYear}:${compCodeParam}:${divParam}:${rateTypeParam}:${odbcAsOnDate}`;
+    const bypassCache = req.headers["x-bypass-cache"] === "true" || req.body?.forceRefresh === true;
+
+    const rows = await getOrSetCache(
+      cacheKey,
+      180,
+      async () => {
+        let callRes: any;
+        try {
+          const [res] = await conn.query({ sql, timeout: SP_TIMEOUT_MS } as any);
+          callRes = res;
+        } catch (callErr: any) {
+          const altSql = `CALL \`rptExpiryStockStatement\`(${formattedParams})`;
+          const [res] = await conn.query({ sql: altSql, timeout: SP_TIMEOUT_MS } as any);
+          callRes = res;
+        }
+        return Array.isArray(callRes) && Array.isArray(callRes[0]) ? callRes[0] : (callRes || []);
+      },
+      { bypassCache }
+    );
+
+    res.json({ success: true, data: rows || [], debugSql: sql });
+  } catch (error: any) {
+    console.error("[Reports API] Expiry Stock Report Error:", error);
+    res.status(500).json({ success: false, error: error.message || "Failed to load expiry stock report" });
+  } finally {
+    if (conn) conn.release();
+  }
+});
+
 reportsRouter.post("/dev-procedure-sandbox", async (req: Request, res: Response) => {
   let conn: any;
   let sql = "";
@@ -602,6 +681,7 @@ reportsRouter.post("/dev-procedure-sandbox", async (req: Request, res: Response)
       "rptMRwisePeriodicalOutstanding",
       "rptCompanyCustomerItemwiseSales",
       "rptStockandSalesStatementReport",
+      "rptExpiryStockStatement",
     ];
 
     if (!allowedProcedures.includes(procedureName)) {
@@ -729,6 +809,19 @@ reportsRouter.post("/dev-procedure-sandbox", async (req: Request, res: Response)
         showFreeParam,
       ].join(", ");
       sql = `CALL \`pdyasvtrans\`.\`rptStockandSalesStatementReport\`(${formattedParams})`;
+    } else if (procedureName === "rptExpiryStockStatement") {
+      const asOnDateStr = params.asOnDate || params.toDate || params.asOn || new Date().toISOString().slice(0, 10);
+      const odbcAsOnDate = formatDateToOdbc(asOnDateStr);
+      const formattedParams = [
+        odbcAsOnDate,
+        params.compNo ?? 11,
+        Number(params.locNo) || 11,
+        202627,
+        `'${compCodeParam.replace(/'/g, "''")}'`,
+        `'${String(params.div || "").replace(/'/g, "''")}'`,
+        `'${String(params.rateType || params.rate || "PRate").replace(/'/g, "''")}'`,
+      ].join(", ");
+      sql = `CALL \`pdyasvtrans\`.\`rptExpiryStockStatement\`(${formattedParams})`;
     }
 
     const [rows, fields] = await conn.query(sql);
