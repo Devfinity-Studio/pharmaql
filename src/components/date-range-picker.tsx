@@ -69,6 +69,17 @@ export function DateRangePicker({
 		const todayStr = today.toISOString().split("T")[0] ?? "";
 
 		if (singleDateMode) {
+			if (presetType === "last-month") {
+				const lastDayLastMonth = new Date(
+					today.getFullYear(),
+					today.getMonth(),
+					0,
+				);
+				const lastMonthEndStr = lastDayLastMonth.toISOString().split("T")[0] ?? "";
+				setTo(lastMonthEndStr);
+				applyFilter(undefined, lastMonthEndStr);
+				return;
+			}
 			setTo(todayStr);
 			applyFilter(undefined, todayStr);
 			return;
@@ -134,6 +145,13 @@ export function DateRangePicker({
 						type="button"
 					>
 						Today
+					</button>
+					<button
+						className="h-[38px] rounded-xl bg-gray-100 px-3 py-2 font-semibold text-gray-700 text-xs shadow-sm transition hover:bg-gray-200"
+						onClick={() => applyPreset("last-month")}
+						type="button"
+					>
+						Prev Month End
 					</button>
 					{(currentFrom || currentTo) && (
 						<button

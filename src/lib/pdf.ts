@@ -264,6 +264,8 @@ function drawReportStationeryHeader(
 	let periodStr = title;
 	if (fDisp && tDisp) {
 		periodStr = `${title} for Period of ${fDisp} to ${tDisp}`;
+	} else if (tDisp) {
+		periodStr = `${title} as on ${tDisp}`;
 	} else if (fDisp) {
 		periodStr = `${title} as of ${fDisp}`;
 	}
@@ -2362,6 +2364,12 @@ export async function generateGroupedPdfReport(
 		...new Set(data.map((item) => item.Manufacturer || "UNKNOWN")),
 	].sort();
 
+	const amountColumns = columns.filter((c) =>
+		c.dataKey.toLowerCase().includes("amount") ||
+		c.dataKey.toLowerCase().includes("balance") ||
+		(c.dataKey.toLowerCase().includes("due") && !c.dataKey.toLowerCase().includes("days") && !c.dataKey.toLowerCase().includes("date"))
+	).map((c) => c.dataKey);
+
 	const amountKey = columns.find(
 		(c) =>
 			c.dataKey.toLowerCase().includes("amount") ||
@@ -2377,6 +2385,7 @@ export async function generateGroupedPdfReport(
 	const tableBody: any[] = [];
 	let grandTotalAmount = 0;
 	let grandTotalQty = 0;
+	const grandTotalAmountMap: Record<string, number> = {};
 
 	for (const mfg of manufacturers) {
 		const mfgData = data.filter(
@@ -2399,6 +2408,7 @@ export async function generateGroupedPdfReport(
 
 		let mfgAmount = 0;
 		let mfgQty = 0;
+		const mfgAmountMap: Record<string, number> = {};
 
 		const isOutstanding = title.toLowerCase().includes("outstanding") || title.toLowerCase().includes("overdue");
 		// Company / MR Header Row Banner
@@ -2436,14 +2446,24 @@ export async function generateGroupedPdfReport(
 
 			if (amountKey) mfgAmount += cleanAmt;
 			if (qtyKey) mfgQty += cleanQty;
+			amountColumns.forEach((colKey) => {
+				const rawColAmt = row[colKey];
+				const cleanColAmt =
+					typeof rawColAmt === "number"
+						? isNaN(rawColAmt) ? 0 : rawColAmt
+						: parseFloat(String(rawColAmt || "0").replace(/[^0-9.-]/g, "")) || 0;
+				mfgAmountMap[colKey] = (mfgAmountMap[colKey] || 0) + cleanColAmt;
+				grandTotalAmountMap[colKey] = (grandTotalAmountMap[colKey] || 0) + cleanColAmt;
+			});
 
 			const rowValues: any[] = [];
 			columns.forEach((col) => {
 				let val = row[col.dataKey] ?? "-";
 				if (col.dataKey.toLowerCase().includes("date")) {
 					val = formatDisplayDate(val) || val;
-				} else if (col.dataKey === amountKey) {
-					val = cleanAmt.toFixed(2);
+				} else if (amountColumns.includes(col.dataKey)) {
+					const num = typeof row[col.dataKey] === "number" ? row[col.dataKey] : parseFloat(String(row[col.dataKey] || "0").replace(/[^0-9.-]/g, "")) || 0;
+					val = num.toFixed(2);
 				} else if (col.dataKey === qtyKey) {
 					val = cleanQty.toString();
 				}
@@ -2451,7 +2471,7 @@ export async function generateGroupedPdfReport(
 					content: String(val),
 					styles: {
 						halign: col.halign || "left",
-						fontStyle: col.dataKey === amountKey ? "bold" : "normal",
+						fontStyle: amountColumns.includes(col.dataKey) ? "bold" : "normal",
 					},
 				});
 			});
@@ -2476,9 +2496,9 @@ export async function generateGroupedPdfReport(
 							lineColor: [156, 163, 175],
 						},
 					});
-				} else if (col.dataKey === amountKey) {
+				} else if (amountColumns.includes(col.dataKey)) {
 					subtotalRow.push({
-						content: mfgAmount.toFixed(2),
+						content: (mfgAmountMap[col.dataKey] || 0).toFixed(2),
 						styles: {
 							halign: "right",
 							fontStyle: "bold",
@@ -2531,9 +2551,9 @@ export async function generateGroupedPdfReport(
 						lineColor: [17, 24, 39],
 					},
 				});
-			} else if (col.dataKey === amountKey) {
+			} else if (amountColumns.includes(col.dataKey)) {
 				grandTotalRow.push({
-					content: grandTotalAmount.toFixed(2),
+					content: (grandTotalAmountMap[col.dataKey] || 0).toFixed(2),
 					styles: {
 						halign: "right",
 						fontStyle: "bold",

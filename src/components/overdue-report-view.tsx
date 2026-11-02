@@ -103,15 +103,15 @@ export async function OverdueReportView({
 
 	const asOnDateStr = searchParams?.asOn || searchParams?.to || new Date().toISOString().slice(0, 10);
 	const finYearStart = "2026-04-01";
-	const fromDateStr = searchParams?.from || finYearStart;
 	const toDateStr = asOnDateStr;
 
 	// 2. Call stored procedure `rptMRwisePeriodicalOutstanding`
+	// In Technomax ERP, AsOn query sets fromDate = finYearStart, recDate = finYearStart, toDate = asOnDate
 	let procResult = await getMRwisePeriodicalOutstanding({
 		mrId: targetMrId,
-		fromDate: fromDateStr,
+		fromDate: finYearStart,
 		toDate: toDateStr,
-		recDate: "2026-04-01",
+		recDate: finYearStart,
 		compCode: compCodeToQuery,
 		locNo: mrInfo.locNo,
 	});
@@ -127,9 +127,9 @@ export async function OverdueReportView({
 		console.warn("[OverdueReportView] Remote API server requires mrId. Retrying with MR fallback:", mrInfo.id);
 		procResult = await getMRwisePeriodicalOutstanding({
 			mrId: mrInfo.id,
-			fromDate: fromDateStr,
+			fromDate: finYearStart,
 			toDate: toDateStr,
-			recDate: "2026-04-01",
+			recDate: finYearStart,
 			compCode: compCodeToQuery,
 			locNo: mrInfo.locNo,
 		});

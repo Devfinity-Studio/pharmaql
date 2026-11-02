@@ -111,15 +111,14 @@ export async function GET(request: Request) {
 
 	const asOn = searchParams.get("asOn") || searchParams.get("to") || to || new Date().toISOString().split("T")[0];
 	const finYearStart = "2026-04-01";
-	const defaultFrom = searchParams.get("from") || from || finYearStart;
 	const defaultTo = asOn;
 
 	let procResult = await getMRwisePeriodicalOutstanding({
 		mrId: targetMrId,
 		compCode: compCodeToQuery,
-		fromDate: defaultFrom,
+		fromDate: finYearStart,
 		toDate: defaultTo,
-		recDate: "2026-04-01",
+		recDate: finYearStart,
 		locNo: mrInfo.locNo || "11",
 	});
 
@@ -132,9 +131,9 @@ export async function GET(request: Request) {
 		procResult = await getMRwisePeriodicalOutstanding({
 			mrId: mrId,
 			compCode: compCodeToQuery,
-			fromDate: defaultFrom,
+			fromDate: finYearStart,
 			toDate: defaultTo,
-			recDate: "2026-04-01",
+			recDate: finYearStart,
 			locNo: mrInfo.locNo || "11",
 		});
 	}
@@ -228,32 +227,63 @@ export async function GET(request: Request) {
 		return NextResponse.json(reportData);
 	}
 
-	// Tabular spreadsheet data
+	// Tabular spreadsheet data grouped MR-wise with subtotals
+	const mrNames = Array.from(new Set(reportData.map((r) => r["MR Name"]))).sort();
+	const tabularData: any[] = [];
 	let totalOriginalAmt = 0;
 	let totalAdjAmt = 0;
 	let totalBalanceAmt = 0;
 
-	const tabularData = reportData.map((r) => {
-		totalOriginalAmt += r["Invoice Amount"];
-		totalAdjAmt += r["Received Amount"];
-		totalBalanceAmt += r["Pending Amount"];
+	for (const mr of mrNames) {
+		const mrRows = reportData.filter((r) => r["MR Name"] === mr);
+		let mrOriginalAmt = 0;
+		let mrAdjAmt = 0;
+		let mrBalanceAmt = 0;
 
-		return {
-			"MR Name": r["MR Name"],
-			"Customer / Party": r["Customer / Party"],
-			City: r.City,
-			Area: r.Area,
-			"Doc Type": r["Doc Type"],
-			"Invoice No": r["Invoice No"],
-			"Invoice Date": r["Invoice Date"],
-			"Due Date": r["Due Date"],
-			"Due Days": r["Due Days"],
-			"Invoice Amount": Number(r["Invoice Amount"].toFixed(2)),
-			"Received Amount": Number(r["Received Amount"].toFixed(2)),
-			"Received Date": r["Received Date"],
-			"Pending Amount": Number(r["Pending Amount"].toFixed(2)),
-		};
-	});
+		for (const r of mrRows) {
+			mrOriginalAmt += r["Invoice Amount"];
+			mrAdjAmt += r["Received Amount"];
+			mrBalanceAmt += r["Pending Amount"];
+
+			totalOriginalAmt += r["Invoice Amount"];
+			totalAdjAmt += r["Received Amount"];
+			totalBalanceAmt += r["Pending Amount"];
+
+			tabularData.push({
+				"MR Name": r["MR Name"],
+				"Customer / Party": r["Customer / Party"],
+				City: r.City,
+				Area: r.Area,
+				"Doc Type": r["Doc Type"],
+				"Invoice No": r["Invoice No"],
+				"Invoice Date": r["Invoice Date"],
+				"Due Date": r["Due Date"],
+				"Due Days": r["Due Days"],
+				"Invoice Amount": Number(r["Invoice Amount"].toFixed(2)),
+				"Received Amount": Number(r["Received Amount"].toFixed(2)),
+				"Received Date": r["Received Date"],
+				"Pending Amount": Number(r["Pending Amount"].toFixed(2)),
+			});
+		}
+
+		if (mrNames.length > 1) {
+			tabularData.push({
+				"MR Name": `Total for ${mr}`,
+				"Customer / Party": "",
+				City: "",
+				Area: "",
+				"Doc Type": "",
+				"Invoice No": "",
+				"Invoice Date": "",
+				"Due Date": "",
+				"Due Days": "" as any,
+				"Invoice Amount": Number(mrOriginalAmt.toFixed(2)),
+				"Received Amount": Number(mrAdjAmt.toFixed(2)),
+				"Received Date": "",
+				"Pending Amount": Number(mrBalanceAmt.toFixed(2)),
+			});
+		}
+	}
 
 	if (format === "excel") {
 		const columns = [
