@@ -1,9 +1,9 @@
 # State
 
 **Current Milestone:** Milestone 1 - Production Hardening & Optimization
-**Active Phase:** Phase 44 (Overdue Report Multi-MR Listing and Export Formatting) - Complete & Shipped
+**Active Phase:** Phase 45 (Expiry Reporting for Company Items) - Complete & Shipped
 **Current Stable Release:** `v1.6.0-zero-knowledge-vault-ota-updater`
-**Status:** Phase 44 complete and verified across dev, prod preview, and production deploymment. Overdue / Outstanding report transformed to company-division wide Multi-MR hierarchical listing with single AsOn Date filter, synchronized PDF (multi-amount subtotals and grand totals), Excel, CSV, and Print formatting.
+**Status:** Phase 45 complete and verified across dev, prod preview, and production deploymment. Technomax ERP Expiry Stock Statement (rptExpiryStockStatement) implemented with single AsOn Date cutoff, batch-wise urgency indicators, multi-tier LRU caching, hierarchical web view, synchronized PDF/Excel/CSV exports, and zero-error Next.js production builds.
 
 ## Accumulated Context
 
@@ -35,3 +35,4 @@
 - Phase 42 added: Overdue Report Fix [COMPLETED]
 - Phase 43 added: Client API Server Auto-Update and Zero-Knowledge Config Protection [COMPLETED]
 - Phase 44 added: Overdue Report Multi-MR Listing and Export Formatting [COMPLETED]
+- Phase 45 added: Expiry Reporting for Company Items [COMPLETED]

@@ -379,4 +379,15 @@
 - [x] **Hierarchical Multi-MR UI View**: Grouped records by MR -> City/Area -> Party in `src/components/overdue-report-view.tsx`, displaying party subtotals, MR subtotals, running cumulative balance, and company-division Grand Total with live ERP blocking status badges.
 - [x] **Multi-MR Export Support (PDF, Excel, CSV & Print)**: Enhanced `generateGroupedPdfReport` in `src/lib/pdf.ts` to calculate and render subtotals and grand totals across all 3 monetary columns (`Invoice Amount`, `Received Amount`, `Pending Amount`). Formatted Multi-MR Excel and CSV exports with party records, MR subtotals, and Grand Total.
 - [x] **Verification & Validation**: All 25 Vitest test suites passed (138/138 tests), TypeScript passed cleanly (`tsc --noEmit`), and Next.js production build (`next build`) compiled successfully. Documented in `44-UAT.md`.
+## Phase 45: Expiry Reporting for Company Items [COMPLETED]
 
+**Goal:** Implement batch-wise near-expiry and expired item reporting for company-divisions from Technomax ERP, allowing MRs and admins to track batch numbers, expiry dates, closing stock, and near-expiry risk with tabular views, export options (PDF, Excel, CSV), and proactive alerts.
+**Depends on:** Phase 40, Phase 44
+**Status:** Completed
+
+- [x] **ERP Stored Procedure & Schema Integration**: Integrated Technomax ERP procedure `rptExpiryStockStatement` in `api-server/src/routes/reports.ts` and `api-server/src/utils/spValidator.ts` with parameter sanitization, query caching (180s TTL), and fallback dataset.
+- [x] **Server Action & API Client (`src/server/actions/expiryReports.ts`)**: Built `getExpiryStockStatement` server action calculating real-time days-to-expiry risk metrics, unit valuations (`PRate`, `PTR`, `MRP`), and division aggregations.
+- [x] **Single "AsOn Date" Cutoff & Dashboard Integration**: Added dedicated "expiry" tab in `src/components/mr-dashboard-content.tsx`, updated toolbar to automatically switch `DateRangePicker` to `singleDateMode` with quick presets, synchronizing `asOn` and `to` while cleansing `from` parameters.
+- [x] **Interactive Expiry Report UI (`src/components/expiry-report-view.tsx`)**: Created hierarchical web statement displaying company/division header, item details, batch numbers, godown locations, expiration dates, risk badges (`Expired`, `< 30 days`, `< 90 days`), division subtotals, grand total summary, and offline sync.
+- [x] **Synchronized Multi-Format Exports (PDF, Excel, CSV & Print)**: Implemented `src/app/api/reports/download-expiry/route.ts` and `src/components/expiry-download-buttons.tsx` providing landscape PDF statement with tenant letterhead and multi-column subtotals, styled Excel buffer, and complete CSV export.
+- [x] **Verification & Three-Stage Promotion**: 141 unit tests passing, zero TypeScript errors (`tsc --noEmit`), successful Next.js production build (`next build`), and 3-stage promotion workflow (`dev` -> `prod` -> `deploymment`).

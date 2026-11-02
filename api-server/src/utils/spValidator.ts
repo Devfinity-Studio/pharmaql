@@ -99,3 +99,20 @@ export function validatePartyItemSaleParams(body: any): ValidationResult {
     errors,
   };
 }
+
+/**
+ * Validates Expiry Stock Statement parameters (expected 7 parameters: p_AsonDt, p_CmpNo, p_LocNo, p_YearNo, p_CompCode, p_Div, p_Rate)
+ */
+export function validateExpiryStockParams(body: any): ValidationResult {
+  const errors: string[] = [];
+
+  const asOn = body?.asOnDate || body?.toDate || body?.asOn;
+  if (asOn && !DATE_REGEX.test(String(asOn).slice(0, 10))) {
+    errors.push("asOnDate must be a valid date formatted as YYYY-MM-DD");
+  }
+
+  return {
+    isValid: errors.length === 0,
+    errors,
+  };
+}
