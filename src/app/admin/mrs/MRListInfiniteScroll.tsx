@@ -283,7 +283,7 @@ export function MRListInfiniteScroll({
 												? "Stock Reports Only"
 												: mr.rank === 2
 													? "Stock & Claim Qty Reports"
-													: "All Reports Access"}
+													: "All Reports Access (incl. Expiry)"}
 										</span>
 									</div>
 								</div>
@@ -339,6 +339,15 @@ export function MRListInfiniteScroll({
 										}`}
 									>
 										{mr.canViewPartyWise ? "✓" : "✕"} Party Wise
+									</span>
+									<span
+										className={`inline-flex items-center rounded-md px-2 py-0.5 font-semibold text-[11px] ${
+											mr.canViewExpiry || mr.rank === 3
+												? "border border-emerald-200 bg-emerald-50 text-emerald-700"
+												: "border border-gray-200 bg-gray-100 text-gray-500 line-through"
+										}`}
+									>
+										{mr.canViewExpiry || mr.rank === 3 ? "✓" : "✕"} Expiry
 									</span>
 								</div>
 							</div>

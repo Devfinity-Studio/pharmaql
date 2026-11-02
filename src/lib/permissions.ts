@@ -7,6 +7,7 @@ export interface RankPermissions {
 	canViewSales: boolean;
 	canViewPartyWise: boolean;
 	canViewProductWise: boolean;
+	canViewExpiry: boolean;
 }
 
 export interface MROverride {
@@ -20,6 +21,7 @@ export interface MROverride {
 		canViewSales: boolean;
 		canViewPartyWise: boolean;
 		canViewProductWise: boolean;
+		canViewExpiry?: boolean;
 	};
 	assignedManufacturers?: {
 		id: string;
@@ -43,6 +45,7 @@ export function getPermissionsForRank(rank: MRRank): RankPermissions {
 			canViewSales: false,
 			canViewPartyWise: false,
 			canViewProductWise: false,
+			canViewExpiry: false,
 		};
 	}
 	if (rank === 2) {
@@ -53,6 +56,7 @@ export function getPermissionsForRank(rank: MRRank): RankPermissions {
 			canViewSales: false,
 			canViewPartyWise: false,
 			canViewProductWise: false,
+			canViewExpiry: false,
 		};
 	}
 	// Rank 3 (or any higher)
@@ -63,5 +67,6 @@ export function getPermissionsForRank(rank: MRRank): RankPermissions {
 		canViewSales: true,
 		canViewPartyWise: true,
 		canViewProductWise: true,
+		canViewExpiry: true,
 	};
 }

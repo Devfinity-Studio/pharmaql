@@ -50,6 +50,7 @@ export interface LegacyMRUser {
 	canViewFreeScheme: boolean;
 	canViewPartyWise: boolean;
 	canViewProductWise: boolean;
+	canViewExpiry: boolean;
 	assignments?: MRAssignment[];
 	allIds?: string[];
 }
@@ -74,6 +75,7 @@ export interface MRDisplayItem {
 	canViewFreeScheme: boolean;
 	canViewPartyWise: boolean;
 	canViewProductWise: boolean;
+	canViewExpiry: boolean;
 	assignments: MRAssignment[];
 }
 
@@ -309,6 +311,7 @@ function consolidateMRProfiles(
 			canViewFreeScheme: perms.canViewFreeScheme,
 			canViewPartyWise: perms.canViewPartyWise,
 			canViewProductWise: perms.canViewProductWise,
+			canViewExpiry: perms.canViewExpiry,
 			assignments,
 		});
 	}
@@ -371,6 +374,7 @@ export async function getMRInfo(
 				canViewFreeScheme: found.canViewFreeScheme,
 				canViewPartyWise: found.canViewPartyWise,
 				canViewProductWise: found.canViewProductWise,
+				canViewExpiry: found.canViewExpiry,
 				assignments: found.assignments,
 				allIds: found.allIds,
 			};
@@ -440,6 +444,7 @@ export async function getMRInfo(
 			override.permissions?.canViewPartyWise ?? perms.canViewPartyWise,
 		canViewProductWise:
 			override.permissions?.canViewProductWise ?? perms.canViewProductWise,
+		canViewExpiry: override.permissions?.canViewExpiry ?? perms.canViewExpiry,
 		assignments: rawData.assignments || [defaultAssignment],
 		allIds: [rawData.id],
 	};
@@ -518,6 +523,7 @@ export async function getPaginatedMRUsers(params: {
 			canViewFreeScheme: i.canViewFreeScheme,
 			canViewPartyWise: i.canViewPartyWise,
 			canViewProductWise: i.canViewProductWise,
+			canViewExpiry: i.canViewExpiry,
 			assignments: i.assignments,
 			allIds: i.allIds,
 		})),
