@@ -38,6 +38,7 @@ import {
 	Trash2,
 	Users,
 	Wrench,
+	Zap,
 	X,
 	XCircle,
 } from "lucide-react";
@@ -67,6 +68,7 @@ import {
 	probeDatabaseLatencyAction,
 	getClientRateLimitStatusAction,
 	resetClientIpRateLimitAction,
+	forceApiServerUpdateAction,
 } from "@/server/actions/devDiagnostics";
 import { startMrImpersonation } from "@/server/actions/impersonation";
 import {
@@ -154,6 +156,26 @@ export function DevControlCenter({
 	const [clientRateLimitResult, setClientRateLimitResult] = useState<any>(null);
 
 	const [isPending, startTransition] = useTransition();
+	const [isForceUpdating, setIsForceUpdating] = useState(false);
+	const [forceUpdateMsg, setForceUpdateMsg] = useState<{ text: string; isError?: boolean } | null>(null);
+
+	const handleForceApiUpdate = async () => {
+		setIsForceUpdating(true);
+		setForceUpdateMsg(null);
+		try {
+			const res = await forceApiServerUpdateAction();
+			if (res.success) {
+				setForceUpdateMsg({ text: res.message || "Update triggered successfully!" });
+				router.refresh();
+			} else {
+				setForceUpdateMsg({ text: res.error || "Failed to trigger update.", isError: true });
+			}
+		} catch (e: any) {
+			setForceUpdateMsg({ text: e.message || "Network error.", isError: true });
+		} finally {
+			setIsForceUpdating(false);
+		}
+	};
 	const [feedbackMsg, setFeedbackMsg] = useState<{ type: "success" | "error"; text: string } | null>(null);
 
 	// License state
