@@ -71,3 +71,4 @@ Align the Overdue / Outstanding Report across PharmaQL with Technomax ERP conven
 - User can select any AsOn date, and the Overdue report generates a clean Multi-MR breakdown of all MRs under the selected company-division.
 - PDF, Excel, CSV, and Print outputs accurately reflect all MRs with respective subtotals and grand totals.
 - No TypeScript or build errors; tests pass; changes safely deployed.
+
