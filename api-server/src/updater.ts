@@ -6,8 +6,8 @@ import https from "https";
 import http from "http";
 import { APP_ROOT, isPackaged } from "./config";
 
-export const API_SERVER_VERSION = process.env.API_SERVER_VERSION || "1.2.2";
-export const API_SERVER_LAST_UPDATED = process.env.API_SERVER_LAST_UPDATED || "2026-11-01T02:30:00.000Z";
+export const API_SERVER_VERSION = process.env.API_SERVER_VERSION || "1.3.0";
+export const API_SERVER_LAST_UPDATED = process.env.API_SERVER_LAST_UPDATED || "2026-11-02T16:46:55.613Z";
 
 interface ReleaseInfo {
   hasUpdate: boolean;
@@ -383,3 +383,48 @@ export async function runUpdateCheckCycle(): Promise<boolean> {
   return false;
 }
 
+
+/**
+ * Forces an immediate OTA update check and apply cycle.
+ */
+export async function forceUpdateNow(): Promise<{ success: boolean; message: string; version?: string }> {
+  console.log("[AutoUpdater] ⚡ Force update requested!");
+  try {
+    const release = await queryLatestRelease();
+    if (!release || !release.downloadUrl) {
+      return { success: false, message: "No active release found on Control Plane" };
+    }
+
+    const newBinaryPath = path.join(APP_ROOT, "api-server.new");
+    console.log(`[AutoUpdater] ⚡ Downloading release v${release.version} from ${release.downloadUrl}...`);
+    const verified = await downloadAndVerifyPayload(
+      release.downloadUrl,
+      release.sha256,
+      newBinaryPath
+    );
+
+    if (!verified) {
+      return { success: false, message: "Downloaded binary failed SHA-256 integrity verification" };
+    }
+
+    if (isPackaged) {
+      console.log(`[AutoUpdater] ⚡ Executing atomic swap to v${release.version}...`);
+      setTimeout(() => {
+        executeAtomicServiceSwap(newBinaryPath);
+      }, 500);
+      return {
+        success: true,
+        message: `Update v${release.version} verified. Service is restarting...`,
+        version: release.version,
+      };
+    } else {
+      return {
+        success: true,
+        message: `Update v${release.version} downloaded and verified (Running in development mode, service swap skipped).`,
+        version: release.version,
+      };
+    }
+  } catch (err: any) {
+    return { success: false, message: err.message || "Failed to execute force update" };
+  }
+}

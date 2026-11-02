@@ -11,7 +11,7 @@ import { dbPool, closeDatabasePool } from "./db";
 
 import compression from "compression";
 import { getCacheStats, invalidateCache } from "./cache";
-import { startAutoUpdaterDaemon, API_SERVER_VERSION, API_SERVER_LAST_UPDATED } from "./updater";
+import { startAutoUpdaterDaemon, API_SERVER_VERSION, API_SERVER_LAST_UPDATED, forceUpdateNow } from "./updater";
 
 const app = express();
 const port = parseInt(process.env.PORT || "9443", 10);
@@ -105,6 +105,12 @@ app.use("/api/reports", reportsRouter);
 app.use("/api/master", masterRouter);
 app.use("/api/auth", authRouter);
 app.use("/api/kpi", kpiRouter);
+
+// Force update endpoint
+app.post(["/api/updater/force-update", "/api/system/force-update"], async (_req, res) => {
+  const result = await forceUpdateNow();
+  res.json(result);
+});
 
 // Cache diagnostics and manual invalidation
 app.get("/api/cache/stats", (_req, res) => {

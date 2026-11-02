@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, afterAll } from "vitest";
 import {
 	getLatestRelease,
 	getAllReleases,
@@ -6,8 +6,27 @@ import {
 	recordInstanceHeartbeat,
 	getAllInstances,
 } from "../releases-store";
+import { readServerJson, writeServerJson } from "../server-storage";
 
 describe("control plane OTA releases & fleet telemetry store", () => {
+	const testVersion = "1.2.99-test";
+	const testInstanceId = "test-node-guid-889900";
+
+	afterAll(async () => {
+		// Clean up test entries from local storage if running in local mode
+		try {
+			const releases = await readServerJson<any[]>("releases.json", []);
+			const filteredReleases = releases.filter((r) => r.version !== testVersion);
+			await writeServerJson("releases.json", filteredReleases);
+
+			const instances = await readServerJson<any[]>("instances.json", []);
+			const filteredInstances = instances.filter((i) => i.instanceId !== testInstanceId);
+			await writeServerJson("instances.json", filteredInstances);
+		} catch (e) {
+			// ignore cleanup error
+		}
+	});
+
 	it("should retrieve the baseline or latest release for win-x64", async () => {
 		const latest = await getLatestRelease("win-x64");
 		expect(latest).toBeDefined();
@@ -17,7 +36,6 @@ describe("control plane OTA releases & fleet telemetry store", () => {
 	});
 
 	it("should publish a new release and list it in catalog", async () => {
-		const testVersion = "1.2.99-test";
 		const published = await publishRelease({
 			version: testVersion,
 			platform: "win-x64",
@@ -38,7 +56,6 @@ describe("control plane OTA releases & fleet telemetry store", () => {
 	});
 
 	it("should record instance heartbeat and return in fleet list", async () => {
-		const testInstanceId = "test-node-guid-889900";
 		await recordInstanceHeartbeat({
 			instanceId: testInstanceId,
 			version: "1.1.0",
@@ -56,4 +73,3 @@ describe("control plane OTA releases & fleet telemetry store", () => {
 		expect(found?.metadata?.hostname).toBe("TEST-CLIENT-PC");
 	});
 });
-

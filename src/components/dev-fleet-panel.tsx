@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useCallback, useTransition } from "react";
+import { forceApiServerUpdateAction } from "@/server/actions/devDiagnostics";
 import {
 	Activity,
 	AlertCircle,
@@ -47,6 +48,26 @@ export function DevFleetPanel() {
 	const [isPending, startTransition] = useTransition();
 	const [publishSuccess, setPublishSuccess] = useState<string | null>(null);
 	const [publishError, setPublishError] = useState<string | null>(null);
+	const [isForceUpdating, setIsForceUpdating] = useState(false);
+	const [forceUpdateMsg, setForceUpdateMsg] = useState<{ text: string; isError?: boolean } | null>(null);
+
+	const handleForceApiUpdate = async () => {
+		setIsForceUpdating(true);
+		setForceUpdateMsg(null);
+		try {
+			const res = await forceApiServerUpdateAction();
+			if (res.success) {
+				setForceUpdateMsg({ text: res.message || "Update triggered successfully!" });
+				loadData();
+			} else {
+				setForceUpdateMsg({ text: res.error || "Failed to trigger update.", isError: true });
+			}
+		} catch (e: any) {
+			setForceUpdateMsg({ text: e.message || "Network error.", isError: true });
+		} finally {
+			setIsForceUpdating(false);
+		}
+	};
 
 	const loadData = useCallback(async () => {
 		setIsLoading(true);
@@ -179,6 +200,15 @@ export function DevFleetPanel() {
 					</div>
 					<div className="flex gap-2 mt-2">
 						<button
+							onClick={handleForceApiUpdate}
+							disabled={isForceUpdating}
+							className="py-1.5 px-3 bg-amber-600 hover:bg-amber-500 text-white rounded-lg text-xs font-medium flex items-center justify-center gap-1.5 transition-all shadow-sm shadow-amber-500/20 disabled:opacity-50"
+							title="Force immediate update on active API server"
+						>
+							<Zap className={`w-3.5 h-3.5 ${isForceUpdating ? "animate-spin" : ""}`} />
+							{isForceUpdating ? "Updating..." : "Force Update"}
+						</button>
+						<button
 							onClick={() => setShowPublishModal(true)}
 							className="flex-1 py-1.5 px-3 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-xs font-medium flex items-center justify-center gap-1.5 transition-all shadow-sm shadow-indigo-500/20"
 						>
@@ -196,6 +226,22 @@ export function DevFleetPanel() {
 					</div>
 				</div>
 			</div>
+
+			{forceUpdateMsg && (
+				<div className={`p-3 rounded-lg border text-xs flex items-center justify-between ${
+					forceUpdateMsg.isError
+						? "border-rose-500/30 bg-rose-500/10 text-rose-300"
+						: "border-emerald-500/30 bg-emerald-500/10 text-emerald-300"
+				}`}>
+					<span>{forceUpdateMsg.text}</span>
+					<button
+						onClick={() => setForceUpdateMsg(null)}
+						className="text-slate-400 hover:text-white ml-2 text-xs"
+					>
+						✕
+					</button>
+				</div>
+			)}
 
 			{error && (
 				<div className="p-4 rounded-xl border border-rose-500/30 bg-rose-500/10 text-rose-300 text-sm flex items-center gap-3">
