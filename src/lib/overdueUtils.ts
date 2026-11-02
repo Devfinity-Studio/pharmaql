@@ -54,17 +54,29 @@ export function evaluateOverdueInvoices(
 	const warningWindow = options?.warningWindowDays ?? 10;
 	const warningStartLimit = Math.max(1, directBlockLimit - warningWindow);
 
+	// Group raw procedure rows by unique invoice ID or DocNo to aggregate multiple adjustments
+	const invoiceMap = new Map<string, { baseRow: OverduePeriodicalOutstandingRow; totalAdj: number }>();
+	for (const r of rows) {
+		const invKey = String(r.ID || r.DocNo || "");
+		if (!invKey) continue;
+		const adj = Number(r.AdjAmt || 0);
+		if (!invoiceMap.has(invKey)) {
+			invoiceMap.set(invKey, { baseRow: r, totalAdj: adj });
+		} else {
+			invoiceMap.get(invKey)!.totalAdj += adj;
+		}
+	}
+
 	let totalPendingAmt = 0;
 	let oldestDays = 0;
 	const warningInvoices: ImpendingBlockInvoice[] = [];
 	const blockingInvoices: ImpendingBlockInvoice[] = [];
 
-	rows.forEach((r) => {
+	for (const { baseRow: r, totalAdj } of invoiceMap.values()) {
 		const amt = Number(r.Amount || 0);
-		const adj = Number(r.AdjAmt || 0);
-		const net = amt - adj;
+		const net = amt - totalAdj;
 
-		if (net > 0) {
+		if (net > 0.001) {
 			totalPendingAmt += net;
 			// In Technomax ERP rptMRwisePeriodicalOutstanding:
 			// DueDays = DATEDIFF(M.DueDate, NOW())
@@ -99,7 +111,7 @@ export function evaluateOverdueInvoices(
 				warningInvoices.push(invItem);
 			}
 		}
-	});
+	}
 
 	return {
 		totalPendingAmt,
