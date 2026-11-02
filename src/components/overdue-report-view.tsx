@@ -184,12 +184,51 @@ export async function OverdueReportView({
 		);
 	}
 
-	// Filter strictly for entries where Amount - AdjAmt > 0 (pending balance)
-	const overdueFilteredRows = rowsToProcess.filter((row) => {
-		const originalAmt = Number(row.Amount || 0);
-		const adjAmt = Number(row.AdjAmt || 0);
-		return originalAmt - adjAmt > 0;
-	});
+	// Group raw procedure rows by unique invoice (ID or DocNo) to aggregate multiple receipt adjustments
+	// In Technomax ERP, when an invoice has multiple payment vouchers, the procedure returns one row per adjustment.
+	// Summing AdjAmt across all rows of the same invoice determines true total received and pending balance.
+	const invoiceMap = new Map<
+		string,
+		{
+			baseRow: (typeof rowsToProcess)[0];
+			totalAdj: number;
+			lastRecDate: string;
+			lastRecNo: string;
+		}
+	>();
+
+	for (const row of rowsToProcess) {
+		const invKey = String(row.ID || row.DocNo || "").trim();
+		if (!invKey) continue;
+		const adj = Number(row.AdjAmt || 0);
+
+		if (!invoiceMap.has(invKey)) {
+			invoiceMap.set(invKey, {
+				baseRow: row,
+				totalAdj: adj,
+				lastRecDate: row.RecDate ? String(row.RecDate) : "",
+				lastRecNo: row.RecNo ? String(row.RecNo) : "",
+			});
+		} else {
+			const entry = invoiceMap.get(invKey)!;
+			entry.totalAdj += adj;
+			if (row.RecDate) {
+				entry.lastRecDate = String(row.RecDate);
+			}
+			if (row.RecNo) {
+				entry.lastRecNo = String(row.RecNo);
+			}
+		}
+	}
+
+	// Filter strictly for entries where original Amount - totalAdj > 0 (pending balance)
+	// Fully settled invoices (where totalAdj >= Amount) are excluded from the statement.
+	const pendingInvoices = Array.from(invoiceMap.values()).filter(
+		({ baseRow, totalAdj }) => {
+			const originalAmt = Number(baseRow.Amount || 0);
+			return originalAmt - totalAdj > 0.001;
+		},
+	);
 
 	// Map and group according to Technomax ERP statement structure:
 	// MR -> City/Area -> Party -> Invoices
@@ -216,46 +255,48 @@ export async function OverdueReportView({
 		division: string;
 	}
 
-	const normalizedRows: NormalizedOverdueRow[] = overdueFilteredRows.map((row) => {
-		const originalAmt = Number(row.Amount || 0);
-		const adjAmt = Number(row.AdjAmt || 0);
-		const pendingAmt = originalAmt - adjAmt;
+	const normalizedRows: NormalizedOverdueRow[] = pendingInvoices.map(
+		({ baseRow: row, totalAdj, lastRecDate }) => {
+			const originalAmt = Number(row.Amount || 0);
+			const receivedAmt = totalAdj;
+			const pendingAmt = originalAmt - receivedAmt;
 
-		const city = (row.City || "UNKNOWN").trim();
-		const area = (row.Area || "GENERAL").trim();
-		const cityAreaKey = `${city} - ${area}`.toUpperCase();
+			const city = (row.City || "UNKNOWN").trim();
+			const area = (row.Area || "GENERAL").trim();
+			const cityAreaKey = `${city} - ${area}`.toUpperCase();
 
-		const custCode = (row.CustCode || "").trim();
-		const customer = (row.Customer || "Unknown Party").trim();
-		const address = (row.Address1 || "").trim();
-		const partyKey = `${custCode} - ${customer}${address ? `, ${address}` : ""}`.toUpperCase();
+			const custCode = (row.CustCode || "").trim();
+			const customer = (row.Customer || "Unknown Party").trim();
+			const address = (row.Address1 || "").trim();
+			const partyKey = `${custCode} - ${customer}${address ? `, ${address}` : ""}`.toUpperCase();
 
-		const rawDueDays = Number(row.OverDays || 0);
-		const recDateStr = row.RecDate ? formatDisplayDate(row.RecDate) : "";
+			const rawDueDays = Number(row.OverDays || 0);
+			const recDateStr = lastRecDate ? formatDisplayDate(lastRecDate) : "";
 
-		return {
-			id: row.ID,
-			docType: row.DocType || "SALE",
-			invDate: formatDisplayDate(row.DocDate) || "N/A",
-			invoiceNo: row.DocNo || row.AgainstNo || "N/A",
-			dueDate: row.DueDate || formatDisplayDate(row.DocDate) || "N/A",
-			dueDays: rawDueDays,
-			invoiceAmount: originalAmt,
-			receivedAmount: adjAmt,
-			receivedDate: recDateStr,
-			pendingAmount: pendingAmt,
-			mrName: (row.MRName || mrInfo.name || "Unknown MR").trim(),
-			city,
+			return {
+				id: row.ID,
+				docType: row.DocType || "SALE",
+				invDate: formatDisplayDate(row.DocDate) || "N/A",
+				invoiceNo: row.DocNo || row.AgainstNo || "N/A",
+				dueDate: row.DueDate || formatDisplayDate(row.DocDate) || "N/A",
+				dueDays: rawDueDays,
+				invoiceAmount: originalAmt,
+				receivedAmount: receivedAmt,
+				receivedDate: recDateStr,
+				pendingAmount: pendingAmt,
+				mrName: (row.MRName || mrInfo.name || "Unknown MR").trim(),
+				city,
 			area,
-			cityAreaKey,
-			custCode,
-			customer,
-			address,
-			partyKey,
-			company: row.CompCode || "Unknown",
-			division: row.Division || "General",
-		};
-	});
+				cityAreaKey,
+				custCode,
+				customer,
+				address,
+				partyKey,
+				company: row.CompCode || "Unknown",
+				division: row.Division || "General",
+			};
+		},
+	);
 
 	// Grouping: MR -> City/Area -> Party
 	const mrGroups = Array.from(new Set(normalizedRows.map((r) => r.mrName))).sort();

@@ -71,7 +71,7 @@
 
 ## Phase 12: Outstanding & Blocking Management [COMPLETED]
 
-- [x] Implement live customer outstanding & periodical ageing analysis via `rptMRwisePeriodicalOutstanding`.
+- [x] Implement live customer outstanding & periodical ageing analysis via `rrptMRwisePeriodicalOutstanding`.
 - [x] Add party-level and invoice-level overdue tracking with age threshold highlighting (>90 days in red).
 - [x] Implement Admin MR blocking system (restricting OTP issuance, session validation, and access).
 - [x] Implement Party/Customer blocking based on ERP `IsBlocked`/overdue thresholds.
@@ -91,7 +91,7 @@
 ## Phase 14: Standalone Express.js API Layer Decoupling (MySQL Isolation) [COMPLETED]
 
 - [x] Scaffold standalone Express.js API backend in `api-server/` with `mysql2` pool, CORS, and 64-character `API_SECRET_KEY` Bearer auth middleware.
-- [x] Port all legacy MySQL queries and stored procedures (`rptStockMovementStatement`, `rptItemCustomerSale`, `rptMRwisePeriodicalOutstanding`, `rptClaimData`, `rptCompanyCustomerItemwiseSales`, `mrInfo`, `customerBlocking`, `itemCatalog`) into dedicated Express routes.
+- [x] Port all legacy MySQL queries and stored procedures (`rptStockMovementStatement`, `rptItemCustomerSale`, `rrptMRwisePeriodicalOutstanding`, `rptClaimData`, `rptCompanyCustomerItemwiseSales`, `mrInfo`, `customerBlocking`, `itemCatalog`) into dedicated Express routes.
 - [x] Refactor Next.js server actions to consume the Express API via authenticated HTTP `fetch()`.
 - [x] Retain all TypeScript interfaces in Next.js to maintain seamless client type safety.
 - [x] Remove `mysql2` package and direct DB credentials from Next.js configuration.
@@ -375,7 +375,7 @@
 **Status:** Completed
 
 - [x] **Single 'AsOn Date' Filter & Parameter Alignment**: Hardened `p_FromDt` and `p_RecDt` to base financial year start (`2026-04-01`) and mapped `p_ToDt` to the selected AsOn Date across `src/components/overdue-report-view.tsx` and `src/app/api/reports/download-outstanding/route.ts`. Added "Today" and "Prev Month End" shortcut presets to `src/components/date-range-picker.tsx`.
-- [x] **Multi-MR Company-Division Query Execution**: Pass empty string `p_MRId = ''` to stored procedure `rptMRwisePeriodicalOutstanding` when running company-division overdue report, retrieving all MR records across the company-division.
+- [x] **Multi-MR Company-Division Query Execution**: Pass empty string `p_MRId = ''` to stored procedure `rrptMRwisePeriodicalOutstanding` when running company-division overdue report, retrieving all MR records across the company-division.
 - [x] **Hierarchical Multi-MR UI View**: Grouped records by MR -> City/Area -> Party in `src/components/overdue-report-view.tsx`, displaying party subtotals, MR subtotals, running cumulative balance, and company-division Grand Total with live ERP blocking status badges.
 - [x] **Multi-MR Export Support (PDF, Excel, CSV & Print)**: Enhanced `generateGroupedPdfReport` in `src/lib/pdf.ts` to calculate and render subtotals and grand totals across all 3 monetary columns (`Invoice Amount`, `Received Amount`, `Pending Amount`). Formatted Multi-MR Excel and CSV exports with party records, MR subtotals, and Grand Total.
 - [x] **Verification & Validation**: All 25 Vitest test suites passed (138/138 tests), TypeScript passed cleanly (`tsc --noEmit`), and Next.js production build (`next build`) compiled successfully. Documented in `44-UAT.md`.
@@ -391,3 +391,15 @@
 - [x] **Interactive Expiry Report UI (`src/components/expiry-report-view.tsx`)**: Created hierarchical web statement displaying company/division header, item details, batch numbers, godown locations, expiration dates, risk badges (`Expired`, `< 30 days`, `< 90 days`), division subtotals, grand total summary, and offline sync.
 - [x] **Synchronized Multi-Format Exports (PDF, Excel, CSV & Print)**: Implemented `src/app/api/reports/download-expiry/route.ts` and `src/components/expiry-download-buttons.tsx` providing landscape PDF statement with tenant letterhead and multi-column subtotals, styled Excel buffer, and complete CSV export.
 - [x] **Verification & Three-Stage Promotion**: 141 unit tests passing, zero TypeScript errors (`tsc --noEmit`), successful Next.js production build (`next build`), and 3-stage promotion workflow (`dev` -> `prod` -> `deploymment`).
+
+## Phase 46: Fix Overdue Reports [COMPLETED]
+
+**Goal:** Resolve outstanding issues in Overdue and Periodical Outstanding statements: eliminate discrepancy with legacy ERP statements caused by multi-voucher receipt row duplication, ensure correct parameter signatures, support company-wide Multi-MR exports, and align grand totals down to the rupee across web and exports.
+**Depends on:** Phase 44, Phase 45
+**Status:** Completed
+
+- [x] **Stored Procedure Parameter Alignment**: Verified exact legacy ERP query stack CALL rptMRwisePeriodicalOutstanding(11, 11, 202627, {d '2026-04-01'}, {d '2026-10-31'}, {d '2026-10-31'}, '', '', 'All', '', '', '(''AVRIVA'')', '', '', '') against live API server (api.asmeepharma.com).
+- [x] **Multi-Voucher Receipt Aggregation (Multiplication Fix)**: Grouped raw procedure rows by unique invoice (ID / DocNo), aggregated SUM(AdjAmt), and filtered out fully settled invoices (Amount - totalAdj <= 0.001). Matches exact legacy ERP totals: 38 invoices, Inv ₹1,19,475.00 | Rec ₹6,195.00 | Pending ₹1,13,280.00.
+- [x] **Web View & Export Synchronization**: Updated src/components/overdue-report-view.tsx and src/app/api/reports/download-outstanding/route.ts to use identical invoice aggregation logic. Unblocked company-wide Multi-MR download without requiring individual mrId.
+- [x] **MR Auto-Blocking Protection**: Hardened src/lib/overdueUtils.ts so settled multi-voucher invoices are not counted toward overdue thresholds.
+- [x] **Verification & Validation**: All 25 Vitest suites passed (142 tests), zero TypeScript errors (tsc --noEmit), Next.js production build (next build) succeeded, documented in 46-UAT.md.
