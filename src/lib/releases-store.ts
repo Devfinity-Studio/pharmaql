@@ -31,15 +31,15 @@ export interface ApiServerInstance {
 
 const DEFAULT_RELEASES: ApiServerRelease[] = [
 	{
-		id: "release-v1.2.2",
-		version: "1.2.2",
+		id: "release-v1.3.0",
+		version: "1.3.0",
 		platform: "win-x64",
-		sha256: "e7e69c6cda42defb9b8e8a9d0ff545f8e95bef5141ce8dc5250ea11004db0a12",
-		downloadUrl: "/api/releases/download?version=1.2.2",
+		sha256: "abf19d74dc3ae663cd2f0d117af2a5864fc3e455aefccf1ba5504290cc0089de",
+		downloadUrl: "/api/releases/download?version=1.3.0",
 		mandatory: true,
-		releaseNotes: "PharmaQL On-Premise API Engine v1.2.0: Self-installing Windows Service (pharmaql-api) with embedded NSSM, automatic Program Files setup, and machine-bound zero-knowledge encrypted vault.",
+		releaseNotes: "PharmaQL On-Premise API Engine v1.3.0: Expiry reporting endpoint, realigned Overdue statement date parameters (AsOn Date as 2nd date, Received Date as 3rd date), and on-demand OTA force update trigger.",
 		isActive: true,
-		createdAt: new Date().toISOString(),
+		createdAt: "2026-11-02T16:47:37.321Z",
 	},
 ];
 

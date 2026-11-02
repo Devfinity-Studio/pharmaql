@@ -13,7 +13,8 @@ export type AuditEventType =
 	| "SECURITY_WARNING"
 	| "EXPORT_DOWNLOAD"
 	| "DEVELOPER_IMPERSONATION_START"
-	| "DEVELOPER_IMPERSONATION_STOP";
+	| "DEVELOPER_IMPERSONATION_STOP"
+	| "SYSTEM_CONFIG_UPDATED";
 
 export interface AuditLogEntry {
 	id: string;

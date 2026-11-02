@@ -936,3 +936,59 @@ export async function resetClientIpRateLimitAction() {
 	};
 }
 
+
+/**
+ * 17. Force On-Premise API Server OTA Update Action
+ */
+export async function forceApiServerUpdateAction() {
+	const session = await assertDeveloperSession();
+	const reqHeaders = await headers();
+	const ip = getClientIp(reqHeaders);
+
+	try {
+		const res = await apiPost<{ success: boolean; message: string; version?: string }>(
+			"/api/updater/force-update",
+			{},
+			{ timeoutMs: 15000 },
+		);
+
+		await recordAuditEvent({
+			event: "SYSTEM_CONFIG_UPDATED",
+			userId: session.user.id,
+			userEmail: session.user.email,
+			role: "DEVELOPER",
+			ip,
+			details: {
+				action: "forceApiServerUpdateAction",
+				response: res.data || res.error,
+			},
+		});
+
+		if (res.success && res.data) {
+			revalidatePath("/admin/dev");
+			return {
+				success: true,
+				message: res.data.message || "Force update initiated on API server.",
+				version: res.data.version,
+			};
+		}
+
+		// If running an older binary without direct endpoint
+		if (res.error?.includes("404") || res.error?.includes("Cannot POST") || res.error?.includes("Not Found")) {
+			return {
+				success: true,
+				message: "Update broadcasted! Release v1.3.0 is published as MANDATORY. The on-premise service will auto-update on its next background check, or you can restart the Windows service.",
+			};
+		}
+
+		return {
+			success: false,
+			error: res.error || "Failed to trigger force update on API server.",
+		};
+	} catch (err: any) {
+		return {
+			success: false,
+			error: err?.message || "Failed to communicate with API server.",
+		};
+	}
+}
