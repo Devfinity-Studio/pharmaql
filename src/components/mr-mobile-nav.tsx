@@ -79,7 +79,7 @@ export function MrMobileNav({
 		});
 	}
 
-	if (canViewExpiry && rank === 3) {
+	if (canViewExpiry || rank >= 1) {
 		navItems.push({
 			id: "expiry",
 			label: "Expiry",

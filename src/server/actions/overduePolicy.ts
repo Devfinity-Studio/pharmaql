@@ -8,12 +8,18 @@ import { getControlPlaneSql } from "@/lib/control-plane-db";
 
 export interface OverduePolicyConfig {
 	disabled: boolean;
+	directBlockDays: number;
+	divisionBlockDays: number;
+	maxDataDays: number | null;
 	updatedBy?: string;
 	updatedAt?: string;
 }
 
 const DEFAULT_POLICY: OverduePolicyConfig = {
 	disabled: false,
+	directBlockDays: 90,
+	divisionBlockDays: 120,
+	maxDataDays: null,
 };
 
 // In-memory cache to eliminate repetitive queries during tight render/auth loops
@@ -50,12 +56,25 @@ export async function isOverdueBlockingDisabled(overrideTenantId?: string): Prom
  */
 export async function getOverdueBlockingStatus(overrideTenantId?: string): Promise<OverduePolicyConfig> {
 	let tenantId = overrideTenantId;
-	if (!tenantId) {
-		try {
-			const h = await headers();
+	let headerDirect: number | undefined;
+	let headerDiv: number | undefined;
+	let headerMaxData: number | null | undefined;
+
+	try {
+		const h = await headers();
+		if (!tenantId) {
 			tenantId = h.get("x-tenant-id") || undefined;
-		} catch {}
-	}
+		}
+		const directH = Number(h.get("x-tenant-overdue-direct"));
+		if (!isNaN(directH) && directH > 0) headerDirect = directH;
+		const divH = Number(h.get("x-tenant-overdue-division"));
+		if (!isNaN(divH) && divH > 0) headerDiv = divH;
+		const maxDataH = h.get("x-tenant-max-data-days");
+		if (maxDataH !== null && maxDataH !== undefined && maxDataH !== "") {
+			const parsed = Number(maxDataH);
+			headerMaxData = !isNaN(parsed) && parsed > 0 ? parsed : null;
+		}
+	} catch {}
 
 	const now = Date.now();
 	if (
@@ -69,20 +88,45 @@ export async function getOverdueBlockingStatus(overrideTenantId?: string): Promi
 	try {
 		const policy = await readServerJson<OverduePolicyConfig>(
 			"overdue_policy.json",
-			DEFAULT_POLICY,
+			{
+				...DEFAULT_POLICY,
+				...(headerDirect ? { directBlockDays: headerDirect } : {}),
+				...(headerDiv ? { divisionBlockDays: headerDiv } : {}),
+				...(headerMaxData !== undefined ? { maxDataDays: headerMaxData } : {}),
+			},
 			tenantId,
 		);
 
+		// Ensure defaults if reading an older policy file missing newer fields
+		const normalizedPolicy: OverduePolicyConfig = {
+			disabled: Boolean(policy.disabled),
+			directBlockDays: Number(policy.directBlockDays) || headerDirect || 90,
+			divisionBlockDays: Number(policy.divisionBlockDays) || headerDiv || 120,
+			maxDataDays:
+				policy.maxDataDays !== undefined
+					? policy.maxDataDays
+					: headerMaxData !== undefined
+						? headerMaxData
+						: null,
+			updatedBy: policy.updatedBy,
+			updatedAt: policy.updatedAt,
+		};
+
 		inMemoryPolicyCache = {
-			data: policy,
+			data: normalizedPolicy,
 			tenantId,
 			cachedAt: now,
 		};
 
-		return policy;
+		return normalizedPolicy;
 	} catch (err) {
 		console.warn("[OverduePolicy] Failed to load overdue policy:", err);
-		return DEFAULT_POLICY;
+		return {
+			...DEFAULT_POLICY,
+			...(headerDirect ? { directBlockDays: headerDirect } : {}),
+			...(headerDiv ? { divisionBlockDays: headerDiv } : {}),
+			...(headerMaxData !== undefined ? { maxDataDays: headerMaxData } : {}),
+		};
 	}
 }
 
@@ -93,6 +137,27 @@ export async function getOverdueBlockingStatus(overrideTenantId?: string): Promi
 export async function setOverdueBlockingStatusAction(
 	disabled: boolean,
 ): Promise<{ success: boolean; disabled: boolean; error?: string }> {
+	const res = await updateTenantPolicyAction({ disabled });
+	return {
+		success: res.success,
+		disabled: res.policy ? res.policy.disabled : disabled,
+		error: res.error,
+	};
+}
+
+/**
+ * Admin server action: Update complete tenant overdue and historical data policy settings:
+ * - Overdue Account Blocking (Enabled vs. Disabled)
+ * - Direct Block Limit (Days, default 90)
+ * - Division Cascading Block Limit (Days, default 120)
+ * - Max Historical Data Window for MRs (Days, e.g. 60 days, null/0 for unlimited)
+ */
+export async function updateTenantPolicyAction(input: {
+	disabled?: boolean;
+	directBlockDays?: number;
+	divisionBlockDays?: number;
+	maxDataDays?: number | null;
+}): Promise<{ success: boolean; policy?: OverduePolicyConfig; error?: string }> {
 	let h: Headers;
 	try {
 		h = await headers();
@@ -106,14 +171,30 @@ export async function setOverdueBlockingStatusAction(
 		!session ||
 		(session.user.role !== "ADMIN" && session.user.role !== "DEVELOPER")
 	) {
-		return { success: false, disabled: !disabled, error: "Unauthorized access" };
+		return { success: false, error: "Unauthorized access" };
 	}
 
 	const tenantId = h.get("x-tenant-id") || undefined;
 	const userEmail = session.user.email || session.user.name || "Admin";
 
+	const current = await getOverdueBlockingStatus(tenantId);
+
 	const newPolicy: OverduePolicyConfig = {
-		disabled: Boolean(disabled),
+		disabled: input.disabled !== undefined ? Boolean(input.disabled) : current.disabled,
+		directBlockDays:
+			input.directBlockDays !== undefined
+				? Math.max(1, Number(input.directBlockDays) || 90)
+				: current.directBlockDays,
+		divisionBlockDays:
+			input.divisionBlockDays !== undefined
+				? Math.max(1, Number(input.divisionBlockDays) || 120)
+				: current.divisionBlockDays,
+		maxDataDays:
+			input.maxDataDays !== undefined
+				? input.maxDataDays && Number(input.maxDataDays) > 0
+					? Number(input.maxDataDays)
+					: null
+				: current.maxDataDays,
 		updatedBy: userEmail,
 		updatedAt: new Date().toISOString(),
 	};
@@ -128,37 +209,56 @@ export async function setOverdueBlockingStatusAction(
 			try {
 				await sql`
 					UPDATE tenants 
-					SET overdue_blocking_disabled = ${Boolean(disabled)},
+					SET overdue_blocking_disabled = ${newPolicy.disabled},
+					    overdue_direct_block_days = ${newPolicy.directBlockDays},
+					    overdue_division_block_days = ${newPolicy.divisionBlockDays},
+					    max_data_days = ${newPolicy.maxDataDays},
 					    updated_at = NOW()
 					WHERE id = ${tenantId}::uuid
 				`;
 			} catch (dbErr) {
-				console.warn("[OverduePolicy] Could not update tenants table column:", dbErr);
+				console.warn("[OverduePolicy] Could not update tenants table columns:", dbErr);
 			}
 		}
 
-		// 3. Invalidate local in-memory cache
+		// 3. If local tenants store exists, update local tenant record
+		try {
+			const { getLocalTenantById, saveLocalTenant } = await import("@/lib/local-tenants-store");
+			if (tenantId) {
+				const local = await getLocalTenantById(tenantId);
+				if (local) {
+					await saveLocalTenant({
+						...local,
+						overdue_blocking_disabled: newPolicy.disabled,
+						overdue_direct_block_days: newPolicy.directBlockDays,
+						overdue_division_block_days: newPolicy.divisionBlockDays,
+						max_data_days: newPolicy.maxDataDays,
+					});
+				}
+			}
+		} catch {}
+
+		// 4. Invalidate local in-memory cache
 		inMemoryPolicyCache = {
 			data: newPolicy,
 			tenantId,
 			cachedAt: Date.now(),
 		};
 
-		// 4. Invalidate Admin paths so UI updates instantly
+		// 5. Invalidate Admin and MR paths so UI updates instantly
 		try {
 			revalidatePath("/admin/dashboard");
 			revalidatePath("/admin/mrs");
 			revalidatePath("/dashboard");
 		} catch {}
 
-		return { success: true, disabled: Boolean(disabled) };
+		return { success: true, policy: newPolicy };
 	} catch (err: any) {
-		console.error("[OverduePolicy] Failed to update overdue policy:", err);
+		console.error("[OverduePolicy] Failed to update policy:", err);
 		return {
 			success: false,
-			disabled: !disabled,
+			policy: current,
 			error: err.message || "Failed to persist policy change",
 		};
 	}
 }
-

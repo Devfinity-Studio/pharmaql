@@ -8,7 +8,7 @@ import { auth } from "@/server/auth";
 import { MRListInfiniteScroll } from "./MRListInfiniteScroll";
 import { MRSearchForm } from "./MRSearchForm";
 import { OverdueMRsSection } from "./overdue-mrs-section";
-import { OverdueBlockingSwitch } from "@/components/overdue-blocking-switch";
+import { AdminPolicySettings } from "@/components/admin-policy-settings";
 import { getOverdueBlockingStatus } from "@/server/actions/overduePolicy";
 
 export default async function AdminMRsPage({
@@ -66,8 +66,8 @@ export default async function AdminMRsPage({
 				</p>
 			</div>
 
-			{/* MR Overdue Account Blocking Policy Switch */}
-			<OverdueBlockingSwitch initialDisabled={overduePolicy.disabled} />
+			{/* Admin Overdue & Historical Data Visibility Policy Controls */}
+			<AdminPolicySettings initialPolicy={overduePolicy} />
 
 			{/* Live Overdue & Cascading Blocking Control Center (scanned on demand) */}
 			<OverdueMRsSection />

@@ -3,7 +3,7 @@ import { getPermissionsForRank } from "../permissions";
 
 describe("permissions", () => {
 	describe("getPermissionsForRank", () => {
-		it("grants only Stock Movement and Stock & Sales for Rank 1", () => {
+		it("grants Stock, Stock & Sales, Overdue, and Expiry for Rank 1", () => {
 			const perms = getPermissionsForRank(1);
 			expect(perms.canViewStock).toBe(true);
 			expect(perms.canViewStockAndSales).toBe(true);
@@ -11,10 +11,11 @@ describe("permissions", () => {
 			expect(perms.canViewSales).toBe(false);
 			expect(perms.canViewPartyWise).toBe(false);
 			expect(perms.canViewProductWise).toBe(false);
-			expect(perms.canViewExpiry).toBe(false);
+			expect(perms.canViewExpiry).toBe(true);
+			expect(perms.canViewOverdue).toBe(true);
 		});
 
-		it("grants Stock, Stock & Sales, and Free Scheme (Claim) for Rank 2", () => {
+		it("grants Stock, Stock & Sales, Free Scheme (Claim), Overdue, and Expiry for Rank 2", () => {
 			const perms = getPermissionsForRank(2);
 			expect(perms.canViewStock).toBe(true);
 			expect(perms.canViewStockAndSales).toBe(true);
@@ -22,7 +23,8 @@ describe("permissions", () => {
 			expect(perms.canViewSales).toBe(false);
 			expect(perms.canViewPartyWise).toBe(false);
 			expect(perms.canViewProductWise).toBe(false);
-			expect(perms.canViewExpiry).toBe(false);
+			expect(perms.canViewExpiry).toBe(true);
+			expect(perms.canViewOverdue).toBe(true);
 		});
 
 		it("grants all report permissions for Rank 3", () => {
@@ -34,6 +36,7 @@ describe("permissions", () => {
 			expect(perms.canViewPartyWise).toBe(true);
 			expect(perms.canViewProductWise).toBe(true);
 			expect(perms.canViewExpiry).toBe(true);
+			expect(perms.canViewOverdue).toBe(true);
 		});
 
 		it("correctly resolves ranks across multi-division rows without null profile escalation", () => {
@@ -48,12 +51,10 @@ describe("permissions", () => {
 							r = parsed as 1 | 2 | 3;
 						}
 					} else if (m.JobProfile) {
-						const jp = m.JobProfile.toUpperCase().trim();
-						if (jp === "MR") r = 1;
-						else if (jp === "ABM" || jp === "BO") r = 2;
-						else if (jp === "ASM" || jp === "RSM" || jp === "ZSM" || jp === "NSM") r = 3;
-					} else if (m.rank === 1 || m.rank === 2) {
-						r = m.rank as 1 | 2 | 3;
+						const match = String(m.JobProfile).match(/rank\s*([123])/i);
+						if (match && match[1]) {
+							r = Number(match[1]) as 1 | 2 | 3;
+						}
 					}
 					if (r !== null) {
 						if (explicitDbRank === null || r > explicitDbRank) {
@@ -61,23 +62,25 @@ describe("permissions", () => {
 						}
 					}
 				}
-				return explicitDbRank ?? 3;
+				return explicitDbRank;
 			}
 
-			// Single row set to MR
-			expect(resolveMemberRank([{ JobProfile: "MR" }])).toBe(1);
+			const membersWithExplicit = [
+				{ Ranking: 2, JobProfile: "Representative" },
+				{ Ranking: 1, JobProfile: null },
+			];
+			expect(resolveMemberRank(membersWithExplicit)).toBe(2);
 
-			// Legacy database exact row pattern: Ranking is "2", JobProfile is empty string ""
-			expect(resolveMemberRank([{ Ranking: "2", JobProfile: "" }])).toBe(2);
+			const membersWithTextProfile = [
+				{ Ranking: null, JobProfile: "Sales Rank 3" },
+				{ Ranking: null, JobProfile: "General MR" },
+			];
+			expect(resolveMemberRank(membersWithTextProfile)).toBe(3);
 
-			// Multi-division MR: One division set to MR (Rank 1), other division unconfigured/null
-			expect(resolveMemberRank([{ JobProfile: "MR" }, { JobProfile: null }])).toBe(1);
-
-			// Multi-division ABM: One division set to ABM (Rank 2), other division null
-			expect(resolveMemberRank([{ JobProfile: "ABM" }, { JobProfile: null }])).toBe(2);
-
-			// Explicit Rank 1 column with secondary division having default rank 3
-			expect(resolveMemberRank([{ rank: 1, explicitRank: 1 }, { rank: 3, JobProfile: null }])).toBe(1);
+			const membersWithoutRank = [
+				{ Ranking: null, JobProfile: "Representative" },
+			];
+			expect(resolveMemberRank(membersWithoutRank)).toBeNull();
 		});
 	});
 });

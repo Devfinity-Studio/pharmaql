@@ -91,6 +91,7 @@ export async function getSession(options?: {
 						canViewPartyWise: perms.canViewPartyWise,
 						canViewProductWise: perms.canViewProductWise,
 						canViewExpiry: perms.canViewExpiry,
+						canViewOverdue: perms.canViewOverdue,
 						isImpersonating: true,
 						originalDeveloper: user,
 					};
@@ -140,6 +141,7 @@ export async function getSession(options?: {
 				(user as any).canViewPartyWise = livePerms.canViewPartyWise;
 				(user as any).canViewProductWise = livePerms.canViewProductWise;
 				(user as any).canViewExpiry = livePerms.canViewExpiry;
+				(user as any).canViewOverdue = livePerms.canViewOverdue;
 			}
 		} catch (err) {
 			console.warn("[Auth] Failed to refresh live rank for MR:", err);

@@ -50,6 +50,7 @@ export async function middleware(request: NextRequest) {
 		if (tenant.loc_no !== undefined && tenant.loc_no !== null) requestHeaders.set("x-tenant-loc-no", String(tenant.loc_no));
 		if (tenant.overdue_direct_block_days) requestHeaders.set("x-tenant-overdue-direct", String(tenant.overdue_direct_block_days));
 		if (tenant.overdue_division_block_days) requestHeaders.set("x-tenant-overdue-division", String(tenant.overdue_division_block_days));
+		if (tenant.max_data_days !== undefined && tenant.max_data_days !== null) requestHeaders.set("x-tenant-max-data-days", String(tenant.max_data_days));
 		if (tenant.overdue_blocking_disabled) {
 			requestHeaders.set("x-tenant-overdue-blocking", "disabled");
 		} else {

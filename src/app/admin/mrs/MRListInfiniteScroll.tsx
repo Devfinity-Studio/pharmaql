@@ -347,7 +347,7 @@ export function MRListInfiniteScroll({
 												: "border border-gray-200 bg-gray-100 text-gray-500 line-through"
 										}`}
 									>
-										{mr.canViewExpiry || mr.rank === 3 ? "✓" : "✕"} Expiry
+										{mr.canViewExpiry || (mr.rank !== undefined && mr.rank >= 1) ? "✓" : "✕"} Expiry
 									</span>
 								</div>
 							</div>

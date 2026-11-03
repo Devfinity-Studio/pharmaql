@@ -1,5 +1,6 @@
 import "server-only";
 import { decryptSecret } from "./crypto";
+import { calculateMaxDataCutoff } from "./dateUtils";
 import { normalizeApiUrl } from "./utils";
 
 const RAW_API_SERVER_URL = process.env.API_SERVER_URL;
@@ -177,6 +178,34 @@ export async function apiGet<T>(
 			return await inFlightRequests.get(cacheKey)!;
 		}
 
+		// Max data window clamping for MR report queries in apiGet
+
+		// Max data window clamping for MR report queries
+		if (cleanPath.startsWith("/api/reports")) {
+			try {
+				const { headers } = await import("next/headers");
+				const h = await headers();
+				const rawMaxDays = h.get("x-tenant-max-data-days");
+				const maxDataDays = rawMaxDays && !isNaN(Number(rawMaxDays)) ? Number(rawMaxDays) : null;
+				if (maxDataDays && maxDataDays > 0) {
+					const { getSession } = await import("@/server/auth");
+					const session = await getSession();
+					const role = session?.user?.role;
+					const isAdmin = role === "ADMIN" || role === "DEVELOPER";
+					if (!isAdmin) {
+						const cutoff = calculateMaxDataCutoff(maxDataDays);
+						if (cutoff) {
+							if (mergedParams.fromDate && String(mergedParams.fromDate) < cutoff) mergedParams.fromDate = cutoff;
+							if (mergedParams.from && String(mergedParams.from) < cutoff) mergedParams.from = cutoff;
+							if (mergedParams.toDate && String(mergedParams.toDate) < cutoff) mergedParams.toDate = cutoff;
+							if (mergedParams.to && String(mergedParams.to) < cutoff) mergedParams.to = cutoff;
+							if (mergedParams.asOn && String(mergedParams.asOn) < cutoff) mergedParams.asOn = cutoff;
+						}
+					}
+				}
+			} catch {}
+		}
+
 		const isReportEndpoint = cleanPath.startsWith("/api/reports") || cleanPath.startsWith("/api/master");
 		const requestTimeoutMs = options?.timeoutMs ?? (isReportEndpoint ? 45000 : 15000);
 
@@ -272,6 +301,36 @@ export async function apiPost<T>(
 		const now = Date.now();
 
 		// Reports and master reads are cacheable; mutations/auth bypass by default
+		// Max data window clamping for MR report queries in apiPost
+
+		// Max data window clamping for MR report queries in apiPost
+		if (cleanPath.startsWith("/api/reports") && finalBody && typeof finalBody === "object" && !Array.isArray(finalBody)) {
+			try {
+				const { headers } = await import("next/headers");
+				const h = await headers();
+				const rawMaxDays = h.get("x-tenant-max-data-days");
+				const maxDataDays = rawMaxDays && !isNaN(Number(rawMaxDays)) ? Number(rawMaxDays) : null;
+				if (maxDataDays && maxDataDays > 0) {
+					const { getSession } = await import("@/server/auth");
+					const session = await getSession();
+					const role = session?.user?.role;
+					const isAdmin = role === "ADMIN" || role === "DEVELOPER";
+					if (!isAdmin) {
+						const cutoff = calculateMaxDataCutoff(maxDataDays);
+						if (cutoff) {
+							if (finalBody.fromDate && String(finalBody.fromDate) < cutoff) finalBody.fromDate = cutoff;
+							if (finalBody.from && String(finalBody.from) < cutoff) finalBody.from = cutoff;
+							if (finalBody.toDate && String(finalBody.toDate) < cutoff) finalBody.toDate = cutoff;
+							if (finalBody.to && String(finalBody.to) < cutoff) finalBody.to = cutoff;
+							if (finalBody.asOn && String(finalBody.asOn) < cutoff) finalBody.asOn = cutoff;
+							if (finalBody.asOnDate && String(finalBody.asOnDate) < cutoff) finalBody.asOnDate = cutoff;
+							if (finalBody.recDate && String(finalBody.recDate) < cutoff) finalBody.recDate = cutoff;
+						}
+					}
+				}
+			} catch {}
+		}
+
 		const isReportEndpoint = cleanPath.startsWith("/api/reports") || cleanPath.startsWith("/api/master");
 		const shouldCache =
 			!options?.bypassCache && (options?.ttlSeconds !== undefined ? options.ttlSeconds > 0 : isReportEndpoint);

@@ -8,6 +8,7 @@ export interface RankPermissions {
 	canViewPartyWise: boolean;
 	canViewProductWise: boolean;
 	canViewExpiry: boolean;
+	canViewOverdue: boolean;
 }
 
 export interface MROverride {
@@ -22,6 +23,7 @@ export interface MROverride {
 		canViewPartyWise: boolean;
 		canViewProductWise: boolean;
 		canViewExpiry?: boolean;
+		canViewOverdue?: boolean;
 	};
 	assignedManufacturers?: {
 		id: string;
@@ -32,9 +34,9 @@ export interface MROverride {
 
 /**
  * Derives strict report permissions according to MR Rank:
- * - Rank 1: Stock Movement and Stock & Sales reports
- * - Rank 2: Stock reports and Claim Quantity (Free Scheme) reports
- * - Rank 3: All reports (Stock Movement, Stock & Sales, Free Scheme, Sales, Party Wise, Product Wise)
+ * - Rank 1: Stock Movement, Stock & Sales, Overdue, and Expiry reports
+ * - Rank 2: Stock reports, Claim Quantity (Free Scheme), Overdue, and Expiry reports
+ * - Rank 3: All reports (Stock Movement, Stock & Sales, Free Scheme, Sales, Party Wise, Product Wise, Overdue, Expiry)
  */
 export function getPermissionsForRank(rank: MRRank): RankPermissions {
 	if (rank === 1) {
@@ -45,7 +47,8 @@ export function getPermissionsForRank(rank: MRRank): RankPermissions {
 			canViewSales: false,
 			canViewPartyWise: false,
 			canViewProductWise: false,
-			canViewExpiry: false,
+			canViewExpiry: true,
+			canViewOverdue: true,
 		};
 	}
 	if (rank === 2) {
@@ -56,7 +59,8 @@ export function getPermissionsForRank(rank: MRRank): RankPermissions {
 			canViewSales: false,
 			canViewPartyWise: false,
 			canViewProductWise: false,
-			canViewExpiry: false,
+			canViewExpiry: true,
+			canViewOverdue: true,
 		};
 	}
 	// Rank 3 (or any higher)
@@ -68,5 +72,6 @@ export function getPermissionsForRank(rank: MRRank): RankPermissions {
 		canViewPartyWise: true,
 		canViewProductWise: true,
 		canViewExpiry: true,
+		canViewOverdue: true,
 	};
 }
