@@ -31,6 +31,7 @@ interface StockAndSalesDisplayItem {
 export async function StockAndSalesReportView({
 	mrId,
 	searchParams,
+	isAdminView = false,
 }: {
 	mrId: string;
 	searchParams?: {
@@ -39,10 +40,11 @@ export async function StockAndSalesReportView({
 		to?: string;
 		debug?: string;
 	};
+	isAdminView?: boolean;
 }) {
 	// 1. Fetch MR Info & permissions
 	const mrInfo = await getMRInfo(mrId);
-	if (!mrInfo?.canViewStockAndSales && !mrInfo?.canViewStock) {
+	if (!mrInfo || (!isAdminView && !mrInfo.canViewStockAndSales && !mrInfo.canViewStock)) {
 		return <div className="p-4 font-semibold text-gray-500">No access to Stock & Sales report.</div>;
 	}
 

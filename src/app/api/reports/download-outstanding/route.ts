@@ -4,6 +4,7 @@ import * as xlsx from "xlsx";
 import { recordAuditEvent } from "@/lib/audit-logger";
 import { getDefaultTMinus1MonthRange } from "@/lib/dateUtils";
 import { buildStyledExcelBuffer } from "@/lib/excel";
+import { sanitizeDateRangeForRole } from "@/lib/dateUtils";
 import { rateLimitReportDownload } from "@/lib/rate-limit";
 import { getClientIp, getClientUserAgent } from "@/lib/security";
 import { getMRInfo } from "@/server/actions/mrInfo";
@@ -72,7 +73,7 @@ export async function GET(request: Request) {
 		return new NextResponse("MR not found", { status: 404 });
 	}
 
-	const canViewOverdue = isAdmin || isSelf || (mrInfo && mrInfo.canViewSales);
+	const canViewOverdue = isAdmin || isSelf || (mrInfo && (mrInfo.canViewOverdue || mrInfo.canViewSales || (mrInfo.rank !== undefined && mrInfo.rank >= 1)));
 	if (!canViewOverdue && !isAdmin) {
 		return new NextResponse("Forbidden - View disabled", { status: 403 });
 	}
@@ -108,7 +109,15 @@ export async function GET(request: Request) {
 	// bifurcated MR-wise. By default, p_MRId is '' (empty string) so all MRs for the company are returned.
 	const targetMrId = searchParams.get("mr") || searchParams.get("singleMr") || "";
 
-	const asOn = searchParams.get("asOn") || searchParams.get("to") || to || new Date().toISOString().slice(0, 10);
+	const rawAsOn = searchParams.get("asOn") || searchParams.get("to") || to || new Date().toISOString().slice(0, 10);
+	const rawMaxDays = reqHeaders.get("x-tenant-max-data-days");
+	const maxDataDays = rawMaxDays && !isNaN(Number(rawMaxDays)) ? Number(rawMaxDays) : null;
+	const sanitizedOutstandingDates = sanitizeDateRangeForRole({
+		asOn: rawAsOn,
+		role: session.user.role,
+		maxDataDays,
+	});
+	const asOn = sanitizedOutstandingDates.asOn || rawAsOn;
 	const recDate = searchParams.get("recDate") || searchParams.get("receivedDate") || asOn;
 	const finYearStart = "2026-04-01";
 	const defaultTo = asOn;

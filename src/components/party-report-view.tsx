@@ -52,6 +52,7 @@ interface CustomerGroup {
 export async function PartyReportView({
 	mrId,
 	searchParams,
+	isAdminView = false,
 }: {
 	mrId: string;
 	searchParams?: {
@@ -62,9 +63,10 @@ export async function PartyReportView({
 		q?: string;
 		debug?: string;
 	};
+	isAdminView?: boolean;
 }) {
 	const mrInfo = await getMRInfo(mrId);
-	if (!mrInfo || !mrInfo.canViewPartyWise) {
+	if (!mrInfo || (!isAdminView && !mrInfo.canViewPartyWise)) {
 		return <div>No access to party wise data.</div>;
 	}
 
@@ -93,7 +95,8 @@ export async function PartyReportView({
 	const defaultFrom = searchParams?.from || "2026-04-01";
 	const defaultTo = searchParams?.to || "2026-09-30";
 
-	const partySalesResult: PartyCustomerItemSaleResult = mrInfo.canViewSales
+	const canFetchSales = isAdminView || mrInfo.canViewSales;
+	const partySalesResult: PartyCustomerItemSaleResult = canFetchSales
 		? await getPartyCustomerItemSale({
 				fromDate: defaultFrom,
 				toDate: defaultTo,

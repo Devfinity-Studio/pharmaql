@@ -403,3 +403,16 @@
 - [x] **Web View & Export Synchronization**: Updated src/components/overdue-report-view.tsx and src/app/api/reports/download-outstanding/route.ts to use identical invoice aggregation logic. Unblocked company-wide Multi-MR download without requiring individual mrId.
 - [x] **MR Auto-Blocking Protection**: Hardened src/lib/overdueUtils.ts so settled multi-voucher invoices are not counted toward overdue thresholds.
 - [x] **Verification & Validation**: All 25 Vitest suites passed (142 tests), zero TypeScript errors (tsc --noEmit), Next.js production build (next build) succeeded, documented in 46-UAT.md.
+
+
+## Phase 47: Admin Overdue Blocking Days, Max Data Limit & Unrestricted Admin MR Access [COMPLETED]
+
+**Goal:** Provide full administrative control over overdue blocking parameters and historical data visibility for MRs, while ensuring Admins retain unrestricted access to all reports for all MRs regardless of MR rank or permissions.
+**Depends on:** Phase 46
+**Status:** Completed
+
+- [x] **Link Overdue and Expiry to Rank 1**: Updated `getPermissionsForRank` so MRs with Rank 1 or above have out-of-the-box access to view both Expiry (`canViewExpiry: true`) and Overdue (`canViewOverdue: true`) statements across web navigation, mobile nav, and export routes.
+- [x] **Admin Overdue Blocking & Data Policy Configuration**: Added `AdminPolicySettings` component in `/admin/mrs` allowing Admins to toggle Overdue blocking enforcement, configure direct overdue block days, division cascading block days, and MR max historical data days (`max_data_days`), persisted across Neon DB and local file fallback.
+- [x] **Max Historical Data Window Clamping**: Enforced `maxDataDays` clamping client-side in `DateRangePicker` (via HTML5 input `min` attribute and preset clamping) and server-side in `apiPost`, `apiGet`, and report download routes (`/api/reports/download-sales`, `download-stock`, `download-outstanding`, `download-expiry`), while leaving Admins and Developers completely unconstrained.
+- [x] **Unrestricted Admin MR Report Access**: Added `isAdminView` bypass prop across `PartyReportView`, `ProductReportView`, `StockReportView`, and `StockAndSalesReportView`, allowing Admins inspecting any MR (`/admin/mrs/[id]`) to view all report tabs and live datasets regardless of the MR's rank or individual permission overrides.
+- [x] **Verification & Validation**: All 25 test suites passed (151 tests), zero TypeScript compilation errors (`tsc --noEmit`), and Next.js production build (`next build`) compiled successfully. Documented in `47-UAT.md`.

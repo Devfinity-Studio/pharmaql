@@ -1,7 +1,7 @@
 import { headers } from "next/headers";
 import { NextResponse } from "next/server";
 import { recordAuditEvent } from "@/lib/audit-logger";
-import { getDefaultTMinus1MonthRange } from "@/lib/dateUtils";
+import { getDefaultTMinus1MonthRange, sanitizeDateRangeForRole } from "@/lib/dateUtils";
 import { buildStyledExcelBuffer, type ExcelColumnDef } from "@/lib/excel";
 import { rateLimitReportDownload } from "@/lib/rate-limit";
 import { getClientIp, getClientUserAgent } from "@/lib/security";
@@ -114,8 +114,16 @@ export async function GET(request: Request) {
 	})();
 
 	const defaultT1 = getDefaultTMinus1MonthRange();
-	const defaultFrom = from || defaultT1.from;
-	const defaultTo = to || defaultT1.to;
+	const rawMaxDays = reqHeaders.get("x-tenant-max-data-days");
+	const maxDataDays = rawMaxDays && !isNaN(Number(rawMaxDays)) ? Number(rawMaxDays) : null;
+	const sanitizedDates = sanitizeDateRangeForRole({
+		from: from || defaultT1.from,
+		to: to || defaultT1.to,
+		role: session.user.role,
+		maxDataDays,
+	});
+	const defaultFrom = sanitizedDates.from || (from || defaultT1.from);
+	const defaultTo = sanitizedDates.to || (to || defaultT1.to);
 	const mrName = mrInfo.name || "Unknown";
 	const safeMrName = mrName.replace(/[^a-zA-Z0-9]/g, "_");
 	const safeCompany = (company || "All").replace(/[^a-zA-Z0-9]/g, "_");

@@ -57,6 +57,7 @@ interface ProductItemReportGroup {
 export async function ProductReportView({
 	mrId,
 	searchParams,
+	isAdminView = false,
 }: {
 	mrId: string;
 	searchParams?: {
@@ -66,10 +67,11 @@ export async function ProductReportView({
 		q?: string;
 		debug?: string;
 	};
+	isAdminView?: boolean;
 }) {
 	// Fetch MR Info and permissions
 	const mrInfo = await getMRInfo(mrId);
-	if (!mrInfo || !mrInfo.canViewProductWise)
+	if (!mrInfo || (!isAdminView && !mrInfo.canViewProductWise))
 		return <div>No access to products data.</div>;
 
 	const company = searchParams?.division || "All";
@@ -98,7 +100,7 @@ export async function ProductReportView({
 	const toParam = searchParams?.to || "2026-09-30";
 
 	const [procSalesResult, itemDivisionMap] = await Promise.all([
-		mrInfo.canViewSales
+		(isAdminView || mrInfo.canViewSales)
 			? getItemCustomerSale({
 					fromDate: fromParam,
 					toDate: toParam,

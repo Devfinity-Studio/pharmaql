@@ -51,6 +51,7 @@ export interface LegacyMRUser {
 	canViewPartyWise: boolean;
 	canViewProductWise: boolean;
 	canViewExpiry: boolean;
+	canViewOverdue?: boolean;
 	assignments?: MRAssignment[];
 	allIds?: string[];
 }

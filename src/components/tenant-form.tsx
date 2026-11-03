@@ -80,6 +80,9 @@ export function TenantForm({ mode, initialTenant }: TenantFormProps) {
 	const [overdueDivisionBlockDays, setOverdueDivisionBlockDays] = useState<number>(
 		initialTenant?.overdue_division_block_days ?? 95,
 	);
+	const [maxDataDays, setMaxDataDays] = useState<string>(
+		initialTenant?.max_data_days ? String(initialTenant.max_data_days) : "",
+	);
 
 	// 4. Tenant Administrator Credentials
 	const [adminEmail, setAdminEmail] = useState(initialTenant?.admin_email || "");
@@ -312,6 +315,7 @@ export function TenantForm({ mode, initialTenant }: TenantFormProps) {
 				loc_no: Number(locNo) || 11,
 				overdue_direct_block_days: Number(overdueDirectBlockDays) || 90,
 				overdue_division_block_days: Number(overdueDivisionBlockDays) || 95,
+				max_data_days: maxDataDays.trim() ? Number(maxDataDays) : null,
 				admin_email: adminEmail.trim() || null,
 				admin_password: adminPassword.trim() || null,
 				smtp_host: smtpHost.trim() || null,

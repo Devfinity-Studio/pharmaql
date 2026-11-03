@@ -3,6 +3,7 @@ import {
 	isOverdueBlockingDisabled,
 	getOverdueBlockingStatus,
 	setOverdueBlockingStatusAction,
+	updateTenantPolicyAction,
 } from "@/server/actions/overduePolicy";
 
 // Mock next/headers
@@ -56,9 +57,12 @@ describe("overduePolicy", () => {
 		vi.clearAllMocks();
 	});
 
-	it("defaults to blocking enabled (disabled = false)", async () => {
+	it("defaults to blocking enabled (disabled = false) with standard defaults", async () => {
 		const status = await getOverdueBlockingStatus();
 		expect(status.disabled).toBe(false);
+		expect(status.directBlockDays).toBe(90);
+		expect(status.divisionBlockDays).toBe(120);
+		expect(status.maxDataDays).toBeNull();
 
 		const isDisabled = await isOverdueBlockingDisabled();
 		expect(isDisabled).toBe(false);
@@ -87,5 +91,30 @@ describe("overduePolicy", () => {
 
 		expect(await isOverdueBlockingDisabled()).toBe(false);
 	});
-});
 
+	it("updates custom blocking days and maxDataDays via updateTenantPolicyAction", async () => {
+		const res = await updateTenantPolicyAction({
+			directBlockDays: 60,
+			divisionBlockDays: 100,
+			maxDataDays: 45,
+		});
+
+		expect(res.success).toBe(true);
+		expect(res.policy?.directBlockDays).toBe(60);
+		expect(res.policy?.divisionBlockDays).toBe(100);
+		expect(res.policy?.maxDataDays).toBe(45);
+
+		const fetched = await getOverdueBlockingStatus();
+		expect(fetched.directBlockDays).toBe(60);
+		expect(fetched.divisionBlockDays).toBe(100);
+		expect(fetched.maxDataDays).toBe(45);
+	});
+
+	it("clears maxDataDays back to null when set to 0 or null", async () => {
+		await updateTenantPolicyAction({ maxDataDays: 60 });
+		expect((await getOverdueBlockingStatus()).maxDataDays).toBe(60);
+
+		await updateTenantPolicyAction({ maxDataDays: 0 });
+		expect((await getOverdueBlockingStatus()).maxDataDays).toBeNull();
+	});
+});

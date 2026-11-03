@@ -81,3 +81,93 @@ export function formatDateToOdbc(dateStr?: string, defaultDate = "2026-04-01"): 
 	return `{d '${year}-${month}-${day}'}`;
 }
 
+/**
+ * Calculates the earliest allowed historical date given a maxDataDays window from today.
+ * e.g., if maxDataDays is 60 and referenceDate is 2026-11-03, returns "2026-09-04".
+ */
+export function calculateMaxDataCutoff(
+	maxDataDays?: number | null,
+	referenceDate = new Date(),
+): string | null {
+	if (!maxDataDays || isNaN(maxDataDays) || maxDataDays <= 0) return null;
+	const cutoff = new Date(referenceDate);
+	cutoff.setDate(cutoff.getDate() - maxDataDays);
+	const y = cutoff.getFullYear();
+	const m = String(cutoff.getMonth() + 1).padStart(2, "0");
+	const d = String(cutoff.getDate()).padStart(2, "0");
+	return `${y}-${m}-${d}`;
+}
+
+/**
+ * Sanitizes and clamps a date range according to the viewer's role and tenant maxDataDays.
+ * - ADMIN / DEVELOPER: completely unrestricted (returns original from/to unchanged).
+ * - MR / unauthenticated: if maxDataDays is configured (> 0), from and to cannot be older than the cutoff.
+ */
+export function sanitizeDateRangeForRole(params: {
+	from?: string | null;
+	to?: string | null;
+	asOn?: string | null;
+	role?: string | null;
+	maxDataDays?: number | null;
+	referenceDate?: Date;
+}): {
+	from?: string;
+	to?: string;
+	asOn?: string;
+	minAllowedDate: string | null;
+	isClamped: boolean;
+} {
+	const { from, to, asOn, role, maxDataDays, referenceDate } = params;
+	const isAdmin = role === "ADMIN" || role === "DEVELOPER";
+
+	if (isAdmin || !maxDataDays || maxDataDays <= 0) {
+		return {
+			from: from || undefined,
+			to: to || undefined,
+			asOn: asOn || undefined,
+			minAllowedDate: null,
+			isClamped: false,
+		};
+	}
+
+	const minAllowedDate = calculateMaxDataCutoff(maxDataDays, referenceDate);
+	if (!minAllowedDate) {
+		return {
+			from: from || undefined,
+			to: to || undefined,
+			asOn: asOn || undefined,
+			minAllowedDate: null,
+			isClamped: false,
+		};
+	}
+
+	let effectiveFrom = from || undefined;
+	let effectiveTo = to || undefined;
+	let effectiveAsOn = asOn || undefined;
+	let isClamped = false;
+
+	if (effectiveFrom && effectiveFrom < minAllowedDate) {
+		effectiveFrom = minAllowedDate;
+		isClamped = true;
+	} else if (!effectiveFrom) {
+		effectiveFrom = minAllowedDate;
+	}
+
+	if (effectiveTo && effectiveTo < minAllowedDate) {
+		effectiveTo = minAllowedDate;
+		isClamped = true;
+	}
+
+	if (effectiveAsOn && effectiveAsOn < minAllowedDate) {
+		effectiveAsOn = minAllowedDate;
+		isClamped = true;
+	}
+
+	return {
+		from: effectiveFrom,
+		to: effectiveTo,
+		asOn: effectiveAsOn,
+		minAllowedDate,
+		isClamped,
+	};
+}

@@ -200,6 +200,7 @@ export async function requestMrOtp(emailOrPhone: string) {
 			canViewPartyWise: perms.canViewPartyWise,
 			canViewProductWise: perms.canViewProductWise,
 			canViewExpiry: perms.canViewExpiry,
+			canViewOverdue: perms.canViewOverdue,
 		};
 
 		const tenantId = reqHeaders.get("x-tenant-id") || undefined;
