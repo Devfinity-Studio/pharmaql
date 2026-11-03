@@ -405,13 +405,14 @@
 - [x] **Verification & Validation**: All 25 Vitest suites passed (142 tests), zero TypeScript errors (tsc --noEmit), Next.js production build (next build) succeeded, documented in 46-UAT.md.
 
 
-## Phase 47: Admin Overdue Blocking Days, Max Data Limit & Unrestricted Admin MR Access
+## Phase 47: Admin Overdue Blocking Days, Max Data Limit & Unrestricted Admin MR Access [COMPLETED]
 
 **Goal:** Provide full administrative control over overdue blocking parameters and historical data visibility for MRs, while ensuring Admins retain unrestricted access to all reports for all MRs regardless of MR rank or permissions.
 **Depends on:** Phase 46
-**Status:** Not planned yet
+**Status:** Completed
 
-- [ ] **Admin Overdue Blocking Configuration**: Add controls in the Admin / Developer settings UI allowing Admins to set `overdue_direct_block_days` and `overdue_division_block_days`, persisting to tenant state and dynamically consumed by `evaluateOverdueInvoices`.
-- [ ] **Max Historical Data Window for MRs**: Implement configurable `max_data_days` (e.g. 60 days). When configured, restrict MR date pickers, queries, and reports from requesting data older than `today - max_data_days`, while keeping Admins unrestricted.
-- [ ] **Unrestricted Admin MR Report Access**: Audit and enforce that Admins can view all reports (Stock, Sales, Overdue, Expiry, Party-wise, Product-wise) for all MRs regardless of an individual MR's rank (Rank 1, 2, 3) or individual permission toggles.
-- [ ] **Verification & Validation**: End-to-end testing of Admin overrides, MR date clamping, overdue block threshold updates, unit tests, and production build verification.
+- [x] **Link Overdue and Expiry to Rank 1**: Updated `getPermissionsForRank` so MRs with Rank 1 or above have out-of-the-box access to view both Expiry (`canViewExpiry: true`) and Overdue (`canViewOverdue: true`) statements across web navigation, mobile nav, and export routes.
+- [x] **Admin Overdue Blocking & Data Policy Configuration**: Added `AdminPolicySettings` component in `/admin/mrs` allowing Admins to toggle Overdue blocking enforcement, configure direct overdue block days, division cascading block days, and MR max historical data days (`max_data_days`), persisted across Neon DB and local file fallback.
+- [x] **Max Historical Data Window Clamping**: Enforced `maxDataDays` clamping client-side in `DateRangePicker` (via HTML5 input `min` attribute and preset clamping) and server-side in `apiPost`, `apiGet`, and report download routes (`/api/reports/download-sales`, `download-stock`, `download-outstanding`, `download-expiry`), while leaving Admins and Developers completely unconstrained.
+- [x] **Unrestricted Admin MR Report Access**: Added `isAdminView` bypass prop across `PartyReportView`, `ProductReportView`, `StockReportView`, and `StockAndSalesReportView`, allowing Admins inspecting any MR (`/admin/mrs/[id]`) to view all report tabs and live datasets regardless of the MR's rank or individual permission overrides.
+- [x] **Verification & Validation**: All 25 test suites passed (151 tests), zero TypeScript compilation errors (`tsc --noEmit`), and Next.js production build (`next build`) compiled successfully. Documented in `47-UAT.md`.

@@ -35,6 +35,7 @@ interface StockReportItem {
 export async function StockReportView({
 	mrId,
 	searchParams,
+	isAdminView = false,
 }: {
 	mrId: string;
 	searchParams?: {
@@ -43,10 +44,11 @@ export async function StockReportView({
 		to?: string;
 		debug?: string;
 	};
+	isAdminView?: boolean;
 }) {
 	// Fetch MR Info & permissions from legacy schema
 	const mrInfo = await getMRInfo(mrId);
-	if (!mrInfo?.canViewStock) return <div>No access to stock data.</div>;
+	if (!mrInfo || (!isAdminView && !mrInfo.canViewStock)) return <div>No access to stock data.</div>;
 
 	const effectiveLocNo = mrInfo.locNo || "11";
 	const company = searchParams?.division || "All";

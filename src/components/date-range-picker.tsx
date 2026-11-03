@@ -7,12 +7,16 @@ export interface DateRangePickerProps {
 	singleDateMode?: boolean;
 	singleDateLabel?: string;
 	showReceivedDate?: boolean;
+	minDate?: string;
+	maxDataDays?: number | null;
 }
 
 export function DateRangePicker({
 	singleDateMode = false,
 	singleDateLabel = "AsOn Date",
 	showReceivedDate = false,
+	minDate,
+	maxDataDays,
 }: DateRangePickerProps = {}) {
 	const router = useRouter();
 	const searchParams = useSearchParams();
@@ -32,14 +36,26 @@ export function DateRangePicker({
 		setRecDate(currentRec);
 	}, [currentFrom, currentTo, currentRec]);
 
+	const clampWithMin = (dateVal?: string): string => {
+		if (!dateVal) return "";
+		if (minDate && dateVal < minDate) return minDate;
+		return dateVal;
+	};
+
 	const applyFilter = (
 		customFrom?: string,
 		customTo?: string,
 		customRec?: string,
 	) => {
-		const newFrom = customFrom !== undefined ? customFrom : from;
-		const newTo = customTo !== undefined ? customTo : to;
-		const newRec = customRec !== undefined ? customRec : recDate;
+		let newFrom = customFrom !== undefined ? customFrom : from;
+		let newTo = customTo !== undefined ? customTo : to;
+		let newRec = customRec !== undefined ? customRec : recDate;
+
+		if (minDate) {
+			if (newFrom && newFrom < minDate) newFrom = minDate;
+			if (newTo && newTo < minDate) newTo = minDate;
+			if (newRec && newRec < minDate) newRec = minDate;
+		}
 
 		const params = new URLSearchParams(searchParams.toString());
 		if (showReceivedDate) {
@@ -88,35 +104,19 @@ export function DateRangePicker({
 		params.delete("to");
 		params.delete("asOn");
 		params.delete("recDate");
-		params.delete("receivedDate");
 		router.push(`?${params.toString()}`);
 	};
 
-	const applyPreset = (
-		presetType: "fy" | "this-month" | "last-month" | "90-days" | "today",
-	) => {
+	const applyPreset = (presetType: string) => {
 		const today = new Date();
-		const todayStr = today.toISOString().split("T")[0] ?? "";
+		const formatDate = (d: Date) => {
+			const y = d.getFullYear();
+			const m = String(d.getMonth() + 1).padStart(2, "0");
+			const day = String(d.getDate()).padStart(2, "0");
+			return `${y}-${m}-${day}`;
+		};
 
-		if (showReceivedDate) {
-			if (presetType === "last-month") {
-				const lastDayLastMonth = new Date(
-					today.getFullYear(),
-					today.getMonth(),
-					0,
-				);
-				const lastMonthEndStr =
-					lastDayLastMonth.toISOString().split("T")[0] ?? "";
-				setTo(lastMonthEndStr);
-				setRecDate(lastMonthEndStr);
-				applyFilter(undefined, lastMonthEndStr, lastMonthEndStr);
-				return;
-			}
-			setTo(todayStr);
-			setRecDate(todayStr);
-			applyFilter(undefined, todayStr, todayStr);
-			return;
-		}
+		const todayStr = formatDate(today);
 
 		if (singleDateMode) {
 			if (presetType === "last-month") {
@@ -125,8 +125,7 @@ export function DateRangePicker({
 					today.getMonth(),
 					0,
 				);
-				const lastMonthEndStr =
-					lastDayLastMonth.toISOString().split("T")[0] ?? "";
+				const lastMonthEndStr = clampWithMin(formatDate(lastDayLastMonth));
 				setTo(lastMonthEndStr);
 				applyFilter(undefined, lastMonthEndStr);
 				return;
@@ -140,11 +139,11 @@ export function DateRangePicker({
 		let presetTo = todayStr;
 
 		if (presetType === "fy") {
-			presetFrom = "2026-04-01";
-			presetTo = "2026-09-30";
+			presetFrom = clampWithMin("2026-04-01");
+			presetTo = clampWithMin("2026-09-30");
 		} else if (presetType === "this-month") {
 			const firstDay = new Date(today.getFullYear(), today.getMonth(), 1);
-			presetFrom = firstDay.toISOString().split("T")[0] ?? "";
+			presetFrom = clampWithMin(formatDate(firstDay));
 		} else if (presetType === "last-month") {
 			const firstDayLastMonth = new Date(
 				today.getFullYear(),
@@ -156,11 +155,11 @@ export function DateRangePicker({
 				today.getMonth(),
 				0,
 			);
-			presetFrom = firstDayLastMonth.toISOString().split("T")[0] ?? "";
-			presetTo = lastDayLastMonth.toISOString().split("T")[0] ?? "";
+			presetFrom = clampWithMin(formatDate(firstDayLastMonth));
+			presetTo = clampWithMin(formatDate(lastDayLastMonth));
 		} else if (presetType === "90-days") {
 			const d90 = new Date(today.getTime() - 90 * 24 * 60 * 60 * 1000);
-			presetFrom = d90.toISOString().split("T")[0] ?? "";
+			presetFrom = clampWithMin(formatDate(d90));
 		}
 
 		setFrom(presetFrom);
@@ -168,16 +167,25 @@ export function DateRangePicker({
 		applyFilter(presetFrom, presetTo);
 	};
 
+	const maxDataBadge = minDate ? (
+		<span className="inline-flex items-center gap-1 rounded-md border border-amber-200 bg-amber-50 px-2 py-0.5 text-[11px] font-semibold text-amber-800">
+			Max History: {maxDataDays ? `${maxDataDays}d` : `since ${minDate}`}
+		</span>
+	) : null;
+
 	if (showReceivedDate) {
 		return (
 			<div className="flex flex-col gap-2 rounded-2xl border border-gray-200 bg-white p-3.5 shadow-sm ring-1 ring-black/5">
 				<div className="flex flex-wrap items-end gap-3">
 					<div>
-						<label className="mb-1 block font-bold text-gray-700 text-xs uppercase tracking-wider">
-							AsOn Date
-						</label>
+						<div className="flex items-center justify-between mb-1">
+							<label className="block font-bold text-gray-700 text-xs uppercase tracking-wider">
+								AsOn Date
+							</label>
+						</div>
 						<input
 							className="block w-full rounded-xl border border-gray-200 bg-gray-50 p-2 font-medium text-gray-900 text-sm outline-none focus:border-blue-500 focus:ring-blue-500"
+							min={minDate}
 							onChange={(e) => {
 								const val = e.target.value;
 								setTo(val);
@@ -193,6 +201,7 @@ export function DateRangePicker({
 						</label>
 						<input
 							className="block w-full rounded-xl border border-gray-200 bg-gray-50 p-2 font-medium text-gray-900 text-sm outline-none focus:border-blue-500 focus:ring-blue-500"
+							min={minDate}
 							onChange={(e) => setRecDate(e.target.value)}
 							type="date"
 							value={recDate || to}
@@ -228,6 +237,7 @@ export function DateRangePicker({
 							Clear
 						</button>
 					)}
+					{maxDataBadge}
 				</div>
 			</div>
 		);
@@ -243,6 +253,7 @@ export function DateRangePicker({
 						</label>
 						<input
 							className="block w-full rounded-xl border border-gray-200 bg-gray-50 p-2 font-medium text-gray-900 text-sm outline-none focus:border-blue-500 focus:ring-blue-500"
+							min={minDate}
 							onChange={(e) => setTo(e.target.value)}
 							type="date"
 							value={to}
@@ -278,6 +289,7 @@ export function DateRangePicker({
 							Clear
 						</button>
 					)}
+					{maxDataBadge}
 				</div>
 			</div>
 		);
@@ -322,6 +334,7 @@ export function DateRangePicker({
 				>
 					Last 90 Days
 				</button>
+				{maxDataBadge}
 			</div>
 
 			{/* Manual Date Selectors */}
@@ -332,6 +345,7 @@ export function DateRangePicker({
 					</label>
 					<input
 						className="block w-full rounded-xl border border-gray-200 bg-gray-50 p-2 font-medium text-gray-900 text-sm outline-none focus:border-blue-500 focus:ring-blue-500"
+						min={minDate}
 						onChange={(e) => setFrom(e.target.value)}
 						type="date"
 						value={from}
@@ -343,6 +357,7 @@ export function DateRangePicker({
 					</label>
 					<input
 						className="block w-full rounded-xl border border-gray-200 bg-gray-50 p-2 font-medium text-gray-900 text-sm outline-none focus:border-blue-500 focus:ring-blue-500"
+						min={minDate}
 						onChange={(e) => setTo(e.target.value)}
 						type="date"
 						value={to}

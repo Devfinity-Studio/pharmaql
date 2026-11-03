@@ -1,9 +1,11 @@
 import { describe, expect, it } from "vitest";
 import {
+	calculateMaxDataCutoff,
 	formatDateToOdbc,
 	formatFilenameDate,
 	formatReportDate,
 	getDefaultTMinus1MonthRange,
+	sanitizeDateRangeForRole,
 } from "../dateUtils";
 
 describe("dateUtils", () => {
@@ -63,6 +65,91 @@ describe("dateUtils", () => {
 
 		it("handles ISO strings with timestamps", () => {
 			expect(formatDateToOdbc("2026-12-31T23:59:59Z")).toBe("{d '2026-12-31'}");
+		});
+	});
+
+	describe("calculateMaxDataCutoff", () => {
+		it("returns null when maxDataDays is null, undefined, or <= 0", () => {
+			expect(calculateMaxDataCutoff(null)).toBeNull();
+			expect(calculateMaxDataCutoff(undefined)).toBeNull();
+			expect(calculateMaxDataCutoff(0)).toBeNull();
+			expect(calculateMaxDataCutoff(-10)).toBeNull();
+		});
+
+		it("calculates exact 60-day cutoff date from reference date", () => {
+			const ref = new Date("2026-11-03T12:00:00Z");
+			const cutoff = calculateMaxDataCutoff(60, ref);
+			expect(cutoff).toBe("2026-09-04");
+		});
+	});
+
+	describe("sanitizeDateRangeForRole", () => {
+		const ref = new Date("2026-11-03T12:00:00Z");
+
+		it("leaves dates completely unrestricted for ADMIN role", () => {
+			const res = sanitizeDateRangeForRole({
+				from: "2026-04-01",
+				to: "2026-11-03",
+				role: "ADMIN",
+				maxDataDays: 60,
+				referenceDate: ref,
+			});
+			expect(res.from).toBe("2026-04-01");
+			expect(res.to).toBe("2026-11-03");
+			expect(res.isClamped).toBe(false);
+			expect(res.minAllowedDate).toBeNull();
+		});
+
+		it("leaves dates completely unrestricted for DEVELOPER role", () => {
+			const res = sanitizeDateRangeForRole({
+				from: "2025-01-01",
+				to: "2026-11-03",
+				role: "DEVELOPER",
+				maxDataDays: 60,
+				referenceDate: ref,
+			});
+			expect(res.from).toBe("2025-01-01");
+			expect(res.isClamped).toBe(false);
+		});
+
+		it("clamps from date for MR role if from is older than 60 days", () => {
+			const res = sanitizeDateRangeForRole({
+				from: "2026-04-01",
+				to: "2026-10-31",
+				role: "MR",
+				maxDataDays: 60,
+				referenceDate: ref,
+			});
+			expect(res.from).toBe("2026-09-04");
+			expect(res.to).toBe("2026-10-31");
+			expect(res.isClamped).toBe(true);
+			expect(res.minAllowedDate).toBe("2026-09-04");
+		});
+
+		it("does not clamp from date if already within the 60-day window", () => {
+			const res = sanitizeDateRangeForRole({
+				from: "2026-10-01",
+				to: "2026-10-31",
+				role: "MR",
+				maxDataDays: 60,
+				referenceDate: ref,
+			});
+			expect(res.from).toBe("2026-10-01");
+			expect(res.to).toBe("2026-10-31");
+			expect(res.isClamped).toBe(false);
+		});
+
+		it("clamps to and asOn if older than cutoff", () => {
+			const res = sanitizeDateRangeForRole({
+				asOn: "2026-08-01",
+				to: "2026-08-01",
+				role: "MR",
+				maxDataDays: 60,
+				referenceDate: ref,
+			});
+			expect(res.asOn).toBe("2026-09-04");
+			expect(res.to).toBe("2026-09-04");
+			expect(res.isClamped).toBe(true);
 		});
 	});
 });

@@ -123,7 +123,7 @@ export default async function MRLayout({ children }: { children: ReactNode }) {
 			<MrMobileNav
 				canViewFreeScheme={session.user.canViewFreeScheme}
 				canViewProductWise={session.user.canViewProductWise}
-				canViewExpiry={session.user.canViewExpiry || session.user.rank === 3}
+				canViewExpiry={session.user.canViewExpiry || (session.user.rank !== undefined && session.user.rank >= 1)}
 				canViewSales={session.user.canViewSales}
 				canViewStockAndSales={
 					session.user.rank === 1 ||

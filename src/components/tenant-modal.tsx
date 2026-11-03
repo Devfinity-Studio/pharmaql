@@ -89,6 +89,9 @@ export function TenantModal({
 	const [overdueDivisionBlockDays, setOverdueDivisionBlockDays] = useState<number>(
 		initialTenant?.overdue_division_block_days ?? 95,
 	);
+	const [maxDataDays, setMaxDataDays] = useState<string>(
+		initialTenant?.max_data_days ? String(initialTenant.max_data_days) : "",
+	);
 
 	// Diagnostics & Submission state
 	const [isTestingApi, setIsTestingApi] = useState(false);
@@ -192,6 +195,7 @@ export function TenantModal({
 				loc_no: Number(locNo),
 				overdue_direct_block_days: Number(overdueDirectBlockDays),
 				overdue_division_block_days: Number(overdueDivisionBlockDays),
+				max_data_days: maxDataDays.trim() ? Number(maxDataDays) : null,
 			};
 
 			const res = await saveTenantAction(payload);

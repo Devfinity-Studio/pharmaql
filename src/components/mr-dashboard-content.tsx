@@ -19,6 +19,8 @@ import { StockReportView } from "@/components/stock-report-view";
 import { isFeatureEnabledForRole } from "@/lib/maintenance";
 import { getItemCustomerSale } from "@/server/actions/customerItemSale";
 import { getItemDivisionMap } from "@/server/actions/itemCatalog";
+import { calculateMaxDataCutoff } from "@/lib/dateUtils";
+import { getOverdueBlockingStatus } from "@/server/actions/overduePolicy";
 import { getMRInfo } from "@/server/actions/mrInfo";
 import {
 	getMRwisePeriodicalOutstanding,
@@ -137,6 +139,11 @@ export async function MrDashboardContent({
 					(a) => (a.division || a.manufacturer) === selectedDivision,
 				);
 
+	const overduePolicy = await getOverdueBlockingStatus();
+	const mrMinDate = !isAdminView && overduePolicy.maxDataDays
+		? calculateMaxDataCutoff(overduePolicy.maxDataDays) ?? undefined
+		: undefined;
+
 	// Determine permissions
 	const canViewSales = isAdminView || mrInfo.canViewSales;
 	const canViewStock = isAdminView || mrInfo.canViewStock;
@@ -145,7 +152,8 @@ export async function MrDashboardContent({
 	const canViewFreeScheme = isAdminView || mrInfo.canViewFreeScheme;
 	const canViewPartyWise = isAdminView || mrInfo.canViewPartyWise;
 	const canViewProductWise = isAdminView || mrInfo.canViewProductWise;
-	const canViewExpiry = isAdminView || mrInfo.canViewExpiry || mrInfo.rank === 3;
+	const canViewExpiry = isAdminView || mrInfo.canViewExpiry || (mrInfo.rank !== undefined && mrInfo.rank >= 1);
+	const canViewOverdue = isAdminView || mrInfo.canViewOverdue || (mrInfo.rank !== undefined && mrInfo.rank >= 1);
 
 	let totalSales = 0;
 	let totalInvoicesAmt = 0;
@@ -516,7 +524,7 @@ export async function MrDashboardContent({
 										</span>
 									</>
 								)}
-								{(mrInfo.canViewExpiry || mrInfo.rank === 3) && (
+								{(mrInfo.canViewExpiry || (mrInfo.rank !== undefined && mrInfo.rank >= 1)) && (
 									<>
 										<span className="text-gray-300">&bull;</span>
 										<span className="font-semibold text-emerald-600">
@@ -585,11 +593,11 @@ export async function MrDashboardContent({
 						<div className="flex items-center gap-2">
 							<DataSyncButton />
 							{activeTab === "overdue" ? (
-								<DateRangePicker showReceivedDate={true} />
+								<DateRangePicker showReceivedDate={true} minDate={mrMinDate} maxDataDays={!isAdminView ? overduePolicy.maxDataDays : undefined} />
 							) : activeTab === "expiry" ? (
-								<DateRangePicker singleDateLabel="AsOn Date" singleDateMode={true} />
+								<DateRangePicker singleDateLabel="AsOn Date" singleDateMode={true} minDate={mrMinDate} maxDataDays={!isAdminView ? overduePolicy.maxDataDays : undefined} />
 							) : (
-								<DateRangePicker />
+								<DateRangePicker minDate={mrMinDate} maxDataDays={!isAdminView ? overduePolicy.maxDataDays : undefined} />
 							)}
 						</div>
 					</div>
@@ -961,7 +969,7 @@ export async function MrDashboardContent({
 										</button>
 									</form>
 								</div>
-								<ProductReportView mrId={mrId} searchParams={searchParams} />
+								<ProductReportView mrId={mrId} searchParams={searchParams} isAdminView={isAdminView} />
 							</div>
 						))}
 
@@ -975,7 +983,7 @@ export async function MrDashboardContent({
 						) : (
 							<div>
 								<div className="mb-4 flex items-center justify-between"></div>
-								<PartyReportView mrId={mrId} searchParams={searchParams} />
+								<PartyReportView mrId={mrId} searchParams={searchParams} isAdminView={isAdminView} />
 							</div>
 						))}
 
@@ -1016,7 +1024,7 @@ export async function MrDashboardContent({
 								title="Stock Report Temporarily Unavailable"
 							/>
 						) : (
-							<StockReportView mrId={mrId} searchParams={searchParams} />
+							<StockReportView mrId={mrId} searchParams={searchParams} isAdminView={isAdminView} />
 						))}
 
 					{/* STOCK & SALES TAB */}

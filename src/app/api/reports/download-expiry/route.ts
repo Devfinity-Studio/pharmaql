@@ -2,6 +2,7 @@ import { headers } from "next/headers";
 import { NextResponse } from "next/server";
 import { recordAuditEvent } from "@/lib/audit-logger";
 import { buildStyledExcelBuffer } from "@/lib/excel";
+import { sanitizeDateRangeForRole } from "@/lib/dateUtils";
 import { rateLimitReportDownload } from "@/lib/rate-limit";
 import { getClientIp, getClientUserAgent } from "@/lib/security";
 import { getMRInfo } from "@/server/actions/mrInfo";
@@ -46,7 +47,15 @@ export async function GET(request: Request) {
 	const { searchParams } = new URL(request.url);
 	const mrId = searchParams.get("mrId");
 	const company = searchParams.get("division") || searchParams.get("company") || "All";
-	const asOn = searchParams.get("asOn") || searchParams.get("to") || new Date().toISOString().slice(0, 10);
+	const rawAsOn = searchParams.get("asOn") || searchParams.get("to") || new Date().toISOString().slice(0, 10);
+	const rawMaxDays = reqHeaders.get("x-tenant-max-data-days");
+	const maxDataDays = rawMaxDays && !isNaN(Number(rawMaxDays)) ? Number(rawMaxDays) : null;
+	const sanitizedExpiryDates = sanitizeDateRangeForRole({
+		asOn: rawAsOn,
+		role: session.user.role,
+		maxDataDays,
+	});
+	const asOn = sanitizedExpiryDates.asOn || rawAsOn;
 	const format = searchParams.get("format") || "csv"; // json, csv, excel
 	const rateType = searchParams.get("rateType") || "PRate";
 	const search = (searchParams.get("q") || "").toLowerCase().trim();
@@ -71,9 +80,9 @@ export async function GET(request: Request) {
 		return new NextResponse("MR not found", { status: 404 });
 	}
 
-	const canViewExpiry = isAdmin || mrInfo.canViewExpiry || mrInfo.rank === 3;
+	const canViewExpiry = isAdmin || mrInfo.canViewExpiry || (mrInfo.rank !== undefined && mrInfo.rank >= 1);
 	if (!canViewExpiry) {
-		return new NextResponse("Forbidden: Expiry reports require Rank 3", { status: 403 });
+		return new NextResponse("Forbidden: Expiry reports view disabled", { status: 403 });
 	}
 
 	// Resolve company code and division

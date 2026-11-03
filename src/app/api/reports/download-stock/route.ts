@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import * as xlsx from "xlsx";
 import { recordAuditEvent } from "@/lib/audit-logger";
 import { buildStyledExcelBuffer } from "@/lib/excel";
+import { sanitizeDateRangeForRole } from "@/lib/dateUtils";
 import { rateLimitReportDownload } from "@/lib/rate-limit";
 import { getClientIp, getClientUserAgent } from "@/lib/security";
 import { getMRInfo } from "@/server/actions/mrInfo";
@@ -106,10 +107,21 @@ export async function GET(request: Request) {
 		),
 	) as string[];
 
+	const rawMaxDays = reqHeaders.get("x-tenant-max-data-days");
+	const maxDataDays = rawMaxDays && !isNaN(Number(rawMaxDays)) ? Number(rawMaxDays) : null;
+	const sanitizedStockDates = sanitizeDateRangeForRole({
+		from,
+		to,
+		role: session.user.role,
+		maxDataDays,
+	});
+	const effectiveStockFrom = sanitizedStockDates.from || (from || undefined);
+	const effectiveStockTo = sanitizedStockDates.to || (to || undefined);
+
 	const result = await getStockMovement(
 		targetCodes.length > 0 ? targetCodes : mrInfo.companyCode || undefined,
-		from || undefined,
-		to || undefined,
+		effectiveStockFrom,
+		effectiveStockTo,
 		effectiveLocNo,
 	);
 

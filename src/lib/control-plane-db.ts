@@ -27,6 +27,7 @@ export interface TenantRecord {
 	overdue_direct_block_days?: number | null;
 	overdue_division_block_days?: number | null;
 	overdue_blocking_disabled?: boolean | null;
+	max_data_days?: number | null;
 	admin_email?: string | null;
 	admin_password_encrypted?: string | null;
 	smtp_host?: string | null;
@@ -125,6 +126,7 @@ export async function initControlPlaneRelationalSchema(): Promise<boolean> {
 				overdue_direct_block_days INTEGER DEFAULT 90,
 				overdue_division_block_days INTEGER DEFAULT 95,
 				overdue_blocking_disabled BOOLEAN DEFAULT false,
+				max_data_days INTEGER DEFAULT NULL,
 				admin_email VARCHAR(128),
 				admin_password_encrypted TEXT,
 				smtp_host VARCHAR(128),
@@ -151,6 +153,7 @@ export async function initControlPlaneRelationalSchema(): Promise<boolean> {
 		await sql`ALTER TABLE tenants ADD COLUMN IF NOT EXISTS overdue_direct_block_days INTEGER DEFAULT 90;`;
 		await sql`ALTER TABLE tenants ADD COLUMN IF NOT EXISTS overdue_division_block_days INTEGER DEFAULT 95;`;
 		await sql`ALTER TABLE tenants ADD COLUMN IF NOT EXISTS overdue_blocking_disabled BOOLEAN DEFAULT false;`;
+		await sql`ALTER TABLE tenants ADD COLUMN IF NOT EXISTS max_data_days INTEGER;`;
 		await sql`ALTER TABLE tenants ADD COLUMN IF NOT EXISTS admin_email VARCHAR(128);`;
 		await sql`ALTER TABLE tenants ADD COLUMN IF NOT EXISTS admin_password_encrypted TEXT;`;
 		await sql`ALTER TABLE tenants ADD COLUMN IF NOT EXISTS smtp_host VARCHAR(128);`;
