@@ -18,6 +18,7 @@ export interface StoredPushSubscription {
 	userAgent?: string;
 	createdAt: string;
 	lastActiveAt: string;
+	tenantId?: string | null;
 }
 
 export interface InAppNotification {
@@ -122,6 +123,7 @@ export async function savePushSubscription(
 		keys: { p256dh: string; auth: string };
 	},
 	userAgent?: string,
+	tenantId?: string | null,
 ): Promise<StoredPushSubscription> {
 	if (!subscription?.endpoint || !subscription.keys?.p256dh || !subscription.keys?.auth) {
 		throw new Error("Invalid push subscription structure.");
@@ -143,6 +145,7 @@ export async function savePushSubscription(
 			role,
 			keys: subscription.keys,
 			userAgent: userAgent || existing.userAgent,
+			tenantId: tenantId ?? existing.tenantId ?? null,
 			lastActiveAt: now,
 		};
 		subscriptions[existingIdx] = record;
@@ -155,6 +158,7 @@ export async function savePushSubscription(
 			endpoint: subscription.endpoint,
 			keys: subscription.keys,
 			userAgent,
+			tenantId: tenantId || null,
 			createdAt: now,
 			lastActiveAt: now,
 		};
@@ -383,6 +387,7 @@ export async function sendPushToUser(
 export async function sendPushToRole(
 	role: "MR" | "ADMIN" | "DEVELOPER",
 	payload: PushNotificationPayload,
+	targetTenantId?: string | null,
 ): Promise<{ sentCount: number; prunedCount: number; inAppCreated: boolean }> {
 	await addInAppNotification({
 		recipientRole: role,
@@ -395,6 +400,9 @@ export async function sendPushToRole(
 
 	const subscriptions = await getStoredSubscriptions();
 	const roleSubs = subscriptions.filter((s) => {
+		if (targetTenantId && targetTenantId !== "ALL" && s.tenantId && s.tenantId !== targetTenantId) {
+			return false;
+		}
 		if (role === "ADMIN") {
 			return s.role === "ADMIN" || s.role === "DEVELOPER";
 		}
@@ -424,6 +432,7 @@ export async function sendPushToRole(
  */
 export async function sendBroadcastPush(
 	payload: PushNotificationPayload,
+	targetTenantId?: string | null,
 ): Promise<{ sentCount: number; prunedCount: number; inAppCreated: boolean }> {
 	await addInAppNotification({
 		recipientRole: "ALL",
@@ -434,7 +443,10 @@ export async function sendBroadcastPush(
 		url: payload.url,
 	});
 
-	const subscriptions = await getStoredSubscriptions();
+	const allSubs = await getStoredSubscriptions();
+	const subscriptions = targetTenantId && targetTenantId !== "ALL"
+		? allSubs.filter((s) => s.tenantId === targetTenantId)
+		: allSubs;
 	let sentCount = 0;
 	let prunedCount = 0;
 

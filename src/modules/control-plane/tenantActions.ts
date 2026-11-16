@@ -60,6 +60,10 @@ export interface TenantListItem {
 	overdue_division_block_days?: number | null;
 	overdue_blocking_disabled?: boolean | null;
 	max_data_days?: number | null;
+	license_status?: "ACTIVE" | "EXPIRED" | "SUSPENDED" | null;
+	license_expires_at?: string | null;
+	license_grace_days?: number | null;
+	is_license_blocked?: boolean | null;
 	has_api_key: boolean;
 	admin_email?: string | null;
 	has_admin_password?: boolean;
@@ -100,6 +104,10 @@ export interface SaveTenantInput {
 	overdue_division_block_days?: number | null;
 	overdue_blocking_disabled?: boolean | null;
 	max_data_days?: number | null;
+	license_status?: "ACTIVE" | "EXPIRED" | "SUSPENDED" | null;
+	license_expires_at?: string | null;
+	license_grace_days?: number | null;
+	is_license_blocked?: boolean | null;
 	admin_email?: string | null;
 	admin_password?: string | null; // Raw plaintext to be encrypted
 	smtp_host?: string | null;
@@ -162,6 +170,10 @@ export async function listTenantsAction(): Promise<{
 				overdue_division_block_days: r.overdue_division_block_days ?? 95,
 				overdue_blocking_disabled: Boolean(r.overdue_blocking_disabled),
 				max_data_days: r.max_data_days ? Number(r.max_data_days) : null,
+				license_status: (r.license_status as any) || "ACTIVE",
+				license_expires_at: r.license_expires_at || "2027-03-31T23:59:59.000Z",
+				license_grace_days: r.license_grace_days ?? 7,
+				is_license_blocked: Boolean(r.is_license_blocked),
 				has_api_key: Boolean(r.api_server_key_encrypted),
 				admin_email: r.admin_email,
 				has_admin_password: Boolean(r.admin_password_encrypted),
@@ -490,6 +502,10 @@ export async function saveTenantAction(
 					overdue_division_block_days,
 					overdue_blocking_disabled,
 					max_data_days,
+					license_status,
+					license_expires_at,
+					license_grace_days,
+					is_license_blocked,
 					admin_email,
 					admin_password_encrypted,
 					smtp_host,

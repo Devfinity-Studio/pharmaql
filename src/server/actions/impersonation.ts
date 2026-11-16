@@ -11,8 +11,9 @@ const IMPERSONATE_COOKIE_NAME = "pharmaql_impersonate";
  * Start simulating / viewing-as an MR.
  * Restricted strictly to active DEVELOPER accounts.
  */
-export async function startMrImpersonation(mrId: string) {
-	const session = await auth.api.getSession();
+export async function startMrImpersonation(mrId: string, tenantId?: string) {
+	const reqHeaders = await headers();
+	const session = await auth.api.getSession({ headers: reqHeaders });
 	const isDev =
 		session?.user?.role === "DEVELOPER" ||
 		Boolean((session?.user as any)?.originalDeveloper);
@@ -27,8 +28,17 @@ export async function startMrImpersonation(mrId: string) {
 		secure: process.env.NODE_ENV === "production",
 		sameSite: "lax",
 		path: "/",
-		maxAge: 3600, // 1 hour
+		maxAge: 3600,
 	});
+	if (tenantId) {
+		cookieStore.set("pharmaql_impersonate_tenant", tenantId, {
+			httpOnly: true,
+			secure: process.env.NODE_ENV === "production",
+			sameSite: "lax",
+			path: "/",
+			maxAge: 3600,
+		});
+	}
 
 	// Audit logging for developer impersonation
 	try {
@@ -59,9 +69,11 @@ export async function startMrImpersonation(mrId: string) {
  * Stop MR simulation and return back to developer identity.
  */
 export async function stopMrImpersonation() {
-	const session = await auth.api.getSession();
+	const reqHeaders = await headers();
+	const session = await auth.api.getSession({ headers: reqHeaders });
 	const cookieStore = await cookies();
 	cookieStore.delete(IMPERSONATE_COOKIE_NAME);
+	cookieStore.delete("pharmaql_impersonate_tenant");
 
 	try {
 		const reqHeaders = await headers();

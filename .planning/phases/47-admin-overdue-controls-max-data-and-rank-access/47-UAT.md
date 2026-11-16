@@ -33,3 +33,4 @@
 | **Date Clamping (Client)** | MR opens `DateRangePicker` with `maxDataDays = 60` | Input `min` attribute set to `today - 60d`; presets (Last Month, 90 Days, FY) clamped to cutoff date | PASS |
 | **Date Clamping (Server)** | MR alters URL params or API payload to request older data | `apiPost`, `apiGet`, and `/api/reports/download*` automatically clamp `fromDate`, `asOn`, `to` to cutoff | PASS |
 | **Admin Bypasses Date Clamping** | Admin requests historical data older than `maxDataDays` | `sanitizeDateRangeForRole` preserves unconstrained dates for `ADMIN` and `DEVELOPER` | PASS |
+

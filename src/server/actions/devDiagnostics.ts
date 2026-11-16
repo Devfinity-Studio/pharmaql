@@ -245,6 +245,7 @@ export interface UnifiedLogRecord {
 export async function getUnifiedSystemLogs(options?: {
 	query?: string;
 	level?: string;
+	tenantId?: string;
 	limit?: number;
 }): Promise<UnifiedLogRecord[]> {
 	await assertDeveloperSession();
@@ -319,6 +320,8 @@ function buildFallbackProcedureSql(procedureName: string, params: Record<string,
 		return `SET sql_mode = '';\nCALL \`pdyasvtrans\`.\`rptMRwisePeriodicalOutstanding\`(${params.compNo ?? 11}, ${Number(params.locNo) || 11}, 202627, {d '2026-04-01'}, ${odbcFrom}, ${odbcTo}, '', '', 'All', '', '', ${compParam}, '', '', '');`;
 	} else if (procedureName === "rptCompanyCustomerItemwiseSales") {
 		return `SET sql_mode = '';\nCALL \`pdyasvtrans\`.\`rptCompanyCustomerItemwiseSales\`(${params.compNo ?? 11}, ${escapedLoc}, 202627, ${odbcFrom}, ${odbcTo}, '', ${compParam}, '', '', 'Y', '');`;
+	} else if (procedureName === "rptExpiryStockStatement") {
+		return `SET sql_mode = '';\nCALL \`pdyasvtrans\`.\`rptExpiryStockStatement\`(${params.compNo ?? 11}, ${escapedLoc}, ${odbcTo}, ${compParam}, 'PRate');`;
 	}
 	return `SET sql_mode = '';\nCALL \`${procedureName}\`(...);`;
 }
@@ -379,6 +382,14 @@ export async function executeProcedureSandbox(payload: {
 				liveRes = await apiPost<any[]>("/api/reports/party-item-sale", fallbackParams);
 			} else if (payload.procedureName === "rptMRwisePeriodicalOutstanding") {
 				liveRes = await apiPost<any[]>("/api/reports/mr-overdue", fallbackParams);
+			} else if (payload.procedureName === "rptExpiryStockStatement") {
+				liveRes = await apiPost<any[]>("/api/reports/expiry-stock", {
+					compCode: fallbackParams.compCode,
+					asOnDate: fallbackParams.toDate || new Date().toISOString().slice(0, 10),
+					locNo: fallbackParams.locNo || "11",
+					compNo: fallbackParams.compNo ?? 11,
+					rateType: "PRate",
+				});
 			}
 		} catch (err: any) {
 			liveRes = { success: false, error: err.message };

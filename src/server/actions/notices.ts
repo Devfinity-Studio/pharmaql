@@ -48,6 +48,12 @@ export async function getNotices(options?: { overrideTenantId?: string }): Promi
 }
 
 export async function getActiveNotices(role?: string): Promise<NoticeItem[]> {
+	let currentTenantId: string | null = null;
+	try {
+		const reqHeaders = await headers();
+		currentTenantId = reqHeaders.get("x-tenant-id");
+	} catch {}
+
 	const list = await ensureNoticesFile();
 	const now = new Date();
 	const activeList = list.filter((n) => {
@@ -55,6 +61,9 @@ export async function getActiveNotices(role?: string): Promise<NoticeItem[]> {
 		if (n.expiresAt) {
 			const exp = new Date(n.expiresAt);
 			if (exp < now) return false;
+		}
+		if (n.tenantId && n.tenantId !== "ALL" && currentTenantId && n.tenantId !== currentTenantId) {
+			return false;
 		}
 		if (role) {
 			const target: NoticeTargetAudience = n.targetAudience || "MR";

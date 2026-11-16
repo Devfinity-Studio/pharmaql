@@ -57,11 +57,16 @@ export async function savePushSubscriptionAction(
 	const session = await getAuthenticatedSession();
 	const userRole = session.user.role as "MR" | "ADMIN" | "DEVELOPER";
 
+	let reqHeaders: Headers | undefined;
+	try { reqHeaders = await headers(); } catch {}
+	const tenantId = reqHeaders?.get("x-tenant-id") || null;
+
 	const record = await savePushSubscription(
 		session.user.id,
 		userRole,
 		sub,
 		userAgent,
+		tenantId,
 	);
 
 	return { success: true, subscriptionId: record.id };
@@ -126,6 +131,7 @@ export async function markAllNotificationsReadAction() {
 export async function sendTestPushAction(options?: {
 	targetUserId?: string;
 	targetRole?: "MR" | "ADMIN" | "ALL";
+	targetTenantId?: string | null;
 	title?: string;
 	body?: string;
 	url?: string;
@@ -166,7 +172,7 @@ export async function sendTestPushAction(options?: {
 	}
 
 	if (options?.targetRole === "MR" || options?.targetRole === "ADMIN") {
-		const res = await sendPushToRole(options.targetRole, payload);
+		const res = await sendPushToRole(options.targetRole, payload, options?.targetTenantId);
 		return {
 			success: res.sentCount > 0,
 			sentCount: res.sentCount,
@@ -175,7 +181,7 @@ export async function sendTestPushAction(options?: {
 		};
 	}
 
-	const res = await sendBroadcastPush(payload);
+	const res = await sendBroadcastPush(payload, options?.targetTenantId);
 	return {
 		success: res.sentCount > 0,
 		sentCount: res.sentCount,
