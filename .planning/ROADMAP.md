@@ -431,3 +431,14 @@
 - [x] **Procedure Sandbox Expansion & Latency Benchmarks**: Added `rptExpiryStockStatement` to stored procedure test sandbox, supported real-time execution latency benchmarking in milliseconds, and added collapsible raw procedure SQL preview.
 - [x] **Unified Log Filtering**: Enhanced log diagnostic viewer with level, tenant ID, and free-text search filters.
 - [x] **Verification & Validation**: All 25 test suites passed (151/151 tests), zero TypeScript compilation errors (`tsc --noEmit`), and Next.js production build (`next build`) compiled successfully. Documented in `48-UAT.md`.
+
+## Phase 49: Discussion for Adding an ORM Layer
+
+**Goal:** Evaluate, discuss, and design an ORM / type-safe query builder layer (such as Drizzle, Prisma, or Kysely) for PharmaQL's Neon PostgreSQL control plane and data persistence layer, analyzing trade-offs with edge/serverless compatibility, raw SQL control, stored procedure integration, migration strategies, and multi-tenant schema safety.
+**Depends on:** Phase 48
+**Status:** Not planned yet
+
+- [ ] **Architecture & ORM Candidate Evaluation**: Benchmark candidate ORMs (Drizzle ORM vs. Prisma vs. Kysely) considering Neon serverless HTTP/WebSocket drivers, edge runtime footprint, cold starts, and raw SQL procedure flexibility.
+- [ ] **Control Plane Schema & Migration Design**: Outline schema definitions, relational mappings, and migration workflows for tenants, admin credentials, licenses, notices, and user presence.
+- [ ] **ERP Bridge & Stored Procedure Interoperability**: Define boundaries ensuring ERP read-only stored procedures (`rptPartyWiseSaleStatement`, `rptStockStatementWithValuation`, `rptMRwisePeriodicalOutstanding`, `rptExpiryStockStatement`) remain lean, performant, and unaffected by ORM abstraction.
+- [ ] **Consensus & Implementation Roadmap**: Document conclusions, recommended library selection, migration steps, and rollback safeguards in `49-CONTEXT.md`.
