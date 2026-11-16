@@ -444,3 +444,14 @@
 - [x] **Serverless Neon Client & Startup Schema Init**: Implemented `getDrizzleDb()` in `src/db/index.ts` and `initControlPlaneSchema()` in `src/db/init.ts` with transparent local file store fallback (`data/tenants.json`).
 - [x] **Control Plane Database Compatibility**: Refactored `src/lib/control-plane-db.ts` to expose `getDrizzleDb` and delegate schema initialization to Drizzle while maintaining backward compatibility for existing raw SQL callers and mocks.
 - [x] **Verification & Validation**: All 26 test suites passed (156/156 tests), 0 TypeScript errors (`tsc --noEmit`), and Next.js production build (`next build`) succeeded with 20 routes generated. Documented in `49-UAT.md`.
+
+## Phase 50: Consolidate Report Generation Queries
+
+**Goal:** Consolidate all report generation queries and data fetchers (Party-wise Sales, Product-wise Sales, Stock Valuation, Stock & Sales, Overdue/Outstanding, Claim Quantity, and Expiry Stock Statements) scattered across separate action and route files into a single unified report queries service module, and rewire all web report views, download modals, and export buttons to call them from this single source of truth.
+**Depends on:** Phase 49
+**Status:** Not planned yet
+
+- [ ] **Unified Report Queries Hub**: Create a centralized module (`src/server/actions/reportQueries.ts` or `src/lib/report-queries.ts`) grouping all report query functions, standard parameter schemas, error handling, and response sanitization.
+- [ ] **Report View & Button Refactoring**: Update all interactive report views (`PartyReportView`, `ProductReportView`, `StockReportView`, `StockAndSalesReportView`, `OverdueReportView`, `ExpiryReportView`) to consume the consolidated query module.
+- [ ] **Export & Download Modal Alignment**: Wire download modals (`ReportDownloadModal`, `OverdueDownloadModal`, `ExpiryDownloadButtons`) and export routes (`/api/reports/download*`) to call through the unified query module to eliminate query drift and discrepancy between web and export statements.
+- [ ] **Verification & Validation**: Zero TypeScript errors (`tsc --noEmit`), all unit and integration test suites passing (`pnpm test`), and Next.js production build verified.
