@@ -431,3 +431,16 @@
 - [x] **Procedure Sandbox Expansion & Latency Benchmarks**: Added `rptExpiryStockStatement` to stored procedure test sandbox, supported real-time execution latency benchmarking in milliseconds, and added collapsible raw procedure SQL preview.
 - [x] **Unified Log Filtering**: Enhanced log diagnostic viewer with level, tenant ID, and free-text search filters.
 - [x] **Verification & Validation**: All 25 test suites passed (151/151 tests), zero TypeScript compilation errors (`tsc --noEmit`), and Next.js production build (`next build`) compiled successfully. Documented in `48-UAT.md`.
+
+## Phase 49: Drizzle ORM Layer for Control Plane [COMPLETED]
+
+**Goal:** Integrate Drizzle ORM for PharmaQL's Neon PostgreSQL control plane, providing compile-time type safety, declarative schemas in `src/db/schema/`, a stateless serverless HTTP client in `src/db/index.ts`, and runtime schema initialization in `src/db/init.ts`, while keeping the Technomax ERP bridge untouched and preserving zero-downtime local JSON fallbacks.
+**Depends on:** Phase 48
+**Status:** Completed
+
+- [x] **Architecture Evaluation & Release Checkpoint**: Benchmarked ORM candidates (Drizzle vs. Prisma vs. Kysely); selected Drizzle for sub-10ms serverless cold starts and native `@neondatabase/serverless` HTTP support. Cut release checkpoint `v1.8.0-stable-prod` prior to implementation.
+- [x] **Drizzle ORM & Kit Installation**: Installed `drizzle-orm` and `drizzle-kit`; configured `drizzle.config.ts` and package scripts (`db:generate`, `db:push`).
+- [x] **Control Plane Relational Schemas (`src/db/schema/`)**: Created typed schemas for `tenants`, `tenantNotices`, `tenantFeatures`, `tenantLicenses`, `tenantRuntimeConfig`, `apiServerReleases`, and `apiServerInstances`.
+- [x] **Serverless Neon Client & Startup Schema Init**: Implemented `getDrizzleDb()` in `src/db/index.ts` and `initControlPlaneSchema()` in `src/db/init.ts` with transparent local file store fallback (`data/tenants.json`).
+- [x] **Control Plane Database Compatibility**: Refactored `src/lib/control-plane-db.ts` to expose `getDrizzleDb` and delegate schema initialization to Drizzle while maintaining backward compatibility for existing raw SQL callers and mocks.
+- [x] **Verification & Validation**: All 26 test suites passed (156/156 tests), 0 TypeScript errors (`tsc --noEmit`), and Next.js production build (`next build`) succeeded with 20 routes generated. Documented in `49-UAT.md`.
