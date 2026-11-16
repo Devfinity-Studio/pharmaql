@@ -10,6 +10,7 @@ import {
 } from "@/server/actions/devDiagnostics";
 import { getAllMRsForDev, getAllMarketingCompaniesWithDivisions } from "@/server/actions/mrInfo";
 import { listTenantsAction } from "@/modules/control-plane/tenantActions";
+import { getMultiTenantLicensesAction } from "@/server/actions/licenseActions";
 import { auth } from "@/server/auth";
 
 export const metadata = {
@@ -37,6 +38,7 @@ export default async function DeveloperControlPage() {
 		allDevMRs,
 		companiesData,
 		tenantsRes,
+		multiTenantLicenses,
 	] = await Promise.all([
 		getServiceHealthTelemetry(),
 		getLicenseStatus(),
@@ -47,6 +49,7 @@ export default async function DeveloperControlPage() {
 		getAllMRsForDev(),
 		getAllMarketingCompaniesWithDivisions().catch(() => []),
 		listTenantsAction(),
+		getMultiTenantLicensesAction().catch(() => ({ tenants: [], metrics: { total: 0, active: 0, expiringSoon: 0, blocked: 0 } })),
 	]);
 
 	const tenants = tenantsRes.success ? tenantsRes.tenants : [];

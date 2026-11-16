@@ -55,6 +55,9 @@ export async function sendPresenceHeartbeatAction(params: {
 
 		const clientIp = getClientIpFromHeaders(reqHeaders);
 		const userAgent = reqHeaders.get("user-agent") || "";
+		const tenantId = reqHeaders.get("x-tenant-id") || null;
+		const tenantSlug = reqHeaders.get("x-tenant-slug") || null;
+		const tenantName = reqHeaders.get("x-tenant-name") || reqHeaders.get("x-tenant-short-name") || null;
 
 		const result = await recordPresenceHeartbeat({
 			sessionId: params.sessionId,
@@ -65,6 +68,9 @@ export async function sendPresenceHeartbeatAction(params: {
 			rank: (session.user as any).rank,
 			division: (session.user as any).division,
 			company: (session.user as any).company,
+			tenantId,
+			tenantSlug,
+			tenantName,
 			clientIp,
 			userAgent,
 			screenResolution: params.screenResolution,

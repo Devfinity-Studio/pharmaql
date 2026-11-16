@@ -65,6 +65,88 @@ export interface LicenseStatusResult {
  * Computes live subscription status, remaining days, and access block state.
  */
 export async function getLicenseStatus(): Promise<LicenseStatusResult> {
+	try {
+		const { headers } = await import("next/headers");
+		const h = await headers();
+		const tenantId = h.get("x-tenant-id");
+		if (tenantId) {
+			const { getTenantAction } = await import("@/modules/control-plane/tenantActions");
+			const res = await getTenantAction(tenantId);
+			const tenant = res.tenant;
+			if (tenant) {
+				const expiresAt = tenant.license_expires_at || "2027-03-31T23:59:59.000Z";
+				const gracePeriodDays = tenant.license_grace_days ?? 7;
+				const killswitchActive = Boolean(tenant.is_license_blocked);
+				const status = (tenant.license_status as any) || "ACTIVE";
+				const now = Date.now();
+				const diffMs = new Date(expiresAt).getTime() - now;
+				const daysRemaining = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
+				const adminEmails = tenant.admin_email ? [tenant.admin_email] : [];
+
+				if (killswitchActive || status === "SUSPENDED") {
+					return {
+						status: "SUSPENDED",
+						isBlocked: true,
+						daysRemaining,
+						expiresAt,
+						killswitchActive: true,
+						reason: `Software access for ${tenant.display_name} has been suspended.`,
+						organization: tenant.display_name,
+						supportEmail: tenant.support_email || "support@devfinity.net",
+						developerEmail: process.env.DEV_EMAIL || "info@devfinity.net",
+						adminEmails,
+						gracePeriodDays,
+					};
+				}
+
+				if (status === "EXPIRED" || daysRemaining < 0) {
+					const daysOverdue = Math.max(0, Math.abs(daysRemaining));
+					if (status === "EXPIRED" || daysOverdue > gracePeriodDays) {
+						return {
+							status: "EXPIRED",
+							isBlocked: true,
+							daysRemaining,
+							expiresAt,
+							killswitchActive: false,
+							reason: `Subscription for ${tenant.display_name} expired. Grace period elapsed.`,
+							organization: tenant.display_name,
+							supportEmail: tenant.support_email || "support@devfinity.net",
+							developerEmail: process.env.DEV_EMAIL || "info@devfinity.net",
+							adminEmails,
+							gracePeriodDays,
+						};
+					}
+					return {
+						status: "EXPIRED",
+						isBlocked: false,
+						daysRemaining,
+						expiresAt,
+						killswitchActive: false,
+						reason: `Subscription expired. Grace period active (${gracePeriodDays - daysOverdue} days remaining).`,
+						organization: tenant.display_name,
+						supportEmail: tenant.support_email || "support@devfinity.net",
+						developerEmail: process.env.DEV_EMAIL || "info@devfinity.net",
+						adminEmails,
+						gracePeriodDays,
+					};
+				}
+
+				return {
+					status: "ACTIVE",
+					isBlocked: false,
+					daysRemaining,
+					expiresAt,
+					killswitchActive: false,
+					organization: tenant.display_name,
+					supportEmail: tenant.support_email || "support@devfinity.net",
+					developerEmail: process.env.DEV_EMAIL || "info@devfinity.net",
+					adminEmails,
+					gracePeriodDays,
+				};
+			}
+		}
+	} catch {}
+
 	const config = await getLicenseConfig();
 	const now = Date.now();
 	const expiryTime = new Date(config.expiresAt).getTime();

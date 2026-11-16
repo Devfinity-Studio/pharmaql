@@ -22,8 +22,7 @@ export function ImpersonationBanner({
 	const handleExit = () => {
 		startTransition(async () => {
 			await stopMrImpersonation();
-			router.push("/admin/dev");
-			router.refresh();
+			window.location.href = "/admin/dev";
 		});
 	};
 

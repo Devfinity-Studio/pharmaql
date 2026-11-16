@@ -72,6 +72,12 @@ import {
 } from "@/server/actions/devDiagnostics";
 import { startMrImpersonation } from "@/server/actions/impersonation";
 import {
+	updateTenantLicenseAction,
+	sendTenantRenewalNoticeAction,
+	type MultiTenantLicenseOverview,
+	type TenantLicenseSummary,
+} from "@/server/actions/licenseActions";
+import {
 	getPushDiagnosticsAction,
 	sendTestPushAction,
 } from "@/server/actions/pushActions";
@@ -108,6 +114,7 @@ interface DevControlCenterProps {
 		is_active: boolean;
 		custom_domain?: string | null;
 	}>;
+	multiTenantLicenses?: MultiTenantLicenseOverview;
 }
 
 export function DevControlCenter({
@@ -121,6 +128,7 @@ export function DevControlCenter({
 	mrList,
 	companiesList = [],
 	tenants = [],
+	multiTenantLicenses,
 }: DevControlCenterProps) {
 	const router = useRouter();
 	const searchParams = useSearchParams();
@@ -128,6 +136,84 @@ export function DevControlCenter({
 	const [activeTab, setActiveTab] = useState<
 		"status" | "presence" | "debug" | "feedback" | "license" | "push" | "toggles" | "impersonate" | "logs" | "query" | "runtime" | "notices" | "fleet"
 	>((initialTabFromUrl as any) || "status");
+
+
+	// Grouped Categories Navigation System
+	type DevCategory = "overview" | "diagnostics" | "tenants" | "comms";
+
+	const DEV_CATEGORIES: Array<{
+		id: DevCategory;
+		label: string;
+		icon: any;
+		description: string;
+		tabs: Array<{ id: string; label: string; icon: any }>;
+	}> = [
+		{
+			id: "overview",
+			label: "Overview & Telemetry",
+			icon: Activity,
+			description: "Platform health, API fleet versions, and serverless runtime inspection",
+			tabs: [
+				{ id: "status", label: "Services & Health", icon: Activity },
+				{ id: "fleet", label: "Fleet Updates", icon: Cpu },
+				{ id: "runtime", label: "Runtime Config", icon: Server },
+			],
+		},
+		{
+			id: "diagnostics",
+			label: "Diagnostics & Sandbox",
+			icon: Terminal,
+			description: "Stored procedure tester, real-time query latency, mailer tests, and system logs",
+			tabs: [
+				{ id: "query", label: "Procedure Sandbox", icon: Play },
+				{ id: "debug", label: "Diagnostic Tests", icon: Terminal },
+				{ id: "logs", label: "Unified Logs", icon: HardDrive },
+			],
+		},
+		{
+			id: "tenants",
+			label: "Tenants & Licensing",
+			icon: Key,
+			description: "Multi-tenant software subscriptions, expiration tracking, killswitches, and feature flags",
+			tabs: [
+				{ id: "license", label: "Tenant Licenses", icon: Key },
+				{ id: "toggles", label: "Feature Switchboard", icon: Wrench },
+			],
+		},
+		{
+			id: "comms",
+			label: "Field Tools & Comms",
+			icon: Radio,
+			description: "Live user presence, MR simulation, global & tenant push alerts, and notice boards",
+			tabs: [
+				{ id: "presence", label: "Live Users & Presence", icon: Radio },
+				{ id: "impersonate", label: "MR Simulation", icon: Users },
+				{ id: "push", label: "Push Notifications", icon: Bell },
+				{ id: "notices", label: "Notice Board", icon: Megaphone },
+				{ id: "feedback", label: "User Feedback", icon: MessageSquare },
+			],
+		},
+	];
+
+	const getCategoryForTab = (tabId: string): DevCategory => {
+		for (const cat of DEV_CATEGORIES) {
+			if (cat.tabs.some((t) => t.id === tabId)) return cat.id;
+		}
+		return "overview";
+	};
+
+	const [activeCategory, setActiveCategory] = useState<DevCategory>(() => getCategoryForTab(activeTab));
+
+	// Multi-tenant license state
+	const [tenantLicensesList, setTenantLicensesList] = useState<TenantLicenseSummary[]>(
+		multiTenantLicenses?.tenants || []
+	);
+	const [tenantLicenseMetrics, setTenantLicenseMetrics] = useState(
+		multiTenantLicenses?.metrics || { total: 0, active: 0, expiringSoon: 0, blocked: 0 }
+	);
+
+	// Push target tenant state
+	const [pushTenantTarget, setPushTenantTarget] = useState<string>("ALL");
 
 	// Multi-Tenant Scoping Context State
 	const [selectedTenantId, setSelectedTenantId] = useState<string>("global");
@@ -274,6 +360,69 @@ export function DevControlCenter({
 			}));
 			showFeedback("success", `Subscription expiration updated to ${customExpiry}.`);
 			router.refresh();
+		});
+	};
+
+	// Tenant Licensing Actions
+	const handleToggleTenantKillswitch = (tenantId: string, currentBlocked: boolean) => {
+		startTransition(async () => {
+			const res = await updateTenantLicenseAction(tenantId, {
+				is_license_blocked: !currentBlocked,
+				license_status: !currentBlocked ? "SUSPENDED" : "ACTIVE",
+			});
+			if (res.success) {
+				setTenantLicensesList((prev) =>
+					prev.map((t) =>
+						t.tenantId === tenantId
+							? { ...t, isBlocked: !currentBlocked, killswitchActive: !currentBlocked, status: !currentBlocked ? "SUSPENDED" : "ACTIVE" }
+							: t
+					)
+				);
+				showFeedback("success", "Updated killswitch for tenant.");
+			} else {
+				showFeedback("error", res.error || "Failed to update tenant killswitch.");
+			}
+		});
+	};
+
+	const handleExtendTenantLicense = (tenantId: string, daysToAdd: number) => {
+		startTransition(async () => {
+			const target = tenantLicensesList.find((t) => t.tenantId === tenantId);
+			const baseDate = target ? new Date(target.expiresAt) : new Date();
+			const effectiveBase = isNaN(baseDate.getTime()) || baseDate.getTime() < Date.now() ? new Date() : baseDate;
+			effectiveBase.setDate(effectiveBase.getDate() + daysToAdd);
+			const newExpires = effectiveBase.toISOString();
+
+			const res = await updateTenantLicenseAction(tenantId, {
+				license_expires_at: newExpires,
+				license_status: "ACTIVE",
+				is_license_blocked: false,
+			});
+			if (res.success) {
+				const now = Date.now();
+				const daysRemaining = Math.ceil((new Date(newExpires).getTime() - now) / (1000 * 60 * 60 * 24));
+				setTenantLicensesList((prev) =>
+					prev.map((t) =>
+						t.tenantId === tenantId
+							? { ...t, expiresAt: newExpires, daysRemaining, isBlocked: false, killswitchActive: false, status: "ACTIVE" }
+							: t
+					)
+				);
+				showFeedback("success", `Extended license by ${daysToAdd} days.`);
+			} else {
+				showFeedback("error", res.error || "Failed to extend license.");
+			}
+		});
+	};
+
+	const handleSendTenantRenewalNotice = (tenantId: string) => {
+		startTransition(async () => {
+			const res = await sendTenantRenewalNoticeAction(tenantId);
+			if (res.success) {
+				showFeedback("success", res.message);
+			} else {
+				showFeedback("error", res.message);
+			}
 		});
 	};
 
@@ -897,41 +1046,58 @@ export function DevControlCenter({
 				</div>
 			</div>
 
-			{/* Tab Navigation Navigation */}
-			<div className="flex overflow-x-auto border-b border-gray-200 pb-px">
-				{[
-					{ id: "status", label: "Services Status", icon: Activity },
-					{ id: "presence", label: "Live Users & Presence", icon: Radio },
-					{ id: "debug", label: "Debug Console", icon: Terminal },
-					{ id: "feedback", label: "Feedback & Bug Reports", icon: MessageSquare },
-					{ id: "license", label: "Subscription & License", icon: Key },
-					{ id: "push", label: "Push & Field Alerts", icon: Bell },
-					{ id: "toggles", label: "Feature Switchboard", icon: Wrench },
-					{ id: "impersonate", label: "MR Impersonation", icon: Users },
-					{ id: "logs", label: "Unified Logs", icon: HardDrive },
-					{ id: "query", label: "Procedure Sandbox", icon: Play },
-					{ id: "runtime", label: "Runtime Config", icon: Server },
-					{ id: "notices", label: "Notice Board", icon: Megaphone },
-					{ id: "fleet", label: "API Fleet & OTA Releases", icon: Cpu },
-				].map((tab) => {
-					const Icon = tab.icon;
-					const isActive = activeTab === tab.id;
-					return (
-						<button
-							className={`flex items-center gap-2 whitespace-nowrap border-b-2 px-4 py-3 font-bold text-sm transition-all ${
-								isActive
-									? "border-purple-600 text-purple-600"
-									: "border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-900"
-							}`}
-							key={tab.id}
-							onClick={() => setActiveTab(tab.id as any)}
-							type="button"
-						>
-							<Icon className="h-4 w-4" />
-							<span>{tab.label}</span>
-						</button>
-					);
-				})}
+			{/* Grouped Category Navigation & Sub-Tool Pills */}
+			<div className="space-y-3">
+				{/* 1. Primary Category Tabs */}
+				<div className="grid grid-cols-2 md:grid-cols-4 gap-2 bg-gray-100 p-1.5 rounded-2xl border border-gray-200">
+					{DEV_CATEGORIES.map((cat) => {
+						const Icon = cat.icon;
+						const isCatActive = activeCategory === cat.id;
+						return (
+							<button
+								key={cat.id}
+								type="button"
+								onClick={() => {
+									setActiveCategory(cat.id);
+									if (!cat.tabs.some((t) => t.id === activeTab) && cat.tabs[0]) {
+										setActiveTab(cat.tabs[0].id as any);
+									}
+								}}
+								className={`flex items-center justify-center gap-2 px-3 py-2.5 rounded-xl font-bold text-xs sm:text-sm transition-all ${
+									isCatActive
+										? "bg-white text-purple-900 shadow-xs border border-purple-200/80"
+										: "text-gray-600 hover:text-gray-900 hover:bg-gray-200/60"
+								}`}
+							>
+								<Icon className={`w-4 h-4 ${isCatActive ? "text-purple-600" : "text-gray-400"}`} />
+								<span>{cat.label}</span>
+							</button>
+						);
+					})}
+				</div>
+
+				{/* 2. Sub-Tool Navigation Pills */}
+				<div className="flex items-center gap-2 overflow-x-auto pb-1 px-1">
+					{(DEV_CATEGORIES.find((c) => c.id === activeCategory)?.tabs || []).map((tab) => {
+						const Icon = tab.icon;
+						const isTabActive = activeTab === tab.id;
+						return (
+							<button
+								key={tab.id}
+								type="button"
+								onClick={() => setActiveTab(tab.id as any)}
+								className={`flex items-center gap-2 px-3.5 py-1.5 rounded-full font-bold text-xs whitespace-nowrap transition-all ${
+									isTabActive
+										? "bg-purple-600 text-white shadow-xs"
+										: "bg-gray-100 text-gray-600 hover:bg-gray-200 hover:text-gray-900 border border-gray-200"
+								}`}
+							>
+								<Icon className="w-3.5 h-3.5" />
+								<span>{tab.label}</span>
+							</button>
+						);
+					})}
+				</div>
 			</div>
 
 			{/* TAB 1: SERVICES STATUS & TELEMETRY */}
@@ -1231,7 +1397,7 @@ export function DevControlCenter({
 
 			{/* TAB: LIVE USERS & PRESENCE */}
 			{activeTab === "presence" && (
-				<DevLivePresence mrList={mrList as any} />
+				<DevLivePresence mrList={mrList as any} tenants={tenants} />
 			)}
 
 			{/* TAB: DEBUG & DIAGNOSTICS CONSOLE */}
@@ -1367,6 +1533,21 @@ export function DevControlCenter({
 
 							<div className="mt-4 space-y-4">
 								<div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+									<div>
+										<label className="block text-xs font-bold text-gray-700">Tenant Target Scope</label>
+										<select
+											className="mt-1 w-full rounded-xl border border-gray-300 bg-white p-2.5 text-xs font-bold text-gray-900"
+											onChange={(e) => setPushTenantTarget(e.target.value)}
+											value={pushTenantTarget}
+										>
+											<option value="ALL">🌐 Global (All Tenants)</option>
+											{tenants.map((t) => (
+												<option key={t.id} value={t.id}>
+													🏢 {t.display_name} ({t.slug})
+												</option>
+											))}
+										</select>
+									</div>
 									<div>
 										<label className="block text-xs font-bold text-gray-700">Audience Target</label>
 										<select
@@ -1802,6 +1983,191 @@ export function DevControlCenter({
 			{/* TAB 2: SUBSCRIPTION & LICENSE */}
 			{activeTab === "license" && (
 				<div className="space-y-6">
+					{/* Multi-Tenant Licensing Metrics Summary */}
+					<div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+						<div className="bg-white p-5 rounded-2xl border border-gray-200 shadow-xs">
+							<div className="flex items-center justify-between text-gray-500 text-xs font-bold uppercase tracking-wider">
+								<span>Total Tenants</span>
+								<Building2 className="w-4 h-4 text-purple-600" />
+							</div>
+							<div className="mt-2 text-3xl font-black text-gray-900">{tenantLicenseMetrics.total}</div>
+							<p className="mt-1 text-xs text-gray-400">Registered platform tenants</p>
+						</div>
+
+						<div className="bg-white p-5 rounded-2xl border border-gray-200 shadow-xs">
+							<div className="flex items-center justify-between text-emerald-700 text-xs font-bold uppercase tracking-wider">
+								<span>Active Licenses</span>
+								<CheckCircle2 className="w-4 h-4 text-emerald-600" />
+							</div>
+							<div className="mt-2 text-3xl font-black text-emerald-700">{tenantLicenseMetrics.active}</div>
+							<p className="mt-1 text-xs text-gray-400">Full platform access enabled</p>
+						</div>
+
+						<div className="bg-white p-5 rounded-2xl border border-gray-200 shadow-xs">
+							<div className="flex items-center justify-between text-amber-700 text-xs font-bold uppercase tracking-wider">
+								<span>Expiring Soon</span>
+								<Clock className="w-4 h-4 text-amber-600" />
+							</div>
+							<div className="mt-2 text-3xl font-black text-amber-700">{tenantLicenseMetrics.expiringSoon}</div>
+							<p className="mt-1 text-xs text-gray-400">Within 30 days of renewal</p>
+						</div>
+
+						<div className="bg-white p-5 rounded-2xl border border-gray-200 shadow-xs">
+							<div className="flex items-center justify-between text-rose-700 text-xs font-bold uppercase tracking-wider">
+								<span>Suspended / Blocked</span>
+								<AlertOctagon className="w-4 h-4 text-rose-600" />
+							</div>
+							<div className="mt-2 text-3xl font-black text-rose-700">{tenantLicenseMetrics.blocked}</div>
+							<p className="mt-1 text-xs text-gray-400">Killswitch or grace expired</p>
+						</div>
+					</div>
+
+					{/* Multi-Tenant Subscriptions Table */}
+					<div className="bg-white rounded-2xl border border-gray-200 shadow-xs p-6 space-y-4">
+						<div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+							<div>
+								<div className="flex items-center gap-2">
+									<Key className="w-5 h-5 text-purple-600" />
+									<h3 className="font-black text-lg text-gray-900">Tenant License Directory &amp; Killswitch</h3>
+								</div>
+								<p className="text-xs text-gray-500">
+									Individual subscription expiration dates, killswitch toggles, and automated email renewal notifications per tenant.
+								</p>
+							</div>
+							<span className="px-3 py-1 rounded-xl bg-purple-50 text-purple-800 border border-purple-200 text-xs font-bold self-start sm:self-auto">
+								{tenantLicensesList.length} Tenants Configured
+							</span>
+						</div>
+
+						<div className="overflow-x-auto rounded-xl border border-gray-200">
+							<table className="w-full text-left text-xs">
+								<thead className="bg-gray-50 font-bold uppercase text-[11px] text-gray-600 border-b border-gray-200">
+									<tr>
+										<th className="px-4 py-3">Tenant &amp; Domain</th>
+										<th className="px-4 py-3">Admin Contact</th>
+										<th className="px-4 py-3">Status</th>
+										<th className="px-4 py-3">Expiry Date</th>
+										<th className="px-4 py-3">Days Remaining</th>
+										<th className="px-4 py-3">Killswitch</th>
+										<th className="px-4 py-3 text-right">Actions</th>
+									</tr>
+								</thead>
+								<tbody className="divide-y divide-gray-200">
+									{tenantLicensesList.length === 0 ? (
+										<tr>
+											<td colSpan={7} className="px-4 py-8 text-center text-gray-500">
+												No client tenants registered yet.
+											</td>
+										</tr>
+									) : (
+										tenantLicensesList.map((t) => (
+											<tr key={t.tenantId} className="hover:bg-purple-50/30 transition-colors">
+												<td className="px-4 py-3">
+													<div className="font-bold text-gray-900 flex items-center gap-1.5">
+														<Building2 className="w-3.5 h-3.5 text-purple-600" />
+														<span>{t.displayName}</span>
+													</div>
+													<div className="text-[11px] text-gray-500 font-mono">
+														{t.customDomain || `${t.slug}.localhost:3000`}
+													</div>
+												</td>
+												<td className="px-4 py-3 font-mono text-gray-600">
+													{t.adminEmail || "Not Configured"}
+												</td>
+												<td className="px-4 py-3">
+													<span
+														className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase ${
+															t.isBlocked
+																? "bg-rose-100 text-rose-800 border border-rose-200"
+																: t.daysRemaining <= 30
+																	? "bg-amber-100 text-amber-800 border border-amber-200"
+																	: "bg-emerald-100 text-emerald-800 border border-emerald-200"
+														}`}
+													>
+														{t.isBlocked ? "BLOCKED" : t.status}
+													</span>
+												</td>
+												<td className="px-4 py-3 font-mono text-gray-700">
+													{new Date(t.expiresAt).toLocaleDateString("en-IN", {
+														day: "numeric",
+														month: "short",
+														year: "numeric",
+													})}
+												</td>
+												<td className="px-4 py-3">
+													<span
+														className={`font-bold ${
+															t.daysRemaining < 0
+																? "text-rose-600"
+																: t.daysRemaining <= 30
+																	? "text-amber-600"
+																	: "text-emerald-600"
+														}`}
+													>
+														{t.daysRemaining < 0 ? `Expired (${Math.abs(t.daysRemaining)}d ago)` : `${t.daysRemaining} days`}
+													</span>
+												</td>
+												<td className="px-4 py-3">
+													<button
+														type="button"
+														disabled={isPending}
+														onClick={() => handleToggleTenantKillswitch(t.tenantId, t.killswitchActive)}
+														className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all ${
+															t.killswitchActive
+																? "bg-rose-600 text-white hover:bg-rose-700 shadow-xs"
+																: "bg-gray-100 text-gray-700 hover:bg-gray-200 border border-gray-300"
+														}`}
+													>
+														{t.killswitchActive ? "Killswitch Active" : "Normal Access"}
+													</button>
+												</td>
+												<td className="px-4 py-3 text-right">
+													<div className="flex items-center justify-end gap-1.5">
+														<button
+															type="button"
+															disabled={isPending}
+															onClick={() => handleExtendTenantLicense(t.tenantId, 30)}
+															className="px-2 py-1 rounded-lg bg-gray-50 border border-gray-300 hover:bg-purple-50 hover:border-purple-300 text-gray-700 text-[11px] font-bold transition"
+															title="Extend by 30 days"
+														>
+															+30d
+														</button>
+														<button
+															type="button"
+															disabled={isPending}
+															onClick={() => handleExtendTenantLicense(t.tenantId, 365)}
+															className="px-2 py-1 rounded-lg bg-gray-50 border border-gray-300 hover:bg-purple-50 hover:border-purple-300 text-gray-700 text-[11px] font-bold transition"
+															title="Extend by 1 year"
+														>
+															+1y
+														</button>
+														<button
+															type="button"
+															disabled={isPending || !t.adminEmail}
+															onClick={() => handleSendTenantRenewalNotice(t.tenantId)}
+															className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-purple-600 hover:bg-purple-700 text-white text-[11px] font-bold shadow-xs transition disabled:opacity-50"
+															title="Send Renewal Notice Email to Tenant Admin"
+														>
+															<Mail className="w-3 h-3" />
+															<span>Notice</span>
+														</button>
+													</div>
+												</td>
+											</tr>
+										))
+									)}
+								</tbody>
+							</table>
+						</div>
+					</div>
+
+					{/* Platform Master License Fallback Card Header */}
+					<div className="flex items-center gap-2 pt-4 border-t border-gray-200">
+						<Key className="w-4 h-4 text-gray-500" />
+						<h4 className="font-extrabold text-sm text-gray-700 uppercase tracking-wider">
+							Global Platform Master License Fallback
+						</h4>
+					</div>
 					{/* Status Card */}
 					<div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-xs">
 						<div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
@@ -2644,6 +3010,7 @@ export function DevControlCenter({
 									<option value="rptStockandSalesStatementReport">rptStockandSalesStatementReport (Stock &amp; Sales Statement)</option>
 									<option value="rptItemCustomerSale">rptItemCustomerSale (Item Customer Sale)</option>
 									<option value="rptMRwisePeriodicalOutstanding">rptMRwisePeriodicalOutstanding (Outstanding &amp; Overdue)</option>
+									<option value="rptExpiryStockStatement">rptExpiryStockStatement (Expiry Stock Statement)</option>
 									<option value="rptCompanyCustomerItemwiseSales">rptCompanyCustomerItemwiseSales (Company Customer Sales)</option>
 								</select>
 							</div>
