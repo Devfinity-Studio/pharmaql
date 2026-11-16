@@ -2,10 +2,11 @@ import React from "react";
 import { OfflineReportSync } from "@/components/offline-report-sync";
 import { ReportStationeryHeader } from "@/components/report-stationery-header";
 import {
+	fetchProductWiseSales,
 	getItemCustomerSale,
 	type ItemCustomerSaleResult,
 	type ItemCustomerSaleRow,
-} from "@/server/actions/customerItemSale";
+} from "@/server/actions/reportQueries";
 import {
 	getItemDivisionMap,
 	getProductCatalog,

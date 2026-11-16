@@ -3,9 +3,10 @@ import { OfflineReportSync } from "@/components/offline-report-sync";
 import { ReportStationeryHeader } from "@/components/report-stationery-header";
 import { getMRInfo } from "@/server/actions/mrInfo";
 import {
+	fetchStockAndSales,
 	getStockAndSales,
 	type StockAndSalesRow,
-} from "@/server/actions/stockAndSales";
+} from "@/server/actions/reportQueries";
 
 interface StockAndSalesDisplayItem {
 	ItemId: number | string;

@@ -17,15 +17,15 @@ import { ReportTableSkeleton } from "@/components/report-table-skeleton";
 import { StockAndSalesReportView } from "@/components/stock-and-sales-report-view";
 import { StockReportView } from "@/components/stock-report-view";
 import { isFeatureEnabledForRole } from "@/lib/maintenance";
-import { getItemCustomerSale } from "@/server/actions/customerItemSale";
+import {
+	getItemCustomerSale,
+	getMRwisePeriodicalOutstanding,
+	type OverduePeriodicalOutstandingRow,
+} from "@/server/actions/reportQueries";
 import { getItemDivisionMap } from "@/server/actions/itemCatalog";
 import { calculateMaxDataCutoff } from "@/lib/dateUtils";
 import { getOverdueBlockingStatus } from "@/server/actions/overduePolicy";
 import { getMRInfo } from "@/server/actions/mrInfo";
-import {
-	getMRwisePeriodicalOutstanding,
-	type OverduePeriodicalOutstandingRow,
-} from "@/server/actions/overdueReports";
 
 function ServiceMaintenanceNotice({
 	title,

@@ -26,3 +26,4 @@ export const apiServerInstances = pgTable("api_server_instances", {
 
 export type ApiServerInstance = typeof apiServerInstances.$inferSelect;
 export type NewApiServerInstance = typeof apiServerInstances.$inferInsert;
+

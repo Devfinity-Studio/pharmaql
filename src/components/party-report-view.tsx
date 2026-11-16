@@ -3,10 +3,11 @@ import { OfflineReportSync } from "@/components/offline-report-sync";
 import { ReportStationeryHeader } from "@/components/report-stationery-header";
 import { getMRInfo } from "@/server/actions/mrInfo";
 import {
+	fetchPartyWiseSales,
 	getPartyCustomerItemSale,
 	type PartyCustomerItemSaleResult,
 	type PartyCustomerItemSaleRow,
-} from "@/server/actions/partyItemSale";
+} from "@/server/actions/reportQueries";
 
 function formatDisplayDate(val?: string | Date | null): string {
 	if (!val) return "";

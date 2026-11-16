@@ -1,4 +1,4 @@
-import type { OverduePeriodicalOutstandingRow } from "@/server/actions/overdueReports";
+import type { OverduePeriodicalOutstandingRow } from "@/server/actions/reportQueries";
 
 export interface ImpendingBlockInvoice {
 	invoiceNo: string;

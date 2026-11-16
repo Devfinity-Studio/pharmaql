@@ -10,7 +10,7 @@ import { getMRInfo } from "@/server/actions/mrInfo";
 import {
 	getStockMovement,
 	type StockMovementRow,
-} from "@/server/actions/stockreports";
+} from "@/server/actions/reportQueries";
 import { auth } from "@/server/auth";
 
 export async function GET(request: Request) {

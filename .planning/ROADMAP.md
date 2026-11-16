@@ -444,3 +444,15 @@
 - [x] **Serverless Neon Client & Startup Schema Init**: Implemented `getDrizzleDb()` in `src/db/index.ts` and `initControlPlaneSchema()` in `src/db/init.ts` with transparent local file store fallback (`data/tenants.json`).
 - [x] **Control Plane Database Compatibility**: Refactored `src/lib/control-plane-db.ts` to expose `getDrizzleDb` and delegate schema initialization to Drizzle while maintaining backward compatibility for existing raw SQL callers and mocks.
 - [x] **Verification & Validation**: All 26 test suites passed (156/156 tests), 0 TypeScript errors (`tsc --noEmit`), and Next.js production build (`next build`) succeeded with 20 routes generated. Documented in `49-UAT.md`.
+
+## Phase 50: Consolidate Report Generation Queries [COMPLETED]
+
+**Goal:** Consolidate all report generation queries and data fetchers (Party-wise Sales, Product-wise Sales, Stock Valuation, Stock & Sales, Overdue/Outstanding, Claim Quantity, and Expiry Stock Statements) scattered across separate action and route files into a single unified report queries service module, and rewire all web report views, download modals, and export buttons to call them from this single source of truth.
+**Depends on:** Phase 49
+**Status:** Completed
+
+- [x] **Unified Report Queries Hub (`src/server/actions/reportQueries.ts`)**: Created a centralized module grouping all 7 report query functions (`fetchPartyWiseSales`, `fetchProductWiseSales`, `fetchStockValuation`, `fetchStockAndSales`, `fetchOverdueOutstanding`, `fetchExpiryStock`, `fetchClaimData`), typed row and result interfaces, standard parameter schemas, error handling, and a dynamic dispatcher (`fetchReportQuery`).
+- [x] **Report View & Dashboard Refactoring**: Updated all interactive report views (`PartyReportView`, `ProductReportView`, `StockReportView`, `StockAndSalesReportView`, `OverdueReportView`, `ExpiryReportView`, `FreeSchemeReportView`, `mr-dashboard-content`, `itemCatalog`, `overdueEngine`, `overdueUtils`) to consume the consolidated query module.
+- [x] **Export & Download Routes Alignment**: Updated all download routes (`/api/reports/download`, `download-sales`, `download-stock`, `download-outstanding`, `download-expiry`) to call through the unified query module, eliminating duplicate logic.
+- [x] **Clean Removal of Legacy Action Files**: Completely removed `claimData.ts`, `customerItemSale.ts`, `expiryReports.ts`, `overdueReports.ts`, `partyItemSale.ts`, `stockreports.ts`, and `stockAndSales.ts`.
+- [x] **Verification & Validation**: All 27 test suites passed (164/164 tests), 0 TypeScript compilation errors (`tsc --noEmit`), and Next.js production build (`next build`) succeeded with 20 routes generated. Documented in `50-UAT.md`.

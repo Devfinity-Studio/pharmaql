@@ -27,3 +27,4 @@ export const tenantNotices = pgTable("tenant_notices", {
 
 export type TenantNotice = typeof tenantNotices.$inferSelect;
 export type NewTenantNotice = typeof tenantNotices.$inferInsert;
+

@@ -8,7 +8,7 @@ import { sanitizeDateRangeForRole } from "@/lib/dateUtils";
 import { rateLimitReportDownload } from "@/lib/rate-limit";
 import { getClientIp, getClientUserAgent } from "@/lib/security";
 import { getMRInfo } from "@/server/actions/mrInfo";
-import { getMRwisePeriodicalOutstanding } from "@/server/actions/overdueReports";
+import { getMRwisePeriodicalOutstanding } from "@/server/actions/reportQueries";
 import { auth } from "@/server/auth";
 
 export async function GET(request: Request) {
