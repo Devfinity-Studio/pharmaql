@@ -456,3 +456,14 @@
 - [x] **Export & Download Routes Alignment**: Updated all download routes (`/api/reports/download`, `download-sales`, `download-stock`, `download-outstanding`, `download-expiry`) to call through the unified query module, eliminating duplicate logic.
 - [x] **Clean Removal of Legacy Action Files**: Completely removed `claimData.ts`, `customerItemSale.ts`, `expiryReports.ts`, `overdueReports.ts`, `partyItemSale.ts`, `stockreports.ts`, and `stockAndSales.ts`.
 - [x] **Verification & Validation**: All 27 test suites passed (164/164 tests), 0 TypeScript compilation errors (`tsc --noEmit`), and Next.js production build (`next build`) succeeded with 20 routes generated. Documented in `50-UAT.md`.
+
+## Phase 51: Modularity
+
+**Goal:** Modularize PharmaQL's codebase by establishing clean domain-driven module boundaries (e.g., Auth & Sessions, Control Plane & Tenants, ERP Reports Service, Overdue & Blocking Engine, Real-Time Presence & Telemetry, and Comms/Notifications) with explicit public APIs, reducing cross-cutting spaghetti imports and improving long-term maintainability.
+**Depends on:** Phase 50
+**Status:** Not planned yet
+
+- [ ] **Domain Architecture & Boundary Design**: Audit existing modules (`src/server/actions/`, `src/lib/`, `src/components/`) and establish clean domain boundaries with dedicated public interfaces and barrel exports.
+- [ ] **Module Encapsulation & Decoupling**: Group related server actions, utilities, and components into dedicated domain modules with single-responsibility contracts.
+- [ ] **Import Cleanup & Circular Dependency Elimination**: Enforce unidirectional import flows and eliminate circular references across modules.
+- [ ] **Verification & Validation**: Ensure zero TypeScript errors (`tsc --noEmit`), all 27 Vitest suites passing, and successful Next.js production build.
