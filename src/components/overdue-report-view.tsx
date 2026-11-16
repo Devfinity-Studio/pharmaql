@@ -5,9 +5,10 @@ import { ReportStationeryHeader } from "@/components/report-stationery-header";
 import { getCustomerBlockingMap } from "@/server/actions/customerBlocking";
 import { getMRInfo, type MRAssignment } from "@/server/actions/mrInfo";
 import {
+	fetchOverdueOutstanding,
 	getMRwisePeriodicalOutstanding,
 	type OverduePeriodicalOutstandingRow,
-} from "@/server/actions/overdueReports";
+} from "@/server/actions/reportQueries";
 
 function formatDisplayDate(dateStr?: string | Date | null): string {
 	if (!dateStr) return "";

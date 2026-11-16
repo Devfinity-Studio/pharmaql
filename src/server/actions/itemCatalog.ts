@@ -117,7 +117,7 @@ export async function getProductCatalog(options?: {
 	return { success: true, data };
 }
 
-import { getStockMovement } from "./stockreports";
+import { getStockMovement } from "./reportQueries";
 
 /**
  * Builds an Item-to-Division mapping dictionary for a company / assigned codes.

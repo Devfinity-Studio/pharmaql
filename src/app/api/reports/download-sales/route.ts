@@ -5,12 +5,14 @@ import { getDefaultTMinus1MonthRange, sanitizeDateRangeForRole } from "@/lib/dat
 import { buildStyledExcelBuffer, type ExcelColumnDef } from "@/lib/excel";
 import { rateLimitReportDownload } from "@/lib/rate-limit";
 import { getClientIp, getClientUserAgent } from "@/lib/security";
-import { getClaimData } from "@/server/actions/claimData";
-import { getItemCustomerSale } from "@/server/actions/customerItemSale";
+import {
+	getClaimData,
+	getItemCustomerSale,
+	getPartyCustomerItemSale,
+	getStockAndSales,
+} from "@/server/actions/reportQueries";
 import { getItemDivisionMap } from "@/server/actions/itemCatalog";
 import { getMRInfo } from "@/server/actions/mrInfo";
-import { getPartyCustomerItemSale } from "@/server/actions/partyItemSale";
-import { getStockAndSales } from "@/server/actions/stockAndSales";
 import { auth } from "@/server/auth";
 
 export async function GET(request: Request) {

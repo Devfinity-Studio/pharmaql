@@ -6,7 +6,7 @@ import { sanitizeDateRangeForRole } from "@/lib/dateUtils";
 import { rateLimitReportDownload } from "@/lib/rate-limit";
 import { getClientIp, getClientUserAgent } from "@/lib/security";
 import { getMRInfo } from "@/server/actions/mrInfo";
-import { getExpiryStockStatement } from "@/server/actions/expiryReports";
+import { getExpiryStockStatement } from "@/server/actions/reportQueries";
 import { auth } from "@/server/auth";
 
 export async function GET(request: Request) {

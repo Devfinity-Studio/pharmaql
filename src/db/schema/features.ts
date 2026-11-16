@@ -17,3 +17,4 @@ export const tenantFeatures = pgTable("tenant_features", {
 
 export type TenantFeature = typeof tenantFeatures.$inferSelect;
 export type NewTenantFeature = typeof tenantFeatures.$inferInsert;
+

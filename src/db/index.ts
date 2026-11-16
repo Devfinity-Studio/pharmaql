@@ -24,3 +24,4 @@ export function getDrizzleDb() {
 
 export type DrizzleDb = ReturnType<typeof getDrizzleDb>;
 export { schema };
+

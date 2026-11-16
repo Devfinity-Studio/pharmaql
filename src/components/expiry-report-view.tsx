@@ -4,9 +4,10 @@ import { OfflineReportSync } from "@/components/offline-report-sync";
 import { ReportStationeryHeader } from "@/components/report-stationery-header";
 import { getMRInfo, type MRAssignment } from "@/server/actions/mrInfo";
 import {
+	fetchExpiryStock,
 	getExpiryStockStatement,
 	type ExpiryStockRow,
-} from "@/server/actions/expiryReports";
+} from "@/server/actions/reportQueries";
 
 function formatDisplayDate(dateStr?: string | Date | null): string {
 	if (!dateStr) return "";

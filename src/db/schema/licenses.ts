@@ -17,3 +17,4 @@ export const tenantLicenses = pgTable("tenant_licenses", {
 
 export type TenantLicense = typeof tenantLicenses.$inferSelect;
 export type NewTenantLicense = typeof tenantLicenses.$inferInsert;
+

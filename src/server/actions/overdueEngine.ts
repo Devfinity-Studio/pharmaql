@@ -7,7 +7,7 @@ import { getMROverrides } from "./mrs";
 import {
 	getMRwisePeriodicalOutstanding,
 	type OverduePeriodicalOutstandingRow,
-} from "./overdueReports";
+} from "./reportQueries";
 import {
 	calculateBlockDate,
 	evaluateOverdueInvoices,

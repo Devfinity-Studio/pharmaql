@@ -16,3 +16,4 @@ export const tenantRuntimeConfig = pgTable("tenant_runtime_config", {
 
 export type TenantRuntimeConfig = typeof tenantRuntimeConfig.$inferSelect;
 export type NewTenantRuntimeConfig = typeof tenantRuntimeConfig.$inferInsert;
+

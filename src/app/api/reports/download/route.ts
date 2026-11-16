@@ -1,7 +1,7 @@
 import { headers } from "next/headers";
 import { NextResponse } from "next/server";
 import * as xlsx from "xlsx";
-import { getItemCustomerSale } from "@/server/actions/customerItemSale";
+import { getItemCustomerSale } from "@/server/actions/reportQueries";
 import { getMRInfo } from "@/server/actions/mrInfo";
 import { getDefaultTMinus1MonthRange } from "@/lib/dateUtils";
 import { auth } from "@/server/auth";

@@ -1,7 +1,7 @@
 import React from "react";
 import { OfflineReportSync } from "@/components/offline-report-sync";
 import { ReportStationeryHeader } from "@/components/report-stationery-header";
-import { getClaimData } from "@/server/actions/claimData";
+import { getClaimData } from "@/server/actions/reportQueries";
 import { getMRInfo } from "@/server/actions/mrInfo";
 import { getMROverrides } from "@/server/actions/mrs";
 

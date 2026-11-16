@@ -187,3 +187,4 @@ export async function initControlPlaneSchema(): Promise<boolean> {
 		return false;
 	}
 }
+
