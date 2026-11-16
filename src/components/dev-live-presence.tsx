@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useTransition, useMemo, useRef } from "react";
 import {
+	Building2,
 	Radio,
 	Users,
 	Laptop,
@@ -45,9 +46,14 @@ interface DevLivePresenceProps {
 		rank?: number;
 		isBlocked?: boolean;
 	}>;
+	tenants?: Array<{
+		id: string;
+		slug: string;
+		display_name: string;
+	}>;
 }
 
-export function DevLivePresence({ mrList = [] }: DevLivePresenceProps) {
+export function DevLivePresence({ mrList = [], tenants = [] }: DevLivePresenceProps) {
 	const [sessions, setSessions] = useState<SessionDisplayItem[]>([]);
 	const [metrics, setMetrics] = useState<PresenceSummaryMetrics>({
 		totalActiveNow: 0,
@@ -70,6 +76,7 @@ export function DevLivePresence({ mrList = [] }: DevLivePresenceProps) {
 	const [roleFilter, setRoleFilter] = useState<"ALL" | "MR" | "ADMIN" | "DEVELOPER">("ALL");
 	const [statusFilter, setStatusFilter] = useState<"ALL" | "active" | "idle" | "offline">("ALL");
 	const [deviceFilter, setDeviceFilter] = useState<"ALL" | "desktop" | "mobile" | "tablet">("ALL");
+	const [tenantFilter, setTenantFilter] = useState<string>("ALL");
 
 	// Auto-Refresh state
 	const [refreshInterval, setRefreshInterval] = useState<number>(10000); // 10s by default
@@ -504,6 +511,25 @@ export function DevLivePresence({ mrList = [] }: DevLivePresenceProps) {
 							<option value="tablet">Tablet</option>
 						</select>
 					</div>
+
+					{/* Tenant Filter */}
+					{tenants && tenants.length > 0 && (
+						<div className="flex items-center gap-1.5">
+							<span className="text-[11px] font-bold uppercase text-gray-500">Tenant:</span>
+							<select
+								className="rounded-xl border border-gray-200 bg-white px-3 py-1.5 text-xs font-semibold text-gray-700 focus:border-purple-500 focus:outline-none"
+								onChange={(e) => setTenantFilter(e.target.value)}
+								value={tenantFilter}
+							>
+								<option value="ALL">All Tenants</option>
+								{tenants.map((t) => (
+									<option key={t.id} value={t.id}>
+										{t.display_name} ({t.slug})
+									</option>
+								))}
+							</select>
+						</div>
+					)}
 				</div>
 
 				{/* Table of Live Sessions */}
@@ -512,6 +538,7 @@ export function DevLivePresence({ mrList = [] }: DevLivePresenceProps) {
 						<thead className="border-b border-gray-200 bg-gray-50/75 text-[11px] font-bold uppercase tracking-wider text-gray-500">
 							<tr>
 								<th className="px-4 py-3">User & Identity</th>
+								<th className="px-4 py-3">Tenant</th>
 								<th className="px-4 py-3">Status & Heartbeat</th>
 								<th className="px-4 py-3">Active Page & Tab</th>
 								<th className="px-4 py-3">Device & Browser</th>

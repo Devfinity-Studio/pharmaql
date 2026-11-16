@@ -416,3 +416,18 @@
 - [x] **Max Historical Data Window Clamping**: Enforced `maxDataDays` clamping client-side in `DateRangePicker` (via HTML5 input `min` attribute and preset clamping) and server-side in `apiPost`, `apiGet`, and report download routes (`/api/reports/download-sales`, `download-stock`, `download-outstanding`, `download-expiry`), while leaving Admins and Developers completely unconstrained.
 - [x] **Unrestricted Admin MR Report Access**: Added `isAdminView` bypass prop across `PartyReportView`, `ProductReportView`, `StockReportView`, and `StockAndSalesReportView`, allowing Admins inspecting any MR (`/admin/mrs/[id]`) to view all report tabs and live datasets regardless of the MR's rank or individual permission overrides.
 - [x] **Verification & Validation**: All 25 test suites passed (151 tests), zero TypeScript compilation errors (`tsc --noEmit`), and Next.js production build (`next build`) compiled successfully. Documented in `47-UAT.md`.
+
+## Phase 48: Developer Console Refinement [COMPLETED]
+
+**Goal:** Refine the Developer Console (`/admin/dev`) into a 4-category modular control center with sticky tenant context, live presence characterization by tenant, granular per-tenant license controls, multi-tenant MR impersonation with reliable exit, global vs. tenant-specific push alerts and notices, and expanded stored procedure diagnostics with latency benchmarking and SQL previews.
+**Depends on:** Phase 47
+**Status:** Completed
+
+- [x] **Grouped Category Navigation & Tenant Switcher**: Organized the 13 developer tools into 4 logical functional domains (`Overview & Telemetry`, `Diagnostics & Sandbox`, `Tenants & Licensing`, `Field Tools & Comms`) with category tab bar, sub-tool pills, and persistent sticky tenant selector passing tenant context seamlessly.
+- [x] **Live User Presence Characterization by Tenant**: Added tenant metadata (`x-tenant-id`, `x-tenant-slug`, `x-tenant-name`) extraction to presence heartbeats (`sendPresenceHeartbeatAction`), rendered colored tenant badges in live session rows, and added tenant filtering dropdown to live presence monitor.
+- [x] **Multi-Tenant Licensing & Killswitches**: Added per-tenant licensing columns to `TenantRecord` in Neon/local store, built `getMultiTenantLicensesAction`, `updateTenantLicenseAction`, and `sendTenantRenewalNoticeAction`, enabling one-click tenant killswitch toggles, license extensions (+30d, +1y), and automated email renewal reminders.
+- [x] **Cross-Tenant MR Impersonation & Banner**: Upgraded `startMrImpersonation` to support cross-tenant simulation cookies (`pharmaql_impersonate_mr` and `pharmaql_impersonate_tenant`), fixed session resolution in `auth.ts`, and implemented a clean one-click exit banner returning the developer to `/admin/dev`.
+- [x] **Multi-Tenant Comms & Targeted Push Notifications**: Added tenant tagging to Web Push subscriptions and notification broadcasting, allowing developers to dispatch alerts either globally across all tenants or targeted strictly to a specific tenant.
+- [x] **Procedure Sandbox Expansion & Latency Benchmarks**: Added `rptExpiryStockStatement` to stored procedure test sandbox, supported real-time execution latency benchmarking in milliseconds, and added collapsible raw procedure SQL preview.
+- [x] **Unified Log Filtering**: Enhanced log diagnostic viewer with level, tenant ID, and free-text search filters.
+- [x] **Verification & Validation**: All 25 test suites passed (151/151 tests), zero TypeScript compilation errors (`tsc --noEmit`), and Next.js production build (`next build`) compiled successfully. Documented in `48-UAT.md`.

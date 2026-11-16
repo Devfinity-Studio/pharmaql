@@ -28,6 +28,10 @@ export interface TenantRecord {
 	overdue_division_block_days?: number | null;
 	overdue_blocking_disabled?: boolean | null;
 	max_data_days?: number | null;
+	license_status?: "ACTIVE" | "EXPIRED" | "SUSPENDED" | null;
+	license_expires_at?: string | null;
+	license_grace_days?: number | null;
+	is_license_blocked?: boolean | null;
 	admin_email?: string | null;
 	admin_password_encrypted?: string | null;
 	smtp_host?: string | null;
@@ -154,6 +158,10 @@ export async function initControlPlaneRelationalSchema(): Promise<boolean> {
 		await sql`ALTER TABLE tenants ADD COLUMN IF NOT EXISTS overdue_division_block_days INTEGER DEFAULT 95;`;
 		await sql`ALTER TABLE tenants ADD COLUMN IF NOT EXISTS overdue_blocking_disabled BOOLEAN DEFAULT false;`;
 		await sql`ALTER TABLE tenants ADD COLUMN IF NOT EXISTS max_data_days INTEGER;`;
+		await sql`ALTER TABLE tenants ADD COLUMN IF NOT EXISTS license_status VARCHAR(32) DEFAULT 'ACTIVE';`;
+		await sql`ALTER TABLE tenants ADD COLUMN IF NOT EXISTS license_expires_at TIMESTAMPTZ DEFAULT '2027-03-31T23:59:59.000Z';`;
+		await sql`ALTER TABLE tenants ADD COLUMN IF NOT EXISTS license_grace_days INTEGER DEFAULT 7;`;
+		await sql`ALTER TABLE tenants ADD COLUMN IF NOT EXISTS is_license_blocked BOOLEAN DEFAULT false;`;
 		await sql`ALTER TABLE tenants ADD COLUMN IF NOT EXISTS admin_email VARCHAR(128);`;
 		await sql`ALTER TABLE tenants ADD COLUMN IF NOT EXISTS admin_password_encrypted TEXT;`;
 		await sql`ALTER TABLE tenants ADD COLUMN IF NOT EXISTS smtp_host VARCHAR(128);`;

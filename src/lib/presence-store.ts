@@ -13,6 +13,9 @@ export interface ActiveUserSession {
 	rank?: number;
 	division?: string | null;
 	company?: string | null;
+	tenantId?: string | null;
+	tenantSlug?: string | null;
+	tenantName?: string | null;
 	clientIp: string;
 	deviceType: DeviceType;
 	browser: string;
@@ -83,6 +86,9 @@ export async function recordPresenceHeartbeat(params: {
 	rank?: number;
 	division?: string | null;
 	company?: string | null;
+	tenantId?: string | null;
+	tenantSlug?: string | null;
+	tenantName?: string | null;
 	clientIp: string;
 	userAgent?: string | null;
 	screenResolution?: string;
@@ -127,6 +133,9 @@ export async function recordPresenceHeartbeat(params: {
 				rank: params.rank,
 				division: params.division ?? existing?.division ?? null,
 				company: params.company ?? existing?.company ?? null,
+				tenantId: params.tenantId ?? existing?.tenantId ?? null,
+				tenantSlug: params.tenantSlug ?? existing?.tenantSlug ?? null,
+				tenantName: params.tenantName ?? existing?.tenantName ?? null,
 				clientIp: params.clientIp,
 				deviceType: uaInfo.deviceType,
 				browser: uaInfo.browser,
